@@ -1,0 +1,79 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+
+function translateAuthError(errorMessage: string): string {
+    const error = errorMessage.toLowerCase()
+
+    if (error.includes('invalid login credentials')) {
+        return 'Credenciales incorrectas. Por favor verifica tu correo y contraseña.'
+    }
+    if (error.includes('email rate limit exceeded')) {
+        return 'Has realizado demasiados intentos. Por favor espera unos minutos antes de intentar de nuevo.'
+    }
+    if (error.includes('user already registered')) {
+        return 'Este correo ya está registrado. Intenta iniciar sesión.'
+    }
+    if (error.includes('password should be at least')) {
+        return 'La contraseña es muy corta. Debe tener al menos 6 caracteres.'
+    }
+    if (error.includes('anonymous provider is disabled')) {
+        return 'El acceso anónimo está desactivado.'
+    }
+    if (error.includes('email not confirmed')) {
+        return 'El correo no ha sido confirmado. (Ya lo hemos validado manualmente, intenta ingresar de nuevo).'
+    }
+
+    // Fallback for unknown errors
+    return `Error del sistema: ${errorMessage}`
+}
+
+export async function login(formData: FormData) {
+    const supabase = await createClient()
+
+    // Type-casting here for convenience
+    // In a production app, you might want to validate these
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+
+    const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    })
+
+    if (error) {
+        return { error: error.message }
+    }
+
+    revalidatePath('/', 'layout')
+    redirect('/')
+}
+
+export async function signup(formData: FormData) {
+    const supabase = await createClient()
+
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+
+    const { error } = await supabase.auth.signUp({
+        email,
+        password,
+    })
+
+    if (error) {
+        return { error: error.message }
+    }
+
+    revalidatePath('/', 'layout')
+    redirect('/')
+}
+
+export async function logout() {
+    const supabase = await createClient()
+    await supabase.auth.signOut()
+
+    revalidatePath('/login', 'layout')
+    redirect('/login')
+}
