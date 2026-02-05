@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { addQuoteItem, removeQuoteItem } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
-import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search } from "lucide-react";
+import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save } from "lucide-react";
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
 
