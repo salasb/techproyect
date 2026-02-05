@@ -4,8 +4,9 @@ import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { updateProjectSettings } from "@/app/actions/project-settings";
 import { createAuditLog } from "@/actions/audit";
+import { addLog } from "@/actions/project-logs";
 import { AlertCircle, Lock, Unlock, Clock, FileText, ChevronDown, Eye, Download, Send, Calendar } from "lucide-react";
-import { differenceInCalendarDays, isBefore, startOfDay, addDays } from "date-fns";
+import { differenceInCalendarDays, isBefore, startOfDay, addDays, format } from "date-fns";
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/Toast";
@@ -52,6 +53,20 @@ export function ProjectHeader({ project }: Props) {
             "Sistema"
         );
 
+        // Add visual log to Bitácora (Timeline)
+        await addLog(
+            project.id,
+            "Cotización enviada al cliente formalmente.",
+            "MILESTONE"
+        );
+
+        // Update status to 'EN_ESPERA' (Waiting for Client)
+        if (project.status === 'EN_CURSO') {
+            await updateProjectSettings(project.id, {
+                status: 'EN_ESPERA'
+            });
+        }
+
         toast({ type: 'success', message: "Cotización marcada como enviada exitosamente" });
 
         // Small delay to allow toast to be seen before reload (or ideally use router.refresh)
@@ -69,20 +84,40 @@ export function ProjectHeader({ project }: Props) {
     }
 
     async function handleStatusChange(newStatus: string) {
-        let blockingReason = project.blockingReason;
+        // 1. Prompt for reason (Mandatory for Blocked, Optional for others but recommended)
+        let reason = prompt(
+            newStatus === 'BLOQUEADO'
+                ? "Motivo del bloqueo (Requerido):"
+                : "Motivo del cambio de estado (Opcional):",
+            project.blockingReason && newStatus === 'BLOQUEADO' ? project.blockingReason : ""
+        );
 
-        if (newStatus === 'BLOQUEADO') {
-            const reason = prompt("Por favor, ingresa el motivo del bloqueo:", blockingReason || "");
-            if (reason === null) return; // Cancelled
-            blockingReason = reason;
+        if (newStatus === 'BLOQUEADO' && !reason) {
+            return; // Blocked requires a reason
         }
 
+        // 2. Update Project Settings
         await updateProjectSettings(project.id, {
-            status: newStatus as any, // Cast to literal type if needed, or string matches
-            blockingReason: newStatus === 'BLOQUEADO' ? blockingReason : null
+            status: newStatus as any,
+            blockingReason: newStatus === 'BLOQUEADO' ? reason : null // Clear blocking reason if moving out of blocked
         });
 
+        // 3. Log to Bitácora (Timeline)
+        // Only log if there's a reason OR it's a significant change
+        const statusLabel = newStatus.replace('_', ' ');
+        const logContent = reason
+            ? `Estado cambiado a '${statusLabel}'. Motivo: ${reason}`
+            : `Estado actualizado a '${statusLabel}'.`;
+
+        await addLog(
+            project.id,
+            logContent,
+            newStatus === 'BLOQUEADO' ? 'BLOCKER' : 'STATUS_CHANGE'
+        );
+
         setIsEditingStatus(false);
+        toast({ type: 'success', message: "Estado actualizado correctamente" });
+        window.location.reload();
     }
 
     return (
@@ -169,6 +204,13 @@ export function ProjectHeader({ project }: Props) {
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                             {project.stage}
                         </span>
+
+                        {quoteSentDate && (
+                            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800 animate-in fade-in">
+                                <Send className="w-3 h-3" />
+                                Enviada: {format(quoteSentDate, 'dd/MM/yy')}
+                            </span>
+                        )}
                     </div>
 
                     {isEditingStatus && (

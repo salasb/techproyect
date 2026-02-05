@@ -103,12 +103,22 @@ export function FocusBoard({ blockedProjects, activeProjects }: Props) {
                                                 </span>
                                                 <div className="flex items-center gap-2">
                                                     <div className="group/tooltip relative">
-                                                        <div className={`w-2.5 h-2.5 rounded-full ${healthColor} cursor-help`}></div>
-                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
-                                                            {project.financialHealth === 'RED' ? 'Margen Negativo (Pérdidas)' :
-                                                                project.financialHealth === 'YELLOW' ? 'Margen Bajo (<20%)' :
-                                                                    project.financialHealth === 'GREEN' ? 'Finanzas Saludables' : 'Sin datos financieros'}
-                                                        </div>
+                                                        {project.financialHealth === 'RED' ? (
+                                                            <div className="flex items-center bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 animate-pulse"></span>
+                                                                CRÍTICO
+                                                            </div>
+                                                        ) : project.financialHealth === 'YELLOW' ? (
+                                                            <div className="flex items-center bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-yellow-200">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
+                                                                RIESGO
+                                                            </div>
+                                                        ) : project.financialHealth === 'GREEN' ? (
+                                                            <div className="flex items-center bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 opacity-80">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                                                                VIABLE
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                     <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors transform group-hover:translate-x-0.5" />
                                                 </div>

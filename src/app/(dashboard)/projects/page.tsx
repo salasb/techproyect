@@ -157,27 +157,37 @@ export default async function ProjectsPage() {
                                                     </span>
 
                                                     {/* Financial Health Indicator */}
-                                                    <div className="flex items-center mt-1">
-                                                        <span className={`text-xs font-medium ${fin.trafficLightFinancial === 'RED' ? 'text-red-600 font-bold' :
-                                                            fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
-                                                                'text-green-600'
-                                                            }`}>
-                                                            Margen: ${fin.marginAmountNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                            ({fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%)
+                                                    <div className="mt-1.5 flex flex-col gap-0.5">
+                                                        <span className="text-xs font-medium text-muted-foreground">
+                                                            Margen:
                                                         </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-xs font-bold ${fin.trafficLightFinancial === 'RED' ? 'text-red-600' :
+                                                                fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
+                                                                    'text-green-600'
+                                                                }`}>
+                                                                ${fin.marginAmountNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                            </span>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${fin.trafficLightFinancial === 'RED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                                    fin.trafficLightFinancial === 'YELLOW' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                                        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                                }`}>
+                                                                {fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%
+                                                            </span>
 
-                                                        {fin.trafficLightFinancial === 'RED' && (
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <AlertTriangle className="w-3 h-3 text-red-600 ml-1.5 cursor-help" />
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p className="text-red-600 font-semibold">¡Alerta Financiera! Margen negativo.</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        )}
+                                                            {fin.trafficLightFinancial === 'RED' && (
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <AlertTriangle className="w-3 h-3 text-red-600 cursor-help" />
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>
+                                                                            <p className="text-red-600 font-semibold">¡Alerta Financiera! Margen negativo.</p>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
