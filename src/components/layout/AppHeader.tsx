@@ -33,15 +33,44 @@ export function AppHeader() {
         }
 
         const supabase = createClient();
-        const { data } = await supabase
+
+        // 1. Search Projects by Name
+        const { data: projectsByName } = await supabase
             .from('Project')
-            .select('id, name, clientName')
-            .or(`name.ilike.%${query}%,clientName.ilike.%${query}%`)
+            .select('id, name, client:Client(name), company:Company(name)')
+            .ilike('name', `%${query}%`)
             .limit(5);
 
-        if (data) {
-            setSearchResults(data);
+        // 2. Search Clients by Name
+        const { data: foundClients } = await supabase
+            .from('Client')
+            .select('id')
+            .ilike('name', `%${query}%`)
+            .limit(5);
+
+        let projectsByClient: any[] = [];
+        if (foundClients && foundClients.length > 0) {
+            const clientIds = foundClients.map(c => c.id);
+            const { data } = await supabase
+                .from('Project')
+                .select('id, name, client:Client(name), company:Company(name)')
+                .in('clientId', clientIds)
+                .limit(5);
+            projectsByClient = data || [];
+        }
+
+        // Combine and Deduplicate
+        const allProjects = [...(projectsByName || []), ...projectsByClient];
+
+        // Deduplicate by ID
+        const uniqueProjects = Array.from(new Map(allProjects.map(item => [item.id, item])).values());
+
+        if (uniqueProjects.length > 0) {
+            setSearchResults(uniqueProjects);
             setShowResults(true);
+        } else {
+            setSearchResults([]);
+            setShowResults(true); // Show "No results"
         }
     }
 
@@ -73,7 +102,9 @@ export function AppHeader() {
                                                 className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex flex-col"
                                             >
                                                 <span className="font-medium text-sm text-foreground">{project.name}</span>
-                                                <span className="text-xs text-muted-foreground">{project.clientName}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {(project.client && project.client.name) || (project.company && project.company.name) || 'Sin cliente asignado'}
+                                                </span>
                                             </button>
                                         </li>
                                     ))}

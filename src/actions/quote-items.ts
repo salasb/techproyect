@@ -28,6 +28,14 @@ export async function addQuoteItem(projectId: string, data: FormData) {
         throw new Error("Failed to add item");
     }
 
+    // Audit
+    await supabase.from('AuditLog').insert({
+        projectId,
+        action: 'ADD_ITEM',
+        details: `Added item: ${detail} (${quantity} ${unit}) - $${priceNet}`,
+        userName: 'Usuario Actual'
+    });
+
     revalidatePath(`/projects/${projectId}`);
 }
 
@@ -40,6 +48,14 @@ export async function removeQuoteItem(itemId: string, projectId: string) {
         console.error("Error deleting quote item:", error);
         throw new Error("Failed to delete item");
     }
+
+    // Audit
+    await supabase.from('AuditLog').insert({
+        projectId,
+        action: 'DELETE_ITEM',
+        details: `Deleted item ID: ${itemId}`,
+        userName: 'Usuario Actual'
+    });
 
     revalidatePath(`/projects/${projectId}`);
 }
@@ -67,6 +83,14 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
         console.error("Error updating quote item:", error);
         throw new Error("Failed to update item");
     }
+
+    // Audit
+    await supabase.from('AuditLog').insert({
+        projectId,
+        action: 'UPDATE_ITEM',
+        details: `Updated item: ${detail} (${quantity} ${unit}) - $${priceNet}`,
+        userName: 'Usuario Actual'
+    });
 
     revalidatePath(`/projects/${projectId}`);
 }

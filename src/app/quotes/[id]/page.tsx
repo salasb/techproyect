@@ -23,6 +23,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         .select(`
             *,
             company:Company(*),
+            client:Client(*),
             costEntries:CostEntry(*),
             invoices:Invoice(*)
         `)
@@ -73,7 +74,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
             <div className="border border-slate-200 rounded-lg overflow-hidden mb-8 shadow-sm">
                 {/* Header Row */}
                 <div className="bg-slate-900 text-white p-3 border-b border-slate-900 text-center text-sm font-semibold uppercase tracking-widest">
-                    {project.company?.name || 'CLIENTE POR DEFINIR'}
+                    {project.client?.name || project.company?.name || 'CLIENTE POR DEFINIR'}
                 </div>
 
                 {/* Grid Content */}
@@ -82,19 +83,19 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
                     <div className="divide-y divide-slate-100">
                         <div className="grid grid-cols-[100px_1fr]">
                             <div className="bg-slate-50 p-2 font-bold text-slate-700">RUT:</div>
-                            <div className="p-2">{project.company?.taxId || '-'}</div>
+                            <div className="p-2">{project.client?.taxId || project.company?.taxId || '-'}</div>
                         </div>
                         <div className="grid grid-cols-[100px_1fr]">
                             <div className="bg-slate-50 p-2 font-bold text-slate-700">Contacto:</div>
-                            <div className="p-2 uppercase">{project.company?.contactName || project.company?.name || '-'}</div>
+                            <div className="p-2 uppercase">{project.client?.contactName || project.company?.contactName || project.company?.name || '-'}</div>
                         </div>
                         <div className="grid grid-cols-[100px_1fr]">
                             <div className="bg-slate-50 p-2 font-bold text-slate-700">Teléfono:</div>
-                            <div className="p-2">{project.company?.phone || '-'}</div>
+                            <div className="p-2">{project.client?.phone || project.company?.phone || '-'}</div>
                         </div>
                         <div className="grid grid-cols-[100px_1fr]">
                             <div className="bg-slate-50 p-2 font-bold text-slate-700">Email:</div>
-                            <div className="p-2 truncate" title={project.company?.email || ''}>{project.company?.email || '-'}</div>
+                            <div className="p-2 truncate" title={project.client?.email || project.company?.email || ''}>{project.client?.email || project.company?.email || '-'}</div>
                         </div>
                     </div>
 

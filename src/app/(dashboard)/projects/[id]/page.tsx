@@ -16,6 +16,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         .select(`
             *,
             company:Company(*),
+            client:Client(*),
             costEntries:CostEntry(*),
             invoices:Invoice(*),
             quoteItems:QuoteItem(*)
@@ -42,6 +43,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         console.error("Error fetching project:", error);
         notFound();
     }
+
+    // Fetch clients for selection
+    const { data: clients } = await supabase
+        .from('Client')
+        .select('*')
+        .order('name');
 
     // Fetch or create default settings
     let { data: settings } = await supabase
@@ -78,5 +85,5 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         project.quoteItems || []
     );
 
-    return <ProjectDetailView project={project} financials={financials} settings={settings} auditLogs={auditLogs || []} projectLogs={projectLogs || []} />;
+    return <ProjectDetailView project={project} financials={financials} settings={settings} auditLogs={auditLogs || []} projectLogs={projectLogs || []} clients={clients || []} />;
 }

@@ -5,6 +5,7 @@ import { Database } from "@/types/supabase";
 import { addQuoteItem, removeQuoteItem, updateQuoteItem } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
 import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
 
@@ -18,8 +19,40 @@ export function QuoteItemsManager({ projectId, items }: Props) {
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Form states
+    const [quantity, setQuantity] = useState(1);
+    const [unit, setUnit] = useState("UN");
+    const [costNet, setCostNet] = useState(0);
+    const [marginPct, setMarginPct] = useState(30); // Default 30%
+    const [priceNet, setPriceNet] = useState(0);
+
     // Determines if we are in "Form Mode" (either adding or editing)
     const showForm = isAdding || editingItem !== null;
+
+    // Handlers for auto-calculation
+    function handleCostChange(val: number) {
+        setCostNet(val);
+        // Keep Margin, Update Price
+        const marginDecimal = marginPct / 100;
+        const newPrice = val / (1 - marginDecimal);
+        if (isFinite(newPrice)) setPriceNet(Math.round(newPrice));
+    }
+
+    function handleMarginChange(val: number) {
+        setMarginPct(val);
+        // Keep Cost, Update Price
+        const marginDecimal = val / 100;
+        const newPrice = costNet / (1 - marginDecimal);
+        if (isFinite(newPrice)) setPriceNet(Math.round(newPrice));
+    }
+
+    function handlePriceChange(val: number) {
+        setPriceNet(val);
+        if (val > 0) {
+            const newMargin = ((val - costNet) / val) * 100;
+            setMarginPct(parseFloat(newMargin.toFixed(2)));
+        }
+    }
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true);
@@ -53,6 +86,14 @@ export function QuoteItemsManager({ projectId, items }: Props) {
     function startEdit(item: QuoteItem) {
         setEditingItem(item);
         setIsAdding(false);
+        // Calculate margin for state
+        if (item.priceNet > 0) {
+            const m = ((item.priceNet - item.costNet) / item.priceNet) * 100;
+            setMarginPct(parseFloat(m.toFixed(2)));
+        } else {
+            setMarginPct(0);
+        }
+
         // Scroll to form needs a small delay for render
         setTimeout(() => {
             document.getElementById('item-form')?.scrollIntoView({ behavior: 'smooth' });
@@ -67,7 +108,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
     const totalNet = items.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0);
     const totalCost = items.reduce((acc, item) => acc + (item.costNet * item.quantity), 0);
     const totalMargin = totalNet - totalCost;
-    const marginPct = totalNet > 0 ? (totalMargin / totalNet) * 100 : 0;
+    const projectMarginPct = totalNet > 0 ? (totalMargin / totalNet) * 100 : 0;
 
     return (
         <div className="space-y-6">
@@ -76,7 +117,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                 <div className="text-right flex gap-6">
                     <div>
                         <p className="text-xs text-muted-foreground uppercase">Margen Est.</p>
-                        <p className={`text-xl font-bold ${marginPct >= 30 ? 'text-green-600' : 'text-yellow-600'}`}>{marginPct.toFixed(1)}%</p>
+                        <p className={`text-xl font-bold ${projectMarginPct >= 30 ? 'text-green-600' : 'text-yellow-600'}`}>{projectMarginPct.toFixed(1)}%</p>
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground uppercase">Total Neto</p>
@@ -177,7 +218,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                        <div className="md:col-span-6 relative group">
+                        <div className="md:col-span-5 relative group">
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Producto</label>
                             <div className="relative">
                                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
@@ -276,10 +317,32 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                     required
                                     min="0"
                                     defaultValue={editingItem?.costNet}
+                                    value={costNet || (editingItem ? undefined : '')}
                                     placeholder="0"
                                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                    onChange={(e) => handleCostChange(Number(e.target.value))}
                                 />
                             </div>
+                        </div>
+
+                        <div className="md:col-span-1">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <label className="block text-xs font-medium text-blue-600 mb-1 cursor-help underline decoration-dotted">Margen %</label>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Ganancia sobre venta: <br /><code>(Precio - Costo) / Precio</code></p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <input
+                                name="marginPct"
+                                type="number"
+                                className="w-full px-2 py-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center text-blue-700"
+                                value={marginPct}
+                                onChange={(e) => handleMarginChange(Number(e.target.value))}
+                            />
                         </div>
 
                         <div className="md:col-span-2">
@@ -292,8 +355,10 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                     required
                                     min="0"
                                     defaultValue={editingItem?.priceNet}
+                                    value={priceNet || (editingItem ? undefined : '')}
                                     placeholder="0"
                                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                    onChange={(e) => handlePriceChange(Number(e.target.value))}
                                 />
                             </div>
                         </div>

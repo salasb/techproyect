@@ -41,6 +41,12 @@
     --ring: 250 80% 65%;
     --radius: 0.75rem;
     /* Slightly more rounded for modern look */
+
+    /* Premium Shadows (Light Mode) */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+    --shadow-card: 0 12px 24px -6px rgb(0 0 0 / 0.08);
   }
 
   .dark {
@@ -80,7 +86,7 @@
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-    --shadow-card: 0 4px 20px -2px rgb(0 0 0 / 0.4);
+    --shadow-card: 0 20px 40px -10px rgb(0 0 0 / 0.4);
   }
 }
 

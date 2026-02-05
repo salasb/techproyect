@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { updateProjectSettings } from "@/app/actions/project-settings";
-import { AlertCircle, Lock, Unlock, Clock, FileText, ChevronDown, Eye, Download } from "lucide-react";
-import { differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
+import { AlertCircle, Lock, Unlock, Clock, FileText, ChevronDown, Eye, Download, Send, Calendar } from "lucide-react";
+import { differenceInCalendarDays, isBefore, startOfDay, addDays } from "date-fns";
 import Link from "next/link";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Project = Database['public']['Tables']['Project']['Row'];
 type Company = Database['public']['Tables']['Company']['Row'];
 
 interface Props {
-    project: Project & { company: Company };
+    project: Project & { company: Company; client?: Database['public']['Tables']['Client']['Row'] | null };
 }
 
 export function ProjectHeader({ project }: Props) {
@@ -23,6 +24,31 @@ export function ProjectHeader({ project }: Props) {
     const nextActionDate = project.nextActionDate ? new Date(project.nextActionDate) : null;
     const isOverdue = nextActionDate && isBefore(startOfDay(nextActionDate), startOfDay(today));
     const isDueToday = nextActionDate && differenceInCalendarDays(nextActionDate, today) === 0;
+
+    // Quote Sent Logic
+    const quoteSentDate = project.quoteSentDate ? new Date(project.quoteSentDate) : null;
+    const daysSinceQuoteSent = quoteSentDate ? differenceInCalendarDays(today, quoteSentDate) : 0;
+    const showQuoteFollowUp = quoteSentDate && daysSinceQuoteSent >= 5 && project.stage === 'LEVANTAMIENTO'; // Only if still in early stage
+
+    async function handleMarkQuoteSent() {
+        const now = new Date().toISOString();
+        const nextFollowUp = addDays(new Date(), 5).toISOString(); // Auto-set next action
+
+        await updateProjectSettings(project.id, {
+            quoteSentDate: now,
+            nextAction: "Seguimiento Cotización",
+            nextActionDate: nextFollowUp
+        });
+        window.location.reload();
+    }
+
+    async function handleDismissFollowUp() {
+        await updateProjectSettings(project.id, {
+            quoteSentDate: null, // Clear it or mark as done? Clearing stops the alert.
+            nextAction: "Cotización Revisada / Esperando Respuesta"
+        });
+        window.location.reload();
+    }
 
     async function handleStatusChange(newStatus: string) {
         let blockingReason = project.blockingReason;
@@ -43,6 +69,25 @@ export function ProjectHeader({ project }: Props) {
 
     return (
         <div className="space-y-4">
+            {/* Quote Follow-up Alert */}
+            {showQuoteFollowUp && (
+                <div className="p-4 rounded-lg flex items-start space-x-3 bg-blue-50 text-blue-700 border border-blue-200 animate-in slide-in-from-top-2">
+                    <Calendar className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <h4 className="font-semibold text-sm">Seguimiento de Cotización</h4>
+                        <p className="text-sm mt-1">
+                            Se envió la cotización hace <span className="font-bold">{daysSinceQuoteSent} días</span>. Es recomendable contactar al cliente.
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleDismissFollowUp}
+                        className="text-xs underline hover:no-underline font-medium text-blue-800"
+                    >
+                        Descartar
+                    </button>
+                </div>
+            )}
+
             {/* Alerts Banner */}
             {(isOverdue || isDueToday) && (
                 <div className={`p-4 rounded-lg flex items-start space-x-3 ${isOverdue ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
@@ -87,13 +132,22 @@ export function ProjectHeader({ project }: Props) {
             <div className="flex justify-between items-start">
                 <div>
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-1">
-                        <span>{project.company.name}</span>
+                        <span>{project.client?.name || project.company.name}</span>
                         <span>/</span>
                         <span>{project.id}</span>
                     </div>
                     <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
                     <div className="flex items-center space-x-2 mt-2">
-                        <StatusBadge status={project.status} onClick={() => setIsEditingStatus(!isEditingStatus)} />
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div><StatusBadge status={project.status} onClick={() => setIsEditingStatus(!isEditingStatus)} /></div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Haz clic para cambiar el estado</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                             {project.stage}
                         </span>
@@ -147,6 +201,16 @@ export function ProjectHeader({ project }: Props) {
                                         <Download className="w-4 h-4 mr-2 text-green-500 group-hover:text-green-600" />
                                         <span>Descargar (PDF)</span>
                                     </Link>
+                                    <button
+                                        onClick={() => {
+                                            handleMarkQuoteSent();
+                                            setIsQuoteMenuOpen(false);
+                                        }}
+                                        className="flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg group"
+                                    >
+                                        <Send className="w-4 h-4 mr-2 text-purple-500 group-hover:text-purple-600" />
+                                        <span>Marcar como Enviada</span>
+                                    </button>
                                 </div>
                             </div>
                         )}

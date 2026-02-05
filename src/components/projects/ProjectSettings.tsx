@@ -3,20 +3,43 @@
 import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { updateProjectSettings } from "@/app/actions/project-settings";
-import { updateCompany } from "@/app/actions/company";
-import { Save, AlertTriangle, Building2 } from "lucide-react";
+import { Save, Building2, Search, Check, X, Link as LinkIcon, AlertTriangle, Loader2 } from "lucide-react";
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row']
+    client?: Database['public']['Tables']['Client']['Row'] | null // Add client relation
 };
 
 interface Props {
     project: Project;
+    clients: Database['public']['Tables']['Client']['Row'][];
 }
 
-export function ProjectSettings({ project }: Props) {
+export function ProjectSettings({ project, clients }: Props) {
     const [isLoading, setIsLoading] = useState(false);
-    const [isCompanyLoading, setIsCompanyLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedClientId, setSelectedClientId] = useState<string | null>(project.clientId);
+    const [isClientLoading, setIsClientLoading] = useState(false);
+
+    // Filter clients
+    const filteredClients = clients.filter(c =>
+        c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const selectedClient = clients.find(c => c.id === selectedClientId);
+
+    async function handleLinkClient() {
+        if (!selectedClientId) return;
+        setIsClientLoading(true);
+        try {
+            await updateProjectSettings(project.id, { clientId: selectedClientId });
+            alert("Cliente vinculado exitosamente");
+        } catch (error) {
+            alert("Error vinculando cliente");
+        } finally {
+            setIsClientLoading(false);
+        }
+    }
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true);
@@ -56,90 +79,101 @@ export function ProjectSettings({ project }: Props) {
             <div className="max-w-2xl bg-card rounded-xl border border-border p-6 shadow-sm">
                 <h3 className="text-lg font-medium text-foreground mb-6 flex items-center">
                     <Building2 className="w-5 h-5 mr-2 text-zinc-500" />
-                    Datos del Cliente / Empresa
+                    Vincular Cliente
                 </h3>
-                <form action={async (formData) => {
-                    setIsCompanyLoading(true);
-                    try {
-                        await updateCompany(project.companyId, {
-                            name: formData.get('name') as string,
-                            taxId: formData.get('taxId') as string,
-                            address: formData.get('address') as string,
-                            phone: formData.get('phone') as string,
-                            email: formData.get('email') as string,
-                            contactName: formData.get('contactName') as string,
-                        });
-                        alert("Datos de empresa actualizados");
-                    } catch (e) {
-                        alert("Error actualizando empresa");
-                    } finally {
-                        setIsCompanyLoading(false);
-                    }
-                }} className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Razón Social</label>
-                        <input
-                            name="name"
-                            defaultValue={project.company?.name || ''}
-                            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">RUT / Tax ID</label>
+
+                <div className="space-y-6">
+                    <div className="relative">
+                        <label className="block text-sm font-medium text-foreground mb-1">Buscar Cliente</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
                             <input
-                                name="taxId"
-                                defaultValue={project.company?.taxId || ''}
-                                placeholder="76.xxx.xxx-x"
-                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                                type="text"
+                                placeholder="Escribe para buscar..."
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-foreground"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onFocus={() => setSearchTerm("")}
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Teléfono</label>
-                            <input
-                                name="phone"
-                                defaultValue={project.company?.phone || ''}
-                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                            />
-                        </div>
+
+                        {/* Results Dropdown */}
+                        {searchTerm.length > 0 && !selectedClient && (
+                            <div className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-auto">
+                                {filteredClients.length === 0 ? (
+                                    <div className="p-3 text-sm text-muted-foreground">No se encontraron clientes.</div>
+                                ) : (
+                                    filteredClients.map(client => (
+                                        <button
+                                            key={client.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedClientId(client.id);
+                                                setSearchTerm("");
+                                            }}
+                                            className="w-full text-left px-4 py-2 hover:bg-muted text-sm flex items-center justify-between group"
+                                        >
+                                            <span>{client.name}</span>
+                                            {client.id === project.clientId && <Check className="w-4 h-4 text-green-500" />}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Dirección</label>
-                        <input
-                            name="address"
-                            defaultValue={project.company?.address || ''}
-                            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Email Contacto</label>
-                            <input
-                                name="email"
-                                defaultValue={project.company?.email || ''}
-                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                            />
+
+                    {/* Selected Client Preview */}
+                    {selectedClient && (
+                        <div className="bg-muted/30 border border-border rounded-lg p-4 animate-in fade-in">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h4 className="font-bold text-foreground">{selectedClient.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{selectedClient.taxId || 'Sin RUT'}</p>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedClientId(null)}
+                                    className="text-xs text-muted-foreground hover:text-red-500 flex items-center"
+                                >
+                                    <X className="w-3 h-3 mr-1" /> Deseleccionar
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span className="text-xs text-muted-foreground block">Email</span>
+                                    <span>{selectedClient.email || '-'}</span>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-muted-foreground block">Teléfono</span>
+                                    <span>{selectedClient.phone || '-'}</span>
+                                </div>
+                                <div className="col-span-2">
+                                    <span className="text-xs text-muted-foreground block">Dirección</span>
+                                    <span>{selectedClient.address || '-'}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Nombre Contacto</label>
-                            <input
-                                name="contactName"
-                                defaultValue={project.company?.contactName || ''}
-                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                            />
-                        </div>
-                    </div>
-                    <div className="pt-4 border-t border-border flex justify-end">
+                    )}
+
+                    <div className="pt-4 border-t border-border flex justify-end gap-3">
+                        {project.clientId && selectedClientId !== project.clientId && (
+                            <span className="text-xs text-yellow-600 flex items-center mr-auto">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                Cambio no guardado
+                            </span>
+                        )}
+
                         <button
-                            type="submit"
-                            disabled={isCompanyLoading}
+                            type="button"
+                            onClick={handleLinkClient}
+                            disabled={isClientLoading || !selectedClientId || (selectedClientId === project.clientId)}
                             className="flex items-center px-4 py-2 bg-zinc-800 hover:bg-zinc-900 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
                         >
-                            <Save className="w-4 h-4 mr-2" />
-                            {isCompanyLoading ? 'Guardando...' : 'Actualizar Cliente'}
+                            {isClientLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
+                            {project.clientId && selectedClientId !== project.clientId ? 'Cambiar Cliente' : 'Vincular Cliente'}
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
 
             {/* Project Settings Block */}
