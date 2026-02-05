@@ -159,8 +159,8 @@ export default async function ProjectsPage() {
                                                     {/* Financial Health Indicator */}
                                                     <div className="flex items-center mt-1">
                                                         <span className={`text-xs font-medium ${fin.trafficLightFinancial === 'RED' ? 'text-red-600 font-bold' :
-                                                                fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
-                                                                    'text-green-600'
+                                                            fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
+                                                                'text-green-600'
                                                             }`}>
                                                             Margen: ${fin.marginAmountNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                                             ({fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%)
@@ -210,7 +210,7 @@ function StatusBadge({ status }: { status: string }) {
     const label = status.replace('_', ' ');
 
     return (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.CANCELADO}`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${styles[status] || styles.CANCELADO}`}>
             {label}
         </span>
     );

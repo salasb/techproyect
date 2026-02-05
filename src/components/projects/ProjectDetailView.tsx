@@ -71,7 +71,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
 
     // Financial Health Alerts
     if (financials.trafficLightFinancial === 'RED') {
-        alerts.push({ type: 'danger', msg: 'Margen Negativo (Pérdidas)' });
+        alerts.push({ type: 'danger', msg: 'Margen Negativo (Pérdidas) - Requiere Atención Inmediata' });
     } else if (financials.trafficLightFinancial === 'YELLOW') {
         alerts.push({ type: 'warning', msg: 'Margen bajo riesgo (<20%)' });
     }
@@ -131,7 +131,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                 alert.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/10' :
                                                     'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/10'
                                                 }`}>
-                                                <AlertCircle className="w-4 h-4 mr-2" />
+                                                <AlertCircle className="w-5 h-5 mr-3 shrink-0" />
                                                 {alert.msg}
                                             </div>
                                         ))}
@@ -516,7 +516,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
 
                                             <div className="grid grid-cols-2 py-1">
                                                 <span className="text-muted-foreground">Gastos Ejecutados</span>
-                                                <div className="text-right font-mono text-amber-600 dark:text-amber-500 font-medium">
+                                                <div className={`text-right font-mono font-medium ${financials.totalExecutedCostNet > financials.priceNet ? 'text-red-600 font-bold' : 'text-amber-600 dark:text-amber-500'}`}>
                                                     -${financials.totalExecutedCostNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                                 </div>
                                             </div>

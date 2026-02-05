@@ -102,7 +102,14 @@ export function FocusBoard({ blockedProjects, activeProjects }: Props) {
                                                     {project.companyName}
                                                 </span>
                                                 <div className="flex items-center gap-2">
-                                                    <div className={`w-2 h-2 rounded-full ${healthColor}`} title={`Salud Financiera: ${project.financialHealth}`}></div>
+                                                    <div className="group/tooltip relative">
+                                                        <div className={`w-2.5 h-2.5 rounded-full ${healthColor} cursor-help`}></div>
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                                            {project.financialHealth === 'RED' ? 'Margen Negativo (Pérdidas)' :
+                                                                project.financialHealth === 'YELLOW' ? 'Margen Bajo (<20%)' :
+                                                                    project.financialHealth === 'GREEN' ? 'Finanzas Saludables' : 'Sin datos financieros'}
+                                                        </div>
+                                                    </div>
                                                     <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors transform group-hover:translate-x-0.5" />
                                                 </div>
                                             </div>

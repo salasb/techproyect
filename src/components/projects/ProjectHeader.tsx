@@ -8,6 +8,7 @@ import { AlertCircle, Lock, Unlock, Clock, FileText, ChevronDown, Eye, Download,
 import { differenceInCalendarDays, isBefore, startOfDay, addDays } from "date-fns";
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/Toast";
 
 type Project = Database['public']['Tables']['Project']['Row'];
 type Company = Database['public']['Tables']['Company']['Row'];
@@ -31,6 +32,8 @@ export function ProjectHeader({ project }: Props) {
     const daysSinceQuoteSent = quoteSentDate ? differenceInCalendarDays(today, quoteSentDate) : 0;
     const showQuoteFollowUp = quoteSentDate && daysSinceQuoteSent >= 5 && project.stage === 'LEVANTAMIENTO'; // Only if still in early stage
 
+    const { toast } = useToast();
+
     async function handleMarkQuoteSent() {
         const now = new Date().toISOString();
         const nextFollowUp = addDays(new Date(), 5).toISOString(); // Auto-set next action
@@ -46,10 +49,15 @@ export function ProjectHeader({ project }: Props) {
             project.id,
             "COTIZACION_ENVIADA",
             "Estado actualizado a 'Seguimiento Cotización'",
-            "Sistema" // Ideally get session user
+            "Sistema"
         );
 
-        window.location.reload();
+        toast({ type: 'success', message: "Cotización marcada como enviada exitosamente" });
+
+        // Small delay to allow toast to be seen before reload (or ideally use router.refresh)
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
     }
 
     async function handleDismissFollowUp() {
