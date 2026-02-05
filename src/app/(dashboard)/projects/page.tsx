@@ -153,11 +153,32 @@ export default async function ProjectsPage() {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col text-sm">
                                                     <span className="font-medium text-foreground">
-                                                        ${fin.priceGross.toLocaleString()} <span className="text-xs text-muted-foreground font-normal">Total</span>
+                                                        ${fin.priceGross.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-xs text-muted-foreground font-normal">Total</span>
                                                     </span>
-                                                    <span className={`text-xs font-medium ${fin.marginAmountNet < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                        Margen: ${fin.marginAmountNet.toLocaleString()} ({fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%)
-                                                    </span>
+
+                                                    {/* Financial Health Indicator */}
+                                                    <div className="flex items-center mt-1">
+                                                        <span className={`text-xs font-medium ${fin.trafficLightFinancial === 'RED' ? 'text-red-600 font-bold' :
+                                                                fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
+                                                                    'text-green-600'
+                                                            }`}>
+                                                            Margen: ${fin.marginAmountNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                            ({fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%)
+                                                        </span>
+
+                                                        {fin.trafficLightFinancial === 'RED' && (
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <AlertTriangle className="w-3 h-3 text-red-600 ml-1.5 cursor-help" />
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p className="text-red-600 font-semibold">¡Alerta Financiera! Margen negativo.</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">

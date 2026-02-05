@@ -15,6 +15,7 @@ interface ProjectSummary {
     companyContactName?: string | null;
     companyPhone?: string | null;
     companyEmail?: string | null;
+    financialHealth?: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED';
 }
 
 interface Props {
@@ -87,15 +88,23 @@ export function FocusBoard({ blockedProjects, activeProjects }: Props) {
                             const showCallAction = isCall && project.companyPhone;
                             const showEmailAction = isEmail && project.companyEmail;
 
+                            // Health Color
+                            const healthColor = project.financialHealth === 'RED' ? 'bg-red-500' :
+                                project.financialHealth === 'YELLOW' ? 'bg-yellow-500' :
+                                    project.financialHealth === 'GREEN' ? 'bg-green-500' : 'bg-gray-300';
+
                             return (
                                 <div key={project.id} className="relative group">
                                     <Link href={`/projects/${project.id}`}>
-                                        <div className="bg-white p-3.5 rounded-lg border border-blue-100 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300">
+                                        <div className={`bg-white p-3.5 rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 ${project.financialHealth === 'RED' ? 'border-red-200' : 'border-blue-100'}`}>
                                             <div className="flex justify-between items-start mb-1.5">
                                                 <span className="text-[11px] font-bold tracking-wide text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase">
                                                     {project.companyName}
                                                 </span>
-                                                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors transform group-hover:translate-x-0.5" />
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${healthColor}`} title={`Salud Financiera: ${project.financialHealth}`}></div>
+                                                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors transform group-hover:translate-x-0.5" />
+                                                </div>
                                             </div>
                                             <h4 className="font-bold text-foreground text-sm line-clamp-1 group-hover:text-blue-700 transition-colors">{project.name}</h4>
 

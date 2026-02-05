@@ -197,7 +197,9 @@ export default function DashboardPage() {
 
 
     // Focus Board Data
-    const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any);
+    // We cast to any because the getFocusBoardData expects a specific Project type that might slightly differ due to null/undefined vs optional fields from Supabase gen types
+    // But structurally it's compatible for what we need.
+    const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any, settings!);
 
     return (
         <div className="space-y-6">

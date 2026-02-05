@@ -43,6 +43,7 @@ export interface FinancialResult {
     receivableGross: number
     trafficLightTime: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
     trafficLightCollection: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
+    trafficLightFinancial: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
     totalExecutedCostNet: number
     calculatedProgress: number
 }
@@ -102,6 +103,23 @@ export function calculateProjectFinancials(
     // Avoid division by zero
     const calculatedProgress = baseCostNet > 0 ? Math.min(100, (sumCostNet / baseCostNet) * 100) : 0;
 
+    // 6. Semáforo Financiero (Financial Traffic Light)
+    // Red: < 0% Margin (Loss)
+    // Yellow: < 20% Margin (Low profit / Risk)
+    // Green: >= 20% Margin (Healthy)
+    const marginPct = priceNet > 0 ? (marginAmountNet / priceNet) * 100 : 0;
+    let trafficLightFinancial: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED' = 'GRAY';
+
+    if (priceNet === 0 && baseCostNet === 0) {
+        trafficLightFinancial = 'GRAY'; // No activity
+    } else if (marginPct < 0) {
+        trafficLightFinancial = 'RED';
+    } else if (marginPct < 20) {
+        trafficLightFinancial = 'YELLOW';
+    } else {
+        trafficLightFinancial = 'GREEN';
+    }
+
     return {
         sumCostNet, // Keeping for backward compat if needed, but redundant with totalExecutedCostNet logic-wise
         baseCostNet,
@@ -115,6 +133,7 @@ export function calculateProjectFinancials(
         receivableGross,
         trafficLightTime,
         trafficLightCollection,
+        trafficLightFinancial, // New
         totalExecutedCostNet: sumCostNet,
         calculatedProgress // New field
     }

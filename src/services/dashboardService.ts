@@ -1,13 +1,15 @@
 import { Database } from '@/types/supabase';
+import { calculateProjectFinancials } from './financialCalculator';
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'] | null;
     invoices: Database['public']['Tables']['Invoice']['Row'][];
     costEntries: Database['public']['Tables']['CostEntry']['Row'][];
+    quoteItems: Database['public']['Tables']['QuoteItem']['Row'][];
 };
 
 export class DashboardService {
-    static getFocusBoardData(projects: Project[]) {
+    static getFocusBoardData(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
         const blockedProjects = projects
             .filter(p => p.status === 'BLOQUEADO')
             .map(p => ({
@@ -27,18 +29,24 @@ export class DashboardService {
                 if (!b.nextActionDate) return -1;
                 return new Date(a.nextActionDate).getTime() - new Date(b.nextActionDate).getTime();
             })
-            .map(p => ({
-                id: p.id,
-                name: p.name,
-                status: p.status,
-                companyName: p.company?.name || 'Sin Cliente',
-                companyContactName: p.company?.contactName,
-                companyPhone: p.company?.phone,
-                companyEmail: p.company?.email,
-                nextAction: p.nextAction,
-                nextActionDate: p.nextActionDate,
-                blockingReason: p.blockingReason
-            }));
+            .map(p => {
+                // Calculate Financial Health
+                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
+
+                return {
+                    id: p.id,
+                    name: p.name,
+                    status: p.status,
+                    companyName: p.company?.name || 'Sin Cliente',
+                    companyContactName: p.company?.contactName,
+                    companyPhone: p.company?.phone,
+                    companyEmail: p.company?.email,
+                    nextAction: p.nextAction,
+                    nextActionDate: p.nextActionDate,
+                    blockingReason: p.blockingReason,
+                    financialHealth: fin.trafficLightFinancial // Pass health status
+                };
+            });
 
         return { blockedProjects, focusProjects };
     }
