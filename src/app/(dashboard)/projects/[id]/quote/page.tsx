@@ -18,18 +18,28 @@ export default async function QuotePage({ params }: Props) {
     const { id } = await params;
     const supabase = await createClient();
 
-    // Fetch Project Data
+    // Fetch Project Data without joins for items that might be heavy or cause issues
     const { data: project } = await supabase
         .from('Project')
         .select(`
             *,
             company:Company(*),
             costEntries:CostEntry(*),
-            invoices:Invoice(*),
-            quoteItems:QuoteItem(*)
+            invoices:Invoice(*)
         `)
         .eq('id', id)
         .single();
+
+    // Fetch Quote Items separately to ensure they are loaded correctly
+    const { data: quoteItems } = await supabase
+        .from('QuoteItem')
+        .select('*')
+        .eq('projectId', id)
+        .order('sku', { ascending: true }); // Optional: order by SKU
+
+    if (project && quoteItems) {
+        project.quoteItems = quoteItems;
+    }
 
     // Fetch Settings
     let { data: settings } = await supabase.from('Settings').select('*').single();

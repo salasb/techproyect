@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { Clock, User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -12,6 +13,9 @@ interface Props {
 }
 
 export function AuditLog({ logs }: Props) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const MAX_ITEMS = 5;
+
     if (logs.length === 0) {
         return (
             <div className="text-center p-8 text-zinc-500 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
@@ -21,13 +25,15 @@ export function AuditLog({ logs }: Props) {
         );
     }
 
+    const visibleLogs = isExpanded ? logs : logs.slice(0, MAX_ITEMS);
+
     return (
         <div className="flow-root">
             <ul role="list" className="-mb-8">
-                {logs.map((log, logIdx) => (
+                {visibleLogs.map((log, logIdx) => (
                     <li key={log.id}>
                         <div className="relative pb-8">
-                            {logIdx !== logs.length - 1 ? (
+                            {logIdx !== visibleLogs.length - 1 ? (
                                 <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-zinc-200 dark:bg-zinc-800" aria-hidden="true" />
                             ) : null}
                             <div className="relative flex space-x-3">
@@ -59,6 +65,16 @@ export function AuditLog({ logs }: Props) {
                     </li>
                 ))}
             </ul>
+            {logs.length > MAX_ITEMS && (
+                <div className="mt-8 text-center border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+                    >
+                        {isExpanded ? 'Ver menos' : `Ver historial completo (${logs.length - MAX_ITEMS} más)`}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
