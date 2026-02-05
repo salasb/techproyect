@@ -136,43 +136,86 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                 <div className="p-6 space-y-8">
                                     {/* Cost Analysis */}
                                     <div>
-                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Estructura de Precio</h4>
+                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 border-b border-border pb-2">Estructura de Precio</h4>
                                         <div className="space-y-4">
-                                            <div className="flex justify-between items-center text-sm group">
-                                                <div>
-                                                    <span className="text-muted-foreground group-hover:text-foreground transition-colors block">Costo Directo</span>
-                                                    {project.quoteItems && project.quoteItems.length > 0 && (
-                                                        <span className="text-[10px] text-blue-500 font-medium">
-                                                            (Basado en {project.quoteItems.length} ítems)
-                                                        </span>
-                                                    )}
+                                            {/* Cost Comparison */}
+                                            <div>
+                                                <div className="flex justify-between items-center text-sm mb-1">
+                                                    <span className="text-muted-foreground">Costo Presupuestado</span>
+                                                    <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                                                        ${financials.baseCostNet.toLocaleString()}
+                                                    </span>
                                                 </div>
-                                                <span className="font-mono font-bold text-lg text-zinc-700 dark:text-zinc-300">
-                                                    ${financials.baseCostNet.toLocaleString()}
-                                                </span>
+                                                {project.quoteItems && project.quoteItems.length > 0 && (
+                                                    <div className="flex justify-end mb-2">
+                                                        <span
+                                                            onClick={() => setActiveTab('items')}
+                                                            className="text-[10px] text-blue-500 font-medium cursor-pointer hover:underline flex items-center"
+                                                        >
+                                                            (Ver {project.quoteItems.length} ítems de cotización) <ArrowUpRight className="w-3 h-3 ml-0.5" />
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex justify-between items-center text-sm mb-1">
+                                                    <span className="text-muted-foreground font-medium text-amber-600 dark:text-amber-500">Costo Ejecutado (Real)</span>
+                                                    <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
+                                                        ${financials.totalExecutedCostNet.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                                {project.costEntries && project.costEntries.length > 0 ? (
+                                                    <div className="flex justify-end mb-2">
+                                                        <span
+                                                            onClick={() => {
+                                                                setActiveTab('financials');
+                                                                // Ideally scroll to CostsManager
+                                                            }}
+                                                            className="text-[10px] text-amber-600 dark:text-amber-500 font-medium cursor-pointer hover:underline flex items-center"
+                                                        >
+                                                            (Ver {project.costEntries.length} gastos registrados) <ArrowUpRight className="w-3 h-3 ml-0.5" />
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex justify-end mb-2">
+                                                        <span className="text-[10px] text-muted-foreground italic">Sin gastos registrados</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex justify-between items-center text-sm group">
-                                                <span className="text-muted-foreground flex items-center group-hover:text-foreground transition-colors">
-                                                    Margen
+
+                                            {/* Margins */}
+                                            <div className="border-t border-dashed border-border pt-3 space-y-2">
+                                                <div className="flex justify-between items-center text-sm group">
+                                                    <span className="text-muted-foreground group-hover:text-foreground transition-colors">Margen Teórico</span>
+                                                    <span className="font-mono font-bold text-zinc-600 dark:text-zinc-400">
+                                                        ${financials.marginAmountNet.toLocaleString()}
+                                                        <span className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded ml-2">
+                                                            {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : 0}%
+                                                        </span>
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex justify-between items-center text-sm group">
+                                                    <span className="text-muted-foreground font-medium group-hover:text-foreground transition-colors">Margen Real</span>
                                                     {(() => {
-                                                        const marginPct = financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0;
-                                                        const isNegative = marginPct < 0;
+                                                        const realMargin = financials.priceNet - financials.totalExecutedCostNet;
+                                                        const realMarginPct = financials.priceNet > 0 ? (realMargin / financials.priceNet) * 100 : 0;
+                                                        const isNegative = realMargin < 0;
                                                         return (
-                                                            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-bold ${isNegative
-                                                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse'
-                                                                : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                                }`}>
-                                                                {marginPct.toFixed(1)}%
-                                                            </span>
+                                                            <div className="text-right">
+                                                                <span className={`font-mono font-bold text-lg ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
+                                                                    ${realMargin.toLocaleString()}
+                                                                </span>
+                                                                <span className={`block text-xs font-bold ${isNegative ? 'text-red-500' : 'text-green-600'}`}>
+                                                                    {realMarginPct.toFixed(1)}%
+                                                                </span>
+                                                            </div>
                                                         );
                                                     })()}
-                                                </span>
-                                                <span className={`font-mono font-bold text-lg ${financials.marginAmountNet < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-500'}`}>
-                                                    {financials.marginAmountNet > 0 ? '+' : ''}${financials.marginAmountNet.toLocaleString()}
-                                                </span>
+                                                </div>
                                             </div>
+
                                             <div className="pt-4 border-t border-border flex justify-between items-center">
-                                                <span className="font-bold text-base text-foreground">Precio Neto</span>
+                                                <span className="font-bold text-base text-foreground">Precio Venta Neto</span>
                                                 <span className="font-mono text-xl font-bold text-foreground">
                                                     ${financials.priceNet.toLocaleString()}
                                                 </span>

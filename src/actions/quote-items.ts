@@ -43,3 +43,30 @@ export async function removeQuoteItem(itemId: string, projectId: string) {
 
     revalidatePath(`/projects/${projectId}`);
 }
+
+export async function updateQuoteItem(itemId: string, projectId: string, data: FormData) {
+    const supabase = await createClient();
+
+    const sku = data.get('sku') as string;
+    const detail = data.get('detail') as string;
+    const quantity = parseFloat(data.get('quantity') as string);
+    const unit = data.get('unit') as string;
+    const priceNet = parseFloat(data.get('priceNet') as string);
+    const costNet = parseFloat(data.get('costNet') as string) || 0;
+
+    const { error } = await supabase.from('QuoteItem').update({
+        sku,
+        detail,
+        quantity,
+        unit,
+        priceNet,
+        costNet
+    }).eq('id', itemId);
+
+    if (error) {
+        console.error("Error updating quote item:", error);
+        throw new Error("Failed to update item");
+    }
+
+    revalidatePath(`/projects/${projectId}`);
+}

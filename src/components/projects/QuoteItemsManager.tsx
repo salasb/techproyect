@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { Database } from "@/types/supabase";
-import { addQuoteItem, removeQuoteItem } from "@/actions/quote-items";
+import { addQuoteItem, removeQuoteItem, updateQuoteItem } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
-import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save } from "lucide-react";
+import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X } from "lucide-react";
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
 
@@ -15,17 +15,26 @@ interface Props {
 
 export function QuoteItemsManager({ projectId, items }: Props) {
     const [isAdding, setIsAdding] = useState(false);
+    const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    async function handleAdd(formData: FormData) {
+    // Determines if we are in "Form Mode" (either adding or editing)
+    const showForm = isAdding || editingItem !== null;
+
+    async function handleSubmit(formData: FormData) {
         setIsLoading(true);
         try {
-            await addQuoteItem(projectId, formData);
-            setIsAdding(false);
-            const form = document.getElementById('add-item-form') as HTMLFormElement;
-            form?.reset();
+            if (editingItem) {
+                await updateQuoteItem(editingItem.id, projectId, formData);
+                setEditingItem(null);
+            } else {
+                await addQuoteItem(projectId, formData);
+                setIsAdding(false);
+                const form = document.getElementById('item-form') as HTMLFormElement;
+                form?.reset();
+            }
         } catch (error) {
-            alert("Error al agregar ítem");
+            alert("Error al guardar ítem");
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -41,15 +50,38 @@ export function QuoteItemsManager({ projectId, items }: Props) {
         }
     }
 
+    function startEdit(item: QuoteItem) {
+        setEditingItem(item);
+        setIsAdding(false);
+        // Scroll to form needs a small delay for render
+        setTimeout(() => {
+            document.getElementById('item-form')?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    }
+
+    function cancelForm() {
+        setIsAdding(false);
+        setEditingItem(null);
+    }
+
     const totalNet = items.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0);
+    const totalCost = items.reduce((acc, item) => acc + (item.costNet * item.quantity), 0);
+    const totalMargin = totalNet - totalCost;
+    const marginPct = totalNet > 0 ? (totalMargin / totalNet) * 100 : 0;
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium text-foreground">Ítems de Cotización</h3>
-                <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Total Neto Detallado</p>
-                    <p className="text-2xl font-bold text-foreground">${totalNet.toLocaleString()}</p>
+                <div className="text-right flex gap-6">
+                    <div>
+                        <p className="text-xs text-muted-foreground uppercase">Margen Est.</p>
+                        <p className={`text-xl font-bold ${marginPct >= 30 ? 'text-green-600' : 'text-yellow-600'}`}>{marginPct.toFixed(1)}%</p>
+                    </div>
+                    <div>
+                        <p className="text-xs text-muted-foreground uppercase">Total Neto</p>
+                        <p className="text-2xl font-bold text-foreground">${totalNet.toLocaleString()}</p>
+                    </div>
                 </div>
             </div>
 
@@ -58,69 +90,95 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
                         <tr>
-                            <th className="px-6 py-3 font-medium w-32">SKU</th>
-                            <th className="px-6 py-3 font-medium">Detalle</th>
-                            <th className="px-6 py-3 font-medium w-24 text-center">Cant.</th>
-                            <th className="px-6 py-3 font-medium w-24 text-center">Unid.</th>
-                            <th className="px-6 py-3 font-medium text-right w-40">Precio Unit.</th>
-                            <th className="px-6 py-3 font-medium text-right w-40">Total</th>
-                            <th className="px-6 py-3 font-medium text-right w-24">Acciones</th>
+                            <th className="px-4 py-3 font-medium w-24">SKU</th>
+                            <th className="px-4 py-3 font-medium">Detalle</th>
+                            <th className="px-4 py-3 font-medium w-16 text-center">Cant.</th>
+                            <th className="px-4 py-3 font-medium w-32 text-right text-zinc-500">Costo U.</th>
+                            <th className="px-4 py-3 font-medium w-32 text-right">Precio V.</th>
+                            <th className="px-4 py-3 font-medium w-24 text-center">Margen</th>
+                            <th className="px-4 py-3 font-medium text-right w-32">Total</th>
+                            <th className="px-4 py-3 font-medium text-right w-24">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                         {items.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                                    No hay ítems registrados para la cotización.
+                                <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                                    No hay ítems registrados. Comienza agregando uno.
                                 </td>
                             </tr>
                         ) : (
-                            items.map((item) => (
-                                <tr key={item.id} className="group hover:bg-muted/50 transition-colors">
-                                    <td className="px-6 py-4 text-muted-foreground whitespace-nowrap font-mono text-xs">
-                                        {item.sku || '-'}
-                                    </td>
-                                    <td className="px-6 py-4 text-foreground font-medium">
-                                        {item.detail}
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        {item.quantity}
-                                    </td>
-                                    <td className="px-6 py-4 text-center text-xs text-muted-foreground">
-                                        {item.unit}
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-mono text-muted-foreground">
-                                        ${item.priceNet.toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-mono text-foreground font-semibold">
-                                        ${(item.priceNet * item.quantity).toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => handleDelete(item.id)}
-                                            className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                            items.map((item) => {
+                                const margin = item.priceNet - item.costNet;
+                                const marginP = item.priceNet > 0 ? (margin / item.priceNet) * 100 : 0;
+                                return (
+                                    <tr key={item.id} className="group hover:bg-muted/50 transition-colors">
+                                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs">
+                                            {item.sku || '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-foreground font-medium">
+                                            {item.detail}
+                                            <span className="text-xs text-muted-foreground ml-2">({item.unit})</span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center font-bold">
+                                            {item.quantity}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500">
+                                            ${item.costNet.toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-mono font-medium">
+                                            ${item.priceNet.toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${marginP < 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                {marginP.toFixed(0)}%
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-mono text-foreground font-semibold">
+                                            ${(item.priceNet * item.quantity).toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => startEdit(item)}
+                                                    className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-blue-600 transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(item.id)}
+                                                    className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-red-600 transition-colors"
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* Add Form */}
-            {isAdding ? (
-                <form id="add-item-form" action={handleAdd} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
+            {/* Add/Edit Form */}
+            {showForm ? (
+                <form id="item-form" action={handleSubmit} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-blue-200 dark:border-blue-900/50 animate-in slide-in-from-top-2 ring-1 ring-blue-500/20">
                     <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-sm font-medium text-zinc-900 dark:text-white">Nuevo Ítem</h4>
+                        <h4 className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase flex items-center">
+                            {editingItem ? <Edit2 className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                            {editingItem ? 'Editar Ítem' : 'Nuevo Ítem'}
+                        </h4>
+                        <button type="button" onClick={cancelForm} className="text-zinc-400 hover:text-zinc-600">
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                         <div className="md:col-span-6 relative group">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Buscar en Catálogo o Escribir</label>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Producto</label>
                             <div className="relative">
                                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
                                 <input
@@ -128,10 +186,11 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                     type="text"
                                     required
                                     autoComplete="off"
-                                    placeholder="Buscar producto..."
-                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Ingresa el nombre del ítem')}
-                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                    defaultValue={editingItem?.detail}
+                                    placeholder="Escribe para buscar o ingresar..."
                                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Descripción requerida')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     onChange={async (e) => {
                                         const val = e.target.value;
                                         if (val.length < 2) {
@@ -150,7 +209,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                                     div.className = "px-4 py-2 hover:bg-zinc-100 cursor-pointer text-sm border-b border-zinc-100 last:border-0";
                                                     div.innerHTML = `<span class="font-bold block">${p.name}</span><span class="text-xs text-zinc-500">${p.sku} - $${p.priceNet.toLocaleString()}</span>`;
                                                     div.onclick = () => {
-                                                        const form = document.getElementById('add-item-form') as HTMLFormElement;
+                                                        const form = document.getElementById('item-form') as HTMLFormElement;
                                                         if (form) {
                                                             (form.elements.namedItem('sku') as HTMLInputElement).value = p.sku;
                                                             (form.elements.namedItem('detail') as HTMLInputElement).value = p.name;
@@ -173,7 +232,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                         </div>
 
                         <div className="md:col-span-2 hidden">
-                            <input name="sku" type="hidden" />
+                            <input name="sku" type="hidden" defaultValue={editingItem?.sku || ''} />
                         </div>
 
                         <div className="md:col-span-2">
@@ -186,9 +245,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                     required
                                     min="1"
                                     step="1"
-                                    defaultValue="1"
-                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Cantidad mínima: 1')}
-                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                                    defaultValue={editingItem?.quantity || 1}
                                     className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
@@ -199,7 +256,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             <select
                                 name="unit"
                                 required
-                                defaultValue="UN"
+                                defaultValue={editingItem?.unit || "UN"}
                                 className="w-full px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                             >
                                 <option value="UN">UN</option>
@@ -210,10 +267,18 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                         </div>
 
                         <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unitario</label>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unit.</label>
                             <div className="relative">
                                 <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input name="costNet" type="number" required min="0" placeholder="0" className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
+                                <input
+                                    name="costNet"
+                                    type="number"
+                                    required
+                                    min="0"
+                                    defaultValue={editingItem?.costNet}
+                                    placeholder="0"
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                />
                             </div>
                         </div>
 
@@ -221,7 +286,15 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Precio Venta</label>
                             <div className="relative">
                                 <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input name="priceNet" type="number" required min="0" placeholder="0" className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
+                                <input
+                                    name="priceNet"
+                                    type="number"
+                                    required
+                                    min="0"
+                                    defaultValue={editingItem?.priceNet}
+                                    placeholder="0"
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                />
                             </div>
                         </div>
 
@@ -234,7 +307,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                                     <>
                                         <Save className="w-5 h-5 mr-2" />
-                                        Guardar Ítem
+                                        {editingItem ? 'Actualizar' : 'Guardar'}
                                     </>
                                 )}
                             </button>
@@ -244,7 +317,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                     <div className="flex justify-end mt-2">
                         <button
                             type="button"
-                            onClick={() => setIsAdding(false)}
+                            onClick={cancelForm}
                             className="text-xs text-zinc-500 hover:text-zinc-700 underline"
                         >
                             Cancelar

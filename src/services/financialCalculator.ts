@@ -43,6 +43,7 @@ export interface FinancialResult {
     receivableGross: number
     trafficLightTime: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
     trafficLightCollection: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
+    totalExecutedCostNet: number
 }
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row']
@@ -63,23 +64,16 @@ export function calculateProjectFinancials(
     let priceNet = 0
     let marginAmountNet = 0
 
-    // If we have detailed quote items, they dictate the Price AND Cost (Bottom-Up).
+    // If we have detailed quote items, they dictate the Price AND "Budget" Cost (Bottom-Up).
     if (quoteItems && quoteItems.length > 0) {
         priceNet = quoteItems.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0)
 
         const itemsCostNet = quoteItems.reduce((acc, item) => acc + (item.costNet * item.quantity), 0)
-        // If items have cost, we use that. If not (legacy items), we might have 0 cost which gives 100% margin. 
-        // We assume the user wants this new logic.
 
-        // However, we also have "costEntries" (Realized costs).
-        // Usually "Base Cost" in a quote context implies "Projected Cost".
-        // If we want to show "Projected Margin", we should use itemsCostNet.
-
-        baseCostNet = itemsCostNet > 0 ? itemsCostNet : baseCostNet // Fallback to budget if items have no cost? Or just 0?
-        // Let's stick to the plan: Item Costs take precedence.
+        // Base Cost (Budget) is derived from the Quote Items
         baseCostNet = itemsCostNet
 
-        // Margin becomes derived: Price - Cost
+        // Margin becomes derived: Price - Base Cost
         marginAmountNet = priceNet - baseCostNet
     } else {
         // Fallback to Cost + Margin model
@@ -104,7 +98,7 @@ export function calculateProjectFinancials(
     const trafficLightCollection = calculateCollectionTrafficLight(sentInvoices, receivableGross, settings, today)
 
     return {
-        sumCostNet,
+        sumCostNet, // Keeping for backward compat if needed, but redundant with totalExecutedCostNet logic-wise
         baseCostNet,
         marginAmountNet,
         priceNet,
@@ -116,6 +110,7 @@ export function calculateProjectFinancials(
         receivableGross,
         trafficLightTime,
         trafficLightCollection,
+        totalExecutedCostNet: sumCostNet
     }
 }
 
