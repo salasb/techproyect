@@ -129,6 +129,8 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                     required
                                     autoComplete="off"
                                     placeholder="Buscar producto..."
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Ingresa el nombre del ítem')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                     onChange={async (e) => {
                                         const val = e.target.value;
@@ -185,6 +187,8 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                     min="1"
                                     step="1"
                                     defaultValue="1"
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Cantidad mínima: 1')}
+                                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                                     className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
@@ -225,9 +229,14 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-[38px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                className="w-full h-[42px] px-6 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg disabled:opacity-50 text-sm font-bold uppercase tracking-wide"
                             >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-5 h-5" />}
+                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                                    <>
+                                        <Save className="w-5 h-5 mr-2" />
+                                        Guardar Ítem
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

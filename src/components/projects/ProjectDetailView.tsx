@@ -80,7 +80,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                 title="Precio Venta"
                                 value={`$${financials.priceNet.toLocaleString()}`}
                                 icon={Wallet}
-                                trend={`Margen: ${(project.marginPct * 100).toFixed(0)}%`}
+                                trend={`Margen: ${financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(0) : 0}%`}
                                 trendColor={financials.marginAmountNet < 0 ? "text-red-600" : "text-green-600"}
                             />
                             <MetricCard

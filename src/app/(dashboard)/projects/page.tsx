@@ -138,7 +138,7 @@ export default async function ProjectsPage() {
                                                         ${fin.priceGross.toLocaleString()} <span className="text-xs text-muted-foreground font-normal">Total</span>
                                                     </span>
                                                     <span className={`text-xs font-medium ${fin.marginAmountNet < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                        Margen: ${fin.marginAmountNet.toLocaleString()} ({(project.marginPct * 100).toFixed(0)}%)
+                                                        Margen: ${fin.marginAmountNet.toLocaleString()} ({fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%)
                                                     </span>
                                                 </div>
                                             </td>

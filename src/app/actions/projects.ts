@@ -49,10 +49,12 @@ export async function createProject(formData: FormData) {
             companyId: finalCompanyId,
             status: "EN_CURSO",
             stage: "LEVANTAMIENTO",
-            startDate: new Date(startDate).toISOString(), // Supabase expects ISO string for timestamps usually
+            startDate: new Date(startDate).toISOString(),
             plannedEndDate: new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1)).toISOString(),
             budgetNet: budget,
             responsible: "TBD",
+            nextAction: formData.get("nextAction") as string || null,
+            nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : null,
             updatedAt: new Date().toISOString(),
             createdAt: new Date().toISOString()
         })

@@ -12,7 +12,18 @@ import { DEFAULT_VAT_RATE } from "@/lib/constants";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
-export default async function DashboardPage() {
+
+import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
+import { ProfitTrendCard } from "@/components/dashboard/ProfitTrendCard";
+
+interface Props {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function DashboardPage({ searchParams }: Props) {
+    const resolvedSearchParams = await searchParams;
+    const period = typeof resolvedSearchParams.period === 'string' ? resolvedSearchParams.period : '6m';
+
     const supabase = await createClient();
 
     // 1. Fetch Global Settings (VAT, etc)
@@ -37,9 +48,6 @@ export default async function DashboardPage() {
 
     let totalBudgetGross = 0;
     let totalReceivableGross = 0;
-    let totalInvoicedGross = 0;
-    let totalMarginNet = 0;
-    let totalEffenciency = 0; // Avg progress
 
     projects.forEach(p => {
         const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!);
@@ -50,30 +58,41 @@ export default async function DashboardPage() {
             totalBudgetGross += fin.priceGross;
         }
 
-        totalInvoicedGross += fin.totalInvoicedGross;
         totalReceivableGross += fin.receivableGross;
-        totalMarginNet += fin.marginAmountNet;
     });
 
     const avgProgress = projects.length > 0
         ? (projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length).toFixed(0)
         : 0;
+
     // 4. Calculate Financial Trends for Chart (Last 6 Months)
     const chartData = DashboardService.getFinancialTrends(projects as any);
+
+    // 5. Calculate Dynamic Profit Trend
+    const { trendData: profitTrendData, totalProfit } = DashboardService.getProfitTrend(projects as any, period);
+
+    const periodLabels: Record<string, string> = {
+        '30d': 'últimos 30 días',
+        '6m': 'últimos 6 meses',
+        '12m': 'último año',
+        'all': 'histórico completo'
+    };
 
     // Focus Board Data
     const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any);
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h2>
                     <p className="text-muted-foreground mt-1">Resumen general de tu operación.</p>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-4">
+                    <PeriodSelector />
+
                     <Link href="/projects/new">
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20">
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20 whitespace-nowrap">
                             + Nuevo Proyecto
                         </button>
                     </Link>
@@ -104,19 +123,13 @@ export default async function DashboardPage() {
                     color="amber"
                     subtext="Facturas emitidas impagas"
                 />
-                <StatCard
-                    title="Eficiencia Global"
-                    value={`${avgProgress}%`}
-                    icon={ArrowUpRight}
-                    color="purple"
-                    subtext="Progreso promedio"
-                />
-                <StatCard
-                    title="Ganancia Acumulada"
-                    value={`$${(totalMarginNet / 1000000).toFixed(1)}M`}
-                    icon={DollarSign}
-                    color="emerald"
-                    subtext="Margen total (Neto)"
+
+                {/* Dynamic Profit Card */}
+                <ProfitTrendCard
+                    title="Ganancia Real (Caja)"
+                    value={totalProfit}
+                    data={profitTrendData}
+                    periodLabel={periodLabels[period] || 'periodo'}
                 />
             </div>
 

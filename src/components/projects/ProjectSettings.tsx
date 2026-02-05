@@ -150,94 +150,100 @@ export function ProjectSettings({ project }: Props) {
 
                 <form action={handleSubmit} className="space-y-6">
                     {/* ... Existing Fields ... */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Financial Settings */}
-                        <div className="space-y-4">
-                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Financiero</h4>
+                    <div className="space-y-6">
+                        {/* Financial Settings Card */}
+                        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 border-b border-border pb-2">Financiero</h4>
 
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-1">
-                                    Margen Objetivo (%)
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        name="marginPct"
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="0.1"
-                                        defaultValue={defaultMargin}
-                                        className="w-full pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-foreground"
-                                    />
-                                    <span className="absolute right-3 top-2 text-muted-foreground">%</span>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-1">
+                                        Margen Objetivo (%)
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            name="marginPct"
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.1"
+                                            defaultValue={defaultMargin}
+                                            className="w-full pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-foreground"
+                                        />
+                                        <span className="absolute right-3 top-2 text-muted-foreground">%</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Esto actualizará automáticamente el precio de venta sugerido.
+                                    </p>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Esto actualizará automáticamente el precio de venta sugerido.
-                                </p>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-1">
-                                    Avance del Proyecto (%)
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        name="progress"
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        defaultValue={project.progress || 0}
-                                        className="w-full pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-foreground"
-                                    />
-                                    <span className="absolute right-3 top-2 text-muted-foreground">%</span>
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-1">
+                                        Avance del Proyecto (%)
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            name="progress"
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            defaultValue={project.progress || 0}
+                                            className="w-full pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-foreground"
+                                        />
+                                        <span className="absolute right-3 top-2 text-muted-foreground">%</span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-1">
-                                    Moneda del Proyecto
-                                </label>
-                                <select
-                                    name="currency"
-                                    defaultValue={project.currency || 'CLP'}
-                                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                                >
-                                    <option value="CLP">Pesos Chilenos (CLP)</option>
-                                    <option value="USD">Dólares (USD)</option>
-                                    <option value="UF">Unidad de Fomento (UF)</option>
-                                </select>
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-1">
+                                        Moneda del Proyecto
+                                    </label>
+                                    <select
+                                        name="currency"
+                                        defaultValue={project.currency || 'CLP'}
+                                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                                    >
+                                        <option value="CLP">Pesos Chilenos (CLP)</option>
+                                        <option value="USD">Dólares (USD)</option>
+                                        <option value="UF">Unidad de Fomento (UF)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Alerts & Workflow */}
-                        <div className="space-y-4">
-                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <div className="space-y-6">
+                        {/* Alerts & Workflow Card */}
+                        <div className="bg-card rounded-xl border border-border p-6 shadow-sm h-full">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 border-b border-border pb-2 flex items-center gap-2">
                                 Control & Alertas
                             </h4>
 
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-1">
-                                    Próxima Acción (Recordatorio)
-                                </label>
-                                <input
-                                    name="nextAction"
-                                    type="text"
-                                    defaultValue={project.nextAction || ''}
-                                    placeholder="Ej: Llamar cliente, Enviar cotización..."
-                                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                                />
-                            </div>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-1">
+                                        Próxima Acción (Recordatorio)
+                                    </label>
+                                    <input
+                                        name="nextAction"
+                                        type="text"
+                                        defaultValue={project.nextAction || ''}
+                                        placeholder="Ej: Llamar cliente, Enviar cotización..."
+                                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                                    />
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-1">
-                                    Fecha Límite Próxima Acción
-                                </label>
-                                <input
-                                    name="nextActionDate"
-                                    type="date"
-                                    defaultValue={defaultDate}
-                                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                                />
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-1">
+                                        Fecha Límite Próxima Acción
+                                    </label>
+                                    <input
+                                        name="nextActionDate"
+                                        type="date"
+                                        defaultValue={defaultDate}
+                                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

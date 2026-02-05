@@ -99,12 +99,12 @@ export function FocusBoard({ blockedProjects, activeProjects }: Props) {
                         ))}
                         <div className="text-center pt-2">
                             <Link href="/projects" className="text-xs font-semibold text-blue-600 hover:underline">
-                                Ver todos los proyectos active
+                                Ver todos los proyectos activos
                             </Link>
                         </div>
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

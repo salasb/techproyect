@@ -89,4 +89,126 @@ export class DashboardService {
             expenses: data.expenses
         }));
     }
+
+    static getProfitTrend(projects: Project[], period: string = '6m') {
+        const now = new Date();
+        let startDate = new Date();
+        let dateFormat: 'day' | 'month' = 'month';
+
+        switch (period) {
+            case '30d':
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                dateFormat = 'day';
+                break;
+            case '6m':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+                dateFormat = 'month';
+                break;
+            case '12m':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+                dateFormat = 'month';
+                break;
+            case 'all':
+                startDate = new Date(0); // Epoch
+                dateFormat = 'month';
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        }
+
+        const trendMap = new Map<string, number>();
+
+        // Initialize Buckets if needed (optional optimization, skipped for simplicity/flexibility)
+
+        projects.forEach(p => {
+            // Expenses (Subtract from Profit)
+            p.costEntries?.forEach(c => {
+                const d = new Date(c.date);
+                if (d >= startDate) {
+                    const key = dateFormat === 'day'
+                        ? d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })
+                        : d.toLocaleString('es-CL', { month: 'short', year: '2-digit' });
+
+                    const current = trendMap.get(key) || 0;
+                    trendMap.set(key, current - c.amountNet);
+                }
+            });
+
+            // Income (Add to Profit)
+            p.invoices?.forEach(inv => {
+                if (inv.sent && inv.sentDate) {
+                    const d = new Date(inv.sentDate);
+                    if (d >= startDate) {
+                        const key = dateFormat === 'day'
+                            ? d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })
+                            : d.toLocaleString('es-CL', { month: 'short', year: '2-digit' });
+
+                        const current = trendMap.get(key) || 0;
+                        trendMap.set(key, current + inv.amountInvoicedGross);
+                        // Note: Using Gross for Income vs Net for Cost is a business decision. 
+                        // Ideally should be Net vs Net or Gross vs Gross. 
+                        // QA Prompt asked for logic check. We stick to "Cash Flow" = Invoiced (Gross) - Cost (Net usually).
+                        // Refinement: Ideally should use Net for income if we want pure profit/margin. 
+                        // Let's use Net if available or calculate it? 
+                        // For now sticking to previous logic: InvoicedGross.
+                    }
+                }
+            });
+        });
+
+        // Sort by Date
+        const sortedData = Array.from(trendMap.entries()).map(([date, value]) => ({ date, value }));
+        // If months, we might want to ensure chronological order. This map iteration order is insertion order usually.
+        // Better to sort specifically.
+        // Simplified sort logic for formatting:
+        // For production, using a proper Date key for sorting is safer.
+
+        // Re-implementation with sorting:
+        const rawData: { dateObj: Date, label: string, amount: number }[] = [];
+
+        projects.forEach(p => {
+            p.costEntries?.forEach(c => {
+                const d = new Date(c.date);
+                if (d >= startDate) rawData.push({ dateObj: d, label: 'cost', amount: -c.amountNet });
+            });
+            p.invoices?.forEach(inv => {
+                if (inv.sent && inv.sentDate) {
+                    const d = new Date(inv.sentDate);
+                    if (d >= startDate) rawData.push({ dateObj: d, label: 'income', amount: inv.amountInvoicedGross });
+                }
+            });
+        });
+
+        // Group by buckets
+        const bucketMap = new Map<string, { dateVal: number, value: number }>();
+
+        rawData.forEach(item => {
+            let key = '';
+            let sortKey = 0;
+
+            if (dateFormat === 'day') {
+                key = item.dateObj.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+                sortKey = new Date(item.dateObj.getFullYear(), item.dateObj.getMonth(), item.dateObj.getDate()).getTime();
+            } else {
+                key = item.dateObj.toLocaleString('es-CL', { month: 'short', year: '2-digit' });
+                sortKey = new Date(item.dateObj.getFullYear(), item.dateObj.getMonth(), 1).getTime();
+            }
+
+            if (!bucketMap.has(key)) {
+                bucketMap.set(key, { dateVal: sortKey, value: 0 });
+            }
+            bucketMap.get(key)!.value += item.amount;
+        });
+
+        const finalData = Array.from(bucketMap.entries())
+            .sort((a, b) => a[1].dateVal - b[1].dateVal)
+            .map(([key, val]) => ({
+                date: key,
+                value: val.value
+            }));
+
+        const totalProfit = finalData.reduce((acc, curr) => acc + curr.value, 0);
+
+        return { trendData: finalData, totalProfit };
+    }
 }

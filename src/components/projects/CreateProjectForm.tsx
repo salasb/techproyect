@@ -80,7 +80,15 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                             name="startDate"
                             required
                             type="date"
-                            defaultValue={new Date().toISOString().split('T')[0]}
+                            defaultValue={(() => {
+                                const d = new Date();
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                const day = String(d.getDate()).padStart(2, '0');
+                                return `${year}-${month}-${day}`;
+                            })()}
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor ingresa una fecha válida')}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                             className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
                         />
                     </div>
@@ -90,6 +98,37 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                             name="budget"
                             type="number"
                             placeholder="0"
+                            min="0"
+                            className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Próxima Acción (Inicial)</label>
+                        <input
+                            name="nextAction"
+                            type="text"
+                            defaultValue="Enviar Cotización"
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Completa este campo')}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                            className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Fecha Límite (2 días)</label>
+                        <input
+                            name="nextActionDate"
+                            type="date"
+                            defaultValue={(() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + 2);
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                const day = String(d.getDate()).padStart(2, '0');
+                                return `${year}-${month}-${day}`;
+                            })()}
                             className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
                         />
                     </div>
