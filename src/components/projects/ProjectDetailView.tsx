@@ -279,6 +279,9 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                         if (!project.startDate || !project.plannedEndDate) return null;
                                         const start = new Date(project.startDate);
                                         const end = new Date(project.plannedEndDate);
+
+                                        if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+
                                         const today = new Date();
                                         const totalDays = differenceInDays(end, start);
                                         const daysPassed = differenceInDays(today, start);
@@ -359,68 +362,73 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                     {/* Cost Analysis */}
                                     {/* Financial Plan vs Actual */}
                                     <div>
-                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 border-b border-border pb-2">Plan vs Ejecución</h4>
-                                        <div className="grid grid-cols-2 gap-8">
+                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6 border-b border-border pb-2">Plan vs Ejecución</h4>
+                                        <div className="flex flex-col gap-8">
                                             {/* Plan (Business Case) */}
-                                            <div className="space-y-3">
-                                                <h5 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex items-center">
-                                                    Planificado
-                                                    <span className="ml-2 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-full">Base</span>
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Info className="w-4 h-4 ml-1 text-muted-foreground/70 cursor-help" />
-                                                            </TooltipTrigger>
-                                                            <TooltipContent className="max-w-xs">
-                                                                <p>Montos definidos en los Ítems de Cotización (Presupuesto inicial).</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
+                                            <div className="relative pl-4 border-l-2 border-zinc-200 dark:border-zinc-700">
+                                                <h5 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
+                                                    <span>Planificado (Base)</span>
+                                                    <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full font-medium">Presupuesto</span>
                                                 </h5>
-                                                <div className="space-y-1 text-sm">
-                                                    <div className="flex justify-between text-muted-foreground">
-                                                        <span>Costo Base</span>
-                                                        <span>${financials.baseCostNet.toLocaleString()}</span>
+
+                                                <div className="grid grid-cols-2 gap-y-2 text-sm">
+                                                    <div className="text-muted-foreground">Venta Neta</div>
+                                                    <div className="text-right font-medium">${financials.priceNet.toLocaleString()}</div>
+
+                                                    <div className="text-muted-foreground">Costo Base</div>
+                                                    <div className="text-right text-zinc-500">-${financials.baseCostNet.toLocaleString()}</div>
+
+                                                    <div className="col-span-2 my-1 border-t border-border"></div>
+
+                                                    <div className="font-medium text-foreground">Utilidad Proy.</div>
+                                                    <div className="text-right font-bold text-green-600 dark:text-green-500">
+                                                        ${financials.marginAmountNet.toLocaleString()}
                                                     </div>
-                                                    <div className="flex justify-between text-muted-foreground">
-                                                        <span>Utilidad Proy.</span>
-                                                        <span>${financials.marginAmountNet.toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex justify-between font-medium text-foreground pt-2 border-t border-border">
-                                                        <span>Venta Neta</span>
-                                                        <span>${financials.priceNet.toLocaleString()}</span>
+
+                                                    <div className="text-xs text-muted-foreground">Margen %</div>
+                                                    <div className="text-right text-xs font-medium text-green-600 dark:text-green-500">
+                                                        {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Actual (Reality) */}
-                                            <div className="space-y-3">
-                                                <h5 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex items-center">
-                                                    Ejecución Real
-                                                    <span className="ml-2 text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">Actual</span>
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Info className="w-4 h-4 ml-1 text-muted-foreground/70 cursor-help" />
-                                                            </TooltipTrigger>
-                                                            <TooltipContent className="max-w-xs">
-                                                                <p>Montos calculados en base a los Gastos registrados.</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
+                                            <div className="relative pl-4 border-l-2 border-amber-400 dark:border-amber-600/50">
+                                                <h5 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
+                                                    <span>Ejecución Real</span>
+                                                    <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">Actual</span>
                                                 </h5>
-                                                <div className="space-y-1 text-sm">
-                                                    <div className="flex justify-between text-muted-foreground">
-                                                        <span>Costo Real</span>
-                                                        <span className="font-bold text-amber-600 dark:text-amber-500">${financials.totalExecutedCostNet.toLocaleString()}</span>
+
+                                                <div className="grid grid-cols-2 gap-y-2 text-sm">
+                                                    <div className="text-muted-foreground">Costo Real</div>
+                                                    <div className="text-right font-medium text-amber-600 dark:text-amber-500">
+                                                        -${financials.totalExecutedCostNet.toLocaleString()}
                                                     </div>
-                                                    <div className="flex justify-between text-muted-foreground">
-                                                        <span>Utilidad Real</span>
+
+                                                    <div className="col-span-2 my-1 border-t border-border"></div>
+
+                                                    <div className="font-medium text-foreground">Utilidad Real</div>
+                                                    <div className="text-right">
                                                         {(() => {
                                                             const realMargin = financials.priceNet - financials.totalExecutedCostNet;
+                                                            const isNegative = realMargin < 0;
                                                             return (
-                                                                <span className={`font-bold ${realMargin < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                                <span className={`font-bold ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
                                                                     ${realMargin.toLocaleString()}
+                                                                </span>
+                                                            )
+                                                        })()}
+                                                    </div>
+
+                                                    <div className="text-xs text-muted-foreground">Margen Real %</div>
+                                                    <div className="text-right text-xs font-medium">
+                                                        {(() => {
+                                                            const realMargin = financials.priceNet - financials.totalExecutedCostNet;
+                                                            const realMarginPct = financials.priceNet > 0 ? (realMargin / financials.priceNet) * 100 : 0;
+                                                            const isNegative = realMargin < 0;
+                                                            return (
+                                                                <span className={`${isNegative ? 'text-red-600' : 'text-green-600'}`}>
+                                                                    {realMarginPct.toFixed(1)}%
                                                                 </span>
                                                             )
                                                         })()}
@@ -512,7 +520,21 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                             </div>
 
                                             <div className="grid grid-cols-2 py-1 border-t border-dashed border-border">
-                                                <span className="text-muted-foreground pt-1 font-medium text-foreground">Utilidad Real</span>
+                                                <div className="flex items-center gap-1.5 pt-1">
+                                                    <span className="text-muted-foreground font-medium text-foreground">Utilidad Actual</span>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="right">
+                                                                <p className="font-semibold">Utilidad a la fecha</p>
+                                                                <p className="text-xs">Venta Neta - Costos que YA se han ejecutado.</p>
+                                                                <p className="text-xs mt-1 italic">Este % bajará a medida que registres más gastos.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
                                                 <div className="text-right pt-1">
                                                     {(() => {
                                                         const realMargin = financials.priceNet - financials.totalExecutedCostNet;
@@ -523,8 +545,8 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                                 <span className={`font-mono font-bold block ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
                                                                     ${realMargin.toLocaleString()}
                                                                 </span>
-                                                                <span className={`text-[10px] ${isNegative ? 'text-red-500' : 'text-green-600'}`}>
-                                                                    ({realMarginPct.toFixed(1)}%)
+                                                                <span className={`text-xs font-bold ${isNegative ? 'text-red-500' : 'text-green-600'}`}>
+                                                                    {realMarginPct.toFixed(1)}% Real
                                                                 </span>
                                                             </>
                                                         );
@@ -534,9 +556,14 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
 
                                             {/* Projected Reference */}
                                             <div className="grid grid-cols-2 py-1 mt-4 pt-4 border-t border-border opacity-75">
-                                                <span className="text-xs text-muted-foreground">Utilidad Proyectada (Base)</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs text-muted-foreground">Utilidad Proyectada (Base)</span>
+                                                    <span className="text-[10px] text-muted-foreground mt-0.5">
+                                                        Meta: {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}% de margen
+                                                    </span>
+                                                </div>
                                                 <div className="text-right">
-                                                    <span className="text-xs font-mono text-zinc-500">
+                                                    <span className="text-xs font-mono text-zinc-500 font-bold block">
                                                         ${financials.marginAmountNet.toLocaleString()}
                                                     </span>
                                                 </div>

@@ -73,7 +73,12 @@ export function ProjectSettings({ project, clients }: Props) {
     }
 
     // Prepare default date string for input type="date"
-    const defaultDate = project.nextActionDate ? new Date(project.nextActionDate).toISOString().split('T')[0] : '';
+    // Requirement: Base option of 7 days for follow-up
+    const todayPlus7 = new Date();
+    todayPlus7.setDate(todayPlus7.getDate() + 7);
+    const defaultDate = project.nextActionDate
+        ? new Date(project.nextActionDate).toISOString().split('T')[0]
+        : todayPlus7.toISOString().split('T')[0];
     const defaultMargin = (project.marginPct * 100).toFixed(0);
 
     return (

@@ -32,6 +32,9 @@ export class DashboardService {
                 name: p.name,
                 status: p.status,
                 companyName: p.company?.name || 'Sin Cliente',
+                companyContactName: p.company?.contactName,
+                companyPhone: p.company?.phone,
+                companyEmail: p.company?.email,
                 nextAction: p.nextAction,
                 nextActionDate: p.nextActionDate,
                 blockingReason: p.blockingReason

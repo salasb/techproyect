@@ -38,7 +38,8 @@ export default async function DashboardPage({ searchParams }: Props) {
             *,
             company:Company(*),
             costEntries:CostEntry(*),
-            invoices:Invoice(*)
+            invoices:Invoice(*),
+            quoteItems:QuoteItem(*)
         `)
         .order('updatedAt', { ascending: false });
 
@@ -51,7 +52,7 @@ export default async function DashboardPage({ searchParams }: Props) {
     let totalReceivableGross = 0;
 
     projects.forEach(p => {
-        const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!);
+        const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!, p.quoteItems || []);
 
         // Accumulate totals
         // Use priceGross (Project Total Value) for Budget Total
@@ -66,22 +67,35 @@ export default async function DashboardPage({ searchParams }: Props) {
         ? (projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length).toFixed(0)
         : 0;
 
-    // 4. Calculate Financial Trends for Chart
-    const chartData = DashboardService.getFinancialTrends(projects as any, period);
+    // 5. Calculate KPIs for "Value" (Truth)
+    // "Utilidad Proyectada" (Projected Margin) represents the Project Value Truth, not just Cash Flow
+    let totalProjectedMargin = 0;
 
-    // 5. Calculate Dynamic Profit Trend
-    const profitTrendData = chartData.map(d => ({
-        date: d.label,
-        value: d.profit
-    }));
-    const totalProfit = profitTrendData.reduce((acc, curr) => acc + curr.value, 0);
+    // Also re-verify active projects filter.
+    activeProjects.forEach(p => {
+        const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!, p.quoteItems || []);
+        totalProjectedMargin += fin.marginAmountNet;
+    });
 
-    const periodLabels: Record<string, string> = {
-        '30d': 'últimos 30 días',
-        '6m': 'últimos 6 meses',
-        '12m': 'último año',
-        'all': 'histórico completo'
-    };
+    // 6. Calculate Financial Trends for Chart (Keep "Actividad Financiera" as Cash Flow for historical record?)
+    // Or should chart also reflect "Value"? For now, user complained about the "Card".
+    // We will keep the chart as "Activity" (Billing vs Cost) but the CARD will show "Projected Margin" of Active Projects.
+    // However, the ProfitTrendCard takes "profitTrendData". If we want the card to match the "Projected Margin", we shouldn't use "profitTrendData" from cash flow.
+    // For simpler "Truth", let's just show the Static Total Projected Margin of Active Projects as a KPI, 
+    // and maybe remove the sparkline or make it flat, OR keep sparkline as "Cash flow trend" but Value is "Projected"? Confusing.
+    // Better: Make the card "Utilidad Proyectada" and just show the number. 
+    // If we want a trend, maybe "Margin Growth"? Too complex for now.
+    // We will reuse ProfitTrendCard but pass the `totalProjectedMargin` as the main value.
+    // For the sparkline, we can just pass an empty array or the cash flow trend (labeled as cash flow?).
+    // User wants "Truth". Truth of PROYECTOS is Margin. Truth of COMPANY is Cash. 
+    // Dashboard seems to be Operation/Project focused.
+    // Let's swap the card to `StatCard` style for "Utilidad Proyectada" or modify `ProfitTrendCard` to be clearer.
+    // Let's use StatCard for standard look or keep ProfitTrendCard but with correct data.
+    // We'll replace the dynamic "ProfitTrendCard" with a "StatCard" for "Utilidad Proyectada" to match the style of others and avoid negative cash flow confusion.
+
+    // ... code continues ...
+
+    const chartData = DashboardService.getFinancialTrends(projects as any, period); // Keep chart data for the big chart below
 
     // Focus Board Data
     const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any);
@@ -132,13 +146,14 @@ export default async function DashboardPage({ searchParams }: Props) {
                     tooltip="Suma de facturas enviadas que aún no han sido marcadas como pagadas."
                 />
 
-                {/* Dynamic Profit Card */}
-                <ProfitTrendCard
-                    title="Ganancia Real (Caja)"
-                    value={totalProfit}
-                    data={profitTrendData}
-                    periodLabel={periodLabels[period] || 'periodo'}
-                    tooltip="Diferencia real entre Ingresos (Facturado) y Gastos (Registrados). No incluye estimaciones."
+                {/* REPLACED: Profit Trend Card with Projected Margin Card to show 'Truth' of Project Value */}
+                <StatCard
+                    title="Utilidad Proyectada"
+                    value={`$${(totalProjectedMargin / 1000).toFixed(1)}k`}
+                    icon={ArrowUpRight}
+                    color="emerald"
+                    subtext="Margen total estimado"
+                    tooltip="Suma de la utilidad (Margen) proyectada de todos los proyectos activos."
                 />
             </div>
 

@@ -92,7 +92,12 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-foreground">Registro de Costos</h3>
+                <div>
+                    <h3 className="text-lg font-medium text-foreground">Registro de Costos</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Ingresa los gastos reales ejecutados. Estos montos reducirán el margen del proyecto.
+                    </p>
+                </div>
                 <div className="text-right">
                     <p className="text-sm text-muted-foreground">Total Ejecutado</p>
                     <p className="text-2xl font-bold text-foreground">${totalCosts.toLocaleString()}</p>

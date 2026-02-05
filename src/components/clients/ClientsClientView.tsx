@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClientAction, deleteClientAction, updateClientAction } from "@/actions/clients";
 import { Plus, Search, MapPin, Phone, Mail, FileText, User, Trash2, Edit2, Loader2, X } from "lucide-react";
+import { formatRut, validateRut } from "@/lib/rut";
 
 export function ClientsClientView({ initialClients }: { initialClients: any[] }) {
     const [clients, setClients] = useState(initialClients);
@@ -142,7 +143,24 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">RUT / Tax ID</label>
-                                    <input name="taxId" defaultValue={editingClient?.taxId} className="w-full p-2 rounded-lg border border-input bg-background" />
+                                    <input
+                                        name="taxId"
+                                        defaultValue={editingClient?.taxId}
+                                        className="w-full p-2 rounded-lg border border-input bg-background font-mono"
+                                        placeholder="12.345.678-9"
+                                        onChange={(e) => {
+                                            // Auto-format on type
+                                            const formatted = formatRut(e.target.value);
+                                            // Only update if it's a valid partial format or deleted
+                                            e.target.value = formatted;
+                                        }}
+                                        onBlur={(e) => {
+                                            if (e.target.value && !validateRut(e.target.value)) {
+                                                alert("El RUT ingresado no es válido");
+                                                // e.target.focus(); // Optional: force fix
+                                            }
+                                        }}
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Teléfono</label>

@@ -19,27 +19,25 @@ export default async function QuotePage({ params }: Props) {
     const { id } = await params;
     const supabase = await createClient();
 
-    // Fetch Project Data without joins for items that might be heavy or cause issues
+    // Fetch Project Project with Quote Items included
     const { data: project } = await supabase
         .from('Project')
         .select(`
             *,
             company:Company(*),
             costEntries:CostEntry(*),
-            invoices:Invoice(*)
+            invoices:Invoice(*),
+            quoteItems:QuoteItem(*)
         `)
         .eq('id', id)
         .single();
 
-    // Fetch Quote Items separately to ensure they are loaded correctly
-    const { data: quoteItems } = await supabase
-        .from('QuoteItem')
-        .select('*')
-        .eq('projectId', id)
-        .order('sku', { ascending: true }); // Optional: order by SKU
-
-    if (project && quoteItems) {
-        project.quoteItems = quoteItems;
+    // Sort quoteItems by sku (client-side sort since we are using join)
+    if (project && project.quoteItems) {
+        project.quoteItems.sort((a, b) => {
+            if (a.sku && b.sku) return a.sku.localeCompare(b.sku);
+            return 0;
+        });
     }
 
     // Fetch Settings

@@ -129,10 +129,16 @@ function calculateTimeTrafficLight(
     // CERRADO no está en los tipos literales de Supabase generados todavía si usamos strings directos, pero asumiendo compatibilidad
     if (project.progress === 100 || project.status === 'CERRADO') return 'GREEN'
 
+    // ...
+    // ...
     const todayStart = startOfDay(today)
-    // Supabase devuelve fechas como string ISO
+
+    // Validate plannedEndDate
     if (!project.plannedEndDate) return 'GREEN' // o manejo por defecto
-    const plannedEndStart = startOfDay(new Date(project.plannedEndDate))
+    const endDate = new Date(project.plannedEndDate);
+    if (isNaN(endDate.getTime())) return 'GRAY'; // Invalid date
+
+    const plannedEndStart = startOfDay(endDate)
 
     // Rojo: plannedEndDate < hoy y progress < 100
     if (isBefore(plannedEndStart, todayStart) && project.progress < 100) return 'RED'
@@ -172,14 +178,22 @@ function calculateCollectionTrafficLight(
         // Yes. It checks existence of AT LEAST ONE invoice meeting criteria.
 
         // Compute Due Date
-        let dueDate: Date | null = inv.dueDate ? new Date(inv.dueDate) : null
+        let dueDate: Date | null = null
 
-        if (!dueDate && inv.sentDate) {
-            const terms = inv.paymentTermsDays ?? settings.defaultPaymentTermsDays
-            dueDate = addDays(new Date(inv.sentDate), terms)
+        if (inv.dueDate) {
+            const d = new Date(inv.dueDate);
+            if (!isNaN(d.getTime())) dueDate = d;
         }
 
-        if (!dueDate) continue // Should not happen if sentDate exists
+        if (!dueDate && inv.sentDate) {
+            const d = new Date(inv.sentDate);
+            if (!isNaN(d.getTime())) {
+                const terms = inv.paymentTermsDays ?? settings.defaultPaymentTermsDays
+                dueDate = addDays(d, terms)
+            }
+        }
+
+        if (!dueDate) continue // Should not happen if sentDate exists and is valid
 
         const dueDateStart = startOfDay(dueDate)
 
