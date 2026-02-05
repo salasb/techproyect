@@ -70,8 +70,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
             } else {
                 await addQuoteItem(projectId, formData);
                 setIsAdding(false);
-                const form = document.getElementById('item-form') as HTMLFormElement;
-                form?.reset();
+                resetForm();
                 toast({ type: 'success', message: "Ítem agregado correctamente" });
             }
         } catch (error) {
@@ -103,6 +102,13 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
     function startEdit(item: QuoteItem) {
         setEditingItem(item);
         setIsAdding(false);
+
+        // Initialize State
+        setQuantity(item.quantity);
+        setUnit(item.unit);
+        setCostNet(item.costNet);
+        setPriceNet(item.priceNet);
+
         // Calculate margin for state
         if (item.priceNet > 0) {
             const m = ((item.priceNet - item.costNet) / item.priceNet) * 100;
@@ -117,9 +123,18 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
         }, 100);
     }
 
+    function resetForm() {
+        setQuantity(1);
+        setUnit("UN");
+        setCostNet(0);
+        setPriceNet(0);
+        setMarginPct(defaultMargin);
+    }
+
     function cancelForm() {
         setIsAdding(false);
         setEditingItem(null);
+        resetForm();
     }
 
     const totalNet = items.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0);
@@ -394,7 +409,10 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
                 </form>
             ) : (
                 <button
-                    onClick={() => setIsAdding(true)}
+                    onClick={() => {
+                        resetForm();
+                        setIsAdding(true);
+                    }}
                     className="mt-6 flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
                 >
                     <Plus className="w-4 h-4 mr-2" />
