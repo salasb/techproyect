@@ -1,6 +1,15 @@
+import Link from "next/link";
+import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart } from "lucide-react";
+import { LogoutButton } from "./LogoutButton";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 
-// ... navigation array ...
+const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Proyectos', href: '/projects', icon: FolderOpen },
+    { name: 'Cotizaciones', href: '/quotes', icon: FileText },
+    { name: 'Reportes', href: '/reports', icon: BarChart },
+    { name: 'Configuración', href: '/settings', icon: Settings },
+];
 
 export function AppSidebar() {
     return (
