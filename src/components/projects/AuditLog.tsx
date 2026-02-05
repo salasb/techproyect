@@ -47,8 +47,10 @@ export function AuditLog({ logs }: Props) {
                                         )}
                                     </div>
                                     <div className="whitespace-nowrap text-right text-sm text-zinc-500">
-                                        <time dateTime={log.createdAt}>
-                                            {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true, locale: es })}
+                                        <time dateTime={log.createdAt || undefined}>
+                                            {log.createdAt
+                                                ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true, locale: es })
+                                                : '-'}
                                         </time>
                                     </div>
                                 </div>
