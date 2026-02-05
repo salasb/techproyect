@@ -5,7 +5,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGri
 interface FinancialData {
     label: string;
     income: number;
-    expenses: number;
+    cost: number;
 }
 
 interface Props {
@@ -60,7 +60,7 @@ export function FinancialActivityChart({ data }: Props) {
                     barSize={20}
                 />
                 <Bar
-                    dataKey="expenses"
+                    dataKey="cost"
                     name="Costos"
                     fill="#EF4444"
                     radius={[4, 4, 0, 0]}
