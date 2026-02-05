@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { LayoutDashboard, FolderKanban, Receipt, Settings, LogOut, Package } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Receipt, Settings, Package } from "lucide-react";
+import { LogoutButton } from "./LogoutButton";
 
 const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -30,10 +31,7 @@ export function AppSidebar() {
             </nav>
 
             <div className="p-4 border-t border-border">
-                <button className="flex items-center w-full px-4 py-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
-                    <LogOut className="w-5 h-5 mr-3" />
-                    Cerrar Sesión
-                </button>
+                <LogoutButton />
             </div>
         </aside>
     );
