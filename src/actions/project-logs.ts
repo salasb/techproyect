@@ -7,6 +7,7 @@ export async function addLog(projectId: string, content: string, type: 'INFO' | 
     const supabase = await createClient();
 
     const { error } = await supabase.from('ProjectLog').insert({
+        id: crypto.randomUUID(),
         projectId,
         content,
         type

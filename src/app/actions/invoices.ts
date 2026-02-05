@@ -8,32 +8,47 @@ export async function createInvoice(projectId: string, formData: FormData) {
     const dueDateStr = formData.get("dueDate") as string;
     const paymentTerms = parseInt(formData.get("paymentTerms") as string) || 30;
 
-    if (!amountInvoicedGross) {
-        throw new Error("Monto requerido");
+    try {
+        if (!amountInvoicedGross) {
+            throw new Error("Monto requerido");
+        }
+
+        const supabase = await createClient();
+
+        // Validate date
+        let finalDueDate = null;
+        if (dueDateStr) {
+            const dateObj = new Date(dueDateStr);
+            if (!isNaN(dateObj.getTime())) {
+                finalDueDate = dateObj.toISOString();
+            }
+        }
+
+        const { error } = await supabase
+            .from('Invoice')
+            .insert({
+                id: crypto.randomUUID(),
+                projectId,
+                amountInvoicedGross,
+                amountPaidGross: 0,
+                sent: false,
+                sentDate: null,
+                dueDate: finalDueDate,
+                paymentTermsDays: paymentTerms
+            });
+
+        if (error) {
+            console.error("Supabase Error creating invoice:", error);
+            throw new Error(`Error creando factura: ${error.message}`);
+        }
+
+        revalidatePath(`/projects/${projectId}`);
+        revalidatePath('/');
+        revalidatePath('/projects');
+    } catch (e: any) {
+        console.error("Server Action Error (createInvoice):", e);
+        throw new Error(e.message || "Error interno al crear factura");
     }
-
-    const supabase = await createClient();
-
-    const { error } = await supabase
-        .from('Invoice')
-        .insert({
-            id: crypto.randomUUID(),
-            projectId,
-            amountInvoicedGross,
-            amountPaidGross: 0,
-            sent: false,
-            sentDate: null,
-            dueDate: dueDateStr ? new Date(dueDateStr).toISOString() : null,
-            paymentTermsDays: paymentTerms
-        });
-
-    if (error) {
-        throw new Error(`Error creando factura: ${error.message}`);
-    }
-
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath('/');
-    revalidatePath('/projects');
 }
 
 export async function markInvoiceSent(projectId: string, invoiceId: string) {

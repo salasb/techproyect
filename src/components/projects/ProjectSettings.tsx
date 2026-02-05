@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { updateProjectSettings } from "@/app/actions/project-settings";
+import { useToast } from "@/components/ui/Toast";
 import { Save, Building2, Search, Check, X, Link as LinkIcon, AlertTriangle, Loader2 } from "lucide-react";
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
@@ -21,6 +22,8 @@ export function ProjectSettings({ project, clients }: Props) {
     const [selectedClientId, setSelectedClientId] = useState<string | null>(project.clientId);
     const [isClientLoading, setIsClientLoading] = useState(false);
 
+    const { toast } = useToast();
+
     // Filter clients
     const filteredClients = clients.filter(c =>
         c.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -33,9 +36,9 @@ export function ProjectSettings({ project, clients }: Props) {
         setIsClientLoading(true);
         try {
             await updateProjectSettings(project.id, { clientId: selectedClientId });
-            alert("Cliente vinculado exitosamente");
+            toast({ type: 'success', message: "Cliente vinculado exitosamente" });
         } catch (error) {
-            alert("Error vinculando cliente");
+            toast({ type: 'error', message: "Error vinculando cliente" });
         } finally {
             setIsClientLoading(false);
         }
@@ -60,10 +63,10 @@ export function ProjectSettings({ project, clients }: Props) {
                 nextAction,
                 nextActionDate
             });
-            alert("Configuración guardada exitosamente");
+            toast({ type: 'success', message: "Configuración guardada exitosamente" });
         } catch (error) {
             console.error(error);
-            alert("Error guardando configuración");
+            toast({ type: 'error', message: "Error guardando configuración" });
         } finally {
             setIsLoading(false);
         }

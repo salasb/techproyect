@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { addCost, deleteCost } from "@/app/actions/costs";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2 } from "lucide-react";
 
 type CostEntry = Database['public']['Tables']['CostEntry']['Row'];
@@ -26,6 +28,11 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Dialog State
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+    const { toast } = useToast();
+
     async function handleAddCost(formData: FormData) {
         setIsLoading(true);
         try {
@@ -34,20 +41,30 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
             // Reset form manually if needed or let revalidation handle it
             const form = document.getElementById('add-cost-form') as HTMLFormElement;
             form?.reset();
+            toast({ type: 'success', message: "Costo registrado correctamente" });
         } catch (error) {
-            alert("Error al agregar costo");
+            toast({ type: 'error', message: "Error al agregar costo" });
             console.error(error);
         } finally {
             setIsLoading(false);
         }
     }
 
-    async function handleDelete(costId: string) {
-        if (!confirm("¿Estás seguro de eliminar este costo?")) return;
+    function confirmDelete(costId: string) {
+        setItemToDelete(costId);
+    }
+
+    async function handleConfirmDelete() {
+        if (!itemToDelete) return;
+        setIsLoading(true);
         try {
-            await deleteCost(projectId, costId);
+            await deleteCost(projectId, itemToDelete);
+            toast({ type: 'success', message: "Costo eliminado" });
         } catch (error) {
-            alert("Error al eliminar costo");
+            toast({ type: 'error', message: "Error al eliminar costo" });
+        } finally {
+            setIsLoading(false);
+            setItemToDelete(null);
         }
     }
 
@@ -102,8 +119,8 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button
-                                            onClick={() => handleDelete(cost.id)}
-                                            className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                                            onClick={() => confirmDelete(cost.id)}
+                                            className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-red-500 transition-colors"
                                             title="Eliminar"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -115,6 +132,17 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                     </tbody>
                 </table>
             </div>
+
+            <ConfirmDialog
+                isOpen={!!itemToDelete}
+                title="Eliminar Costo"
+                description="¿Estás seguro que deseas eliminar este registro de costo? Esta acción no se puede deshacer y afectará los márgenes del proyecto."
+                confirmText="Eliminar"
+                variant="danger"
+                isLoading={isLoading}
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setItemToDelete(null)}
+            />
 
             {/* Add Form */}
             {isAdding ? (
@@ -175,7 +203,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                     required
                                     min="0"
                                     placeholder="0"
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
                         </div>

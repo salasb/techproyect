@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { addLog } from "@/actions/project-logs";
+import { useToast } from "@/components/ui/Toast";
 import { Send, AlertOctagon, Info, Flag, Pin } from "lucide-react";
 
 interface Props {
@@ -14,6 +15,8 @@ export function ProjectLogsManager({ projectId, logs }: Props) {
     const [type, setType] = useState<"INFO" | "BLOCKER" | "MILESTONE">("INFO");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const { toast } = useToast();
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!content.trim()) return;
@@ -22,13 +25,14 @@ export function ProjectLogsManager({ projectId, logs }: Props) {
         try {
             const result = await addLog(projectId, content, type);
             if (!result.success) {
-                alert(`Error: ${result.error}`);
+                toast({ type: 'error', message: `Error: ${result.error}` });
                 return;
             }
+            toast({ type: 'success', message: "Nota guardada correctamente" });
             setContent("");
             setType("INFO");
         } catch (error) {
-            alert("Error desconocido al guardar nota");
+            toast({ type: 'error', message: "Error desconocido al guardar nota" });
         } finally {
             setIsSubmitting(false);
         }
