@@ -181,18 +181,18 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                 </div>
 
                                 <div className="space-y-6">
-                                    {/* Work Progress */}
+                                    {/* Work Progress (Manual) */}
                                     <div>
                                         <div className="flex justify-between text-xs mb-2">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="font-medium">Avance Real</span>
+                                                <span className="font-medium">Avance Reportado</span>
                                                 <TooltipProvider>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Info className="w-3.5 h-3.5 text-muted-foreground/70 cursor-help" />
+                                                            <div className="cursor-help bg-zinc-100 dark:bg-zinc-800 text-[10px] px-1.5 py-0.5 rounded text-muted-foreground">Manual</div>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                            <p>Porcentaje de avance ingresado manualmente.</p>
+                                                            <p>Porcentaje de avance ingresado manualmente por el jefe de proyecto.</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>
@@ -205,6 +205,38 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                 style={{ width: `${project.progress}%` }}
                                             ></div>
                                         </div>
+                                    </div>
+
+                                    {/* Financial Progress (Calculated) */}
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-2">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-medium">Avance Financiero</span>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Info className="w-3.5 h-3.5 text-muted-foreground/70 cursor-help" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Costo Ejecutado ({financials.totalExecutedCostNet.toLocaleString()}) / Presupuesto Base ({financials.baseCostNet.toLocaleString()})</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
+                                            <span className="text-muted-foreground">{financials.calculatedProgress.toFixed(0)}%</span>
+                                        </div>
+                                        <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-1000 ease-out ${financials.calculatedProgress > 100 ? 'bg-red-500' : 'bg-green-500'}`}
+                                                style={{ width: `${Math.min(financials.calculatedProgress, 100)}%` }}
+                                            ></div>
+                                        </div>
+                                        {financials.calculatedProgress > 100 && (
+                                            <p className="text-[10px] text-red-500 mt-1 flex items-center">
+                                                <AlertCircle className="w-3 h-3 mr-1" />
+                                                Sobrecosto detectado
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Time Progress */}

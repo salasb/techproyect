@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Plus, AlertTriangle, Lock, Clock } from "lucide-react";
+import { Plus, AlertTriangle, Lock, Clock, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
 
@@ -79,7 +80,8 @@ export default async function ProjectsPage() {
                                         project,
                                         project.costEntries || [],
                                         project.invoices || [],
-                                        settings!
+                                        settings!,
+                                        project.quoteItems || []
                                     );
 
                                     // Alert Logic
@@ -123,7 +125,19 @@ export default async function ProjectsPage() {
                                                 <div className="w-28">
                                                     <div className="flex justify-between text-xs mb-1">
                                                         <span className="font-semibold text-foreground">{fin.calculatedProgress.toFixed(0)}%</span>
-                                                        <span className="text-[10px] text-muted-foreground" title="Avance Financiero (Costo Ejecutado / Presupuesto)">Financiero</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-[10px] text-muted-foreground">Financiero</span>
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Info className="w-3 h-3 text-muted-foreground/70 cursor-help" />
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>Progreso basado en Costos Ejecutados vs Presupuesto Total.</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        </div>
                                                     </div>
                                                     <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
                                                         <div
