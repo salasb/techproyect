@@ -244,21 +244,174 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                 </table>
             </div>
 
-            Agregar Ítem
-        </button>
-    )
-}
+            {/* Add/Edit Form */}
+            {showForm ? (
+                <form id="item-form" action={handleSubmit} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-blue-200 dark:border-blue-900/50 animate-in slide-in-from-top-2 ring-1 ring-blue-500/20 mt-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase flex items-center">
+                            {editingItem ? <Edit2 className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                            {editingItem ? 'Editar Ítem' : 'Nuevo Ítem'}
+                        </h4>
+                        <button type="button" onClick={cancelForm} className="text-zinc-400 hover:text-zinc-600">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
 
-<ConfirmDialog
-    isOpen={!!itemToDelete}
-    title="Eliminar Ítem"
-    description="¿Estás seguro que deseas eliminar este ítem de la cotización? Esto afectará el total del proyecto."
-    confirmText="Eliminar"
-    variant="danger"
-    isLoading={isLoading}
-    onConfirm={handleConfirmDelete}
-    onCancel={() => setItemToDelete(null)}
-/>
-        </div >
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                        <div className="md:col-span-8">
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Producto</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                <input
+                                    name="detail"
+                                    type="text"
+                                    required
+                                    autoComplete="off"
+                                    defaultValue={editingItem?.detail}
+                                    placeholder="Descripción del ítem..."
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-2 hidden">
+                            <input name="sku" type="hidden" defaultValue={editingItem?.sku || ''} />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Cantidad</label>
+                            <div className="relative">
+                                <Hash className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                <input
+                                    name="quantity"
+                                    type="number"
+                                    required
+                                    min="1"
+                                    step="0.01"
+                                    defaultValue={editingItem?.quantity || 1}
+                                    className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Unidad</label>
+                            <select
+                                name="unit"
+                                required
+                                defaultValue={editingItem?.unit || "UN"}
+                                className="w-full px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="UN">UN</option>
+                                <option value="GL">GL</option>
+                                <option value="HR">Horas</option>
+                                <option value="MT">Metros</option>
+                                <option value="M2">M2</option>
+                                <option value="M3">M3</option>
+                                <option value="VG">Viajes</option>
+                            </select>
+                        </div>
+
+                        <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unit.</label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                <input
+                                    name="costNet"
+                                    type="number"
+                                    required
+                                    min="0"
+                                    defaultValue={editingItem?.costNet}
+                                    value={costNet || (editingItem ? undefined : '')}
+                                    placeholder="0"
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                    onChange={(e) => handleCostChange(Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <label className="block text-xs font-medium text-blue-600 mb-1 cursor-help underline decoration-dotted">Margen %</label>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Ganancia sobre venta: <br /><code>(Precio - Costo) / Precio</code></p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <div className="relative">
+                                <input
+                                    name="marginPct"
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full pl-2 pr-6 py-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center text-blue-700 dark:text-blue-400"
+                                    value={marginPct}
+                                    onChange={(e) => handleMarginChange(Number(e.target.value))}
+                                />
+                                <span className="absolute right-3 top-2 text-xs text-blue-400">%</span>
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Precio Venta</label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                <input
+                                    name="priceNet"
+                                    type="number"
+                                    required
+                                    min="0"
+                                    defaultValue={editingItem?.priceNet}
+                                    value={priceNet || (editingItem ? undefined : '')}
+                                    placeholder="0"
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                    onChange={(e) => handlePriceChange(Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-12 flex justify-end gap-3 mt-2">
+                            <button
+                                type="button"
+                                onClick={cancelForm}
+                                className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 underline"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors shadow-md hover:shadow-lg disabled:opacity-50 flex items-center"
+                            >
+                                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                {editingItem ? 'Actualizar Ítem' : 'Guardar Ítem'}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            ) : (
+                <button
+                    onClick={() => setIsAdding(true)}
+                    className="mt-6 flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+                >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Ítem
+                </button>
+            )}
+
+            <ConfirmDialog
+                isOpen={!!itemToDelete}
+                title="Eliminar Ítem"
+                description="¿Estás seguro que deseas eliminar este ítem de la cotización? Esto afectará el total del proyecto."
+                confirmText="Eliminar"
+                variant="danger"
+                isLoading={isLoading}
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setItemToDelete(null)}
+            />
+        </div>
     );
 }
+

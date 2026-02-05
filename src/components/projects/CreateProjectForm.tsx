@@ -93,9 +93,13 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                         />
                     </div>
                     <div>
-                        placeholder="0"
-                        min="0"
-                        className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Presupuesto (Opcional)</label>
+                        <input
+                            name="budget"
+                            type="number"
+                            placeholder="0"
+                            min="0"
+                            className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
                         />
                     </div>
                 </div>
