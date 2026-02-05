@@ -11,8 +11,23 @@ interface MinimalProject {
     plannedEndDate: string | Date | null
 }
 
-type CostEntry = Database['public']['Tables']['CostEntry']['Row']
-type Invoice = Database['public']['Tables']['Invoice']['Row']
+// Decoupled CostEntry to tolerate Date vs String
+export interface MinimalCostEntry {
+    amountNet: number
+    date: Date | string
+    description?: string // Make optional if irrelevant
+}
+
+// Decoupled Invoice
+export interface MinimalInvoice {
+    amountInvoicedGross: number
+    amountPaidGross: number
+    sent: boolean
+    sentDate: Date | string | null
+    dueDate: Date | string | null
+    paymentTermsDays: number | null
+}
+
 type Settings = Database['public']['Tables']['Settings']['Row']
 
 export interface FinancialResult {
@@ -34,8 +49,8 @@ type QuoteItem = Database['public']['Tables']['QuoteItem']['Row']
 
 export function calculateProjectFinancials(
     project: MinimalProject,
-    costs: CostEntry[],
-    invoices: Invoice[],
+    costs: MinimalCostEntry[],
+    invoices: MinimalInvoice[],
     settings: Settings,
     quoteItems: QuoteItem[] = [],
     today: Date = new Date()
@@ -134,7 +149,7 @@ function calculateTimeTrafficLight(
 }
 
 function calculateCollectionTrafficLight(
-    sentInvoices: Invoice[],
+    sentInvoices: MinimalInvoice[],
     receivableGross: number,
     settings: Settings,
     today: Date
