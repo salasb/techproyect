@@ -125,6 +125,9 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                             onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                             className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
                         />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                            Este será el estado inicial para dar seguimiento en el tablero.
+                        </p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Fecha Límite (2 días)</label>
@@ -141,6 +144,9 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                             })()}
                             className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
                         />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                            El sistema generará una alerta si se vence esta fecha.
+                        </p>
                     </div>
                 </div>
             </div>

@@ -242,7 +242,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                        <div className="md:col-span-5 relative group">
+                        <div className="md:col-span-8 relative group">
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Producto</label>
                             <div className="relative">
                                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
@@ -316,7 +316,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             </div>
                         </div>
 
-                        <div className="md:col-span-1">
+                        <div className="md:col-span-2">
                             <label className="block text-xs font-medium text-zinc-500 mb-1" title="Unidad de Medida">Unidad</label>
                             <select
                                 name="unit"
@@ -331,7 +331,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             </select>
                         </div>
 
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unit.</label>
                             <div className="relative">
                                 <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
@@ -349,7 +349,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             </div>
                         </div>
 
-                        <div className="md:col-span-1">
+                        <div className="md:col-span-2">
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -369,7 +369,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             />
                         </div>
 
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Precio Venta</label>
                             <div className="relative">
                                 <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
@@ -387,7 +387,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                             </div>
                         </div>
 
-                        <div className="md:col-span-1 flex justify-end">
+                        <div className="md:col-span-4 flex justify-end">
                             <button
                                 type="submit"
                                 disabled={isLoading}

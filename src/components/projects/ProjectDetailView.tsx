@@ -3,7 +3,28 @@
 import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { FinancialResult } from "@/services/financialCalculator";
-import { ArrowUpRight, Calendar, DollarSign, Wallet, X, Activity, AlertCircle, Check, User } from "lucide-react";
+import {
+    Calendar,
+    Clock,
+    DollarSign,
+    FileText,
+    History,
+    LayoutDashboard,
+    PieChart,
+    Settings,
+    MoreVertical,
+    CheckCircle2,
+    AlertCircle,
+    ArrowUpRight,
+    TrendingUp,
+    Info,
+    Activity,
+    Check,
+    User,
+    Wallet,
+    X
+} from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInDays } from "date-fns";
 import { QuoteItemsManager } from "./QuoteItemsManager";
 import { CostsManager } from "./CostsManager";
@@ -107,10 +128,22 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm mb-4 flex items-center dark:bg-green-900/10">
-                                        <Check className="w-4 h-4 mr-2" />
-                                        Todo en orden.
-                                    </div>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm mb-4 flex items-center dark:bg-green-900/10 cursor-help">
+                                                    <Check className="w-4 h-4 mr-2" />
+                                                    Todo en orden.
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <ul className="list-disc pl-4 text-xs space-y-1">
+                                                    <li>Cronograma: A tiempo (Avance vs Tiempo)</li>
+                                                    <li>Presupuesto: Definido (Ítems cargados)</li>
+                                                </ul>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
                                 )}
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -151,7 +184,19 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                     {/* Work Progress */}
                                     <div>
                                         <div className="flex justify-between text-xs mb-2">
-                                            <span className="font-medium">Avance Real</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-medium">Avance Real</span>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Info className="w-3.5 h-3.5 text-muted-foreground/70 cursor-help" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Porcentaje de avance ingresado manualmente.</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
                                             <span className="text-muted-foreground">{project.progress}%</span>
                                         </div>
                                         <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-3 overflow-hidden shadow-inner">
@@ -178,7 +223,19 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                         return (
                                             <div>
                                                 <div className="flex justify-between text-xs mb-2">
-                                                    <span className="font-medium text-zinc-500">Tiempo Transcurrido</span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="font-medium text-zinc-500">Tiempo Transcurrido</span>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Info className="w-3.5 h-3.5 text-muted-foreground/70 cursor-help" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Tiempo transcurrido desde la fecha de inicio hasta hoy.</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
                                                     <span className="text-zinc-500">{timeProgress.toFixed(0)}%</span>
                                                 </div>
                                                 <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
@@ -241,6 +298,16 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                 <h5 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex items-center">
                                                     Planificado
                                                     <span className="ml-2 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-full">Base</span>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Info className="w-4 h-4 ml-1 text-muted-foreground/70 cursor-help" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="max-w-xs">
+                                                                <p>Montos definidos en los Ítems de Cotización (Presupuesto inicial).</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                 </h5>
                                                 <div className="space-y-1 text-sm">
                                                     <div className="flex justify-between text-muted-foreground">
@@ -263,6 +330,16 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                 <h5 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex items-center">
                                                     Ejecución Real
                                                     <span className="ml-2 text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">Actual</span>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Info className="w-4 h-4 ml-1 text-muted-foreground/70 cursor-help" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="max-w-xs">
+                                                                <p>Montos calculados en base a los Gastos registrados.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                 </h5>
                                                 <div className="space-y-1 text-sm">
                                                     <div className="flex justify-between text-muted-foreground">
@@ -285,13 +362,20 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                         </div>
 
                                         {/* Grand Total */}
-                                        <div className="mt-6 pt-4 border-t border-border flex flex-col items-end">
-                                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                                <span>Neto: ${financials.priceNet.toLocaleString()}</span>
-                                                <span>+</span>
-                                                <span>IVA: ${financials.vatAmount.toLocaleString()}</span>
-                                                <span>=</span>
-                                                <span className="text-lg font-bold text-foreground">Total: ${financials.priceGross.toLocaleString()}</span>
+                                        <div className="mt-6 pt-4 border-t border-border">
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                    <span>Neto</span>
+                                                    <span className="font-mono">${financials.priceNet.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                    <span>IVA</span>
+                                                    <span className="font-mono">${financials.vatAmount.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center pt-2 border-t border-dashed border-border mt-1">
+                                                    <span className="font-bold text-foreground text-base">Total a Facturar</span>
+                                                    <span className="text-xl font-bold text-primary font-mono">${financials.priceGross.toLocaleString()}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

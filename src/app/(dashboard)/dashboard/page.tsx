@@ -2,10 +2,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { Database } from "@/types/supabase";
-import { ArrowUpRight, CheckCircle2, DollarSign, Wallet } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, DollarSign, Wallet, Info } from "lucide-react";
 import Link from "next/link";
 import { FinancialActivityChart } from "@/components/dashboard/FinancialActivityChart";
 import { FocusBoard } from "@/components/dashboard/FocusBoard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { DashboardService } from "@/services/dashboardService";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
@@ -108,6 +109,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                     icon={CheckCircle2}
                     color="blue"
                     subtext="En curso o espera"
+                    tooltip="Cantidad de proyectos en estado 'En Curso' o 'En Espera'."
                 />
                 <StatCard
                     title="Presupuesto Activo"
@@ -115,6 +117,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                     icon={Wallet}
                     color="green"
                     subtext="Valor total proyectos activos"
+                    tooltip="Suma total del valor (Bruto) de todos los proyectos activos."
                 />
                 <StatCard
                     title="Por Cobrar"
@@ -122,6 +125,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                     icon={DollarSign}
                     color="amber"
                     subtext="Facturas emitidas impagas"
+                    tooltip="Suma de facturas enviadas que aún no han sido marcadas como pagadas."
                 />
 
                 {/* Dynamic Profit Card */}
@@ -130,6 +134,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                     value={totalProfit}
                     data={profitTrendData}
                     periodLabel={periodLabels[period] || 'periodo'}
+                    tooltip="Diferencia real entre Ingresos (Facturado) y Gastos (Registrados). No incluye estimaciones."
                 />
             </div>
 
@@ -169,7 +174,7 @@ export default async function DashboardPage({ searchParams }: Props) {
     );
 }
 
-function StatCard({ title, value, icon: Icon, color, subtext }: any) {
+function StatCard({ title, value, icon: Icon, color, subtext, tooltip }: any) {
     const colors: any = {
         blue: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
         green: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
@@ -181,7 +186,21 @@ function StatCard({ title, value, icon: Icon, color, subtext }: any) {
     return (
         <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
             <div className="flex items-center justify-between pb-2">
-                <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+                <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+                    {tooltip && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Info className="w-3.5 h-3.5 text-muted-foreground/70 cursor-help hover:text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="max-w-xs">{tooltip}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
                 <div className={`p-2 rounded-lg ${colors[color]}`}>
                     <Icon className="w-4 h-4" />
                 </div>
@@ -191,3 +210,4 @@ function StatCard({ title, value, icon: Icon, color, subtext }: any) {
         </div>
     )
 }
+
