@@ -69,3 +69,22 @@ export async function createProject(formData: FormData) {
     revalidatePath("/projects");
     redirect(`/projects/${project.id}`);
 }
+
+export async function deleteProject(projectId: string) {
+    const supabase = await createClient();
+
+    // Delete project (cascade should handle related tables if configured in DB, 
+    // ensuring we don't leave orphans. If not, we might need manual deletions.
+    // Assuming Supabase FKs are set to CASCADE for simplicity in this MVP style app)
+    const { error } = await supabase
+        .from('Project')
+        .delete()
+        .eq('id', projectId);
+
+    if (error) {
+        throw new Error(`Error deleting project: ${error.message}`);
+    }
+
+    revalidatePath("/projects");
+    redirect("/projects");
+}

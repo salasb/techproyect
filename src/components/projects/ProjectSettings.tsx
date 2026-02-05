@@ -203,7 +203,7 @@ export function ProjectSettings({ project, clients }: Props) {
                                             type="number"
                                             min="0"
                                             max="100"
-                                            step="0.1"
+                                            step="1"
                                             defaultValue={defaultMargin}
                                             className="w-full pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-foreground"
                                         />
@@ -214,22 +214,7 @@ export function ProjectSettings({ project, clients }: Props) {
                                     </p>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-foreground mb-1">
-                                        Avance del Proyecto (%)
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            name="progress"
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            defaultValue={project.progress || 0}
-                                            className="w-full pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-foreground"
-                                        />
-                                        <span className="absolute right-3 top-2 text-muted-foreground">%</span>
-                                    </div>
-                                </div>
+
 
                                 <div>
                                     <label className="block text-sm font-medium text-foreground mb-1">
@@ -297,6 +282,66 @@ export function ProjectSettings({ project, clients }: Props) {
                     </div>
                 </form>
             </div>
+
+            {/* DANGER ZONE */}
+            <div className="max-w-2xl bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-900/50 p-6 shadow-sm">
+                <h3 className="text-lg font-medium text-red-700 dark:text-red-400 mb-2 flex items-center">
+                    <AlertTriangle className="w-5 h-5 mr-2" />
+                    Zona de Peligro
+                </h3>
+                <p className="text-sm text-red-600/80 dark:text-red-300/80 mb-6">
+                    Estas acciones son destructivas y no se pueden deshacer.
+                </p>
+
+                <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-red-100 dark:border-red-900/30">
+                    <div>
+                        <h4 className="font-medium text-foreground text-sm">Eliminar Proyecto</h4>
+                        <p className="text-xs text-muted-foreground mt-1">Elimina permanentemente este proyecto y todos sus datos asociados.</p>
+                    </div>
+                    <DeleteProjectButton projectId={project.id} />
+                </div>
+            </div>
         </div>
     );
 }
+
+import { deleteProject } from "@/app/actions/projects";
+
+function DeleteProjectButton({ projectId }: { projectId: string }) {
+    const [isDeleting, setIsDeleting] = useState(false);
+    const { toast } = useToast();
+
+    async function handleDelete() {
+        if (!confirm("¿ESTÁS SEGURO? Esta acción eliminará permanentemente el proyecto y todos sus datos. No se puede deshacer.")) return;
+
+        // Double check
+        const projectNameInput = prompt("Para confirmar, escribe 'ELIMINAR' en mayúsculas:");
+        if (projectNameInput !== 'ELIMINAR') {
+            toast({ type: 'error', message: "Confirmación fallida. Proyecto no eliminado." });
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            await deleteProject(projectId);
+            // Redirect happens in server action
+        } catch (error: any) {
+            toast({ type: 'error', message: error.message || "Error al eliminar" });
+            setIsDeleting(false);
+        }
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center"
+        >
+            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+            Eliminar Proyecto
+        </button>
+    );
+}
+
+import { Trash2 } from "lucide-react";

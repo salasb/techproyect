@@ -14,9 +14,10 @@ type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
 interface Props {
     projectId: string;
     items: QuoteItem[];
+    defaultMargin?: number;
 }
 
-export function QuoteItemsManager({ projectId, items }: Props) {
+export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -26,7 +27,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
     const [quantity, setQuantity] = useState(1);
     const [unit, setUnit] = useState("UN");
     const [costNet, setCostNet] = useState(0);
-    const [marginPct, setMarginPct] = useState(30); // Default 30%
+    const [marginPct, setMarginPct] = useState(defaultMargin); // Use defaultMargin prop
     const [priceNet, setPriceNet] = useState(0);
 
     // Determines if we are in "Form Mode" (either adding or editing)
@@ -53,7 +54,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
         setPriceNet(val);
         if (val > 0) {
             const newMargin = ((val - costNet) / val) * 100;
-            setMarginPct(parseFloat(newMargin.toFixed(2)));
+            setMarginPct(Math.round(newMargin)); // Round to integer
         }
     }
 
@@ -105,7 +106,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
         // Calculate margin for state
         if (item.priceNet > 0) {
             const m = ((item.priceNet - item.costNet) / item.priceNet) * 100;
-            setMarginPct(parseFloat(m.toFixed(2)));
+            setMarginPct(Math.round(m)); // Round to integer
         } else {
             setMarginPct(0);
         }
@@ -143,7 +144,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                         <p className="text-xs text-muted-foreground uppercase flex items-center justify-end gap-1">
                                             Margen Global <AlertCircle className="w-3 h-3" />
                                         </p>
-                                        <p className={`text-xl font-bold ${projectMarginPct >= 30 ? 'text-green-600' : 'text-yellow-600'}`}>{projectMarginPct.toFixed(1)}%</p>
+                                        <p className={`text-xl font-bold ${projectMarginPct >= 30 ? 'text-green-600' : 'text-yellow-600'}`}>{projectMarginPct.toFixed(0)}%</p>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -212,7 +213,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${marginP < 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                {marginP.toFixed(1)}%
+                                                {marginP.toFixed(0)}%
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-right font-mono text-foreground font-semibold">
@@ -287,7 +288,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                     type="number"
                                     required
                                     min="1"
-                                    step="0.01"
+                                    step="1" // Force Integer
                                     defaultValue={editingItem?.quantity || 1}
                                     className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
@@ -345,7 +346,7 @@ export function QuoteItemsManager({ projectId, items }: Props) {
                                 <input
                                     name="marginPct"
                                     type="number"
-                                    step="0.01"
+                                    step="1" // Force Integer
                                     className="w-full pl-2 pr-6 py-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center text-blue-700 dark:text-blue-400"
                                     value={marginPct}
                                     onChange={(e) => handleMarginChange(Number(e.target.value))}

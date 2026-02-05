@@ -4,30 +4,34 @@ import { RevenueChart } from "@/components/reports/RevenueChart";
 import { ProjectMarginChart } from "@/components/reports/ProjectMarginChart";
 import { ClientRevenuePie } from "@/components/reports/ClientRevenuePie";
 import { TrendingUp, PieChart, FileText, AlertCircle } from "lucide-react";
-import { format, subMonths, isSameMonth } from "date-fns";
-import { es } from "date-fns/locale";
+import { format } from "date-fns";
+import { DashboardService } from "@/services/dashboardService";
+import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 
-export default async function ReportsPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function ReportsPage({ searchParams }: { searchParams: { period?: string } }) {
     const supabase = await createClient();
+    const period = searchParams.period || '6m';
 
     // 1. Fetch Data
     const { data: projectsRaw } = await supabase
         .from('Project')
         .select(`
             *,
-            client:Client(name),
+            company:Client(*),
             quoteItems:QuoteItem(*),
             costEntries:CostEntry(*),
             invoices:Invoice(*)
         `)
-        .neq('status', 'CANCELADO'); // Exclude cancelled
+        .neq('status', 'CANCELADO');
 
     const { data: settingsRaw } = await supabase.from('Settings').select('*').single();
     const settings = settingsRaw || { vatRate: 0.19, yellowThresholdDays: 7, defaultPaymentTermsDays: 30 };
 
     const projects: any[] = projectsRaw || [];
 
-    // 2. Process Financials for each project
+    // 2. Process Financials for aggregations that need full project calculations (like Margins)
     const processedProjects = projects.map((p: any) => {
         const financials = calculateProjectFinancials(
             {
@@ -46,87 +50,35 @@ export default async function ReportsPage() {
         return {
             ...p,
             financials,
-            clientName: p.client?.name || 'Sin Cliente'
+            company: p.company, // Ensure strict typing/naming matches logic
+            clientName: p.company?.name || 'Sin Cliente'
         };
     });
 
-    // 3. Aggregations
+    // 3. Service Aggregations
+    const financialTrends = DashboardService.getFinancialTrends(projects, period);
+    const topClients = DashboardService.getTopClients(projects);
+    const projectMargins = DashboardService.getProjectMargins(processedProjects);
 
-    // A. KPI Cards
+    // 4. KPI Calcs
     const totalRevenue = processedProjects.reduce((acc: number, p: any) => acc + p.financials.priceNet, 0);
     const totalMargin = processedProjects.reduce((acc: number, p: any) => acc + p.financials.marginAmountNet, 0);
     const avgMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
     const activeProjects = processedProjects.filter((p: any) => p.status !== 'CERRADO' && p.status !== 'COMPLETADO').length;
     const pendingQuotes = processedProjects.filter((p: any) => p.stage === 'LEVANTAMIENTO').length;
 
-    // B. Revenue Chart (Last 6 Months)
-    // We ideally need dates for Invoices/Costs. 
-    // Simplified: Use "Project Start Date" or Invoice Date if available. 
-    // Better: Aggregating executed costs by date and invoiced amounts by date.
-
-    const curDate = new Date();
-    const last6Months = Array.from({ length: 6 }).map((_, i) => {
-        const d = subMonths(curDate, 5 - i);
-        return {
-            date: d,
-            name: format(d, 'MMM', { locale: es }),
-            income: 0,
-            cost: 0,
-            profit: 0 // calculated later
-        };
-    });
-
-    // Populate Monthly Data
-    projects.forEach((p: any) => {
-        // Costs
-        p.costEntries?.forEach((c: any) => {
-            const cDate = new Date(c.date);
-            const monthBin = last6Months.find(m => isSameMonth(m.date, cDate));
-            if (monthBin) monthBin.cost += c.amountNet;
-        });
-
-        // Incomes (Invoices SENT)
-        p.invoices?.filter((i: any) => i.sent && i.sentDate).forEach((i: any) => {
-            const iDate = i.sentDate ? new Date(i.sentDate) : new Date();
-            const monthBin = last6Months.find(m => isSameMonth(m.date, iDate));
-            if (monthBin) monthBin.income += i.amountInvoicedGross / (1 + settings.vatRate); // Approximate Net
-        });
-    });
-
-    // C. Project Margins (Top 10 by Value)
-    const marginData = processedProjects
-        .filter((p: any) => p.financials.priceNet > 0)
-        .sort((a: any, b: any) => b.financials.priceNet - a.financials.priceNet)
-        .slice(0, 10)
-        .map((p: any) => ({
-            name: p.name.substring(0, 15) + (p.name.length > 15 ? '...' : ''),
-            marginPct: p.financials.priceNet > 0 ? (p.financials.marginAmountNet / p.financials.priceNet) * 100 : 0
-        }));
-
-    // D. Client Pie
-    const clientMap = new Map<string, number>();
-    processedProjects.forEach((p: any) => {
-        const cName = p.clientName;
-        const val = p.financials.priceNet;
-        clientMap.set(cName, (clientMap.get(cName) || 0) + val);
-    });
-
-    const clientData = Array.from(clientMap.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
-
-
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-4">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-foreground">Reportes Financieros</h2>
                     <p className="text-muted-foreground">Análisis detallado del rendimiento de tu negocio.</p>
                 </div>
-                <div className="flex space-x-2">
-                    <span className="text-xs text-muted-foreground self-center mr-2">
+                <div className="flex items-center gap-4">
+                    <span className="text-xs text-muted-foreground hidden md:inline-block">
                         Actualizado: {format(new Date(), 'dd/MM/yy HH:mm')}
                     </span>
+                    <PeriodSelector />
                 </div>
             </div>
 
@@ -153,16 +105,16 @@ export default async function ReportsPage() {
             {/* Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                    <RevenueChart data={last6Months} />
+                    <RevenueChart data={financialTrends} />
                 </div>
                 <div>
-                    <ClientRevenuePie data={clientData} />
+                    <ClientRevenuePie data={topClients} />
                 </div>
             </div>
 
             {/* Charts Row 2 */}
             <div className="grid grid-cols-1 gap-6">
-                <ProjectMarginChart data={marginData} />
+                <ProjectMarginChart data={projectMargins} />
             </div>
         </div>
     );

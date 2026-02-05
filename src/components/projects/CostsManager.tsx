@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Database } from "@/types/supabase";
-import { addCost, deleteCost } from "@/app/actions/costs";
+import { addCost, deleteCost, updateCost } from "@/app/actions/costs";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2 } from "lucide-react";
+import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2, Edit2, Save, X } from "lucide-react";
 
 type CostEntry = Database['public']['Tables']['CostEntry']['Row'];
 type CostCategory = Database['public']['Enums']['CostCategory'];
@@ -26,6 +26,7 @@ const CATEGORIES: { value: CostCategory; label: string }[] = [
 
 export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
     const [isAdding, setIsAdding] = useState(false);
+    const [editingCost, setEditingCost] = useState<CostEntry | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     // Dialog State
@@ -36,18 +37,36 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
     async function handleAddCost(formData: FormData) {
         setIsLoading(true);
         try {
-            await addCost(projectId, formData);
-            setIsAdding(false);
-            // Reset form manually if needed or let revalidation handle it
-            const form = document.getElementById('add-cost-form') as HTMLFormElement;
-            form?.reset();
-            toast({ type: 'success', message: "Costo registrado correctamente" });
+            if (editingCost) {
+                await updateCost(projectId, editingCost.id, formData);
+                setEditingCost(null);
+                toast({ type: 'success', message: "Costo actualizado correctamente" });
+            } else {
+                await addCost(projectId, formData);
+                setIsAdding(false);
+                const form = document.getElementById('add-cost-form') as HTMLFormElement;
+                form?.reset();
+                toast({ type: 'success', message: "Costo registrado correctamente" });
+            }
         } catch (error) {
             toast({ type: 'error', message: "Error al agregar costo" });
             console.error(error);
         } finally {
             setIsLoading(false);
         }
+    }
+
+    function startEdit(cost: CostEntry) {
+        setEditingCost(cost);
+        setIsAdding(false);
+        setTimeout(() => {
+            document.getElementById('add-cost-form')?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    }
+
+    function cancelEdit() {
+        setEditingCost(null);
+        setIsAdding(false);
     }
 
     function confirmDelete(costId: string) {
@@ -117,7 +136,14 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                     <td className="px-6 py-4 text-right font-mono text-foreground">
                                         ${cost.amountNet.toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-6 py-4 text-right flex justify-end gap-2">
+                                        <button
+                                            onClick={() => startEdit(cost)}
+                                            className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-blue-500 transition-colors"
+                                            title="Editar"
+                                        >
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
                                         <button
                                             onClick={() => confirmDelete(cost.id)}
                                             className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-red-500 transition-colors"
@@ -144,11 +170,14 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                 onCancel={() => setItemToDelete(null)}
             />
 
-            {/* Add Form */}
-            {isAdding ? (
+            {/* Add/Edit Form */}
+            {isAdding || editingCost ? (
                 <form id="add-cost-form" action={handleAddCost} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
                     <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-sm font-medium text-zinc-900 dark:text-white">Nuevo Costo</h4>
+                        <h4 className="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2">
+                            {editingCost ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                            {editingCost ? 'Editar Costo' : 'Nuevo Costo'}
+                        </h4>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
@@ -159,6 +188,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                 <select
                                     name="category"
                                     required
+                                    defaultValue={editingCost?.category || 'OTROS'}
                                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 >
                                     {CATEGORIES.map(cat => (
@@ -174,6 +204,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                 name="description"
                                 type="text"
                                 required
+                                defaultValue={editingCost?.description || ''}
                                 placeholder="Ej: Honorarios Developer Senior"
                                 className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                             />
@@ -187,7 +218,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                     name="date"
                                     type="date"
                                     required
-                                    defaultValue={new Date().toISOString().split('T')[0]}
+                                    defaultValue={editingCost ? new Date(editingCost.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
                                     className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
@@ -202,6 +233,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                     type="number"
                                     required
                                     min="0"
+                                    defaultValue={editingCost?.amountNet}
                                     placeholder="0"
                                     className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
@@ -214,14 +246,14 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                 disabled={isLoading}
                                 className="w-full h-[38px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
                             >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-5 h-5" />}
+                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : editingCost ? <Save className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                             </button>
                         </div>
                     </div>
                     <div className="flex justify-end mt-2">
                         <button
                             type="button"
-                            onClick={() => setIsAdding(false)}
+                            onClick={cancelEdit}
                             className="text-xs text-zinc-500 hover:text-zinc-700 underline"
                         >
                             Cancelar
