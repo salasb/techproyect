@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { updateProjectSettings } from "@/app/actions/project-settings";
+import { createAuditLog } from "@/actions/audit";
 import { AlertCircle, Lock, Unlock, Clock, FileText, ChevronDown, Eye, Download, Send, Calendar } from "lucide-react";
 import { differenceInCalendarDays, isBefore, startOfDay, addDays } from "date-fns";
 import Link from "next/link";
@@ -39,6 +40,15 @@ export function ProjectHeader({ project }: Props) {
             nextAction: "Seguimiento Cotización",
             nextActionDate: nextFollowUp
         });
+
+        // Log the action
+        await createAuditLog(
+            project.id,
+            "COTIZACION_ENVIADA",
+            "Estado actualizado a 'Seguimiento Cotización'",
+            "Sistema" // Ideally get session user
+        );
+
         window.location.reload();
     }
 
@@ -184,7 +194,7 @@ export function ProjectHeader({ project }: Props) {
                             <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg z-20 overflow-hidden animate-in fade-in zoom-in-95">
                                 <div className="p-1">
                                     <Link
-                                        href={`/quotes/${project.id}`}
+                                        href={`/projects/${project.id}/quote`}
                                         target="_blank"
                                         className="flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg group"
                                         onClick={() => setIsQuoteMenuOpen(false)}
@@ -193,7 +203,7 @@ export function ProjectHeader({ project }: Props) {
                                         <span>Visualizar</span>
                                     </Link>
                                     <Link
-                                        href={`/quotes/${project.id}?print=true`}
+                                        href={`/projects/${project.id}/quote?print=true`}
                                         target="_blank"
                                         className="flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg group"
                                         onClick={() => setIsQuoteMenuOpen(false)}

@@ -68,6 +68,14 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
         if (financials.trafficLightTime === 'RED') alerts.push({ type: 'danger', msg: 'Proyecto atrasado' });
         if (financials.trafficLightTime === 'YELLOW') alerts.push({ type: 'warning', msg: 'Fecha de término cercana' });
     }
+
+    // Financial Health Alerts
+    if (financials.trafficLightFinancial === 'RED') {
+        alerts.push({ type: 'danger', msg: 'Margen Negativo (Pérdidas)' });
+    } else if (financials.trafficLightFinancial === 'YELLOW') {
+        alerts.push({ type: 'warning', msg: 'Margen bajo riesgo (<20%)' });
+    }
+
     if (!project.quoteItems || project.quoteItems.length === 0) {
         alerts.push({ type: 'info', msg: 'Sin ítems de cotización' });
     }
