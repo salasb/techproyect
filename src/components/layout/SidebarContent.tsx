@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users } from "lucide-react";
 import { LogoutButton } from "./LogoutButton";
-import { APP_VERSION, BUILD_DATE } from "@/lib/version";
+import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -25,7 +25,7 @@ export function SidebarContent({ onLinkClick }: SidebarContentProps) {
                     <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5">
                         <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">{APP_VERSION}</span>
                     </div>
-                    <span className="text-[9px] text-zinc-400 mt-0.5 ml-1">Updated: {new Date(BUILD_DATE).toLocaleDateString()}</span>
+                    <span className="text-[9px] text-zinc-400 mt-0.5 ml-1">Updated: {DEPLOY_DATE}</span>
                 </div>
             </div>
 
