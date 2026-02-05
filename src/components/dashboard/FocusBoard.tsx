@@ -24,27 +24,21 @@ interface Props {
 
 export function FocusBoard({ blockedProjects, activeProjects }: Props) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Blocked Projects - High Priority */}
-            <div className={`rounded-xl border border-red-200 bg-red-50/50 p-6 ${blockedProjects.length === 0 ? 'opacity-70' : ''}`}>
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-red-900 flex items-center">
-                        <AlertOctagon className="w-5 h-5 mr-2 text-red-600" />
-                        Bloqueos / Atención Inmediata
-                        {blockedProjects.length > 0 && (
+
+        <div className={`grid grid-cols-1 ${blockedProjects.length > 0 ? 'md:grid-cols-2' : ''} gap-6 mb-8`}>
+            {/* Blocked Projects - Only show if there are items */}
+            {blockedProjects.length > 0 && (
+                <div className="rounded-xl border border-red-200 bg-red-50/50 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-red-900 flex items-center">
+                            <AlertOctagon className="w-5 h-5 mr-2 text-red-600" />
+                            Bloqueos / Atención Inmediata
                             <span className="ml-2 bg-red-200 text-red-800 text-xs px-2 py-0.5 rounded-full font-bold">
                                 {blockedProjects.length}
                             </span>
-                        )}
-                    </h3>
-                </div>
-
-                {blockedProjects.length === 0 ? (
-                    <div className="text-sm text-red-700/60 italic flex items-center justify-center h-20 border border-dashed border-red-200 rounded-lg">
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Todo fluye correctamente
+                        </h3>
                     </div>
-                ) : (
+
                     <div className="space-y-3">
                         {blockedProjects.map((project) => (
                             <Link key={project.id} href={`/projects/${project.id}`}>
@@ -64,8 +58,8 @@ export function FocusBoard({ blockedProjects, activeProjects }: Props) {
                             </Link>
                         ))}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Active Projects - Focus Today */}
             <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 p-6 shadow-sm">

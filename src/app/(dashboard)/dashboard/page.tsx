@@ -248,7 +248,7 @@ export default function DashboardPage() {
                 {/* REPLACED: Profit Trend Card with Projected Margin Card to show 'Truth' of Project Value */}
                 <StatCard
                     title="Utilidad Proyectada"
-                    value={`$${(totalProjectedMargin / 1000).toFixed(1)}k`}
+                    value={`$${totalProjectedMargin.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                     icon={ArrowUpRight}
                     color="emerald"
                     subtext="Margen total estimado"

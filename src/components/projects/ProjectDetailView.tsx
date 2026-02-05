@@ -373,16 +373,16 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
 
                                                 <div className="grid grid-cols-2 gap-y-2 text-sm">
                                                     <div className="text-muted-foreground">Venta Neta</div>
-                                                    <div className="text-right font-medium">${financials.priceNet.toLocaleString()}</div>
+                                                    <div className="text-right font-medium">${financials.priceNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
 
                                                     <div className="text-muted-foreground">Costo Base</div>
-                                                    <div className="text-right text-zinc-500">-${financials.baseCostNet.toLocaleString()}</div>
+                                                    <div className="text-right text-zinc-500">-${financials.baseCostNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
 
                                                     <div className="col-span-2 my-1 border-t border-border"></div>
 
                                                     <div className="font-medium text-foreground">Utilidad Proy.</div>
                                                     <div className="text-right font-bold text-green-600 dark:text-green-500">
-                                                        ${financials.marginAmountNet.toLocaleString()}
+                                                        ${financials.marginAmountNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                                     </div>
 
                                                     <div className="text-xs text-muted-foreground">Margen %</div>
@@ -401,13 +401,12 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
 
                                                 <div className="grid grid-cols-2 gap-y-2 text-sm">
                                                     <div className="text-muted-foreground">Total Gastos</div>
-                                                    <div className="text-right font-medium text-amber-600 dark:text-amber-500">
+                                                    <div className="text-right font-medium text-amber-700 dark:text-amber-500">
                                                         -${financials.totalExecutedCostNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                                     </div>
 
-                                                    <div className="col-span-2 my-1 border-t border-border"></div>
+                                                    <div className="col-span-2 my-1 border-t border-border border-dashed"></div>
 
-                                                    {/* Changed "Utilidad Real" to "Saldo (Venta - Gasto)" to be more accurate and less misleading */}
                                                     <div className="font-medium text-foreground">Saldo (Venta - Gasto)</div>
                                                     <div className="text-right">
                                                         {(() => {
@@ -420,7 +419,6 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                         })()}
                                                     </div>
 
-                                                    {/* Removed the misleading "Margen Real %" derived from (Price - ExecutedCost) / Price because at 1% progress it shows 99% margin which is wrong. */}
                                                     <div className="col-span-2 mt-1">
                                                         <p className="text-[10px] text-muted-foreground italic leading-tight">
                                                             * Saldo disponible para cubrir gastos restantes y utilidad.
@@ -428,23 +426,25 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        {/* Grand Total */}
-                                        <div className="mt-6 pt-4 border-t border-border">
-                                            <div className="flex flex-col gap-2">
-                                                <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                                    <span>Neto</span>
-                                                    <span className="font-mono">${financials.priceNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                                    <span>IVA</span>
-                                                    <span className="font-mono">${financials.vatAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center pt-2 border-t border-dashed border-border mt-1">
-                                                    <span className="font-bold text-foreground text-base">Total a Facturar</span>
-                                                    <span className="text-xl font-bold text-primary font-mono">${financials.priceGross.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                </div>
+
+                                        </div>
+                                    </div>
+
+                                    {/* Grand Total */}
+                                    <div className="mt-6 pt-4 border-t border-border">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                <span>Neto</span>
+                                                <span className="font-mono">${financials.priceNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                <span>IVA</span>
+                                                <span className="font-mono">${financials.vatAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center pt-2 border-t border-dashed border-border mt-1">
+                                                <span className="font-bold text-foreground text-base">Total a Facturar</span>
+                                                <span className="text-xl font-bold text-primary font-mono">${financials.priceGross.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -452,6 +452,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                             </div>
                         </div>
                     </div>
+
                 )}
 
                 {activeTab === 'logs' && (
@@ -639,92 +640,96 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
             </div>
 
             {/* MODALS */}
-            {isItemsModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-card w-full max-w-2xl rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
-                        <div className="p-4 border-b border-border flex justify-between items-center bg-muted/30">
-                            <h3 className="font-bold text-lg">Ítems de Cotización</h3>
-                            <button onClick={() => setIsItemsModalOpen(false)} className="p-1 hover:bg-zinc-200 rounded-full dark:hover:bg-zinc-700 transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-0 overflow-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-muted/50 text-muted-foreground font-medium sticky top-0">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left">Detalle</th>
-                                        <th className="px-4 py-2 text-center">Cant.</th>
-                                        <th className="px-4 py-2 text-right">Costo U.</th>
-                                        <th className="px-4 py-2 text-right">Precio U.</th>
-                                        <th className="px-4 py-2 text-right">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {project.quoteItems.map((item: any) => (
-                                        <tr key={item.id} className="hover:bg-muted/30">
-                                            <td className="px-4 py-2 font-medium">{item.detail}</td>
-                                            <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                            <td className="px-4 py-2 text-right font-mono text-zinc-500">${item.costNet.toLocaleString()}</td>
-                                            <td className="px-4 py-2 text-right font-mono text-foreground">${item.priceNet.toLocaleString()}</td>
-                                            <td className="px-4 py-2 text-right font-bold">${(item.priceNet * item.quantity).toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="p-4 border-t border-border bg-muted/10 text-right">
-                            <button onClick={() => setIsItemsModalOpen(false)} className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors">Cerrar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {isCostsModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-card w-full max-w-2xl rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
-                        <div className="p-4 border-b border-border flex justify-between items-center bg-muted/30">
-                            <h3 className="font-bold text-lg">Gastos Registrados</h3>
-                            <button onClick={() => setIsCostsModalOpen(false)} className="p-1 hover:bg-zinc-200 rounded-full dark:hover:bg-zinc-700 transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-0 overflow-auto">
-                            {project.costEntries.length === 0 ? (
-                                <p className="p-6 text-center text-muted-foreground">No hay gastos registrados.</p>
-                            ) : (
+            {
+                isItemsModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                        <div className="bg-card w-full max-w-2xl rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
+                            <div className="p-4 border-b border-border flex justify-between items-center bg-muted/30">
+                                <h3 className="font-bold text-lg">Ítems de Cotización</h3>
+                                <button onClick={() => setIsItemsModalOpen(false)} className="p-1 hover:bg-zinc-200 rounded-full dark:hover:bg-zinc-700 transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-0 overflow-auto">
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50 text-muted-foreground font-medium sticky top-0">
                                         <tr>
-                                            <th className="px-4 py-2 text-left">Fecha</th>
-                                            <th className="px-4 py-2 text-left">Categoría</th>
-                                            <th className="px-4 py-2 text-left">Descripción</th>
-                                            <th className="px-4 py-2 text-right">Monto</th>
+                                            <th className="px-4 py-2 text-left">Detalle</th>
+                                            <th className="px-4 py-2 text-center">Cant.</th>
+                                            <th className="px-4 py-2 text-right">Costo U.</th>
+                                            <th className="px-4 py-2 text-right">Precio U.</th>
+                                            <th className="px-4 py-2 text-right">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border">
-                                        {project.costEntries.map((cost: any) => (
-                                            <tr key={cost.id} className="hover:bg-muted/30">
-                                                <td className="px-4 py-2 text-muted-foreground">{format(new Date(cost.date), 'dd/MM/yy')}</td>
-                                                <td className="px-4 py-2">
-                                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 border">
-                                                        {cost.category}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-2 font-medium">{cost.description}</td>
-                                                <td className="px-4 py-2 text-right font-mono font-bold text-amber-600">${cost.amountNet.toLocaleString()}</td>
+                                        {project.quoteItems.map((item: any) => (
+                                            <tr key={item.id} className="hover:bg-muted/30">
+                                                <td className="px-4 py-2 font-medium">{item.detail}</td>
+                                                <td className="px-4 py-2 text-center">{item.quantity}</td>
+                                                <td className="px-4 py-2 text-right font-mono text-zinc-500">${item.costNet.toLocaleString()}</td>
+                                                <td className="px-4 py-2 text-right font-mono text-foreground">${item.priceNet.toLocaleString()}</td>
+                                                <td className="px-4 py-2 text-right font-bold">${(item.priceNet * item.quantity).toLocaleString()}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                            )}
-                        </div>
-                        <div className="p-4 border-t border-border bg-muted/10 text-right">
-                            <button onClick={() => setIsCostsModalOpen(false)} className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors">Cerrar</button>
+                            </div>
+                            <div className="p-4 border-t border-border bg-muted/10 text-right">
+                                <button onClick={() => setIsItemsModalOpen(false)} className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors">Cerrar</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+
+            {
+                isCostsModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                        <div className="bg-card w-full max-w-2xl rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
+                            <div className="p-4 border-b border-border flex justify-between items-center bg-muted/30">
+                                <h3 className="font-bold text-lg">Gastos Registrados</h3>
+                                <button onClick={() => setIsCostsModalOpen(false)} className="p-1 hover:bg-zinc-200 rounded-full dark:hover:bg-zinc-700 transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-0 overflow-auto">
+                                {project.costEntries.length === 0 ? (
+                                    <p className="p-6 text-center text-muted-foreground">No hay gastos registrados.</p>
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted/50 text-muted-foreground font-medium sticky top-0">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left">Fecha</th>
+                                                <th className="px-4 py-2 text-left">Categoría</th>
+                                                <th className="px-4 py-2 text-left">Descripción</th>
+                                                <th className="px-4 py-2 text-right">Monto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                            {project.costEntries.map((cost: any) => (
+                                                <tr key={cost.id} className="hover:bg-muted/30">
+                                                    <td className="px-4 py-2 text-muted-foreground">{format(new Date(cost.date), 'dd/MM/yy')}</td>
+                                                    <td className="px-4 py-2">
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 border">
+                                                            {cost.category}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-2 font-medium">{cost.description}</td>
+                                                    <td className="px-4 py-2 text-right font-mono font-bold text-amber-600">${cost.amountNet.toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                            <div className="p-4 border-t border-border bg-muted/10 text-right">
+                                <button onClick={() => setIsCostsModalOpen(false)} className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors">Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }
 
