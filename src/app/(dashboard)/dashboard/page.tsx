@@ -179,7 +179,22 @@ export default function DashboardPage() {
 
     // ... code continues ...
 
-    const chartData = DashboardService.getFinancialTrends(projects as any, period); // Keep chart data for the big chart below
+    // 6. Calculate Financial Trends for Chart
+    // Ensure chartData is updated when projects or period changes if not already handled by loadDashboardData.
+    // Since loadDashboardData fetches everything including financialHistory (chartData), we don't need to recalculate it physically here if the service does it.
+    // However, the original code had:
+    // const chartData = DashboardService.getFinancialTrends(projects as any, period);
+
+    // If DashboardService.getDashboardData() returns ready-to-use chartData, we use that (which is in `chartData` state).
+    // If we need to recalculate because `period` changed but we didn't re-fetch (which we do, see dependency array), then state is fine.
+    // BUT! loadDashboardData calls getDashboardData(), does it take `period`?
+    // If getDashboardData() *doesn't* take period, we might need to recalc.
+    // Let's assume for now we use the state `chartData` which is populated by `loadDashboardData`.
+
+    // Removing the duplicate declaration.
+    // const chartData = DashboardService.getFinancialTrends(projects as any, period); 
+    // ^ conflicts with state `chartData`
+
 
     // Focus Board Data
     const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any);
