@@ -93,4 +93,5 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
     });
 
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/quote`);
 }

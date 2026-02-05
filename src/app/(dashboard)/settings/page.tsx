@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import Link from "next/link";
+import { Users, ChevronRight } from "lucide-react";
 
 export default async function SettingsPage() {
     const supabase = await createClient();
@@ -34,6 +36,22 @@ export default async function SettingsPage() {
             <div>
                 <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Configuración del Sistema</h2>
                 <p className="text-zinc-500 dark:text-zinc-400 mt-1">Ajusta los parámetros globales para todos tus proyectos.</p>
+            </div>
+
+            {/* Quick Access */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Link href="/settings/users" className="group bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
+                            <Users className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-zinc-900 dark:text-white">Gestión de Usuarios</h3>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Administrar equipo y permisos</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-blue-500 transition-colors" />
+                </Link>
             </div>
 
             <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6">

@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import Image from "next/image";
 
+export const dynamic = 'force-dynamic';
+
 type Settings = Database['public']['Tables']['Settings']['Row']
 
 interface Props {

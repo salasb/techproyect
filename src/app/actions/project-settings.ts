@@ -28,6 +28,7 @@ export async function updateProjectSettings(projectId: string, data: ProjectUpda
     });
 
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/quote`);
     revalidatePath('/projects');
     revalidatePath('/');
 }
