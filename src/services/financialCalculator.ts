@@ -1,7 +1,16 @@
 import { Database } from '@/types/supabase'
 import { addDays, differenceInCalendarDays, isAfter, isBefore, startOfDay } from 'date-fns'
 
-type Project = Database['public']['Tables']['Project']['Row']
+// Decoupled interface to accept both Prisma (Date) and Supabase (string) types
+// and ignore unused fields like 'description'
+interface MinimalProject {
+    budgetNet: number
+    marginPct: number
+    status: string | null
+    progress: number
+    plannedEndDate: string | Date | null
+}
+
 type CostEntry = Database['public']['Tables']['CostEntry']['Row']
 type Invoice = Database['public']['Tables']['Invoice']['Row']
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -24,7 +33,7 @@ export interface FinancialResult {
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row']
 
 export function calculateProjectFinancials(
-    project: Project,
+    project: MinimalProject,
     costs: CostEntry[],
     invoices: Invoice[],
     settings: Settings,
@@ -96,7 +105,7 @@ export function calculateProjectFinancials(
 }
 
 function calculateTimeTrafficLight(
-    project: Project,
+    project: MinimalProject,
     settings: Settings,
     today: Date
 ): 'GRAY' | 'GREEN' | 'YELLOW' | 'RED' {
