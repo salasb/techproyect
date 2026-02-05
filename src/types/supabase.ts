@@ -230,6 +230,36 @@ export type Database = {
                 }
                 Relationships: []
             }
+            Profile: {
+                Row: {
+                    avatarUrl: string | null
+                    createdAt: string
+                    email: string
+                    id: string
+                    name: string
+                    role: string
+                    updatedAt: string
+                }
+                Insert: {
+                    avatarUrl?: string | null
+                    createdAt?: string
+                    email: string
+                    id?: string
+                    name: string
+                    role?: string
+                    updatedAt?: string
+                }
+                Update: {
+                    avatarUrl?: string | null
+                    createdAt?: string
+                    email?: string
+                    id?: string
+                    name?: string
+                    role?: string
+                    updatedAt?: string
+                }
+                Relationships: []
+            }
             Project: {
                 Row: {
                     blockingReason: string | null

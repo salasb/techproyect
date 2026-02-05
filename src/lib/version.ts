@@ -1,2 +1,2 @@
-export const APP_VERSION = "v0.3.1";
-export const DEPLOY_DATE = "05-02-2026"; // Release Date
+export const APP_VERSION = "0.4.0";
+export const BUILD_DATE = new Date().toISOString();

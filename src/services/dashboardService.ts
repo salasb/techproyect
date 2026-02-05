@@ -40,54 +40,109 @@ export class DashboardService {
         return { blockedProjects, focusProjects };
     }
 
-    static getFinancialTrends(projects: Project[]) {
-        const monthsMap = new Map<string, { income: number; expenses: number }>();
+    static getFinancialTrends(projects: Project[], period: string = '6m') {
         const now = new Date();
+        let startDate = new Date();
+        let dateFormat: 'day' | 'month' = 'month';
 
-        // Initialize last 6 months
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const key = d.toLocaleString('es-CL', { month: 'short' });
-            monthsMap.set(key, { income: 0, expenses: 0 });
+        switch (period) {
+            case '30d':
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                dateFormat = 'day';
+                break;
+            case '6m':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+                dateFormat = 'month';
+                break;
+            case '12m':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+                dateFormat = 'month';
+                break;
+            case 'all':
+                startDate = new Date(0);
+                dateFormat = 'month';
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        }
+
+        const dataMap = new Map<string, { label: string, income: number, expenses: number, dateVal: number }>();
+
+        // Pre-fill last X months if using monthly view for better visuals (optional, but good for empty months)
+        if (dateFormat === 'month' && period !== 'all') {
+            const monthsBack = period === '12m' ? 12 : 6;
+            for (let i = monthsBack - 1; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const key = d.toLocaleString('es-CL', { month: 'short', year: '2-digit' });
+                const label = d.toLocaleString('es-CL', { month: 'short' }); // Chart label
+                dataMap.set(key, {
+                    label: label.charAt(0).toUpperCase() + label.slice(1),
+                    income: 0,
+                    expenses: 0,
+                    dateVal: d.getTime()
+                });
+            }
         }
 
         projects.forEach(p => {
-            // Aggregate Expenses
-            if (p.costEntries) {
-                p.costEntries.forEach((c) => {
-                    const d = new Date(c.date);
-                    if (d > new Date(now.getFullYear(), now.getMonth() - 6, 1)) {
-                        const key = d.toLocaleString('es-CL', { month: 'short' });
-                        if (monthsMap.has(key)) {
-                            const curr = monthsMap.get(key)!;
-                            curr.expenses += c.amountNet;
-                        }
-                    }
-                });
-            }
+            // Expenses
+            p.costEntries?.forEach((c) => {
+                const d = new Date(c.date);
+                if (d >= startDate) {
+                    const key = dateFormat === 'day'
+                        ? d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })
+                        : d.toLocaleString('es-CL', { month: 'short', year: '2-digit' });
 
-            // Aggregate Income
-            if (p.invoices) {
-                p.invoices.forEach((inv) => {
-                    if (inv.sent && inv.sentDate) {
-                        const d = new Date(inv.sentDate);
-                        if (d > new Date(now.getFullYear(), now.getMonth() - 6, 1)) {
-                            const key = d.toLocaleString('es-CL', { month: 'short' });
-                            if (monthsMap.has(key)) {
-                                const curr = monthsMap.get(key)!;
-                                curr.income += inv.amountInvoicedGross;
-                            }
-                        }
+                    const label = dateFormat === 'day'
+                        ? d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+                        : d.toLocaleString('es-CL', { month: 'short' });
+
+                    if (!dataMap.has(key)) {
+                        dataMap.set(key, {
+                            label: label.charAt(0).toUpperCase() + label.slice(1),
+                            income: 0,
+                            expenses: 0,
+                            dateVal: dateFormat === 'day' ? d.getTime() : new Date(d.getFullYear(), d.getMonth(), 1).getTime()
+                        });
                     }
-                });
-            }
+                    dataMap.get(key)!.expenses += c.amountNet;
+                }
+            });
+
+            // Income
+            p.invoices?.forEach((inv) => {
+                if (inv.sent && inv.sentDate) {
+                    const d = new Date(inv.sentDate);
+                    if (d >= startDate) {
+                        const key = dateFormat === 'day'
+                            ? d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })
+                            : d.toLocaleString('es-CL', { month: 'short', year: '2-digit' });
+
+                        const label = dateFormat === 'day'
+                            ? d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+                            : d.toLocaleString('es-CL', { month: 'short' });
+
+                        if (!dataMap.has(key)) {
+                            dataMap.set(key, {
+                                label: label.charAt(0).toUpperCase() + label.slice(1),
+                                income: 0,
+                                expenses: 0,
+                                dateVal: dateFormat === 'day' ? d.getTime() : new Date(d.getFullYear(), d.getMonth(), 1).getTime()
+                            });
+                        }
+                        dataMap.get(key)!.income += inv.amountInvoicedGross;
+                    }
+                }
+            });
         });
 
-        return Array.from(monthsMap.entries()).map(([month, data]) => ({
-            month: month.charAt(0).toUpperCase() + month.slice(1),
-            income: data.income,
-            expenses: data.expenses
-        }));
+        return Array.from(dataMap.values())
+            .sort((a, b) => a.dateVal - b.dateVal)
+            .map(({ label, income, expenses }) => ({
+                label,
+                income,
+                expenses
+            }));
     }
 
     static getProfitTrend(projects: Project[], period: string = '6m') {

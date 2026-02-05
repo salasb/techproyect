@@ -25,7 +25,8 @@ export default async function ProjectsPage() {
             *,
             company:Company(*),
             costEntries:CostEntry(*),
-            invoices:Invoice(*)
+            invoices:Invoice(*),
+            quoteItems:QuoteItem(*)
         `)
         .order('updatedAt', { ascending: false });
 
@@ -119,17 +120,20 @@ export default async function ProjectsPage() {
                                                 ) : <span className="text-muted-foreground text-xs">-</span>}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="w-24">
+                                                <div className="w-28">
                                                     <div className="flex justify-between text-xs mb-1">
-                                                        <span>{project.progress}%</span>
+                                                        <span className="font-semibold text-foreground">{fin.calculatedProgress.toFixed(0)}%</span>
+                                                        <span className="text-[10px] text-muted-foreground" title="Avance Financiero (Costo Ejecutado / Presupuesto)">Financiero</span>
                                                     </div>
-                                                    <div className="w-full bg-secondary rounded-full h-1.5">
+                                                    <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
                                                         <div
-                                                            className={`h-1.5 rounded-full ${fin.trafficLightTime === 'RED' ? 'bg-destructive' : 'bg-blue-600'}`}
-                                                            style={{ width: `${project.progress}%` }}
+                                                            className={`h-1.5 rounded-full transition-all duration-500 ${fin.calculatedProgress > 100 ? 'bg-red-500' : 'bg-blue-600'}`}
+                                                            style={{ width: `${Math.min(fin.calculatedProgress, 100)}%` }}
                                                         ></div>
                                                     </div>
-                                                    {fin.trafficLightTime === 'RED' && <span className="text-[10px] text-destructive font-medium">Atrasado</span>}
+                                                    {fin.calculatedProgress > 100 && (
+                                                        <span className="text-[10px] text-red-500 font-medium mt-1 block">Sobrecosto ({fin.calculatedProgress.toFixed(0)}%)</span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

@@ -65,8 +65,8 @@ export default async function DashboardPage({ searchParams }: Props) {
         ? (projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length).toFixed(0)
         : 0;
 
-    // 4. Calculate Financial Trends for Chart (Last 6 Months)
-    const chartData = DashboardService.getFinancialTrends(projects as any);
+    // 4. Calculate Financial Trends for Chart
+    const chartData = DashboardService.getFinancialTrends(projects as any, period);
 
     // 5. Calculate Dynamic Profit Trend
     const { trendData: profitTrendData, totalProfit } = DashboardService.getProfitTrend(projects as any, period);
@@ -137,7 +137,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                 <div className="col-span-4 bg-card rounded-xl border border-border shadow-sm p-6">
                     <div className="mb-6">
                         <h3 className="text-lg font-semibold text-foreground">Actividad Financiera</h3>
-                        <p className="text-sm text-muted-foreground">Ingresos vs Costos (Últimos 6 meses)</p>
+                        <p className="text-sm text-muted-foreground">Ingresos vs Costos ({periodLabels[period] || 'periodo'})</p>
                     </div>
 
                     <div className="-ml-2">

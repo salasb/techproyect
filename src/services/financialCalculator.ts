@@ -3,7 +3,7 @@ import { addDays, differenceInCalendarDays, isAfter, isBefore, startOfDay } from
 
 // Decoupled interface to accept both Prisma (Date) and Supabase (string) types
 // and ignore unused fields like 'description'
-interface MinimalProject {
+export interface MinimalProject {
     budgetNet: number
     marginPct: number
     status: string | null
@@ -44,6 +44,7 @@ export interface FinancialResult {
     trafficLightTime: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
     trafficLightCollection: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
     totalExecutedCostNet: number
+    calculatedProgress: number
 }
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row']
@@ -97,6 +98,10 @@ export function calculateProjectFinancials(
     const trafficLightTime = calculateTimeTrafficLight(project, settings, today)
     const trafficLightCollection = calculateCollectionTrafficLight(sentInvoices, receivableGross, settings, today)
 
+    // 5. Financial Progress (Executed Cost / Base Cost)
+    // Avoid division by zero
+    const calculatedProgress = baseCostNet > 0 ? Math.min(100, (sumCostNet / baseCostNet) * 100) : 0;
+
     return {
         sumCostNet, // Keeping for backward compat if needed, but redundant with totalExecutedCostNet logic-wise
         baseCostNet,
@@ -110,7 +115,8 @@ export function calculateProjectFinancials(
         receivableGross,
         trafficLightTime,
         trafficLightCollection,
-        totalExecutedCostNet: sumCostNet
+        totalExecutedCostNet: sumCostNet,
+        calculatedProgress // New field
     }
 }
 

@@ -53,6 +53,7 @@ export async function createProject(formData: FormData) {
             plannedEndDate: new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1)).toISOString(),
             budgetNet: budget,
             responsible: "TBD",
+            scopeDetails: formData.get("scopeDetails") as string || null,
             nextAction: formData.get("nextAction") as string || null,
             nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : null,
             updatedAt: new Date().toISOString(),

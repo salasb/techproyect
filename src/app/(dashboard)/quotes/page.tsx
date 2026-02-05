@@ -112,7 +112,7 @@ export default function QuotesPage() {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <Link
-                                                href={`/projects/${quote.id}`}
+                                                href={`/projects/${quote.id}/quote`}
                                                 className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-xs"
                                             >
                                                 Ver Detalle

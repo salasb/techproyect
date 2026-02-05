@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { addQuoteItem, removeQuoteItem, updateQuoteItem } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
-import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X } from "lucide-react";
+import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
@@ -114,12 +114,36 @@ export function QuoteItemsManager({ projectId, items }: Props) {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium text-foreground">Ítems de Cotización</h3>
-                <div className="text-right flex gap-6">
+                <div className="text-right flex gap-6 items-center">
                     <div>
-                        <p className="text-xs text-muted-foreground uppercase">Margen Est.</p>
-                        <p className={`text-xl font-bold ${projectMarginPct >= 30 ? 'text-green-600' : 'text-yellow-600'}`}>{projectMarginPct.toFixed(1)}%</p>
+                        <p className="text-xs text-muted-foreground uppercase">Costo Total</p>
+                        <p className="text-lg font-semibold text-zinc-500">${totalCost.toLocaleString()}</p>
                     </div>
                     <div>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="cursor-help">
+                                        <p className="text-xs text-muted-foreground uppercase flex items-center justify-end gap-1">
+                                            Margen Global <AlertCircle className="w-3 h-3" />
+                                        </p>
+                                        <p className={`text-xl font-bold ${projectMarginPct >= 30 ? 'text-green-600' : 'text-yellow-600'}`}>{projectMarginPct.toFixed(1)}%</p>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="font-semibold mb-1">Margen Ponderado Real</p>
+                                    <p className="text-xs">
+                                        (Venta Total - Costo Total) / Venta Total
+                                        <br />
+                                        <span className="opacity-70">
+                                            (${totalNet.toLocaleString()} - ${totalCost.toLocaleString()}) / ${totalNet.toLocaleString()}
+                                        </span>
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                    <div className="border-l border-zinc-200 dark:border-zinc-700 pl-6">
                         <p className="text-xs text-muted-foreground uppercase">Total Neto</p>
                         <p className="text-2xl font-bold text-foreground">${totalNet.toLocaleString()}</p>
                     </div>

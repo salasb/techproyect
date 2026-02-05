@@ -3,7 +3,7 @@
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts"
 
 interface FinancialData {
-    month: string;
+    label: string;
     income: number;
     expenses: number;
 }
@@ -26,7 +26,7 @@ export function FinancialActivityChart({ data }: Props) {
             <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E4E7" />
                 <XAxis
-                    dataKey="month"
+                    dataKey="label"
                     stroke="#71717A"
                     fontSize={12}
                     tickLine={false}

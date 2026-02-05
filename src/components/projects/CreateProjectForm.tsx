@@ -104,6 +104,16 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                     </div>
                 </div>
 
+                <div>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Alcance / Descripción del Proyecto</label>
+                    <textarea
+                        name="scopeDetails"
+                        rows={3}
+                        placeholder="Descripción breve del alcance, objetivos o entregables..."
+                        className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white resize-none"
+                    />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Próxima Acción (Inicial)</label>
