@@ -70,7 +70,11 @@ export default async function DashboardPage({ searchParams }: Props) {
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
 
     // 5. Calculate Dynamic Profit Trend
-    const { trendData: profitTrendData, totalProfit } = DashboardService.getProfitTrend(projects as any, period);
+    const profitTrendData = chartData.map(d => ({
+        date: d.label,
+        value: d.profit
+    }));
+    const totalProfit = profitTrendData.reduce((acc, curr) => acc + curr.value, 0);
 
     const periodLabels: Record<string, string> = {
         '30d': 'últimos 30 días',
