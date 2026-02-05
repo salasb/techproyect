@@ -116,8 +116,19 @@ export function QuoteDocument({ project, settings }: Props) {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={5} className="py-8 px-4 text-center text-zinc-400 italic">
-                                    No hay ítems detallados en esta cotización.
+                                <td colSpan={5} className="py-12 px-4 text-center">
+                                    <div className="flex flex-col items-center justify-center text-zinc-400">
+                                        <p className="italic mb-4">No hay ítems en esta cotización.</p>
+                                        <p className="text-sm mb-6 max-w-md mx-auto print:hidden">
+                                            Para generar la cotización, debes agregar los productos o servicios en la pestaña "Ítems / Detalle" de la ficha del proyecto.
+                                        </p>
+                                        <a
+                                            href={`/projects/${project.id}`}
+                                            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors print:hidden"
+                                        >
+                                            Ir a la Ficha del Proyecto
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         )}
