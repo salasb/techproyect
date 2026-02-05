@@ -34,7 +34,7 @@ export default async function QuotePage({ params }: Props) {
 
     // Sort quoteItems by sku (client-side sort since we are using join)
     if (project && project.quoteItems) {
-        project.quoteItems.sort((a, b) => {
+        project.quoteItems.sort((a: any, b: any) => {
             if (a.sku && b.sku) return a.sku.localeCompare(b.sku);
             return 0;
         });
