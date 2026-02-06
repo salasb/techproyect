@@ -107,13 +107,27 @@ export function calculateProjectFinancials(
     // Red: < 0% Margin (Loss)
     // Yellow: < 20% Margin (Low profit / Risk)
     // Green: >= 20% Margin (Healthy)
-    const marginPct = priceNet > 0 ? (marginAmountNet / priceNet) * 100 : 0;
+
+    // We must use ACTUAL execution to determine health, not just the plan.
+    // Actual Margin = Price - Total Executed Cost
+    let usefulMarginAmount = marginAmountNet;
+
+    // If we have a price (Fixed Price / Quote model), we check against actual costs.
+    if (priceNet > 0) {
+        usefulMarginAmount = priceNet - sumCostNet;
+    }
+    // If it's pure Cost Plus with no fixed price, margin is just a markup on cost, so it theoretically stays constant %,
+    // unless we exceeded some budget cap (but budget cap isn't strictly enforced in cost-plus usually).
+    // For now, let's assume if priceNet > 0 we use actuals.
+
+    const marginPct = priceNet > 0 ? (usefulMarginAmount / priceNet) * 100 : 0;
+
     let trafficLightFinancial: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED' = 'GRAY';
 
-    if (priceNet === 0 && baseCostNet === 0) {
+    if (priceNet === 0 && baseCostNet === 0 && sumCostNet === 0) {
         trafficLightFinancial = 'GRAY'; // No activity
     } else if (marginPct < 0) {
-        trafficLightFinancial = 'RED';
+        trafficLightFinancial = 'RED'; // Overcost / Loss
     } else if (marginPct < 20) {
         trafficLightFinancial = 'YELLOW';
     } else {

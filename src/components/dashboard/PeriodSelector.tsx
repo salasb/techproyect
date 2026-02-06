@@ -26,7 +26,10 @@ export function PeriodSelector() {
             {periods.map((p) => (
                 <button
                     key={p.value}
-                    onClick={() => handlePeriodChange(p.value)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handlePeriodChange(p.value);
+                    }}
                     className={`
                         px-3 py-1.5 text-xs font-medium rounded-md transition-all
                         ${currentPeriod === p.value

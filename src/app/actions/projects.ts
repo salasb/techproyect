@@ -47,7 +47,7 @@ export async function createProject(formData: FormData) {
             id: projectId,
             name,
             companyId: finalCompanyId,
-            status: "EN_CURSO",
+            status: "EN_ESPERA",
             stage: "LEVANTAMIENTO",
             startDate: new Date(startDate).toISOString(),
             plannedEndDate: formData.get("plannedEndDate") ? new Date(formData.get("plannedEndDate") as string).toISOString() : new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1)).toISOString(),

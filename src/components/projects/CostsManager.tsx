@@ -5,7 +5,9 @@ import { Database } from "@/types/supabase";
 import { addCost, deleteCost, updateCost } from "@/app/actions/costs";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2, Edit2, Save, X } from "lucide-react";
+import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2, Edit2, Save, X, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 type CostEntry = Database['public']['Tables']['CostEntry']['Row'];
 type CostCategory = Database['public']['Enums']['CostCategory'];
@@ -231,28 +233,31 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
 
                         <div className="md:col-span-2">
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Monto Neto</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input
-                                    name="amount"
-                                    type="number"
-                                    required
-                                    min="0"
-                                    defaultValue={editingCost?.amountNet}
-                                    placeholder="0"
-                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
+                            <MoneyInput
+                                name="amount"
+                                defaultValue={editingCost?.amountNet}
+                                placeholder="0"
+                                required
+                            />
                         </div>
 
                         <div className="md:col-span-1 flex justify-end">
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full h-[38px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
-                            >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : editingCost ? <Save className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                            </button>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="submit"
+                                            disabled={isLoading}
+                                            className="w-full h-[38px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                        >
+                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : editingCost ? <Save className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{editingCost ? 'Guardar Cambios' : 'Registrar Costo'}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </div>
                     <div className="flex justify-end mt-2">

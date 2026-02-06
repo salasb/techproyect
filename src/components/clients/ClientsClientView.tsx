@@ -1,54 +1,83 @@
-'use client'
-
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { createClientAction, deleteClientAction, updateClientAction } from "@/actions/clients";
-import { Plus, Search, MapPin, Phone, Mail, FileText, User, Trash2, Edit2, Loader2, X } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, FileText } from "lucide-react";
 import { formatRut, validateRut } from "@/lib/rut";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/Toast";
 
 export function ClientsClientView({ initialClients }: { initialClients: any[] }) {
-    const [clients, setClients] = useState(initialClients);
+    const [clients] = useState(initialClients); // We depend on server revalidation to update the list, but initial state is useful until then.
+    // Ideally, we'd use useOptimistic here, but for now simple revalidation is fine.
+
     const [isAdding, setIsAdding] = useState(false);
     const [editingClient, setEditingClient] = useState<any | null>(null);
     const [search, setSearch] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const [isPending, startTransition] = useTransition();
+    const router = useRouter();
+    const { toast } = useToast();
 
-    const filteredClients = clients.filter(c =>
+    // Form State
+    const [taxIdError, setTaxIdError] = useState<string | null>(null);
+
+    const filteredClients = initialClients.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.email?.toLowerCase().includes(search.toLowerCase())
     );
 
     async function handleSubmit(formData: FormData) {
-        setIsLoading(true);
-        try {
-            if (editingClient) {
-                await updateClientAction(editingClient.id, formData);
-            } else {
-                await createClientAction(formData);
-            }
-            // Ideally we'd optimize allowing optimistic updates, but for now full refresh via server actions revalidation is fine.
-            // However, since we received initialClients as prop, we depend on page refresh or router.refresh() 
-            // In a real app we might verify if revalidatePath updates 'clients' prop automatically (it does in Server Components if we refresh).
-            // For now let's just reload to update the view or trust the parent re-renders.
-            // A simple hack is forcing a page reload or using router.refresh()
-            window.location.reload();
-        } catch (error) {
-            alert("Error al guardar cliente");
-        } finally {
-            setIsLoading(false);
-            setIsAdding(false);
-            setEditingClient(null);
+        setTaxIdError(null);
+
+        // Client-side Validation
+        const taxId = formData.get('taxId') as string;
+        if (taxId && !validateRut(taxId)) {
+            setTaxIdError("RUT inválido. Formato esperado: 12.345.678-9");
+            return;
         }
+
+        startTransition(async () => {
+            try {
+                if (editingClient) {
+                    await updateClientAction(editingClient.id, formData);
+                    toast({ type: 'success', message: "Cliente actualizado correctamente" });
+                } else {
+                    await createClientAction(formData);
+                    toast({ type: 'success', message: "Cliente creado correctamente" });
+                }
+
+                setIsAdding(false);
+                setEditingClient(null);
+                setTaxIdError(null);
+                router.refresh();
+            } catch (error: any) {
+                console.error(error);
+                // Extract error message if possible
+                const msg = error.message?.includes("RUT inválido")
+                    ? "El RUT ingresado no es válido."
+                    : "Error al guardar cliente. Inténtalo nuevamente.";
+                toast({ type: 'error', message: msg });
+            }
+        });
     }
 
     async function handleDelete(id: string) {
         if (!confirm("¿Eliminar cliente?")) return;
-        try {
-            await deleteClientAction(id);
-            window.location.reload();
-        } catch (error) {
-            alert("Error al eliminar");
-        }
+
+        startTransition(async () => {
+            try {
+                await deleteClientAction(id);
+                toast({ type: 'success', message: "Cliente eliminado" });
+                router.refresh();
+            } catch (error) {
+                toast({ type: 'error', message: "Error al eliminar cliente" });
+            }
+        });
     }
+
+    const openModal = (client?: any) => {
+        setEditingClient(client || null);
+        setIsAdding(true);
+        setTaxIdError(null);
+    };
 
     return (
         <div className="space-y-6">
@@ -64,7 +93,7 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                     />
                 </div>
                 <button
-                    onClick={() => setIsAdding(true)}
+                    onClick={() => openModal()}
                     className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
                     <Plus className="w-4 h-4 mr-2" />
@@ -86,7 +115,7 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                 )}
                             </div>
                             <div className="flex bg-muted/50 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => { setEditingClient(client); setIsAdding(true); }} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded">
+                                <button onClick={() => openModal(client)} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded">
                                     <Edit2 className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => handleDelete(client.id)} className="p-1.5 text-zinc-500 hover:text-red-600 rounded">
@@ -146,21 +175,24 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                     <input
                                         name="taxId"
                                         defaultValue={editingClient?.taxId}
-                                        className="w-full p-2 rounded-lg border border-input bg-background font-mono"
+                                        className={`w-full p-2 rounded-lg border bg-background font-mono ${taxIdError ? 'border-red-500' : 'border-input'}`}
                                         placeholder="12.345.678-9"
                                         onChange={(e) => {
-                                            // Auto-format on type
-                                            const formatted = formatRut(e.target.value);
-                                            // Only update if it's a valid partial format or deleted
-                                            e.target.value = formatted;
+                                            const val = e.target.value;
+                                            if (val.length > 2) {
+                                                e.target.value = formatRut(val);
+                                            }
                                         }}
+                                        // On blur validation is nice, but we rely on submit for hard block
                                         onBlur={(e) => {
                                             if (e.target.value && !validateRut(e.target.value)) {
-                                                alert("El RUT ingresado no es válido");
-                                                // e.target.focus(); // Optional: force fix
+                                                setTaxIdError("RUT inválido");
+                                            } else {
+                                                setTaxIdError(null);
                                             }
                                         }}
                                     />
+                                    {taxIdError && <p className="text-xs text-red-500 mt-1">{taxIdError}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Teléfono</label>
@@ -182,8 +214,8 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
 
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => { setIsAdding(false); setEditingClient(null); }} className="px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">Cancelar</button>
-                                <button type="submit" disabled={isLoading} className="px-6 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-lg hover:bg-primary/90 flex items-center">
-                                    {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                <button type="submit" disabled={isPending} className="px-6 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-lg hover:bg-primary/90 flex items-center disabled:opacity-50">
+                                    {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                     Guardar
                                 </button>
                             </div>
