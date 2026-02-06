@@ -47,8 +47,7 @@ export function ProjectSettings({ project, clients }: Props) {
     async function handleSubmit(formData: FormData) {
         setIsLoading(true);
         try {
-            const marginPct = parseFloat(formData.get("marginPct") as string) / 100;
-            const progress = parseInt(formData.get("progress") as string);
+            const marginPct = (parseFloat(formData.get("marginPct") as string) || 0) / 100;
             const currency = formData.get("currency") as string;
             const nextAction = formData.get("nextAction") as string;
             const nextActionDateStr = formData.get("nextActionDate") as string;
@@ -58,15 +57,14 @@ export function ProjectSettings({ project, clients }: Props) {
 
             await updateProjectSettings(project.id, {
                 marginPct,
-                progress,
                 currency,
                 nextAction,
                 nextActionDate
             });
             toast({ type: 'success', message: "Configuración guardada exitosamente" });
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ type: 'error', message: "Error guardando configuración" });
+            toast({ type: 'error', message: error.message || "Error guardando configuración" });
         } finally {
             setIsLoading(false);
         }

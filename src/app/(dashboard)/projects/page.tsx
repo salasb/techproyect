@@ -116,7 +116,7 @@ export default async function ProjectsPage() {
                                                         {!isOverdue && isDueToday && <Clock className="w-4 h-4 flex-shrink-0" />}
                                                         <div className="flex flex-col">
                                                             <span>{project.nextAction}</span>
-                                                            {nextActionDate && <span className="opacity-75">{nextActionDate.toLocaleDateString()}</span>}
+                                                            {nextActionDate && <span className="opacity-75 capitalize">{nextActionDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
                                                         </div>
                                                     </div>
                                                 ) : <span className="text-muted-foreground text-xs">-</span>}
@@ -153,7 +153,7 @@ export default async function ProjectsPage() {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col text-sm">
                                                     <span className="font-medium text-foreground">
-                                                        ${fin.priceGross.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-xs text-muted-foreground font-normal">Total</span>
+                                                        ${fin.priceGross.toLocaleString('es-CL', { maximumFractionDigits: 0 })} <span className="text-xs text-muted-foreground font-normal">Total</span>
                                                     </span>
 
                                                     {/* Financial Health Indicator */}
@@ -166,7 +166,7 @@ export default async function ProjectsPage() {
                                                                 fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
                                                                     'text-green-600'
                                                                 }`}>
-                                                                ${fin.marginAmountNet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                                ${fin.marginAmountNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}
                                                             </span>
                                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${fin.trafficLightFinancial === 'RED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
                                                                 fin.trafficLightFinancial === 'YELLOW' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :

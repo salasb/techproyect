@@ -34,7 +34,8 @@ export async function createInvoice(projectId: string, formData: FormData) {
                 sent: false,
                 sentDate: null,
                 dueDate: finalDueDate,
-                paymentTermsDays: paymentTerms
+                paymentTermsDays: paymentTerms,
+                updatedAt: new Date().toISOString()
             });
 
         if (error) {

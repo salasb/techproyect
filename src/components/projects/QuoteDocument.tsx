@@ -136,7 +136,7 @@ export function QuoteDocument({ project, settings }: Props) {
                 </table>
 
                 {/* Totals Section - Compact Layout */}
-                <div className="flex justify-end mt-2">
+                <div className="flex justify-end mt-2 break-inside-avoid page-break-inside-avoid">
                     <div className="w-64 bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden text-sm">
                         <div className="p-3 space-y-2">
                             <div className="flex justify-between">

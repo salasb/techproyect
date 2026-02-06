@@ -15,13 +15,22 @@ interface Props {
     projectId: string;
     items: QuoteItem[];
     defaultMargin?: number;
+    currency?: string;
 }
 
-export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Props) {
+export function QuoteItemsManager({ projectId, items, defaultMargin = 30, currency = 'CLP' }: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+    // Helper for currency
+    const formatMoney = (amount: number) => {
+        if (currency === 'CLP') return '$' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+        if (currency === 'USD') return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 2 });
+        return '$' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+    }
 
     // Form states
     const [quantity, setQuantity] = useState(1);
@@ -149,7 +158,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
                 <div className="text-right flex gap-6 items-center">
                     <div>
                         <p className="text-xs text-muted-foreground uppercase">Costo Total</p>
-                        <p className="text-lg font-semibold text-zinc-500">${totalCost.toLocaleString()}</p>
+                        <p className="text-lg font-semibold text-zinc-500">{formatMoney(totalCost)}</p>
                     </div>
                     <div>
                         <TooltipProvider>
@@ -168,7 +177,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
                                         (Venta Total - Costo Total) / Venta Total
                                         <br />
                                         <span className="opacity-70">
-                                            (${totalNet.toLocaleString()} - ${totalCost.toLocaleString()}) / ${totalNet.toLocaleString()}
+                                            ({formatMoney(totalNet)} - {formatMoney(totalCost)}) / {formatMoney(totalNet)}
                                         </span>
                                     </p>
                                 </TooltipContent>
@@ -177,7 +186,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
                     </div>
                     <div className="border-l border-zinc-200 dark:border-zinc-700 pl-6">
                         <p className="text-xs text-muted-foreground uppercase">Total Neto</p>
-                        <p className="text-2xl font-bold text-foreground">${totalNet.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-foreground">{formatMoney(totalNet)}</p>
                     </div>
                 </div>
             </div>
@@ -221,10 +230,10 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
                                             {item.quantity}
                                         </td>
                                         <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500">
-                                            ${item.costNet.toLocaleString()}
+                                            {formatMoney(item.costNet)}
                                         </td>
                                         <td className="px-4 py-3 text-right font-mono font-medium">
-                                            ${item.priceNet.toLocaleString()}
+                                            {formatMoney(item.priceNet)}
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${marginP < 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
@@ -232,7 +241,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30 }: Prop
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-right font-mono text-foreground font-semibold">
-                                            ${(item.priceNet * item.quantity).toLocaleString()}
+                                            {formatMoney(item.priceNet * item.quantity)}
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
