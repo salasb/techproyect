@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useTransition } from "react";
 import { createClientAction, deleteClientAction, updateClientAction } from "@/actions/clients";
 import { Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, FileText } from "lucide-react";
