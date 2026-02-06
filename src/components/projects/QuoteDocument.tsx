@@ -96,38 +96,38 @@ export function QuoteDocument({ project, settings }: Props) {
                 <table className="w-full text-sm border-collapse">
                     <thead className="bg-zinc-100 border-x border-zinc-200">
                         <tr>
-                            <th className="py-3 px-4 text-left font-bold text-zinc-700 w-16 border-b border-zinc-300">#</th>
-                            <th className="py-3 px-4 text-left font-bold text-zinc-700 border-b border-zinc-300">Descripción / Ítem</th>
-                            <th className="py-3 px-4 text-center font-bold text-zinc-700 w-24 border-b border-zinc-300">Cant.</th>
-                            <th className="py-3 px-4 text-right font-bold text-zinc-700 w-32 border-b border-zinc-300">Precio Unit.</th>
-                            <th className="py-3 px-4 text-right font-bold text-zinc-700 w-32 border-b border-zinc-300 bg-zinc-50">Total</th>
+                            <th className="py-2 px-3 text-left font-bold text-zinc-700 w-12 border-b border-zinc-300">#</th>
+                            <th className="py-2 px-3 text-left font-bold text-zinc-700 border-b border-zinc-300">Descripción / Ítem</th>
+                            <th className="py-2 px-3 text-center font-bold text-zinc-700 w-20 border-b border-zinc-300">Cant.</th>
+                            <th className="py-2 px-3 text-right font-bold text-zinc-700 w-28 border-b border-zinc-300">Precio Unit.</th>
+                            <th className="py-2 px-3 text-right font-bold text-zinc-700 w-28 border-b border-zinc-300 bg-zinc-50">Total</th>
                         </tr>
                     </thead>
                     <tbody className="border-x border-b border-zinc-200">
                         {project.quoteItems && project.quoteItems.length > 0 ? (
                             project.quoteItems.map((item, index) => (
                                 <tr key={item.id} className="even:bg-zinc-50/50">
-                                    <td className="py-3 px-4 text-zinc-400 font-mono text-xs border-b border-zinc-100">
+                                    <td className="py-2 px-3 text-zinc-400 font-mono text-xs border-b border-zinc-100">
                                         {(index + 1).toString().padStart(2, '0')}
                                     </td>
-                                    <td className="py-3 px-4 border-b border-zinc-100">
+                                    <td className="py-2 px-3 border-b border-zinc-100">
                                         <p className="font-medium text-zinc-900">{item.detail}</p>
                                         {item.sku && <p className="text-[10px] text-zinc-400 font-mono mt-0.5">SKU: {item.sku}</p>}
                                     </td>
-                                    <td className="py-3 px-4 text-center text-zinc-600 border-b border-zinc-100">
+                                    <td className="py-2 px-3 text-center text-zinc-600 border-b border-zinc-100">
                                         <span className="bg-zinc-100 px-2 py-1 rounded text-xs font-semibold">{item.quantity} {item.unit}</span>
                                     </td>
-                                    <td className="py-3 px-4 text-right font-mono text-zinc-600 border-b border-zinc-100">
-                                        ${item.priceNet.toLocaleString()}
+                                    <td className="py-2 px-3 text-right font-mono text-zinc-600 border-b border-zinc-100">
+                                        ${item.priceNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}
                                     </td>
-                                    <td className="py-3 px-4 text-right font-mono font-medium text-zinc-900 border-b border-zinc-100 bg-zinc-50/30">
-                                        ${(item.priceNet * item.quantity).toLocaleString()}
+                                    <td className="py-2 px-3 text-right font-mono font-medium text-zinc-900 border-b border-zinc-100 bg-zinc-50/30">
+                                        ${(item.priceNet * item.quantity).toLocaleString('es-CL', { maximumFractionDigits: 0 })}
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={5} className="py-16 px-4 text-center text-zinc-400">
+                                <td colSpan={5} className="py-12 px-4 text-center text-zinc-400">
                                     <p>No se han agregado ítems a esta cotización.</p>
                                 </td>
                             </tr>
@@ -135,34 +135,34 @@ export function QuoteDocument({ project, settings }: Props) {
                     </tbody>
                 </table>
 
-                {/* Totals Section - Moved outside table for better control */}
-                <div className="flex justify-end mt-4">
-                    <div className="w-72 bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden">
-                        <div className="p-4 space-y-3">
-                            <div className="flex justify-between text-sm">
+                {/* Totals Section - Compact Layout */}
+                <div className="flex justify-end mt-2">
+                    <div className="w-64 bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden text-sm">
+                        <div className="p-3 space-y-2">
+                            <div className="flex justify-between">
                                 <span className="text-zinc-600 font-medium">Subtotal Neto</span>
-                                <span className="font-mono font-semibold">${totalNet.toLocaleString()}</span>
+                                <span className="font-mono font-semibold">${totalNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
                             </div>
-                            <div className="flex justify-between text-sm">
+                            <div className="flex justify-between">
                                 <span className="text-zinc-600 font-medium">IVA (19%)</span>
-                                <span className="font-mono font-semibold text-zinc-500">${vatAmount.toLocaleString()}</span>
+                                <span className="font-mono font-semibold text-zinc-500">${vatAmount.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
                             </div>
                         </div>
-                        <div className="bg-zinc-900 text-white p-4 flex justify-between items-center">
-                            <span className="font-bold uppercase tracking-wider text-sm">Total a Pagar</span>
-                            <span className="font-mono font-bold text-xl">${totalGross.toLocaleString()}</span>
+                        <div className="bg-zinc-900 text-white p-3 flex justify-between items-center">
+                            <span className="font-bold uppercase tracking-wider text-xs">Total a Pagar</span>
+                            <span className="font-mono font-bold text-lg">${totalGross.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Terms & Conditions Box */}
-            <div className="mt-8 mb-32 bg-zinc-50 p-6 rounded-lg border border-dashed border-zinc-300">
-                <h4 className="font-bold text-zinc-800 mb-3 text-xs uppercase flex items-center gap-2">
+            {/* Terms & Conditions Box - Reduced Margin */}
+            <div className="mt-4 mb-8 bg-zinc-50 p-5 rounded-lg border border-dashed border-zinc-300">
+                <h4 className="font-bold text-zinc-800 mb-2 text-xs uppercase flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Condiciones Comerciales
                 </h4>
-                <ul className="text-sm text-zinc-600 space-y-2 pl-2">
+                <ul className="text-xs text-zinc-600 space-y-1.5 pl-2">
                     <li className="flex gap-2">
                         <span className="text-zinc-400">•</span>
                         <span><strong className="text-zinc-700">Validez:</strong> 15 días hábiles desde la fecha de emisión.</span>
@@ -178,15 +178,15 @@ export function QuoteDocument({ project, settings }: Props) {
                 </ul>
             </div>
 
-            {/* Sticky Footer for Print - Use margin-top auto to push to bottom of page container if content allows, but absolute fallback for print */}
-            <div className="mt-auto grid grid-cols-2 gap-16 pt-8 pb-4 print:absolute print:bottom-[15mm] print:left-[20mm] print:right-[20mm]">
-                <div className="border-t-2 border-zinc-300 pt-4 text-center">
-                    <p className="font-bold text-zinc-900 text-sm">TechProyect SpA</p>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wide mt-1">Firma Proveedor</p>
+            {/* Sticky Footer for Print */}
+            <div className="mt-auto grid grid-cols-2 gap-16 pt-4 pb-0 print:absolute print:bottom-[15mm] print:left-[20mm] print:right-[20mm]">
+                <div className="border-t-2 border-zinc-300 pt-3 text-center">
+                    <p className="font-bold text-zinc-900 text-sm">Techwise SpA</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-1">Firma Proveedor</p>
                 </div>
-                <div className="border-t-2 border-zinc-300 pt-4 text-center">
+                <div className="border-t-2 border-zinc-300 pt-3 text-center">
                     <p className="font-bold text-zinc-900 text-sm">Aceptación Cliente</p>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wide mt-1">Firma y Timbre</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-1">Firma y Timbre</p>
                 </div>
             </div>
         </div>

@@ -263,13 +263,19 @@ export function ProjectHeader({ project }: Props) {
                                     </Link>
                                     <button
                                         onClick={() => {
-                                            handleMarkQuoteSent();
-                                            setIsQuoteMenuOpen(false);
+                                            if (!quoteSentDate) {
+                                                handleMarkQuoteSent();
+                                                setIsQuoteMenuOpen(false);
+                                            }
                                         }}
-                                        className="flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg group"
+                                        disabled={!!quoteSentDate}
+                                        className={`flex items-center w-full px-3 py-2 text-sm rounded-lg group ${quoteSentDate
+                                            ? 'text-zinc-400 cursor-not-allowed bg-zinc-50 dark:bg-zinc-800/50'
+                                            : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                            }`}
                                     >
-                                        <Send className="w-4 h-4 mr-2 text-purple-500 group-hover:text-purple-600" />
-                                        <span>Marcar como Enviada</span>
+                                        <Send className={`w-4 h-4 mr-2 ${quoteSentDate ? 'text-zinc-400' : 'text-purple-500 group-hover:text-purple-600'}`} />
+                                        <span>{quoteSentDate ? 'Cotización Enviada' : 'Marcar como Enviada'}</span>
                                     </button>
                                 </div>
                             </div>
