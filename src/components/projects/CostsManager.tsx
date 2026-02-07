@@ -117,6 +117,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
             {/* List */}
             {/* List */}
             <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
                         <tr>
@@ -172,6 +173,8 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                         )}
                     </tbody>
                 </table>
+                </table>
+                </div>
             </div>
 
             <ConfirmDialog
@@ -185,109 +188,111 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                 onCancel={() => setItemToDelete(null)}
             />
 
-            {/* Add/Edit Form */}
-            {isAdding || editingCost ? (
-                <form id="add-cost-form" action={handleAddCost} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
-                    <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2">
-                            {editingCost ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                            {editingCost ? 'Editar Costo' : 'Nuevo Costo'}
-                        </h4>
+            {/* Add/Edit Form */ }
+    {
+        isAdding || editingCost ? (
+            <form id="add-cost-form" action={handleAddCost} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2">
+                        {editingCost ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        {editingCost ? 'Editar Costo' : 'Nuevo Costo'}
+                    </h4>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                    <div className="md:col-span-4">
+                        <label className="block text-xs font-medium text-zinc-500 mb-1">Categoría</label>
+                        <div className="relative">
+                            <Tag className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                            <select
+                                name="category"
+                                required
+                                defaultValue={editingCost?.category || 'OTROS'}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                {CATEGORIES.map(cat => (
+                                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-                        <div className="md:col-span-4">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Categoría</label>
-                            <div className="relative">
-                                <Tag className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <select
-                                    name="category"
-                                    required
-                                    defaultValue={editingCost?.category || 'OTROS'}
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                    {CATEGORIES.map(cat => (
-                                        <option key={cat.value} value={cat.value}>{cat.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="md:col-span-4">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Fecha</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input
-                                    name="date"
-                                    type="date"
-                                    required
-                                    defaultValue={editingCost ? new Date(editingCost.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
-                                    className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="md:col-span-4">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Monto Neto</label>
-                            <MoneyInput
-                                name="amount"
-                                defaultValue={editingCost?.amountNet}
-                                placeholder="0"
-                                required
-                            />
-                        </div>
-
-                        <div className="md:col-span-10">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción</label>
+                    <div className="md:col-span-4">
+                        <label className="block text-xs font-medium text-zinc-500 mb-1">Fecha</label>
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
                             <input
-                                name="description"
-                                type="text"
+                                name="date"
+                                type="date"
                                 required
-                                defaultValue={editingCost?.description || ''}
-                                placeholder="Ej: Honorarios Developer Senior"
-                                className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                defaultValue={editingCost ? new Date(editingCost.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                                className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                             />
                         </div>
+                    </div>
 
-                        <div className="md:col-span-2">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            type="submit"
-                                            disabled={isLoading}
-                                            className="w-full h-[38px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
-                                        >
-                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : editingCost ? <Save className="w-5 h-5 mr-2" /> : <Plus className="w-5 h-5 mr-2" />}
-                                            {editingCost ? 'Guardar' : 'Agregar'}
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{editingCost ? 'Guardar Cambios' : 'Registrar Costo'}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </div>
+                    <div className="md:col-span-4">
+                        <label className="block text-xs font-medium text-zinc-500 mb-1">Monto Neto</label>
+                        <MoneyInput
+                            name="amount"
+                            defaultValue={editingCost?.amountNet}
+                            placeholder="0"
+                            required
+                        />
                     </div>
-                    <div className="flex justify-end mt-2">
-                        <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="text-xs text-zinc-500 hover:text-zinc-700 underline"
-                        >
-                            Cancelar
-                        </button>
+
+                    <div className="md:col-span-10">
+                        <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción</label>
+                        <input
+                            name="description"
+                            type="text"
+                            required
+                            defaultValue={editingCost?.description || ''}
+                            placeholder="Ej: Honorarios Developer Senior"
+                            className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
                     </div>
-                </form>
-            ) : (
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
-                >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Registrar Nuevo Costo
-                </button>
-            )}
-        </div>
+
+                    <div className="md:col-span-2">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="w-full h-[38px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                    >
+                                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : editingCost ? <Save className="w-5 h-5 mr-2" /> : <Plus className="w-5 h-5 mr-2" />}
+                                        {editingCost ? 'Guardar' : 'Agregar'}
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{editingCost ? 'Guardar Cambios' : 'Registrar Costo'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                </div>
+                <div className="flex justify-end mt-2">
+                    <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="text-xs text-zinc-500 hover:text-zinc-700 underline"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        ) : (
+        <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+        >
+            <Plus className="w-4 h-4 mr-2" />
+            Registrar Nuevo Costo
+        </button>
+    )
+    }
+        </div >
     );
 }

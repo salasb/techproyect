@@ -9,7 +9,7 @@ interface MoneyInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
-    ({ className, defaultValue, onValueChange, ...props }, ref) => {
+    ({ className, defaultValue, onValueChange, name, ...props }, ref) => {
         const [displayValue, setDisplayValue] = useState("");
         const [rawValue, setRawValue] = useState<number>(0);
 
@@ -60,7 +60,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
                     onChange={handleChange}
                     className={`pl-9 pr-3 py-2 w-full rounded-lg border border-input bg-background text-sm font-mono focus:ring-2 focus:ring-primary outline-none ${className}`}
                 />
-                <input type="hidden" name={props.name} value={rawValue} />
+                <input type="hidden" name={name} value={rawValue} />
             </div>
         );
     }

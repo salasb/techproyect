@@ -126,12 +126,12 @@ export function calculateProjectFinancials(
 
     if (priceNet === 0 && baseCostNet === 0 && sumCostNet === 0) {
         trafficLightFinancial = 'GRAY'; // No activity
-    } else if (marginPct < 0) {
-        trafficLightFinancial = 'RED'; // Overcost / Loss
     } else if (marginPct < 20) {
-        trafficLightFinancial = 'YELLOW';
+        trafficLightFinancial = 'RED'; // Below 20% is considered risky/unhealthy now (was < 0)
+    } else if (marginPct < 30) {
+        trafficLightFinancial = 'YELLOW'; // 20% - 30% is acceptable but needs monitoring
     } else {
-        trafficLightFinancial = 'GREEN';
+        trafficLightFinancial = 'GREEN'; // > 30% is healthy
     }
 
     return {
