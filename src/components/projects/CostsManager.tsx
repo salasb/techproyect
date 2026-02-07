@@ -31,6 +31,14 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
     const [editingCost, setEditingCost] = useState<CostEntry | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Helper for currency
+    const formatMoney = (amount: number) => {
+        if (currency === 'CLP') return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+        if (currency === 'USD') return 'USD ' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+    }
+
     // Dialog State
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
@@ -102,7 +110,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                 </div>
                 <div className="text-right">
                     <p className="text-sm text-muted-foreground">Total Ejecutado</p>
-                    <p className="text-2xl font-bold text-foreground">${totalCosts.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(totalCosts)}</p>
                 </div>
             </div>
 
@@ -141,7 +149,7 @@ export function CostsManager({ projectId, costs, currency = 'CLP' }: Props) {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-foreground">
-                                        ${cost.amountNet.toLocaleString()}
+                                        {formatMoney(cost.amountNet)}
                                     </td>
                                     <td className="px-6 py-4 text-right flex justify-end gap-2">
                                         <button

@@ -10,10 +10,19 @@ type Invoice = Database['public']['Tables']['Invoice']['Row'];
 interface Props {
     projectId: string;
     invoices: Invoice[];
+    currency?: string;
 }
 
-export function InvoicesManager({ projectId, invoices }: Props) {
+export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props) {
     const [isAdding, setIsAdding] = useState(false);
+
+    // Helper for currency
+    const formatMoney = (amount: number) => {
+        if (currency === 'CLP') return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+        if (currency === 'USD') return 'USD ' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+    }
 
     async function handleCreate(formData: FormData) {
         await createInvoice(projectId, formData);
@@ -71,10 +80,10 @@ export function InvoicesManager({ projectId, invoices }: Props) {
                                             {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-right font-medium text-foreground">
-                                            ${inv.amountInvoicedGross.toLocaleString()}
+                                            {formatMoney(inv.amountInvoicedGross)}
                                         </td>
                                         <td className="px-6 py-4 text-right text-muted-foreground">
-                                            ${inv.amountPaidGross.toLocaleString()}
+                                            {formatMoney(inv.amountPaidGross)}
                                         </td>
                                         <td className="px-6 py-4 text-right flex justify-end space-x-2">
                                             {!inv.sent && (

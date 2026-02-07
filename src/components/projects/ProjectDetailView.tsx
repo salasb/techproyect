@@ -81,7 +81,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
             return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         // Default to CLP style (no decimals)
-        return '$' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+        return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
     }
 
     // State for modal
@@ -521,7 +521,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                     <CostsManager projectId={project.id} costs={project.costEntries} currency={currency} />
                                 </section>
                                 <section>
-                                    <InvoicesManager projectId={project.id} invoices={project.invoices} />
+                                    <InvoicesManager projectId={project.id} invoices={project.invoices} currency={currency} />
                                 </section>
                             </div>
 
