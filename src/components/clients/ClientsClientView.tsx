@@ -227,12 +227,12 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                     <label className="block text-sm font-medium mb-1">Teléfono</label>
                                     <div className="flex gap-2">
                                         <select
-                                            className="p-2 rounded-lg border border-input bg-background w-[110px] text-sm"
+                                            className="p-2 rounded-lg border border-input bg-background w-[90px] text-sm"
                                             value={phoneType}
                                             onChange={(e) => setPhoneType(e.target.value as 'mobile' | 'landline')}
                                         >
-                                            <option value="mobile">Móvil (+56 9)</option>
-                                            <option value="landline">Fijo (+56 2)</option>
+                                            <option value="mobile">Móvil</option>
+                                            <option value="landline">Fijo</option>
                                         </select>
                                         <div className="relative flex-1">
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none select-none">

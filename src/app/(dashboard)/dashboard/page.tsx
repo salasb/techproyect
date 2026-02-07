@@ -216,6 +216,11 @@ function StatCard({ title, value, icon: Icon, color, subtext, tooltip }: any) {
         emerald: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400",
     }
 
+    const normalizedValue = value.toString().replace(/[^0-9.]/g, '');
+    const isZero = parseFloat(normalizedValue) === 0 || value === '$0k' || value === '$0M';
+
+    if (isZero) return null;
+
     return (
         <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
             <div className="flex items-center justify-between pb-2">
