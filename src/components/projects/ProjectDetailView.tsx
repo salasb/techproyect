@@ -46,17 +46,18 @@ interface ProjectDetailViewProps {
     auditLogs: any[];
     financials: FinancialResult;
     settings: any;
+    projectLogs: any[];
+    risk: any;
 }
 
-export default function ProjectDetailView({ project, clients, auditLogs, financials, settings }: ProjectDetailViewProps) {
+export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk }: ProjectDetailViewProps) {
     const [currency, setCurrency] = useState<'CLP' | 'USD'>('CLP');
     const [activeTab, setActiveTab] = useState('overview');
     const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
     const [isCostsModalOpen, setIsCostsModalOpen] = useState(false);
     const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string } | null>(null);
 
-    // Parse project logs if they exist
-    const projectLogs = project.project_logs || [];
+    // Alerts logic
 
     // Alerts logic
     const alerts: { type: 'success' | 'warning' | 'danger', msg: string }[] = [];
