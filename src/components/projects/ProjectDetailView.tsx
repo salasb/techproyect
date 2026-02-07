@@ -79,25 +79,25 @@ return (
             ))}
         </div>
     ) : ( // ... (healthy status section remains same) ...
-    <div className={`p-4 border rounded-lg text-sm mb-4 ${project.status === 'EN_ESPERA' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/10 dark:border-green-900/30'}`}>
-        <div className="flex items-center font-medium mb-1">
-            <Check className="w-4 h-4 mr-2" />
-            {project.status === 'EN_ESPERA' ? 'Sin Alertas (En Espera)' : 'Todo en orden'}
+        <div className={`p-4 border rounded-lg text-sm mb-4 ${project.status === 'EN_ESPERA' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/10 dark:border-green-900/30'}`}>
+            <div className="flex items-center font-medium mb-1">
+                <Check className="w-4 h-4 mr-2" />
+                {project.status === 'EN_ESPERA' ? 'Sin Alertas (En Espera)' : 'Todo en orden'}
+            </div>
+            <p className="text-xs opacity-90 leading-relaxed">
+                {project.status === 'EN_ESPERA'
+                    ? 'El proyecto está detenido. No se esperan avances ni movimientos financieros.'
+                    : 'El proyecto avanza según lo planificado.'}
+                {project.status === 'EN_CURSO' && (
+                    <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
+                        <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
+                        <li>Margen actual del <strong>{(financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0).toFixed(1)}%</strong> considerado saludable.</li>
+                        {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM', { locale: es })}</strong>.</li>}
+                    </ul>
+                )}
+            </p>
         </div>
-        <p className="text-xs opacity-90 leading-relaxed">
-            {project.status === 'EN_ESPERA'
-                ? 'El proyecto está detenido. No se esperan avances ni movimientos financieros.'
-                : 'El proyecto avanza según lo planificado.'}
-            {project.status === 'EN_CURSO' && (
-                <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
-                    <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
-                    <li>Margen actual del <strong>{(financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0).toFixed(1)}%</strong> considerado saludable.</li>
-                    {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM', { locale: es })}</strong>.</li>}
-                </ul>
-            )}
-        </p>
-    </div>
-)
+    )
 }
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -192,10 +192,10 @@ return (
             ))}
         </div>
     ) : (
-    <div className="text-center py-4 text-xs text-muted-foreground italic">
-        No hay registros en la bitácora aún.
-    </div>
-)
+        <div className="text-center py-4 text-xs text-muted-foreground italic">
+            No hay registros en la bitácora aún.
+        </div>
+    )
 }
                             </div >
 
