@@ -34,7 +34,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProjectSettings } from "./ProjectSettings";
 import { AuditLog } from "./AuditLog";
-import { ProjectLogsManager } from "./ProjectProgressUpdater";
+import { ProjectLogsManager } from "./ProjectLogsManager";
 import { QuoteItemsManager } from "./QuoteItemsManager";
 import { CostsManager } from "./CostsManager";
 import { InvoicesManager } from "./InvoicesManager";
