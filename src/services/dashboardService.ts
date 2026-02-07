@@ -238,10 +238,9 @@ export class DashboardService {
 
         return Array.from(projectionMap.entries())
             .map(([month, amount]) => ({
-                month,
-                amount
-            }))
-            .sort((a, b) => a.month.localeCompare(b.month));
+                name: month,
+                value: amount
+            }));
     }
 
     static getAlerts(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
