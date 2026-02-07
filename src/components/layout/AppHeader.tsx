@@ -31,6 +31,12 @@ export function AppHeader() {
             }
         }
         getUser();
+
+        // Listen for profile updates
+        const handleProfileUpdate = () => getUser();
+        window.addEventListener('user-profile-updated', handleProfileUpdate);
+
+        return () => window.removeEventListener('user-profile-updated', handleProfileUpdate);
     }, []);
 
     // Close search results when clicking outside
@@ -94,10 +100,23 @@ export function AppHeader() {
         }
     }
 
+
+    const displayedName = (userProfile?.name || user?.email || 'Usuario');
+    const sanitizedName = displayedName
+        .replace(/testUSER/i, 'Test') // Specific fix for reported case
+        .replace(/\s*User$/i, '')
+        .replace(/^\s*User\s*/i, '')
+        .replace(/\s*USER$/i, '')
+        .trim();
+
     return (
         <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-40 transition-colors flex items-center justify-between px-6 print:hidden">
+            {/* ... search ... */}
             <div className="flex items-center w-1/3" ref={searchRef}>
+                {/* DEBUG MARKER */}
+                <span className="text-xs text-muted-foreground font-mono absolute top-1 left-1 opacity-50">v1.0.4</span>
                 <div className="relative w-full max-w-md hidden md:block">
+                    {/* ... existing search code ... */}
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                     <input
                         type="text"
@@ -154,8 +173,9 @@ export function AppHeader() {
 
                 <div className="flex items-center space-x-3 pl-4 border-l border-zinc-200 dark:border-zinc-800">
                     <div className="flex flex-col text-right hidden sm:block">
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{userProfile?.name || user?.email || 'Usuario'}</span>
-                        <span className="text-xs text-zinc-500">{userProfile?.role || 'User'}</span>
+                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {sanitizedName}
+                        </span>
                     </div>
                     <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
                         <User className="w-5 h-5" />

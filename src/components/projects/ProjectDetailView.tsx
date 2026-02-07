@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Database } from "@/types/supabase";
 import { FinancialResult } from "@/services/financialCalculator";
+import { getDollarRateAction } from "@/app/actions/currency";
 import {
     Calendar,
     Clock,
@@ -23,7 +24,8 @@ import {
     User,
     Wallet,
     X,
-    Sparkles
+    Sparkles,
+    RefreshCw
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInDays } from "date-fns";
@@ -58,13 +60,27 @@ type Props = {
 
 export function ProjectDetailView({ project, financials, settings, auditLogs, projectLogs, clients }: Props) {
     const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'financials' | 'settings' | 'logs'>('overview');
+    const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string } | null>(null);
+
+    // Fetch exchange rate if USD
+    useEffect(() => {
+        if (project.currency === 'USD') {
+            getDollarRateAction().then(rate => {
+                if (rate) setExchangeRate(rate);
+            });
+        }
+    }, [project.currency]);
 
     // Helper for currency
-    const currency = project.currency || 'CLP';
+    const currency = (project.currency || 'CLP').toUpperCase();
     const formatMoney = (amount: number) => {
-        if (currency === 'CLP') return '$' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-        if (currency === 'USD') return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 2 });
+        if (currency === 'USD') {
+            return 'USD ' + amount.toLocaleString('en-US', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+        if (currency === 'UF') {
+            return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        // Default to CLP style (no decimals)
         return '$' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
     }
 
@@ -372,6 +388,14 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                     <h3 className="font-semibold text-foreground flex items-center">
                                         <DollarSign className="w-5 h-5 mr-2 text-green-600" />
                                         Finanzas
+                                        <div className="ml-auto flex items-center gap-2">
+                                            {currency === 'USD' && exchangeRate && (
+                                                <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title={`Dólar Observado al ${new Date(exchangeRate.date).toLocaleDateString()}`}>
+                                                    <RefreshCw className="w-3 h-3 mr-1" />
+                                                    Hoy: ${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 1 })}
+                                                </span>
+                                            )}
+                                        </div>
                                     </h3>
                                 </div>
                                 <div className="p-6 space-y-8">
@@ -412,7 +436,6 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                             <div className="relative pl-4 border-l-2 border-amber-400 dark:border-amber-600/50">
                                                 <h5 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
                                                     <span>Gastos Ejecutados</span>
-                                                    <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">Real</span>
                                                 </h5>
 
                                                 <div className="grid grid-cols-2 gap-y-2 text-sm">
@@ -566,9 +589,20 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                 <div className="bg-card rounded-xl border border-border sticky top-6 overflow-hidden">
                                     {/* Header */}
                                     <div className="p-6 border-b border-border bg-muted/30">
-                                        <h3 className="text-base font-semibold text-foreground flex items-center">
+                                        <h3 className="text-base font-semibold text-foreground flex items-center flex-wrap gap-2">
                                             <Wallet className="w-5 h-5 mr-2 text-primary" />
                                             Desglose Financiero
+                                            <div className="ml-auto flex items-center gap-2">
+                                                {currency === 'USD' && (
+                                                    <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title="Tipo de cambio del día">
+                                                        <RefreshCw className="w-3 h-3 mr-1" />
+                                                        {exchangeRate ? `Hoy: $${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 0 })} CLP` : 'Cargando tasa...'}
+                                                    </span>
+                                                )}
+                                                <span className="text-xs font-mono bg-background px-2 py-1 rounded border border-border text-muted-foreground">
+                                                    {currency}
+                                                </span>
+                                            </div>
                                         </h3>
                                     </div>
 
@@ -623,15 +657,16 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                                 </div>
 
                                                 {/* Projected Reference */}
-                                                <div className="grid grid-cols-2 py-1 mt-4 pt-4 border-t border-border opacity-75">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs text-muted-foreground">Utilidad Proyectada (Meta)</span>
-                                                        <span className="text-[10px] text-muted-foreground mt-0.5">
+                                                {/* Projected Reference (Highlighted) */}
+                                                <div className="grid grid-cols-2 py-2 px-3 mt-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg">
+                                                    <div className="flex flex-col justify-center">
+                                                        <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-tight">Utilidad Proyectada</span>
+                                                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500 mt-0.5">
                                                             Margen Objetivo: {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
                                                         </span>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <span className="text-xs font-mono text-zinc-500 font-bold block">
+                                                    <div className="text-right flex items-center justify-end">
+                                                        <span className="text-sm font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
                                                             {formatMoney(financials.marginAmountNet)}
                                                         </span>
                                                     </div>
@@ -711,7 +746,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                 {
                     activeTab === 'settings' && (
                         <div className="space-y-8">
-                            <ProjectSettings project={project} clients={clients} />
+                            <ProjectSettings key={project.clientId ? `${project.clientId}-${project.updatedAt}` : `no-client-${project.updatedAt}`} project={project} clients={clients} />
 
                             <div>
                                 <h3 className="text-lg font-medium text-foreground mb-4">Registro de Actividad</h3>
@@ -751,9 +786,9 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                             <tr key={item.id} className="hover:bg-muted/30">
                                                 <td className="px-4 py-2 font-medium">{item.detail}</td>
                                                 <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                                <td className="px-4 py-2 text-right font-mono text-zinc-500">${item.costNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</td>
-                                                <td className="px-4 py-2 text-right font-mono text-foreground">${item.priceNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</td>
-                                                <td className="px-4 py-2 text-right font-bold">${(item.priceNet * item.quantity).toLocaleString('es-CL', { maximumFractionDigits: 0 })}</td>
+                                                <td className="px-4 py-2 text-right font-mono text-zinc-500">{formatMoney(item.costNet)}</td>
+                                                <td className="px-4 py-2 text-right font-mono text-foreground">{formatMoney(item.priceNet)}</td>
+                                                <td className="px-4 py-2 text-right font-bold">{formatMoney(item.priceNet * item.quantity)}</td>
                                             </tr>
                                         ))}
                                     </tbody>

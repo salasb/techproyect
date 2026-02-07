@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+
 import Link from "next/link";
 import { Users, ChevronRight } from "lucide-react";
 import { SettingsForm } from "@/components/settings/SettingsForm";
@@ -40,6 +43,15 @@ export default async function SettingsPage() {
             </div>
 
             {/* Quick Access */}
+            <div className="p-6 bg-red-100 border-2 border-red-500 rounded-xl text-red-900 mb-8 font-bold text-lg animate-pulse">
+                <h1>⚠️ DIAGNÓSTICO CRÍTICO (v1.0.10) ⚠️</h1>
+                <p>Si ves esto, el despliegue funcionó.</p>
+                <div className="mt-2 p-2 bg-white rounded border border-red-200 font-mono text-sm">
+                    <p>USER ID: {settings ? (await supabase.auth.getUser()).data.user?.id || 'ANON (ERROR CRÍTICO)' : 'Checking...'}</p>
+                    <p>ROLE: {settings ? (await supabase.auth.getUser()).data.user?.role || 'NONE' : 'Checking...'}</p>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href="/settings/users" className="group bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md flex items-center justify-between">
                     <div className="flex items-center space-x-4">

@@ -1,3 +1,6 @@
+'use client'
+
+import React from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import Image from "next/image";
@@ -7,6 +10,7 @@ import { FileText } from "lucide-react";
 type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'] | null;
     quoteItems: Database['public']['Tables']['QuoteItem']['Row'][];
+    client?: Database['public']['Tables']['Client']['Row'] | null;
 }
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -17,111 +21,132 @@ interface Props {
 }
 
 export function QuoteDocument({ project, settings }: Props) {
+    // 1. Calculate Financials (Simple reducers as per original View logic)
+    // NOTE: For consistency, we should ideally use the centralized calculator, but strictly for UI rendering
+    // we can use the passed values if they are accurate.
+    // However, the View logic uses `calculateProjectFinancials`.
+    // Let's rely on basic math here or assume `project` data is passed correctly.
+
+    // Calculate Totals on the fly to ensure display responsiveness
     const totalNet = project.quoteItems?.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0) || 0;
     const vatRate = settings?.vatRate || 0.19;
     const vatAmount = totalNet * vatRate;
     const totalGross = totalNet + vatAmount;
 
+    // Currency Formatter
+    const currency = (project.currency || 'CLP').toUpperCase();
+    const fmt = (n: number) => {
+        if (currency === 'USD') {
+            return 'USD ' + n.toLocaleString('en-US', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+        if (currency === 'UF') {
+            return 'UF ' + n.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return '$' + n.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+    }
+
+    // Sort Items by SKU? User requested better distribution.
+    // Let's assume passed items are ordered.
+
     return (
-        <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white text-zinc-900 shadow-2xl print:shadow-none p-[20mm] relative flex flex-col">
-            {/* Header */}
-            <div className="flex justify-between items-start border-b-2 border-primary/20 pb-6 mb-8">
-                <div>
-                    <div className="relative w-56 h-20 mb-3">
-                        <Image
-                            src="/techwise logo negro.png"
-                            alt="TechWise Logo"
-                            fill
-                            className="object-contain object-left"
-                            priority
-                        />
-                    </div>
-                </div>
-                <div className="text-right">
-                    <div className="bg-primary/5 px-4 py-2 rounded-lg border border-primary/10 inline-block mb-3">
-                        <h2 className="text-xl font-bold text-primary tracking-tight">COTIZACIÓN</h2>
-                        <p className="text-sm font-mono text-zinc-600">Folio: #{project.id.slice(0, 8).toUpperCase()}</p>
-                    </div>
-                    <p className="text-sm text-zinc-500 font-medium">Fecha de Emisión</p>
-                    <p className="text-base font-semibold">{format(new Date(), "d 'de' MMMM, yyyy", { locale: es })}</p>
-                </div>
-            </div>
+        <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white text-slate-800 shadow-2xl print:shadow-none p-[15mm] md:p-[20mm] relative flex flex-col font-sans text-sm print:text-xs">
 
-            {/* Two Column Layout: Client & Company Info */}
-            <div className="grid grid-cols-2 gap-12 mb-10">
-                {/* Client Box */}
-                <div className="bg-zinc-50 p-6 rounded-xl border border-zinc-100">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        Cliente
-                    </h3>
-                    <div className="space-y-3">
-                        <div>
-                            <p className="text-xs text-zinc-500 uppercase font-semibold">Empresa / Razón Social</p>
-                            <p className="font-bold text-lg text-zinc-900">{project.company?.name || 'Cliente General'}</p>
-                            {project.company?.taxId && <p className="text-sm text-zinc-600 font-mono">{project.company?.taxId}</p>}
-                        </div>
-                        <div className="pt-2 border-t border-zinc-200">
-                            <p className="text-xs text-zinc-500 uppercase font-semibold">Contacto</p>
-                            <p className="font-medium">{project.company?.contactName || project.company?.name || 'No especificado'}</p>
-                            <p className="text-sm text-zinc-600">{project.company?.email || '-'}</p>
-                            <p className="text-sm text-zinc-600">{project.company?.phone || '-'}</p>
-                        </div>
+            {/* --- COMPACT HEADER LAYOUT --- */}
+            <div className="flex justify-between items-start mb-6 border-b-2 border-slate-900 pb-4">
+                {/* 1. Logo & Provider Info */}
+                <div className="w-1/3 pr-4">
+                    <img src="/techwise logo negro.png" alt="TECHWISE" className="h-10 w-auto object-contain mb-3" />
+                    <div className="text-[10px] text-slate-500 leading-tight">
+                        <p className="font-bold text-slate-900">TechWise SpA</p>
+                        <p>77.966.773-1</p>
+                        <p>Av. Las Condes 10465, Of. 045 A</p>
+                        <p>contacto@techwise.cl</p>
                     </div>
                 </div>
 
-                {/* Scope Box */}
-                <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                        Proyecto
-                    </h3>
-                    <div className="prose prose-sm max-w-none">
-                        <h4 className="text-lg font-bold text-zinc-900 m-0">{project.name}</h4>
-                        <div className="mt-4 text-sm text-zinc-600 leading-relaxed text-justify bg-white/50">
-                            {project.scopeDetails || (
-                                <span className="italic text-zinc-400">Sin descripción detallada del alcance del servicio.</span>
-                            )}
+                {/* 2. Client Info (Center-Right) */}
+                <div className="w-1/3 px-4 border-l border-r border-slate-100">
+                    <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Cliente</p>
+                    <h2 className="font-bold text-slate-900 text-sm mb-1 uppercase leading-tight">
+                        {project.client?.name || project.company?.name || 'CLIENTE POR DEFINIR'}
+                    </h2>
+                    <div className="text-[10px] text-slate-600 space-y-0.5">
+                        <p><span className="font-medium">RUT:</span> {project.client?.taxId || project.company?.taxId || '-'}</p>
+                        <p><span className="font-medium">Att:</span> {project.client?.contactName || project.company?.contactName || '-'}</p>
+                        <p>{project.client?.email || project.company?.email || '-'}</p>
+                    </div>
+                </div>
+
+                {/* 3. Quote Meta (Right) */}
+                <div className="w-1/3 pl-4 text-right">
+                    <h1 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Cotización</h1>
+                    <p className="text-sm font-medium text-slate-500 mb-2">#{project.id.slice(0, 6).toUpperCase()}</p>
+
+                    <div className="text-[10px] space-y-1">
+                        <div className="flex justify-end gap-2">
+                            <span className="text-slate-400 font-medium uppercase">Fecha:</span>
+                            <span className="font-bold text-slate-900">{format(new Date(), 'dd-MM-yyyy')}</span>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <span className="text-slate-400 font-medium uppercase">Validez:</span>
+                            <span className="font-bold text-slate-900">15 Días</span>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <span className="text-slate-400 font-medium uppercase">Moneda:</span>
+                            <span className="font-bold text-slate-900">{currency}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Financial Summary Table */}
+            {/* --- PROJECT SCOPE / TITLE --- */}
+            <div className="mb-6">
+                <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Proyecto</p>
+                <div className="font-bold text-base text-slate-900 uppercase">
+                    {project.name}
+                </div>
+                {/* Always show description if available, or scopeDetails fallback */}
+                {(project.description || project.scopeDetails) && (
+                    <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed whitespace-pre-line">
+                        {project.description || project.scopeDetails}
+                    </p>
+                )}
+            </div>
+
+            {/* --- ITEMS TABLE --- */}
             <div className="mb-8 flex-grow">
-                <div className="bg-blue-600 text-white px-4 py-2 rounded-t-lg flex justify-between items-center">
-                    <h3 className="text-sm font-bold uppercase tracking-wider">Detalle Económico</h3>
-                    <span className="text-xs opacity-80 font-mono hidden print:block">Moneda: CLP</span>
-                </div>
-                <table className="w-full text-sm border-collapse">
-                    <thead className="bg-zinc-100 border-x border-zinc-200">
-                        <tr>
-                            <th className="py-2 px-3 text-left font-bold text-zinc-700 w-12 border-b border-zinc-300">#</th>
-                            <th className="py-2 px-3 text-left font-bold text-zinc-700 border-b border-zinc-300">Descripción / Ítem</th>
-                            <th className="py-2 px-3 text-center font-bold text-zinc-700 w-20 border-b border-zinc-300">Cant.</th>
-                            <th className="py-2 px-3 text-right font-bold text-zinc-700 w-28 border-b border-zinc-300">Precio Unit.</th>
-                            <th className="py-2 px-3 text-right font-bold text-zinc-700 w-28 border-b border-zinc-300 bg-zinc-50">Total</th>
+                <table className="w-full text-xs border-collapse table-auto">
+                    <thead>
+                        <tr className="border-b-2 border-slate-900">
+                            {/* Replaced # with SKU for better tracking */}
+                            <th className="text-left py-2 font-bold text-slate-900 w-16">SKU</th>
+                            <th className="text-left py-2 font-bold text-slate-900 pl-4">DESCRIPCIÓN</th>
+                            <th className="text-center py-2 font-bold text-slate-900 w-12">CANT.</th>
+                            <th className="text-right py-2 font-bold text-slate-900 w-24">UNITARIO</th>
+                            <th className="text-right py-2 font-bold text-slate-900 w-24">TOTAL</th>
                         </tr>
                     </thead>
-                    <tbody className="border-x border-b border-zinc-200">
+                    <tbody className="divide-y divide-slate-100">
                         {project.quoteItems && project.quoteItems.length > 0 ? (
                             project.quoteItems.map((item, index) => (
-                                <tr key={item.id} className="even:bg-zinc-50/50">
-                                    <td className="py-2 px-3 text-zinc-400 font-mono text-xs border-b border-zinc-100">
-                                        {(index + 1).toString().padStart(2, '0')}
+                                <tr key={item.id} className="break-inside-avoid">
+                                    <td className="py-2 text-slate-400 align-top font-mono text-[10px] leading-relaxed pt-3">
+                                        {item.sku || '-'}
                                     </td>
-                                    <td className="py-2 px-3 border-b border-zinc-100">
-                                        <p className="font-medium text-zinc-900">{item.detail}</p>
-                                        {item.sku && <p className="text-[10px] text-zinc-400 font-mono mt-0.5">SKU: {item.sku}</p>}
+                                    <td className="py-2 pl-4 align-top pt-3">
+                                        <div className="font-medium text-slate-900 uppercase mb-1 leading-snug">
+                                            <span className="whitespace-pre-line">{item.detail}</span>
+                                        </div>
                                     </td>
-                                    <td className="py-2 px-3 text-center text-zinc-600 border-b border-zinc-100">
-                                        <span className="bg-zinc-100 px-2 py-1 rounded text-xs font-semibold">{item.quantity} {item.unit}</span>
+                                    <td className="py-2 text-center text-slate-600 align-top pt-3">
+                                        <span className="font-bold">{item.quantity}</span>
+                                        <span className="block text-[8px] uppercase text-slate-400">{item.unit}</span>
                                     </td>
-                                    <td className="py-2 px-3 text-right font-mono text-zinc-600 border-b border-zinc-100">
-                                        ${item.priceNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}
+                                    <td className="py-2 text-right text-slate-600 align-top font-mono pt-3">
+                                        {fmt(item.priceNet)}
                                     </td>
-                                    <td className="py-2 px-3 text-right font-mono font-medium text-zinc-900 border-b border-zinc-100 bg-zinc-50/30">
-                                        ${(item.priceNet * item.quantity).toLocaleString('es-CL', { maximumFractionDigits: 0 })}
+                                    <td className="py-2 text-right font-bold text-slate-900 align-top font-mono pt-3">
+                                        {fmt(item.priceNet * item.quantity)}
                                     </td>
                                 </tr>
                             ))
@@ -134,61 +159,78 @@ export function QuoteDocument({ project, settings }: Props) {
                         )}
                     </tbody>
                 </table>
+            </div>
 
-                {/* Totals Section - Compact Layout */}
-                <div className="flex justify-end mt-2 break-inside-avoid page-break-inside-avoid">
-                    <div className="w-64 bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden text-sm">
-                        <div className="p-3 space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-zinc-600 font-medium">Subtotal Neto</span>
-                                <span className="font-mono font-semibold">${totalNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-600 font-medium">IVA (19%)</span>
-                                <span className="font-mono font-semibold text-zinc-500">${vatAmount.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
-                            </div>
-                        </div>
-                        <div className="bg-zinc-900 text-white p-3 flex justify-between items-center">
-                            <span className="font-bold uppercase tracking-wider text-xs">Total a Pagar</span>
-                            <span className="font-mono font-bold text-lg">${totalGross.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
-                        </div>
+            {/* --- FOOTER & TOTALS --- */}
+            <div className="flex flex-col md:flex-row gap-8 mb-12 break-inside-avoid">
+                {/* Terms / Disclaimer */}
+                <div className="flex-1 text-[10px] text-slate-500 text-justify leading-relaxed pr-8">
+                    <p className="mb-2"><strong>Condiciones Comerciales:</strong></p>
+                    <ul className="list-disc list-inside space-y-0.5 pl-1 mb-2">
+                        <li>Forma de pago: 50% anticipo, 50% contra entrega conforme (o según acuerdo).</li>
+                        <li>Entrega: A coordinar según stock.</li>
+                        <li>Validez de la oferta: 15 días.</li>
+                    </ul>
+                    <p className="italic opacity-80">
+                        TechWise SpA se reserva el derecho de modificar precios ante variaciones significativas del tipo de cambio.
+                    </p>
+                </div>
+
+                {/* Totals Box */}
+                <div className="w-full md:w-64">
+                    <div className="flex justify-between items-center py-1 border-b border-slate-200 text-xs">
+                        <span className="font-medium text-slate-600">Neto:</span>
+                        <span className="font-mono font-medium">{fmt(totalNet)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-slate-200 text-xs">
+                        <span className="font-medium text-slate-600">IVA ({(vatRate * 100).toFixed(0)}%):</span>
+                        <span className="font-mono font-medium">{fmt(vatAmount)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 mt-1 bg-slate-100 rounded px-2">
+                        <span className="font-bold text-slate-900 uppercase text-xs">Total:</span>
+                        <span className="font-mono font-bold text-sm">{fmt(totalGross)}</span>
                     </div>
                 </div>
             </div>
 
-            {/* Terms & Conditions Box - Reduced Margin */}
-            <div className="mt-4 mb-8 bg-zinc-50 p-5 rounded-lg border border-dashed border-zinc-300">
-                <h4 className="font-bold text-zinc-800 mb-2 text-xs uppercase flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Condiciones Comerciales
-                </h4>
-                <ul className="text-xs text-zinc-600 space-y-1.5 pl-2">
-                    <li className="flex gap-2">
-                        <span className="text-zinc-400">•</span>
-                        <span><strong className="text-zinc-700">Validez:</strong> 15 días hábiles desde la fecha de emisión.</span>
-                    </li>
-                    <li className="flex gap-2">
-                        <span className="text-zinc-400">•</span>
-                        <span><strong className="text-zinc-700">Forma de pago:</strong> 50% anticipo, 50% contra entrega conforme.</span>
-                    </li>
-                    <li className="flex gap-2">
-                        <span className="text-zinc-400">•</span>
-                        <span><strong className="text-zinc-700">Plazo de ejecución:</strong> {project.plannedEndDate ? format(new Date(project.plannedEndDate), "d 'de' MMMM, yyyy", { locale: es }) : 'A coordinar según disponibilidad'}.</span>
-                    </li>
-                </ul>
+            {/* --- SIGNATURES --- */}
+            <div className="mt-auto pt-12 pb-4 break-inside-avoid">
+                <div className="grid grid-cols-2 gap-16">
+                    <div className="text-center">
+                        <div className="border-t border-slate-300 w-3/4 mx-auto mb-2"></div>
+                        <p className="font-bold text-slate-900 text-xs uppercase">Christian Salas / Techwise SpA</p>
+                        <p className="text-[10px] text-slate-500 uppercase">Proveedor</p>
+                    </div>
+                    <div className="text-center">
+                        <div className="border-t border-slate-300 w-3/4 mx-auto mb-2"></div>
+                        <p className="font-bold text-slate-900 text-xs uppercase">Aceptación Cliente</p>
+                        <p className="text-[10px] text-slate-500 uppercase">Firma y Timbre</p>
+                    </div>
+                </div>
             </div>
 
-            {/* Sticky Footer for Print */}
-            <div className="mt-auto grid grid-cols-2 gap-16 pt-4 pb-0 print:absolute print:bottom-[15mm] print:left-[20mm] print:right-[20mm]">
-                <div className="border-t-2 border-zinc-300 pt-3 text-center">
-                    <p className="font-bold text-zinc-900 text-sm">Techwise SpA</p>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-1">Firma Proveedor</p>
-                </div>
-                <div className="border-t-2 border-zinc-300 pt-3 text-center">
-                    <p className="font-bold text-zinc-900 text-sm">Aceptación Cliente</p>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide mt-1">Firma y Timbre</p>
-                </div>
+            {/* --- BANK INFO --- */}
+            <div className="mt-8 pt-4 border-t border-slate-100 text-[9px] text-slate-400 text-center uppercase tracking-wider">
+                TechWise SpA | 77.966.773-1 | Banco de Chile | Cuenta Corriente N° 1596166003 | contacto@techwise.cl
             </div>
+
+            <style jsx global>{`
+                @media print {
+                    @page {
+                        margin: 0;
+                        size: auto;
+                    }
+                    body {
+                        -webkit-print-color-adjust: exact;
+                    }
+                    tr, td, th {
+                        page-break-inside: avoid !important;
+                    }
+                    .break-inside-avoid {
+                        page-break-inside: avoid !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

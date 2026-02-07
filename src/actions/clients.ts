@@ -6,8 +6,8 @@ import { validateRut, cleanRut, formatRut } from "@/lib/rut";
 
 export async function getClients() {
     const supabase = await createClient();
-    // We fetch from Company table as this currently represents the clients in the system
-    const { data, error } = await supabase.from('Company').select('*').order('name');
+    // We fetch from Client table as this currently represents the clients in the system
+    const { data, error } = await supabase.from('Client').select('*').order('name');
     if (error) throw new Error(error.message);
     return data;
 }
@@ -32,13 +32,15 @@ export async function createClientAction(formData: FormData) {
         taxId = formatRut(taxIdRaw);
     }
 
-    const { error } = await supabase.from('Company').insert({
+    const { error } = await supabase.from('Client').insert({
         name,
         email,
         phone,
         address,
         taxId,
-        contactName
+        contactName,
+        updatedAt: new Date().toISOString(), // Ensure timestamps are set
+        createdAt: new Date().toISOString()
     });
 
     if (error) throw new Error(error.message);
@@ -64,13 +66,14 @@ export async function updateClientAction(clientId: string, formData: FormData) {
         taxId = formatRut(taxIdRaw);
     }
 
-    const { error } = await supabase.from('Company').update({
+    const { error } = await supabase.from('Client').update({
         name,
         email,
         phone,
         address,
         taxId,
         contactName,
+        updatedAt: new Date().toISOString()
     }).eq('id', clientId);
 
     if (error) throw new Error(error.message);
@@ -79,7 +82,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 
 export async function deleteClientAction(clientId: string) {
     const supabase = await createClient();
-    const { error } = await supabase.from('Company').delete().eq('id', clientId);
+    const { error } = await supabase.from('Client').delete().eq('id', clientId);
     if (error) throw new Error(error.message);
     revalidatePath('/clients');
 }

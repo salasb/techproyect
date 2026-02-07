@@ -8,38 +8,40 @@ const packageJson = require(packageJsonPath);
 
 const currentVersion = packageJson.version;
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+// Parse CLI arguments
+const args = process.argv.slice(2);
+// Check for version argument (first non-flag argument)
+const versionArg = args.find(arg => !arg.startsWith('--'));
+// Check for flags
+const autoYes = args.includes('--yes') || args.includes('-y');
 
 console.log(`\n🚀  TechProyect Release Tool`);
 console.log(`Current Version: ${currentVersion}`);
 console.log('-----------------------------------');
 
-rl.question('Select release type (patch/minor/major) or enter specific version: ', (input) => {
-    let newVersion = input.trim();
-
-    if (['patch', 'minor', 'major'].includes(newVersion)) {
+function getNextVersion(typeOrVersion) {
+    if (['patch', 'minor', 'major'].includes(typeOrVersion)) {
         const parts = currentVersion.split('.').map(Number);
-        if (newVersion === 'patch') parts[2]++;
-        if (newVersion === 'minor') { parts[1]++; parts[2] = 0; }
-        if (newVersion === 'major') { parts[0]++; parts[1] = 0; parts[2] = 0; }
-        newVersion = parts.join('.');
+        if (typeOrVersion === 'patch') parts[2]++;
+        if (typeOrVersion === 'minor') { parts[1]++; parts[2] = 0; }
+        if (typeOrVersion === 'major') { parts[0]++; parts[1] = 0; parts[2] = 0; }
+        return parts.join('.');
     }
+    return typeOrVersion;
+}
 
+function runRelease(targetVersion) {
     // Validate version format
-    if (!/^\d+\.\d+\.\d+$/.test(newVersion)) {
+    if (!/^\d+\.\d+\.\d+$/.test(targetVersion)) {
         console.error('❌  Invalid version format. Use x.y.z');
-        rl.close();
         process.exit(1);
     }
 
-    console.log(`\nPreparing Release: v${newVersion}...`);
+    console.log(`\nPreparing Release: v${targetVersion}...`);
 
     try {
         // 1. Update package.json
-        packageJson.version = newVersion;
+        packageJson.version = targetVersion;
         fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
         console.log('✅  Updated package.json');
 
@@ -48,29 +50,61 @@ rl.question('Select release type (patch/minor/major) or enter specific version: 
         console.log('✅  Updated version.ts and build date');
 
         // 3. Confirm Git Operations
-        rl.question(`\nType 'yes' to commit and tag "v${newVersion}": `, (confirm) => {
-            if (confirm.toLowerCase() === 'yes') {
-                try {
-                    execSync('git add package.json src/lib/version.ts');
-                    execSync(`git commit -m "Release v${newVersion}"`);
-                    execSync(`git tag v${newVersion}`);
+        const commitAndTag = () => {
+            try {
+                execSync('git add .');
+                execSync(`git commit -m "Release v${targetVersion}"`);
+                execSync(`git tag v${targetVersion}`);
 
-                    console.log(`\n🎉  Release v${newVersion} created successfully!`);
+                console.log(`\n🎉  Release v${targetVersion} created successfully!`);
+
+                if (autoYes) {
+                    console.log(`\n🚀  Pushing changes to origin (Deploying)...`);
+                    execSync('git push origin main');
+                    execSync(`git push origin v${targetVersion}`);
+                    console.log('✅  Deployed successfully!');
+                } else {
                     console.log(`\nNext steps:`);
                     console.log(`  git push origin main`);
-                    console.log(`  git push origin v${newVersion}`);
-                } catch (e) {
-                    console.error('❌  Git operation failed:', e.message);
+                    console.log(`  git push origin v${targetVersion}`);
                 }
-            } else {
-                console.log('\n❌  Git operations cancelled. Files were modified but not committed.');
+                process.exit(0);
+            } catch (e) {
+                console.error('❌  Git operation failed:', e.message);
+                process.exit(1);
             }
-            rl.close();
-        });
+        };
+
+        if (autoYes) {
+            commitAndTag();
+        } else {
+            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+            rl.question(`\nType 'yes' to commit and tag "v${targetVersion}": `, (confirm) => {
+                rl.close();
+                if (confirm.toLowerCase() === 'yes') {
+                    commitAndTag();
+                } else {
+                    console.log('\n❌  Git operations cancelled. Files were modified but not committed.');
+                    process.exit(0);
+                }
+            });
+        }
 
     } catch (e) {
         console.error('❌  Error:', e.message);
-        rl.close();
         process.exit(1);
     }
-});
+}
+
+// Main logic
+if (versionArg) {
+    const nextVersion = getNextVersion(versionArg);
+    runRelease(nextVersion);
+} else {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question('Select release type (patch/minor/major) or enter specific version: ', (input) => {
+        rl.close();
+        const nextVersion = getNextVersion(input.trim());
+        runRelease(nextVersion);
+    });
+}

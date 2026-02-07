@@ -187,7 +187,7 @@ export function ProjectHeader({ project }: Props) {
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-1">
                         <span>{project.client?.name || project.company.name}</span>
                         <span>/</span>
-                        <span>{project.id}</span>
+                        <span title="Folio Interno">Folio: #{project.id ? project.id.slice(0, 8).toUpperCase() : 'N/A'}</span>
                     </div>
                     <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
                     <div className="flex items-center space-x-2 mt-2">

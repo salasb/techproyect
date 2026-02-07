@@ -8,6 +8,7 @@ import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Ed
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ItemDetailRenderer } from "./ItemDetailRenderer";
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
 
@@ -219,31 +220,30 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                 const marginP = item.priceNet > 0 ? (margin / item.priceNet) * 100 : 0;
                                 return (
                                     <tr key={item.id} className="group hover:bg-muted/50 transition-colors">
-                                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs">
+                                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs align-top">
                                             {item.sku || '-'}
                                         </td>
-                                        <td className="px-4 py-3 text-foreground font-medium">
-                                            {item.detail}
-                                            <span className="text-xs text-muted-foreground ml-2">({item.unit})</span>
+                                        <td className="px-4 py-3 align-top">
+                                            <ItemDetailRenderer text={item.detail} unit={item.unit} />
                                         </td>
-                                        <td className="px-4 py-3 text-center font-bold">
+                                        <td className="px-4 py-3 text-center font-bold align-top">
                                             {item.quantity}
                                         </td>
-                                        <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500">
+                                        <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500 align-top">
                                             {formatMoney(item.costNet)}
                                         </td>
-                                        <td className="px-4 py-3 text-right font-mono font-medium">
+                                        <td className="px-4 py-3 text-right font-mono font-medium align-top">
                                             {formatMoney(item.priceNet)}
                                         </td>
-                                        <td className="px-4 py-3 text-center">
+                                        <td className="px-4 py-3 text-center align-top">
                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${marginP < 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                                 {marginP.toFixed(0)}%
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-right font-mono text-foreground font-semibold">
+                                        <td className="px-4 py-3 text-right font-mono text-foreground font-semibold align-top">
                                             {formatMoney(item.priceNet * item.quantity)}
                                         </td>
-                                        <td className="px-4 py-3 text-right">
+                                        <td className="px-4 py-3 text-right align-top">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => startEdit(item)}
@@ -282,20 +282,23 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
                         <div className="md:col-span-8">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Producto</label>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Detalle</label>
                             <div className="relative">
-                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input
+                                {/* Changed from Input to Textarea for Smart List support */}
+                                <textarea
                                     name="detail"
-                                    type="text"
                                     required
                                     autoComplete="off"
                                     defaultValue={editingItem?.detail}
-                                    placeholder="Descripción del ítem..."
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    placeholder="Describe el ítem... (Presiona Enter para crear listas)"
+                                    rows={3}
+                                    className="w-full p-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                                 />
+                                <p className="text-[10px] text-muted-foreground mt-1 mx-1">
+                                    Tip: Usa saltos de línea para crear una lista automática en la vista.
+                                </p>
                             </div>
                         </div>
 
@@ -303,115 +306,123 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                             <input name="sku" type="hidden" defaultValue={editingItem?.sku || ''} />
                         </div>
 
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Cantidad</label>
-                            <div className="relative">
-                                <Hash className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input
-                                    name="quantity"
-                                    type="number"
+                        <div className="md:col-span-4 grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Cantidad</label>
+                                <div className="relative">
+                                    <Hash className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                    <input
+                                        name="quantity"
+                                        type="number"
+                                        required
+                                        min="1"
+                                        step="1" // Force Integer
+                                        defaultValue={editingItem?.quantity || 1}
+                                        className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Unidad</label>
+                                <select
+                                    name="unit"
                                     required
-                                    min="1"
-                                    step="1" // Force Integer
-                                    defaultValue={editingItem?.quantity || 1}
-                                    className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
+                                    defaultValue={editingItem?.unit || "UN"}
+                                    className="w-full px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                                    <option value="UN">UN</option>
+                                    <option value="GL">GL</option>
+                                    <option value="HR">Horas</option>
+                                    <option value="MT">Metros</option>
+                                    <option value="M2">M2</option>
+                                    <option value="M3">M3</option>
+                                    <option value="VG">Viajes</option>
+                                </select>
                             </div>
                         </div>
 
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Unidad</label>
-                            <select
-                                name="unit"
-                                required
-                                defaultValue={editingItem?.unit || "UN"}
-                                className="w-full px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            >
-                                <option value="UN">UN</option>
-                                <option value="GL">GL</option>
-                                <option value="HR">Horas</option>
-                                <option value="MT">Metros</option>
-                                <option value="M2">M2</option>
-                                <option value="M3">M3</option>
-                                <option value="VG">Viajes</option>
-                            </select>
-                        </div>
+                        {/* Financial Row */}
+                        <div className="md:col-span-12 grid grid-cols-12 gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800/50">
+                            <div className="col-span-4">
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unit.</label>
+                                <div className="relative">
+                                    <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                    <input
+                                        name="costNet"
+                                        type="number"
+                                        required
+                                        min="0"
+                                        defaultValue={editingItem?.costNet}
+                                        value={costNet || (editingItem ? undefined : '')}
+                                        placeholder="0"
+                                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                        onChange={(e) => handleCostChange(Number(e.target.value))}
+                                    />
+                                </div>
+                            </div>
 
-                        <div className="md:col-span-3">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unit.</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input
-                                    name="costNet"
-                                    type="number"
-                                    required
-                                    min="0"
-                                    defaultValue={editingItem?.costNet}
-                                    value={costNet || (editingItem ? undefined : '')}
-                                    placeholder="0"
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                                    onChange={(e) => handleCostChange(Number(e.target.value))}
-                                />
+                            <div className="col-span-2">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <label className="block text-xs font-medium text-blue-600 mb-1 cursor-help underline decoration-dotted">Margen %</label>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Ganancia sobre venta: <br /><code>(Precio - Costo) / Precio</code></p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <div className="relative">
+                                    <input
+                                        name="marginPct"
+                                        type="number"
+                                        step="1" // Force Integer
+                                        className="w-full pl-2 pr-6 py-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center text-blue-700 dark:text-blue-400"
+                                        value={marginPct}
+                                        onChange={(e) => handleMarginChange(Number(e.target.value))}
+                                    />
+                                    <span className="absolute right-3 top-2 text-xs text-blue-400">%</span>
+                                </div>
+                            </div>
+
+                            <div className="col-span-4">
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Precio Venta</label>
+                                <div className="relative">
+                                    <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                    <input
+                                        name="priceNet"
+                                        type="number"
+                                        required
+                                        min="0"
+                                        defaultValue={editingItem?.priceNet}
+                                        value={priceNet || (editingItem ? undefined : '')}
+                                        placeholder="0"
+                                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                        onChange={(e) => handlePriceChange(Number(e.target.value))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="col-span-2 flex items-end">
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                    {editingItem ? 'Guardar' : 'Agregar'}
+                                </button>
                             </div>
                         </div>
 
-                        <div className="md:col-span-2">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <label className="block text-xs font-medium text-blue-600 mb-1 cursor-help underline decoration-dotted">Margen %</label>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Ganancia sobre venta: <br /><code>(Precio - Costo) / Precio</code></p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <div className="relative">
-                                <input
-                                    name="marginPct"
-                                    type="number"
-                                    step="1" // Force Integer
-                                    className="w-full pl-2 pr-6 py-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center text-blue-700 dark:text-blue-400"
-                                    value={marginPct}
-                                    onChange={(e) => handleMarginChange(Number(e.target.value))}
-                                />
-                                <span className="absolute right-3 top-2 text-xs text-blue-400">%</span>
-                            </div>
-                        </div>
-
-                        <div className="md:col-span-3">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Precio Venta</label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                <input
-                                    name="priceNet"
-                                    type="number"
-                                    required
-                                    min="0"
-                                    defaultValue={editingItem?.priceNet}
-                                    value={priceNet || (editingItem ? undefined : '')}
-                                    placeholder="0"
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                                    onChange={(e) => handlePriceChange(Number(e.target.value))}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="md:col-span-12 flex justify-end gap-3 mt-2">
+                        <div className="md:col-span-12 flex justify-start mt-2">
                             <button
                                 type="button"
                                 onClick={cancelForm}
-                                className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 underline"
+                                className="text-xs text-zinc-400 hover:text-zinc-600 underline"
                             >
-                                Cancelar
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors shadow-md hover:shadow-lg disabled:opacity-50 flex items-center"
-                            >
-                                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                                {editingItem ? 'Actualizar Ítem' : 'Guardar Ítem'}
+                                Cancelar edición
                             </button>
                         </div>
                     </div>
@@ -442,4 +453,3 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
         </div>
     );
 }
-

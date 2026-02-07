@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Plus, Trash2, User } from "lucide-react";
 import { createUser, deleteUser } from "@/app/actions/users";
+import { UserListItem } from "@/components/settings/UserListItem";
 
 export default async function UsersPage() {
     const supabase = await createClient();
@@ -58,7 +59,6 @@ export default async function UsersPage() {
                     </form>
                 </div>
 
-                {/* Users List */}
                 <div className="md:col-span-2 space-y-4">
                     <h3 className="text-lg font-semibold">Miembros del Equipo</h3>
 
@@ -70,30 +70,7 @@ export default async function UsersPage() {
                     ) : (
                         <div className="grid grid-cols-1 gap-3">
                             {users.map((user) => (
-                                <div key={user.id} className="flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:shadow-sm transition-shadow">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                            {user.name.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <h4 className="font-medium text-foreground">{user.name}</h4>
-                                            <p className="text-xs text-muted-foreground">{user.email}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-full uppercase ${user.role === 'ADMIN'
-                                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                                                : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
-                                            }`}>
-                                            {user.role}
-                                        </span>
-                                        <form action={deleteUser.bind(null, user.id)}>
-                                            <button className="text-muted-foreground hover:text-red-500 transition-colors p-2">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
+                                <UserListItem key={user.id} user={user} />
                             ))}
                         </div>
                     )}
