@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, AlertTriangle, Lock, Clock, Info } from "lucide-react";
+import { Plus, AlertTriangle, Lock, Clock, Info, DollarSign, Timer, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
@@ -61,9 +61,9 @@ export default async function ProjectsPage() {
                                 <th className="px-6 py-3 font-medium">Proyecto / Cliente</th>
                                 <th className="px-6 py-3 font-medium">Estado</th>
                                 <th className="px-6 py-3 font-medium">Próxima Acción</th>
-                                <th className="px-6 py-3 font-medium">Avance</th>
+                                <th className="px-6 py-3 font-medium">Salud</th>
                                 <th className="px-6 py-3 font-medium">Finanzas (Estimado)</th>
-                                <th className="px-6 py-3 font-medium text-right">Acciones</th>
+
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -102,9 +102,10 @@ export default async function ProjectsPage() {
                                     return (
                                         <tr key={project.id} className="hover:bg-muted/50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <Link href={`/projects/${project.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                                                <div className="flex flex-col group relative">
+                                                    <Link href={`/projects/${project.id}`} className="font-medium text-foreground hover:text-primary transition-colors flex items-center gap-2">
                                                         {project.name}
+                                                        <ChevronRight className="w-4 h-4 opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all text-primary" />
                                                     </Link>
                                                     <span className="text-xs text-muted-foreground">{project.company.name}</span>
                                                     {project.blockingReason && (
@@ -131,33 +132,61 @@ export default async function ProjectsPage() {
                                                 ) : <span className="text-muted-foreground text-xs">-</span>}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="w-28">
-                                                    <div className="flex justify-between text-xs mb-1">
-                                                        <span className="font-semibold text-foreground">{project.progress}%</span>
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-[10px] text-muted-foreground">
-                                                                Financiero: {fin.calculatedProgress.toFixed(0)}%
-                                                            </span>
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Info className="w-3 h-3 text-muted-foreground/70 cursor-help" />
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>Barra: Avance Manual (Real).<br />Texto: Avance Financiero (Costos vs Presupuesto).</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
+                                                <div className="flex flex-col gap-2">
+                                                    {/* Status Logic */}
+                                                    {project.status === 'EN_ESPERA' || project.status === 'BLOQUEADO' ? (
+                                                        <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded w-fit">
+                                                            <Info className="w-3.5 h-3.5 mr-1.5" />
+                                                            <span>{project.status === 'EN_ESPERA' ? 'En Pausa' : 'Bloqueado'}</span>
                                                         </div>
-                                                    </div>
-                                                    <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
-                                                        <div
-                                                            className={`h-1.5 rounded-full transition-all duration-500 bg-blue-600`}
-                                                            style={{ width: `${project.progress}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    {fin.calculatedProgress > 100 && (
-                                                        <span className="text-[10px] text-red-500 font-medium mt-1 block">Sobrecosto ({fin.calculatedProgress.toFixed(0)}%)</span>
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1.5">
+                                                            {/* Financial Health */}
+                                                            <div className="flex items-center gap-2">
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightFinancial === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
+                                                                                fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
+                                                                                    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300'
+                                                                                }`}>
+                                                                                <DollarSign className="w-3 h-3" />
+                                                                                <span>Finanzas</span>
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="right">
+                                                                            <p className="font-semibold">Salud Financiera</p>
+                                                                            <p className="text-xs">Basado en el margen actual ({(fin.priceNet > 0 ? (fin.marginAmountNet / fin.priceNet) : 0).toLocaleString('es-CL', { style: 'percent' })})</p>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            </div>
+
+                                                            {/* Time Health */}
+                                                            {project.plannedEndDate && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <TooltipProvider>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger asChild>
+                                                                                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightTime === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
+                                                                                    fin.trafficLightTime === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
+                                                                                        'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'
+                                                                                    }`}>
+                                                                                    <Timer className="w-3 h-3" />
+                                                                                    <span>Tiempo</span>
+                                                                                </div>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent side="right">
+                                                                                <p className="font-semibold">Salud de Plazos</p>
+                                                                                <p className="text-xs">
+                                                                                    {fin.trafficLightTime === 'RED' ? 'Atrasado' : fin.trafficLightTime === 'YELLOW' ? 'Por vencer' : 'A tiempo'}
+                                                                                </p>
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -205,11 +234,7 @@ export default async function ProjectsPage() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <Link href={`/projects/${project.id}`} className="text-primary hover:text-primary/80 font-medium text-sm">
-                                                    Gestionar
-                                                </Link>
-                                            </td>
+
                                         </tr>
                                     )
                                 })

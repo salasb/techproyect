@@ -251,154 +251,40 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                 )}
                             </div>
 
-                            {/* PROGRESS CARD */}
+                            {/* DEADLINES & STATUS CARD (Simplified) */}
                             <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-sm font-semibold text-foreground flex items-center">
-                                        <Activity className="w-4 h-4 mr-2 text-primary" />
-                                        Progreso del Proyecto
+                                        <Calendar className="w-4 h-4 mr-2 text-primary" />
+                                        Plazos del Proyecto
                                     </h3>
-                                    <div className="flex items-baseline space-x-1">
-                                        <span className="text-3xl font-bold text-primary">{Math.min(financials.calculatedProgress, 100).toFixed(0)}%</span>
-                                        <span className="text-xs text-muted-foreground uppercase font-medium">Completado</span>
-                                    </div>
+                                    {/* Optional: Add a simple status badge here if needed, or keep clean */}
                                 </div>
 
-                                <div className="space-y-8">
-                                    {/* Work Progress (Manual) */}
-                                    <div>
-                                        <div className="flex justify-between text-xs mb-2">
-                                            <span className="font-medium text-foreground">Avance Manual (Reportado)</span>
-                                            <span className="font-bold text-foreground">{project.progress}%</span>
-                                        </div>
-                                        <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-1000 ease-out bg-primary`}
-                                                style={{ width: `${project.progress}%` }}
-                                            ></div>
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground mt-1">
-                                            Progreso físico real reportado manualmente.
-                                        </p>
-                                    </div>
-
-                                    {/* Work Progress (Automatic based on Financials) */}
-                                    <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                                        <div className="flex justify-between text-xs mb-2">
-                                            <span className="font-medium text-blue-700 dark:text-blue-300">Avance Financiero Total</span>
-                                            <span className="font-bold text-blue-700 dark:text-blue-300">{financials.calculatedProgress.toFixed(1)}%</span>
-                                        </div>
-                                        <div className="w-full bg-blue-200 dark:bg-blue-900/30 rounded-full h-2 overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-1000 ease-out bg-blue-600 dark:bg-blue-400`}
-                                                style={{ width: `${Math.min(financials.calculatedProgress, 100)}%` }}
-                                            ></div>
-                                        </div>
-                                        <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 mt-2">
-                                            Calculado automáticamente en base a la ejecución presupuestaria.
-                                        </p>
-                                    </div>
-
-                                    {/* Financial Progress (Calculated) */}
-                                    <div>
-                                        <div className="flex justify-between text-xs mb-2">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="font-medium">Avance Financiero</span>
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <div className="cursor-help bg-zinc-100 dark:bg-zinc-800 text-[10px] px-1.5 py-0.5 rounded text-muted-foreground">Automático</div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Calculado en base a gastos ejecutados vs presupuesto.</p>
-                                                            <p className="font-mono mt-1 text-xs">Costo Real / Costo Base</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                            <span className="text-muted-foreground">{financials.calculatedProgress.toFixed(0)}%</span>
-                                        </div>
-                                        <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-1000 ease-out ${financials.calculatedProgress > 100 ? 'bg-red-500' : 'bg-green-500'}`}
-                                                style={{ width: `${Math.min(financials.calculatedProgress, 100)}%` }}
-                                            ></div>
-                                        </div>
-                                        {financials.calculatedProgress > 100 && (
-                                            <p className="text-[10px] text-red-500 mt-1 flex items-center">
-                                                <AlertCircle className="w-3 h-3 mr-1" />
-                                                Sobrecosto detectado (Gastos superan presupuesto)
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Time Progress */}
-                                    {(() => {
-                                        if (!project.startDate || !project.plannedEndDate) return null;
-                                        const start = new Date(project.startDate);
-                                        const end = new Date(project.plannedEndDate);
-
-                                        if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-
-                                        const today = new Date();
-                                        const totalDays = differenceInDays(end, start);
-                                        const daysPassed = differenceInDays(today, start);
-                                        let timeProgress = 0;
-                                        if (totalDays > 0) {
-                                            timeProgress = Math.max(0, Math.min(100, (daysPassed / totalDays) * 100));
-                                        }
-
-                                        return (
-                                            <div>
-                                                <div className="flex justify-between text-xs mb-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="font-medium text-zinc-500">Tiempo Transcurrido</span>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Info className="w-3.5 h-3.5 text-muted-foreground/70 cursor-help" />
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    <p>Días transcurridos vs Duración total.</p>
-                                                                    <p className="font-mono mt-1 text-xs">{daysPassed} días de {totalDays} totales</p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </div>
-                                                    <span className="text-zinc-500">{timeProgress.toFixed(0)}%</span>
-                                                </div>
-                                                <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all duration-1000 ease-out ${timeProgress > project.progress ? 'bg-amber-400' : 'bg-zinc-400'}`}
-                                                        style={{ width: `${timeProgress}%` }}
-                                                    ></div>
-                                                </div>
-                                                {timeProgress > project.progress && (
-                                                    <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-1 flex items-center">
-                                                        <AlertCircle className="w-3 h-3 mr-1" />
-                                                        El tiempo avanza más rápido que el avance físico reportado.
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )
-                                    })()}
-                                </div>
-
-                                <div className="mt-6 pt-4 border-t border-border grid grid-cols-3 gap-4 text-center divide-x divide-border">
+                                <div className="grid grid-cols-3 gap-4 text-center divide-x divide-border">
                                     <div>
                                         <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Inicio</div>
-                                        <div className="font-medium text-sm">{format(new Date(project.startDate), 'dd MMM yy')}</div>
+                                        <div className="font-medium text-sm text-foreground">
+                                            {project.startDate ? format(new Date(project.startDate), 'dd MMM yy') : '-'}
+                                        </div>
                                     </div>
                                     <div>
                                         <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Término</div>
-                                        <div className="font-medium text-sm">
+                                        <div className="font-medium text-sm text-foreground">
                                             {project.plannedEndDate ? format(new Date(project.plannedEndDate), 'dd MMM yy') : '-'}
                                         </div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Restante</div>
-                                        <div className={`font-bold text-sm ${financials.trafficLightTime === 'RED' ? 'text-red-500' : 'text-zinc-600 dark:text-zinc-400'}`}>
-                                            {project.plannedEndDate ? `${differenceInDays(new Date(project.plannedEndDate), new Date())} días` : '-'}
+                                        <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Tiempo Restante</div>
+                                        <div className={`font-bold text-sm ${financials.trafficLightTime === 'RED' ? 'text-red-500' : 'text-blue-600 dark:text-blue-400'}`}>
+                                            {project.plannedEndDate ? (
+                                                (() => {
+                                                    const days = differenceInDays(new Date(project.plannedEndDate), new Date());
+                                                    if (days < 0) return `Vencido hace ${Math.abs(days)} días`;
+                                                    if (days === 0) return 'Vence hoy';
+                                                    return `${days} días`;
+                                                })()
+                                            ) : '-'}
                                         </div>
                                     </div>
                                 </div>
