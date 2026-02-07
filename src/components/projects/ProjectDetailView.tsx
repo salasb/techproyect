@@ -75,7 +75,7 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
     const currency = (project.currency || 'CLP').toUpperCase();
     const formatMoney = (amount: number) => {
         if (currency === 'USD') {
-            return 'USD ' + amount.toLocaleString('en-US', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            return 'USD ' + amount.toLocaleString('en-US', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         if (currency === 'UF') {
             return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

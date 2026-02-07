@@ -26,10 +26,11 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
     // Helper for currency
+    // Helper for currency
     const formatMoney = (amount: number) => {
         if (currency === 'CLP') return '$' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-        if (currency === 'USD') return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 2 });
+        if (currency === 'USD') return 'USD ' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         return '$' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
     }
 
