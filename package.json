@@ -1,11 +1,14 @@
 {
   "name": "tech-proyect",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "update-version": "node scripts/update-build-date.js",
     "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js patch --yes",
+    "release:minor": "node scripts/release.js minor --yes",
+    "release:major": "node scripts/release.js major --yes",
     "prebuild": "npm run update-version",
     "build": "next build",
     "start": "next start",
