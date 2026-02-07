@@ -237,54 +237,57 @@ export class DashboardService {
         });
 
         return Array.from(projectionMap.entries())
-        value
-    }));
-}
+            .map(([month, amount]) => ({
+                month,
+                amount
+            }))
+            .sort((a, b) => a.month.localeCompare(b.month));
+    }
 
     static getAlerts(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
-    const alerts: { type: 'danger' | 'warning', message: string, link?: string }[] = [];
-    const now = new Date();
+        const alerts: { type: 'danger' | 'warning', message: string, link?: string }[] = [];
+        const now = new Date();
 
-    projects.forEach(p => {
-        // 1. Low Margin Alerts (Active Projects only)
-        if (p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') {
-            const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
-            // Check Traffic Light Financial directly
-            if (fin.trafficLightFinancial === 'RED') {
-                alerts.push({
-                    type: 'danger',
-                    message: `Bajo Margen: ${p.name}`,
-                    link: `/projects/${p.id}/financials`
-                });
-            }
-        }
-
-        // 2. Overdue Invoices
-        p.invoices?.forEach(inv => {
-            if (inv.sent && !inv.amountPaidGross) {
-                // Check if Overdue
-                let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
-                if (!dueDate && inv.sentDate) {
-                    const terms = inv.paymentTermsDays ?? settings.defaultPaymentTermsDays;
-                    dueDate = new Date(inv.sentDate);
-                    dueDate.setDate(dueDate.getDate() + terms);
+        projects.forEach(p => {
+            // 1. Low Margin Alerts (Active Projects only)
+            if (p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') {
+                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
+                // Check Traffic Light Financial directly
+                if (fin.trafficLightFinancial === 'RED') {
+                    alerts.push({
+                        type: 'danger',
+                        message: `Bajo Margen: ${p.name}`,
+                        link: `/projects/${p.id}/financials`
+                    });
                 }
+            }
 
-                if (dueDate && dueDate < now) {
-                    // It is overdue
-                    const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-                    if (daysOverdue > 7) { // Only alert if > 7 days late to reduce noise
-                        alerts.push({
-                            type: 'warning',
-                            message: `Pago Atrasado (${daysOverdue} días): ${p.name}`,
-                            link: `/projects/${p.id}/invoices`
-                        });
+            // 2. Overdue Invoices
+            p.invoices?.forEach(inv => {
+                if (inv.sent && !inv.amountPaidGross) {
+                    // Check if Overdue
+                    let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+                    if (!dueDate && inv.sentDate) {
+                        const terms = inv.paymentTermsDays ?? settings.defaultPaymentTermsDays;
+                        dueDate = new Date(inv.sentDate);
+                        dueDate.setDate(dueDate.getDate() + terms);
+                    }
+
+                    if (dueDate && dueDate < now) {
+                        // It is overdue
+                        const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+                        if (daysOverdue > 7) { // Only alert if > 7 days late to reduce noise
+                            alerts.push({
+                                type: 'warning',
+                                message: `Pago Atrasado (${daysOverdue} días): ${p.name}`,
+                                link: `/projects/${p.id}/invoices`
+                            });
+                        }
                     }
                 }
-            }
+            });
         });
-    });
 
-    return alerts.slice(0, 10); // Limit to 10 alerts
-}
+        return alerts.slice(0, 10); // Limit to 10 alerts
+    }
 }
