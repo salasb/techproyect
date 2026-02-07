@@ -90,6 +90,15 @@ export default async function ProjectsPage() {
                                     const isOverdue = nextActionDate && isBefore(startOfDay(nextActionDate), startOfDay(today));
                                     const isDueToday = nextActionDate && differenceInCalendarDays(nextActionDate, today) === 0;
 
+                                    // Currency Helper
+                                    const currency = project.currency || 'CLP';
+                                    const formatCurrency = (amount: number) => {
+                                        if (currency === 'CLP') return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+                                        if (currency === 'USD') return 'USD $' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                        return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+                                    };
+
                                     return (
                                         <tr key={project.id} className="hover:bg-muted/50 transition-colors">
                                             <td className="px-6 py-4">
@@ -155,7 +164,7 @@ export default async function ProjectsPage() {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col text-sm">
                                                     <span className="font-medium text-foreground">
-                                                        ${fin.priceGross.toLocaleString('es-CL', { maximumFractionDigits: 0 })} <span className="text-xs text-muted-foreground font-normal">Total</span>
+                                                        {formatCurrency(fin.priceGross)} <span className="text-xs text-muted-foreground font-normal">Total</span>
                                                     </span>
 
                                                     {/* Financial Health Indicator */}
@@ -168,7 +177,7 @@ export default async function ProjectsPage() {
                                                                 fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
                                                                     'text-green-600'
                                                                 }`}>
-                                                                ${fin.marginAmountNet.toLocaleString('es-CL', { maximumFractionDigits: 0 })}
+                                                                {formatCurrency(fin.marginAmountNet)}
                                                             </span>
                                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${fin.trafficLightFinancial === 'RED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
                                                                 fin.trafficLightFinancial === 'YELLOW' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :

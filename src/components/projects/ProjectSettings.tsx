@@ -151,12 +151,23 @@ export function ProjectSettings({ project, clients }: Props) {
     const [progress, setProgress] = useState(project.progress);
 
     // Sync state with props when project updates
+    // Sync state with props when project updates
     useEffect(() => {
         setName(project.name);
         setStatus(project.status);
-        setProgress(project.progress);
+        // Progress kept from prop but not editable via slider anymore.
+        // If we want to fully rely on automated progress, we might ignore this or use it for display only elsewhere.
+        // For now, removing it from editable state sync to avoid confusion, 
+        // though the state variable 'progress' still exists if we need it for API compatibility.
+        // setProgress(project.progress); 
         setSelectedCurrency(project.currency || 'CLP');
-    }, [project.name, project.currency, project.status, project.progress, project.updatedAt]);
+
+        // Init search term if client exists
+        if (project.clientId) {
+            const c = clients.find(cl => cl.id === project.clientId);
+            if (c) setSearchTerm(c.name);
+        }
+    }, [project.name, project.currency, project.status, project.clientId, project.updatedAt, clients]);
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true);
@@ -174,7 +185,7 @@ export function ProjectSettings({ project, clients }: Props) {
                 name,
                 clientId: selectedClientId,
                 status,
-                progress,
+                progress: project.progress, // Preserve existing value, do not update from removed slider
                 marginPct,
                 currency,
                 nextAction,
@@ -217,7 +228,7 @@ export function ProjectSettings({ project, clients }: Props) {
                     {/* ... other general inputs could go here if any ... */}
                 </div>
 
-                {/* Client Selection, Status & Progress */}
+                {/* Client Selection, Status & Workflow */}
                 <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
                     {/* Client Selection */}
                     <div>
@@ -229,71 +240,88 @@ export function ProjectSettings({ project, clients }: Props) {
                                     type="text"
                                     placeholder="Buscar cliente por nombre o RUT..."
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background"
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        // If user clears search or types, we might want to unset selectedClientId or keep it?
+                                        // Standard Combobox behavior: if it doesn't match selected, it's just filtering.
+                                    }}
+                                    onFocus={() => {
+                                        // Show list on focus
+                                    }}
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                                 />
-                            </div>
-                            <div className="border border-border rounded-lg max-h-48 overflow-y-auto">
-                                {filteredClients.length === 0 ? (
-                                    <div className="p-4 text-center text-sm text-muted-foreground">No se encontraron clientes.</div>
-                                ) : (
-                                    <div className="divide-y divide-border">
-                                        {filteredClients.map((client) => (
-                                            <button
-                                                key={client.id}
-                                                type="button"
-                                                onClick={() => setSelectedClientId(client.id)}
-                                                className={`w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors ${selectedClientId === client.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
-                                            >
-                                                <div>
-                                                    <p className="font-medium text-sm text-foreground">{client.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{client.taxId || 'Sin RUT'}</p>
-                                                </div>
-                                                {selectedClientId === client.id && <Check className="h-4 w-4 text-primary" />}
-                                            </button>
-                                        ))}
-                                    </div>
+                                {selectedClientId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedClientId(null);
+                                            setSearchTerm("");
+                                        }}
+                                        className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
                                 )}
                             </div>
-                            {selectedClientId && (
-                                <p className="text-xs text-muted-foreground">
-                                    Cliente: <span className="font-medium text-foreground">{clients.find(c => c.id === selectedClientId)?.name}</span>
-                                </p>
+
+                            {/* Combobox Dropdown - Only show if searching or if we want to show list */}
+                            {(searchTerm || !selectedClientId) && (
+                                <div className="border border-border rounded-lg max-h-48 overflow-y-auto bg-popover/50 backdrop-blur-sm">
+                                    {filteredClients.length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-muted-foreground">No se encontraron clientes.</div>
+                                    ) : (
+                                        <div className="divide-y divide-border">
+                                            {filteredClients.slice(0, 5).map((client) => ( // Limit to 5 results for cleaner UI
+                                                <button
+                                                    key={client.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedClientId(client.id);
+                                                        setSearchTerm(client.name); // Set input to selected Name
+                                                    }}
+                                                    className={`w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors ${selectedClientId === client.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
+                                                >
+                                                    <div>
+                                                        <p className="font-medium text-sm text-foreground">{client.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{client.taxId || 'Sin RUT'}</p>
+                                                    </div>
+                                                    {selectedClientId === client.id && <Check className="h-4 w-4 text-primary" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {selectedClientId && !searchTerm && (
+                                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">
+                                            {clients.find(c => c.id === selectedClientId)?.name}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {clients.find(c => c.id === selectedClientId)?.taxId}
+                                        </p>
+                                    </div>
+                                    <Check className="h-4 w-4 text-primary" />
+                                </div>
                             )}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Estado del Proyecto</label>
-                            <select
-                                value={status}
-                                onChange={(e) => setStatus(e.target.value as any)}
-                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-                            >
-                                <option value="EN_ESPERA">En Espera</option>
-                                <option value="EN_CURSO">En Curso</option>
-                                <option value="BLOQUEADO">Bloqueado</option>
-                                <option value="CERRADO">Cerrado</option>
-                                <option value="CANCELADO">Cancelado</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Avance Manual ({progress}%)</label>
-                            <div className="flex items-center gap-4">
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    step="5"
-                                    value={progress}
-                                    onChange={(e) => setProgress(Number(e.target.value))}
-                                    className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-                                />
-                                <span className="text-sm font-medium w-12 text-right">{progress}%</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">Progreso real/físico.</p>
-                        </div>
+                    <div className="pt-4 border-t border-border">
+                        <label className="block text-sm font-medium text-foreground mb-1">Estado del Proyecto</label>
+                        <select
+                            value={status}
+                            onChange={(e) => setStatus(e.target.value as any)}
+                            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                        >
+                            <option value="EN_ESPERA">En Espera</option>
+                            <option value="EN_CURSO">En Curso</option>
+                            <option value="BLOQUEADO">Bloqueado</option>
+                            <option value="CERRADO">Cerrado</option>
+                            <option value="CANCELADO">Cancelado</option>
+                        </select>
                     </div>
                 </div>
 
