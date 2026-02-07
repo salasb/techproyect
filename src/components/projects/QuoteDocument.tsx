@@ -106,9 +106,10 @@ export function QuoteDocument({ project, settings }: Props) {
                     {project.name}
                 </div>
                 {/* Always show description if available, or scopeDetails fallback */}
-                {(project.description || project.scopeDetails) && (
+                {/* Use scopeDetails as description */}
+                {project.scopeDetails && (
                     <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed whitespace-pre-line">
-                        {project.description || project.scopeDetails}
+                        {project.scopeDetails}
                     </p>
                 )}
             </div>
