@@ -3,9 +3,8 @@
 import React from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import Image from "next/image";
+
 import { Database } from "@/types/supabase";
-import { FileText } from "lucide-react";
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'] | null;

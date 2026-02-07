@@ -1,8 +1,4 @@
-
-'use client';
-
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { Database } from "@/types/supabase";
 import { ArrowUpRight, CheckCircle2, DollarSign, Wallet, Info } from "lucide-react";
@@ -13,16 +9,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 import { DashboardService } from "@/services/dashboardService";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
+import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
+import { ReportExportButton } from "@/components/dashboard/ReportExportButton";
+import { CashFlowChart } from "@/components/dashboard/CashFlowChart";
+import { MarginTrendChart } from "@/components/dashboard/MarginTrendChart";
+import { AlertsWidget } from "@/components/dashboard/AlertsWidget";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
-
-
-import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
-import { ProfitTrendCard } from "@/components/dashboard/ProfitTrendCard";
-
-interface Props {
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}
 
 const periodLabels: Record<string, string> = {
     '7d': 'Últimos 7 días',
@@ -34,172 +27,55 @@ const periodLabels: Record<string, string> = {
     'all': 'Histórico Completo'
 };
 
-export default function DashboardPage() {
-    const [period, setPeriod] = useState('30_days'); // New state for period
-    // ... data fetching placeholders or hooks would go here if not already present
-    // For now assuming the rest of the component expects 'period' to exist.
+export default async function DashboardPage({ searchParams }: { searchParams: { period?: string } }) {
+    const period = searchParams?.period || '30d';
+    const supabase = await createClient();
 
-    // NOTE: This component seems to have lost some state definitions in previous edits.
-    // Re-adding essential state if missing.
+    // 1. Fetch Data (Server Side)
+    const { data: settingsData } = await supabase.from('Settings').select('*').single();
+    const settings = settingsData || { vatRate: DEFAULT_VAT_RATE } as Settings;
 
-    const [projects, setProjects] = useState<any[]>([]);
-    const [stats, setStats] = useState({
-        totalRevenue: 0,
-        activeProjects: 0,
-        completedProjects: 0,
-        averageMargin: 0
-    });
-    const [chartData, setChartData] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [settings, setSettings] = useState<Settings | null>(null); // Added state for settings
+    const { data: projectsData } = await supabase
+        .from('Project')
+        .select(`
+            *,
+            company:Company(*),
+            costEntries:CostEntry(*),
+            invoices:Invoice(*),
+            quoteItems:QuoteItem(*)
+        `)
+        .order('updatedAt', { ascending: false });
 
-    useEffect(() => {
-        async function loadDashboardData() {
-            setIsLoading(true);
-            try {
-                // This assumes DashboardService.getDashboardData() now fetches all necessary data
-                // including settings, projects, and calculated KPIs.
-                // The original server-side fetching logic needs to be moved or replicated within DashboardService.
-                const supabase = await createClient(); // Still need supabase client for DashboardService if it uses it
-                const { data: settingsData } = await supabase.from('Settings').select('*').single();
-                setSettings(settingsData || { vatRate: DEFAULT_VAT_RATE } as Settings);
+    const projects = projectsData || [];
 
-                const { data: projectsData } = await supabase
-                    .from('Project')
-                    .select(`
-                        *,
-                        company:Company(*),
-                        costEntries:CostEntry(*),
-                        invoices:Invoice(*),
-                        quoteItems:QuoteItem(*)
-                    `)
-                    .order('updatedAt', { ascending: false });
-
-                setProjects(projectsData || []);
-
-                // If DashboardService.getDashboardData() is meant to replace all this,
-                // then the above supabase calls would be inside DashboardService.
-                // For now, I'm keeping the explicit supabase calls here as per the original structure,
-                // but the instruction implies DashboardService.getDashboardData() might consolidate this.
-                // The instruction's `data = await DashboardService.getDashboardData()` line is commented out
-                // because it conflicts with the existing explicit data fetching.
-                // If DashboardService.getDashboardData() is implemented to return all these,
-                // then the explicit supabase calls here should be removed.
-
-                // Example of how DashboardService might be used if it consolidates:
-                // const data = await DashboardService.getDashboardData(period);
-                // setProjects(data.projects);
-                // setStats(data.stats); // Assuming stats are returned
-                // setChartData(data.financialHistory); // Assuming financialHistory is returned
-
-            } catch (error) {
-                console.error("Failed to load dashboard", error);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        loadDashboardData();
-    }, [period]); // Re-fetch if period changes
-
-    // The original `resolvedSearchParams` and `period` derivation from `searchParams` are removed.
-    // const resolvedSearchParams = await searchParams;
-    // const period = typeof resolvedSearchParams.period === 'string' ? resolvedSearchParams.period : '6m';
-
-    // const supabase = await createClient(); // This is now called inside useEffect
-
-    // 1. Fetch Global Settings (VAT, etc)
-    // const { data: settingsData } = await supabase.from('Settings').select('*').single(); // Moved to useEffect
-    // const settings = settingsData || { vatRate: DEFAULT_VAT_RATE } as Settings; // Moved to useEffect
-
-    if (isLoading || !settings) {
-        return <div>Loading dashboard...</div>; // Basic loading state
-    }
-
-    // 2. Fetch Projects (Active & Recent) - Now from state
-    // const { data: projectsData } = await supabase
-    //     .from('Project')
-    //     .select(`
-    //         *,
-    //         company:Company(*),
-    //         costEntries:CostEntry(*),
-    //         invoices:Invoice(*),
-    //         quoteItems:QuoteItem(*)
-    //     `)
-    //     .order('updatedAt', { ascending: false });
-
-    // const projects = projectsData || []; // Now from state
-
-    // 3. Calculate Global KPIs
+    // 2. Calculate Global KPIs
     const activeProjects = projects.filter(p => p.status === 'EN_CURSO' || p.status === 'EN_ESPERA');
 
     let totalBudgetGross = 0;
     let totalReceivableGross = 0;
+    let totalProjectedMargin = 0;
 
     projects.forEach(p => {
         const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!, p.quoteItems || []);
 
-        // Accumulate totals
-        // Use priceGross (Project Total Value) for Budget Total
         if (p.status !== 'CANCELADO' && p.status !== 'CERRADO') {
             totalBudgetGross += fin.priceGross;
         }
-
         totalReceivableGross += fin.receivableGross;
     });
 
-    const avgProgress = projects.length > 0
-        ? (projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length).toFixed(0)
-        : 0;
-
-    // 5. Calculate KPIs for "Value" (Truth)
-    // "Utilidad Proyectada" (Projected Margin) represents the Project Value Truth, not just Cash Flow
-    let totalProjectedMargin = 0;
-
-    // Also re-verify active projects filter.
     activeProjects.forEach(p => {
         const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!, p.quoteItems || []);
         totalProjectedMargin += fin.marginAmountNet;
     });
 
-    // 6. Calculate Financial Trends for Chart (Keep "Actividad Financiera" as Cash Flow for historical record?)
-    // Or should chart also reflect "Value"? For now, user complained about the "Card".
-    // We will keep the chart as "Activity" (Billing vs Cost) but the CARD will show "Projected Margin" of Active Projects.
-    // However, the ProfitTrendCard takes "profitTrendData". If we want the card to match the "Projected Margin", we shouldn't use "profitTrendData" from cash flow.
-    // For simpler "Truth", let's just show the Static Total Projected Margin of Active Projects as a KPI, 
-    // and maybe remove the sparkline or make it flat, OR keep sparkline as "Cash flow trend" but Value is "Projected"? Confusing.
-    // Better: Make the card "Utilidad Proyectada" and just show the number. 
-    // If we want a trend, maybe "Margin Growth"? Too complex for now.
-    // We will reuse ProfitTrendCard but pass the `totalProjectedMargin` as the main value.
-    // For the sparkline, we can just pass an empty array or the cash flow trend (labeled as cash flow?).
-    // User wants "Truth". Truth of PROYECTOS is Margin. Truth of COMPANY is Cash. 
-    // Dashboard seems to be Operation/Project focused.
-    // Let's swap the card to `StatCard` style for "Utilidad Proyectada" or modify `ProfitTrendCard` to be clearer.
-    // Let's use StatCard for standard look or keep ProfitTrendCard but with correct data.
-    // We'll replace the dynamic "ProfitTrendCard" with a "StatCard" for "Utilidad Proyectada" to match the style of others and avoid negative cash flow confusion.
+    // 3. Prepare Chart Data
+    const chartData = DashboardService.getFinancialTrends(projects as any, period);
+    const cashFlowData = DashboardService.getCashFlowProjection(projects as any);
+    const alerts = DashboardService.getAlerts(projects as any, settings);
 
-    // ... code continues ...
-
-    // 6. Calculate Financial Trends for Chart
-    // Ensure chartData is updated when projects or period changes if not already handled by loadDashboardData.
-    // Since loadDashboardData fetches everything including financialHistory (chartData), we don't need to recalculate it physically here if the service does it.
-    // However, the original code had:
-    // const chartData = DashboardService.getFinancialTrends(projects as any, period);
-
-    // If DashboardService.getDashboardData() returns ready-to-use chartData, we use that (which is in `chartData` state).
-    // If we need to recalculate because `period` changed but we didn't re-fetch (which we do, see dependency array), then state is fine.
-    // BUT! loadDashboardData calls getDashboardData(), does it take `period`?
-    // If getDashboardData() *doesn't* take period, we might need to recalc.
-    // Let's assume for now we use the state `chartData` which is populated by `loadDashboardData`.
-
-    // Removing the duplicate declaration.
-    // const chartData = DashboardService.getFinancialTrends(projects as any, period); 
-    // ^ conflicts with state `chartData`
-
-
-    // Focus Board Data
-    // We cast to any because the getFocusBoardData expects a specific Project type that might slightly differ due to null/undefined vs optional fields from Supabase gen types
-    // But structurally it's compatible for what we need.
-    const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any, settings!);
+    // 4. Focus Board Data
+    const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any, settings);
 
     return (
         <div className="space-y-6">
@@ -209,6 +85,7 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground mt-1">Resumen general de tu operación.</p>
                 </div>
                 <div className="flex items-center space-x-4">
+                    <ReportExportButton />
                     <PeriodSelector />
 
                     <Link href="/projects/new">
@@ -246,8 +123,6 @@ export default function DashboardPage() {
                     subtext="Facturas emitidas impagas"
                     tooltip="Suma de facturas enviadas que aún no han sido marcadas como pagadas."
                 />
-
-                {/* REPLACED: Profit Trend Card with Projected Margin Card to show 'Truth' of Project Value */}
                 <StatCard
                     title="Utilidad Proyectada"
                     value={`$${totalProjectedMargin.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
@@ -259,34 +134,72 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <div className="col-span-4 bg-card rounded-xl border border-border shadow-sm p-6">
-                    <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-foreground">Actividad Financiera</h3>
-                        <p className="text-sm text-muted-foreground">Ingresos vs Costos ({periodLabels[period] || 'periodo'})</p>
+                {/* Main Chart Area */}
+                <div className="col-span-4 space-y-4">
+                    {/* Financial Activity */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-foreground">Actividad Financiera</h3>
+                            <p className="text-sm text-muted-foreground">Ingresos vs Costos ({periodLabels[period] || 'periodo'})</p>
+                        </div>
+                        <div className="-ml-2">
+                            <FinancialActivityChart data={chartData} />
+                        </div>
                     </div>
 
-                    <div className="-ml-2">
-                        <FinancialActivityChart data={chartData} />
+                    {/* Margin Trends */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-foreground">Tendencia de Márgenes</h3>
+                            <p className="text-sm text-muted-foreground">Evolución del Margen Neto (%)</p>
+                        </div>
+                        <div className="-ml-2">
+                            <MarginTrendChart data={chartData} />
+                        </div>
                     </div>
                 </div>
 
-                <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm p-6 overflow-hidden">
-                    <h3 className="text-lg font-semibold text-foreground mb-4">Últimos Proyectos</h3>
-                    <div className="space-y-4">
-                        {projects.slice(0, 5).map((p) => (
-                            <div key={p.id} className="flex items-center group">
-                                <div className="ml-0 space-y-1 flex-1">
-                                    <Link href={`/projects/${p.id}`} className="text-sm font-medium leading-none text-foreground group-hover:text-primary transition-colors block truncate">
-                                        {p.name}
-                                    </Link>
-                                    <p className="text-xs text-muted-foreground truncate">{p.company?.name || 'Sin Cliente'}</p>
+                {/* Right Column */}
+                <div className="col-span-3 space-y-4">
+                    {/* Alerts Widget */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-border">
+                            <h3 className="text-lg font-semibold text-foreground">Alertas</h3>
+                            <p className="text-sm text-muted-foreground">Atención requerida</p>
+                        </div>
+                        <AlertsWidget alerts={alerts} />
+                    </div>
+
+                    {/* Cash Flow Projection */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-foreground">Proyección de Caja</h3>
+                            <p className="text-sm text-muted-foreground">Próximos 3 meses (Vencimiento)</p>
+                        </div>
+                        <div className="-ml-2">
+                            <CashFlowChart data={cashFlowData} />
+                        </div>
+                    </div>
+
+                    {/* Recent Projects */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6 overflow-hidden">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">Últimos Proyectos</h3>
+                        <div className="space-y-4">
+                            {projects.slice(0, 5).map((p) => (
+                                <div key={p.id} className="flex items-center group">
+                                    <div className="ml-0 space-y-1 flex-1">
+                                        <Link href={`/projects/${p.id}`} className="text-sm font-medium leading-none text-foreground group-hover:text-primary transition-colors block truncate">
+                                            {p.name}
+                                        </Link>
+                                        <p className="text-xs text-muted-foreground truncate">{p.company?.name || 'Sin Cliente'}</p>
+                                    </div>
+                                    <div className="ml-auto font-medium text-xs text-muted-foreground whitespace-nowrap">
+                                        {new Date(p.updatedAt).toLocaleDateString()}
+                                    </div>
                                 </div>
-                                <div className="ml-auto font-medium text-xs text-muted-foreground whitespace-nowrap">
-                                    {new Date(p.updatedAt).toLocaleDateString()}
-                                </div>
-                            </div>
-                        ))}
-                        {projects.length === 0 && <p className="text-sm text-muted-foreground">No hay proyectos recientes.</p>}
+                            ))}
+                            {projects.length === 0 && <p className="text-sm text-muted-foreground">No hay proyectos recientes.</p>}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -330,4 +243,3 @@ function StatCard({ title, value, icon: Icon, color, subtext, tooltip }: any) {
         </div>
     )
 }
-

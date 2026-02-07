@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+import { validateProject } from "@/lib/validators";
+
 export async function createProject(formData: FormData) {
     const name = formData.get("name") as string;
     const companyId = formData.get("companyId") as string;
@@ -11,11 +13,14 @@ export async function createProject(formData: FormData) {
     const startDate = formData.get("startDate") as string;
     const budget = formData.get("budget") ? parseFloat(formData.get("budget") as string) : 0;
 
+    const validation = validateProject({ name, companyId, startDate, budget });
+    if (!validation.success) {
+        throw new Error(validation.errors.join(", "));
+    }
+
     const supabase = await createClient();
 
-    if (!name || !startDate) {
-        throw new Error("Missing required fields");
-    }
+
 
     let finalCompanyId = companyId;
 
@@ -67,7 +72,8 @@ export async function createProject(formData: FormData) {
     }
 
     revalidatePath("/projects");
-    redirect(`/projects/${project.id}`);
+    revalidatePath("/projects");
+    return { success: true, projectId: project.id };
 }
 
 export async function deleteProject(projectId: string) {

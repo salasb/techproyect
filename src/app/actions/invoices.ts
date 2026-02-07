@@ -3,15 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+import { validateInvoice } from "@/lib/validators";
+
 export async function createInvoice(projectId: string, formData: FormData) {
     const amountInvoicedGross = parseFloat(formData.get("amount") as string);
     const dueDateStr = formData.get("dueDate") as string;
     const paymentTerms = parseInt(formData.get("paymentTerms") as string) || 30;
 
+    const validation = validateInvoice({ amount: amountInvoicedGross, dueDate: dueDateStr });
+    if (!validation.success) {
+        throw new Error(validation.errors.join(", "));
+    }
+
     try {
-        if (!amountInvoicedGross) {
-            throw new Error("Monto requerido");
-        }
 
         const supabase = await createClient();
 
@@ -115,4 +119,6 @@ export async function deleteInvoice(projectId: string, invoiceId: string) {
     const { error } = await supabase.from('Invoice').delete().eq('id', invoiceId);
     if (error) throw new Error(error.message);
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/');
+    revalidatePath('/projects');
 }

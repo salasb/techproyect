@@ -37,6 +37,7 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
+    // 1. Auth Guard (Login)
     if (request.nextUrl.pathname.startsWith('/login')) {
         if (user) {
             return NextResponse.redirect(new URL('/dashboard', request.url))
@@ -46,6 +47,29 @@ export async function updateSession(request: NextRequest) {
 
     if (!user && !request.nextUrl.pathname.startsWith('/login')) {
         return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // 2. RBAC Guard (Admin/Settings)
+    if (user && (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/settings'))) {
+        try {
+            // Fetch profile to check role
+            const { data: profile } = await supabase
+                .from('Profile')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
+            // Assuming 'admin' is the role string. Adjust if 'ADMIN' or other.
+            // If not admin, redirect to dashboard with error (or just dashboard)
+            if (profile?.role !== 'admin') {
+                console.warn(`Unauthorized access attempt to ${request.nextUrl.pathname} by user ${user.id}`);
+                return NextResponse.redirect(new URL('/dashboard?error=unauthorized', request.url));
+            }
+        } catch (error) {
+            console.error("Error checking role in middleware:", error);
+            // On error, fail safe to dashboard
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
     }
 
     return response

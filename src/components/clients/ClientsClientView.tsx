@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { createClientAction, deleteClientAction, updateClientAction } from "@/actions/clients";
-import { Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, FileText } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, FileText, Eye } from "lucide-react";
 import { formatRut, validateRut } from "@/lib/rut";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 
 export function ClientsClientView({ initialClients }: { initialClients: any[] }) {
@@ -129,7 +130,9 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                     <div key={client.id} className="group bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h3 className="font-bold text-foreground text-lg">{client.name}</h3>
+                                <Link href={`/clients/${client.id}`} className="hover:text-blue-600 transition-colors">
+                                    <h3 className="font-bold text-foreground text-lg">{client.name}</h3>
+                                </Link>
                                 {client.taxId && (
                                     <div className="flex items-center text-xs text-muted-foreground mt-1">
                                         <FileText className="w-3 h-3 mr-1" />
@@ -138,10 +141,13 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                 )}
                             </div>
                             <div className="flex bg-muted/50 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => openModal(client)} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded">
+                                <Link href={`/clients/${client.id}`} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded" title="Ver Detalles">
+                                    <Eye className="w-4 h-4" />
+                                </Link>
+                                <button onClick={() => openModal(client)} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded" title="Editar">
                                     <Edit2 className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => handleDelete(client.id)} className="p-1.5 text-zinc-500 hover:text-red-600 rounded">
+                                <button onClick={() => handleDelete(client.id)} className="p-1.5 text-zinc-500 hover:text-red-600 rounded" title="Eliminar">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
@@ -229,12 +235,12 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                             <option value="landline">Fijo (+56 2)</option>
                                         </select>
                                         <div className="relative flex-1">
-                                            <span className="absolute left-3 top-2 text-muted-foreground text-sm pointer-events-none">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none select-none">
                                                 {phoneType === 'mobile' ? '+56 9' : '+56 2'}
                                             </span>
                                             <input
                                                 name="phone_suffix"
-                                                className="w-full p-2 pl-[4.5rem] rounded-lg border border-input bg-background"
+                                                className="w-full p-2 pl-14 rounded-lg border border-input bg-background text-sm h-10"
                                                 placeholder="12345678"
                                                 value={rawPhone}
                                                 onChange={(e) => {

@@ -1,8 +1,10 @@
-'use client'
-
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createProject } from "@/app/actions/projects";
 import { Loader2 } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { useToast } from "@/components/ui/Toast";
+import { cn } from "@/lib/utils";
 
 type Company = {
     id: string;
@@ -11,19 +13,66 @@ type Company = {
 
 export function CreateProjectForm({ companies }: { companies: Company[] }) {
     const [isNewCompany, setIsNewCompany] = useState(false);
+    const [selectedCompanyId, setSelectedCompanyId] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
+    const { toast } = useToast();
+
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+    const validateForm = (formData: FormData) => {
+        const newErrors: { [key: string]: string } = {};
+
+        const startDate = formData.get("startDate") as string;
+        if (!startDate) {
+            newErrors.startDate = "La fecha de inicio es requerida";
+        }
+
+        const nextActionDate = formData.get("nextActionDate") as string;
+        if (nextActionDate) {
+            const start = new Date(startDate);
+            const next = new Date(nextActionDate);
+            if (next < start) {
+                newErrors.nextActionDate = "La fecha límite no puede ser anterior al inicio";
+            }
+        }
+
+        const companyId = formData.get("companyId") as string;
+        if (!companyId) {
+            newErrors.companyId = "Debes seleccionar un cliente";
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleSubmit = async (formData: FormData) => {
+        if (!validateForm(formData)) {
+            toast({ type: 'error', message: "Por favor corrige los errores antes de continuar" });
+            return;
+        }
+
         setIsLoading(true);
-        // Server action is called directly by form action, but we wrap to show loading state if needed
-        // However, with standard action prop, loading is handled by useFormStatus usually.
-        // For simplicity, we'll let the form submit naturally but standard approach is useTransition or useFormStatus.
-        // Here we just submit.
-        await createProject(formData);
+        toast({ type: 'loading', message: "Creando proyecto...", duration: 2000 });
+
+        try {
+            const result = await createProject(formData);
+            if (result && result.success) {
+                toast({ type: 'success', message: "Proyecto creado exitosamente" });
+                // Slight delay to let the toast be seen before redirect
+                setTimeout(() => {
+                    router.push(`/projects/${result.projectId}`);
+                }, 1000);
+            }
+        } catch (error) {
+            console.error(error);
+            toast({ type: 'error', message: error instanceof Error ? error.message : "Error al crear proyecto" });
+            setIsLoading(false);
+        }
     };
 
     return (
-        <form action={createProject} onSubmit={() => setIsLoading(true)} className="space-y-6 max-w-2xl bg-white dark:bg-zinc-900 p-8 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <form action={handleSubmit} className="space-y-6 max-w-2xl bg-white dark:bg-zinc-900 p-8 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
 
             <div className="space-y-2">
                 <h2 className="text-xl font-bold dark:text-white">Detalles del Proyecto</h2>
@@ -45,18 +94,24 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Cliente / Empresa</label>
-                        <select
+                        <SearchableSelect
                             name="companyId"
                             required
-                            onChange={(e) => setIsNewCompany(e.target.value === "new")}
-                            className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
-                        >
-                            <option value="">Seleccionar Cliente...</option>
-                            {companies.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                            <option value="new">+ Crear Nuevo Cliente</option>
-                        </select>
+                            options={companies.map(c => ({ value: c.id, label: c.name }))}
+                            value={selectedCompanyId}
+                            onChange={(val) => {
+                                setSelectedCompanyId(val);
+                                setIsNewCompany(false);
+                                if (val) setErrors(prev => ({ ...prev, companyId: '' }));
+                            }}
+                            allowCreate
+                            onCreateClick={() => {
+                                setSelectedCompanyId("new");
+                                setIsNewCompany(true);
+                            }}
+                            placeholder={isNewCompany ? "Nuevo Cliente (Complete nombre)" : "Seleccionar Cliente..."}
+                        />
+                        {errors.companyId && <p className="text-red-500 text-xs mt-1">{errors.companyId}</p>}
                     </div>
 
                     {isNewCompany && (
@@ -87,10 +142,13 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                                 const day = String(d.getDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             })()}
-                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor ingresa una fecha válida')}
-                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                            className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                            onChange={() => setErrors(prev => ({ ...prev, startDate: '' }))}
+                            className={cn(
+                                "w-full px-4 py-2 rounded-lg border bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white",
+                                errors.startDate ? "border-red-500 focus:ring-red-500" : "border-zinc-300 dark:border-zinc-700"
+                            )}
                         />
+                        {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Presupuesto (Opcional)</label>
@@ -121,8 +179,6 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                             name="nextAction"
                             type="text"
                             defaultValue="Enviar Cotización"
-                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Completa este campo')}
-                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                             className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">
@@ -142,8 +198,13 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                                 const day = String(d.getDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             })()}
-                            className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                            onChange={() => setErrors(prev => ({ ...prev, nextActionDate: '' }))}
+                            className={cn(
+                                "w-full px-4 py-2 rounded-lg border bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white",
+                                errors.nextActionDate ? "border-red-500 focus:ring-red-500" : "border-zinc-300 dark:border-zinc-700"
+                            )}
                         />
+                        {errors.nextActionDate && <p className="text-red-500 text-xs mt-1">{errors.nextActionDate}</p>}
                         <p className="text-[11px] text-muted-foreground mt-1">
                             El sistema generará una alerta si se vence esta fecha.
                         </p>
@@ -162,7 +223,7 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                 <button
                     type="submit"
                     disabled={isLoading}
-                    className="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center"
+                    className="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                     {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Crear Proyecto
@@ -172,3 +233,4 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
         </form>
     );
 }
+

@@ -6,14 +6,17 @@ import { Database } from "@/types/supabase";
 
 type CostCategory = Database['public']['Enums']['CostCategory'];
 
+import { validateCost } from "@/lib/validators";
+
 export async function addCost(projectId: string, formData: FormData) {
     const description = formData.get("description") as string;
     const amount = parseFloat(formData.get("amount") as string);
     const category = formData.get("category") as CostCategory;
     const date = formData.get("date") as string;
 
-    if (!description || !amount || !category || !date) {
-        throw new Error("Faltan campos requeridos");
+    const validation = validateCost({ description, amount, category, date });
+    if (!validation.success) {
+        throw new Error(validation.errors.join(", "));
     }
 
     const supabase = await createClient();
@@ -61,8 +64,9 @@ export async function updateCost(projectId: string, costId: string, formData: Fo
     const category = formData.get("category") as CostCategory;
     const date = formData.get("date") as string;
 
-    if (!description || !amount || !category || !date) {
-        throw new Error("Faltan campos requeridos");
+    const validation = validateCost({ description, amount, category, date });
+    if (!validation.success) {
+        throw new Error(validation.errors.join(", "));
     }
 
     const supabase = await createClient();

@@ -190,4 +190,101 @@ export class DashboardService {
                 marginPct: p.financials.priceNet > 0 ? (p.financials.marginAmountNet / p.financials.priceNet) * 100 : 0
             }));
     }
+
+    static getCashFlowProjection(projects: Project[]) {
+        const now = new Date();
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1); // Start of next month
+        const threeMonthsLater = new Date(now.getFullYear(), now.getMonth() + 4, 1); // 3 months window
+
+        const projectionMap = new Map<string, number>();
+
+        // Init buckets
+        for (let i = 0; i < 3; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() + 1 + i, 1);
+            const key = d.toLocaleString('es-CL', { month: 'long', year: 'numeric' });
+            projectionMap.set(key, 0);
+        }
+
+        projects.forEach(p => {
+            p.invoices?.forEach(inv => {
+                if (inv.sent && !inv.amountPaidGross) { // Sent but not fully paid (simplified check)
+                    // In a real scenario, we'd check balance due. Here assuming checks "Paid" status or amount.
+                    // Let's assume calculated fields earlier handle "Receivable". 
+                    // But here we work with raw invoices. 
+                    // If amountPaidGross < amountInvoicedGross, it's pending.
+
+                    if (inv.amountPaidGross < inv.amountInvoicedGross) {
+                        const amountDue = inv.amountInvoicedGross - inv.amountPaidGross;
+                        let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+
+                        // If no due date, assume Sent Date + 30 days
+                        if (!dueDate && inv.sentDate) {
+                            dueDate = new Date(inv.sentDate);
+                            dueDate.setDate(dueDate.getDate() + 30);
+                        }
+
+                        if (dueDate) {
+                            if (dueDate >= nextMonth && dueDate < threeMonthsLater) {
+                                const key = dueDate.toLocaleString('es-CL', { month: 'long', year: 'numeric' });
+                                if (projectionMap.has(key)) {
+                                    projectionMap.set(key, (projectionMap.get(key) || 0) + amountDue);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        return Array.from(projectionMap.entries())
+        value
+    }));
+}
+
+    static getAlerts(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
+    const alerts: { type: 'danger' | 'warning', message: string, link?: string }[] = [];
+    const now = new Date();
+
+    projects.forEach(p => {
+        // 1. Low Margin Alerts (Active Projects only)
+        if (p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') {
+            const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
+            // Check Traffic Light Financial directly
+            if (fin.trafficLightFinancial === 'RED') {
+                alerts.push({
+                    type: 'danger',
+                    message: `Bajo Margen: ${p.name}`,
+                    link: `/projects/${p.id}/financials`
+                });
+            }
+        }
+
+        // 2. Overdue Invoices
+        p.invoices?.forEach(inv => {
+            if (inv.sent && !inv.amountPaidGross) {
+                // Check if Overdue
+                let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+                if (!dueDate && inv.sentDate) {
+                    const terms = inv.paymentTermsDays ?? settings.defaultPaymentTermsDays;
+                    dueDate = new Date(inv.sentDate);
+                    dueDate.setDate(dueDate.getDate() + terms);
+                }
+
+                if (dueDate && dueDate < now) {
+                    // It is overdue
+                    const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+                    if (daysOverdue > 7) { // Only alert if > 7 days late to reduce noise
+                        alerts.push({
+                            type: 'warning',
+                            message: `Pago Atrasado (${daysOverdue} días): ${p.name}`,
+                            link: `/projects/${p.id}/invoices`
+                        });
+                    }
+                }
+            }
+        });
+    });
+
+    return alerts.slice(0, 10); // Limit to 10 alerts
+}
 }

@@ -21,6 +21,7 @@ export type Database = {
                     details: string | null
                     id: string
                     projectId: string
+                    userId: string | null
                     userName: string | null
                 }
                 Insert: {
@@ -29,6 +30,7 @@ export type Database = {
                     details?: string | null
                     id?: string
                     projectId: string
+                    userId?: string | null
                     userName?: string | null
                 }
                 Update: {
@@ -37,6 +39,7 @@ export type Database = {
                     details?: string | null
                     id?: string
                     projectId?: string
+                    userId?: string | null
                     userName?: string | null
                 }
                 Relationships: [
@@ -45,6 +48,13 @@ export type Database = {
                         columns: ["projectId"]
                         isOneToOne: false
                         referencedRelation: "Project"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "AuditLog_userId_fkey"
+                        columns: ["userId"]
+                        isOneToOne: false
+                        referencedRelation: "Profile"
                         referencedColumns: ["id"]
                     },
                 ]
@@ -58,6 +68,7 @@ export type Database = {
                     id: string
                     name: string
                     phone: string | null
+                    status: Database["public"]["Enums"]["ClientStatus"]
                     taxId: string | null
                     updatedAt: string
                 }
@@ -69,6 +80,7 @@ export type Database = {
                     id?: string
                     name: string
                     phone?: string | null
+                    status?: Database["public"]["Enums"]["ClientStatus"]
                     taxId?: string | null
                     updatedAt?: string
                 }
@@ -80,6 +92,7 @@ export type Database = {
                     id?: string
                     name?: string
                     phone?: string | null
+                    status?: Database["public"]["Enums"]["ClientStatus"]
                     taxId?: string | null
                     updatedAt?: string
                 }
@@ -115,6 +128,47 @@ export type Database = {
                 }
                 Relationships: []
             }
+            Contact: {
+                Row: {
+                    clientId: string
+                    createdAt: string
+                    email: string | null
+                    id: string
+                    name: string
+                    phone: string | null
+                    role: string | null
+                    updatedAt: string
+                }
+                Insert: {
+                    clientId: string
+                    createdAt?: string
+                    email?: string | null
+                    id?: string
+                    name: string
+                    phone?: string | null
+                    role?: string | null
+                    updatedAt?: string
+                }
+                Update: {
+                    clientId?: string
+                    createdAt?: string
+                    email?: string | null
+                    id?: string
+                    name?: string
+                    phone?: string | null
+                    role?: string | null
+                    updatedAt?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "Contact_clientId_fkey"
+                        columns: ["clientId"]
+                        isOneToOne: false
+                        referencedRelation: "Client"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             CostEntry: {
                 Row: {
                     amountNet: number
@@ -143,6 +197,51 @@ export type Database = {
                 Relationships: [
                     {
                         foreignKeyName: "CostEntry_projectId_fkey"
+                        columns: ["projectId"]
+                        isOneToOne: false
+                        referencedRelation: "Project"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            Interaction: {
+                Row: {
+                    clientId: string
+                    createdAt: string
+                    date: string
+                    id: string
+                    notes: string
+                    projectId: string | null
+                    type: Database["public"]["Enums"]["InteractionType"]
+                }
+                Insert: {
+                    clientId: string
+                    createdAt?: string
+                    date?: string
+                    id?: string
+                    notes: string
+                    projectId?: string | null
+                    type: Database["public"]["Enums"]["InteractionType"]
+                }
+                Update: {
+                    clientId?: string
+                    createdAt?: string
+                    date?: string
+                    id?: string
+                    notes?: string
+                    projectId?: string | null
+                    type?: Database["public"]["Enums"]["InteractionType"]
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "Interaction_clientId_fkey"
+                        columns: ["clientId"]
+                        isOneToOne: false
+                        referencedRelation: "Client"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "Interaction_projectId_fkey"
                         columns: ["projectId"]
                         isOneToOne: false
                         referencedRelation: "Project"
@@ -254,7 +353,7 @@ export type Database = {
                     createdAt?: string
                     email?: string
                     id?: string
-                    name?: string
+                    name: string
                     role?: string
                     updatedAt?: string
                 }
@@ -449,12 +548,14 @@ export type Database = {
             [_ in never]: never
         }
         Enums: {
+            ClientStatus: "LEAD" | "PROSPECT" | "CLIENT" | "CHURNED"
             CostCategory:
             | "SERVICIOS"
             | "HARDWARE"
             | "SOFTWARE"
             | "LOGISTICA"
             | "OTROS"
+            InteractionType: "CALL" | "EMAIL" | "MEETING" | "NOTE"
             ProjectStage:
             | "LEVANTAMIENTO"
             | "DISENO"
@@ -595,7 +696,9 @@ export type CompositeTypes<
 export const Constants = {
     public: {
         Enums: {
+            ClientStatus: ["LEAD", "PROSPECT", "CLIENT", "CHURNED"],
             CostCategory: ["SERVICIOS", "HARDWARE", "SOFTWARE", "LOGISTICA", "OTROS"],
+            InteractionType: ["CALL", "EMAIL", "MEETING", "NOTE"],
             ProjectStage: [
                 "LEVANTAMIENTO",
                 "DISENO",

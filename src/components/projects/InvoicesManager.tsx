@@ -4,8 +4,11 @@ import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { createInvoice, deleteInvoice, markInvoiceSent, registerPayment } from "@/app/actions/invoices";
 import { closeProject } from "@/app/actions/projects";
-import { Plus, Trash2, Calendar, FileText, Send, CheckCircle, Clock } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, Send, CheckCircle, Clock, Loader2 } from "lucide-react";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type Invoice = Database['public']['Tables']['Invoice']['Row'];
 
@@ -17,6 +20,10 @@ interface Props {
 
 export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props) {
     const [isAdding, setIsAdding] = useState(false);
+    const [isLoading, setIsLoading] = useState<string | null>(null); // Stores ID of item being processed
+    const [isSubmitting, setIsSubmitting] = useState(false); // For creation form
+
+    const { toast } = useToast();
 
     // Helper for currency
     const formatMoney = (amount: number) => {
@@ -27,29 +34,68 @@ export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props
     }
 
     async function handleCreate(formData: FormData) {
-        await createInvoice(projectId, formData);
-        setIsAdding(false);
+        setIsSubmitting(true);
+        toast({ type: 'loading', message: "Creando factura...", duration: 2000 });
+        try {
+            await createInvoice(projectId, formData);
+            toast({ type: 'success', message: "Factura creada correctamente" });
+            setIsAdding(false);
+        } catch (error) {
+            toast({ type: 'error', message: "Error al crear factura" });
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     async function handleMarkSent(id: string) {
-        await markInvoiceSent(projectId, id);
+        setIsLoading(id);
+        toast({ type: 'loading', message: "Marcando como enviada...", duration: 1000 });
+        try {
+            await markInvoiceSent(projectId, id);
+            toast({ type: 'success', message: "Factura marcada como enviada" });
+        } catch (error) {
+            toast({ type: 'error', message: "Error al actualizar estado" });
+        } finally {
+            setIsLoading(null);
+        }
     }
 
     async function handlePay(id: string, currentAmount: number) {
         // Simple full payment for now
         if (confirm("¿Registrar pago total de esta factura?")) {
-            const res = await registerPayment(projectId, id, currentAmount);
-            if (res?.isFullyPaid) {
-                // Determine if we should prompt
-                if (confirm("El proyecto ha sido pagado en su totalidad. ¿Deseas cerrar el proyecto y marcarlo como Finalizado?")) {
-                    await closeProject(projectId);
+            setIsLoading(id);
+            toast({ type: 'loading', message: "Registrando pago...", duration: 2000 });
+            try {
+                const res = await registerPayment(projectId, id, currentAmount);
+                toast({ type: 'success', message: "Pago registrado exitosamente" });
+
+                if (res?.isFullyPaid) {
+                    // Determine if we should prompt
+                    if (confirm("El proyecto ha sido pagado en su totalidad. ¿Deseas cerrar el proyecto y marcarlo como Finalizado?")) {
+                        await closeProject(projectId);
+                        toast({ type: 'success', message: "Proyecto finalizado" });
+                    }
                 }
+            } catch (error) {
+                toast({ type: 'error', message: "Error al registrar pago" });
+            } finally {
+                setIsLoading(null);
             }
         }
     }
 
     async function handleDelete(id: string) {
-        if (confirm("¿Eliminar factura?")) await deleteInvoice(projectId, id);
+        if (confirm("¿Eliminar factura?")) {
+            setIsLoading(id);
+            try {
+                await deleteInvoice(projectId, id);
+                toast({ type: 'success', message: "Factura eliminada" });
+            } catch (error) {
+                toast({ type: 'error', message: "Error al eliminar factura" });
+            } finally {
+                setIsLoading(null);
+            }
+        }
     }
 
     return (
@@ -80,10 +126,12 @@ export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props
                             ) : (
                                 invoices.map((inv) => {
                                     const isPaid = inv.amountPaidGross >= inv.amountInvoicedGross;
+                                    const isProcessing = isLoading === inv.id;
+
                                     return (
                                         <tr key={inv.id} className="hover:bg-muted/50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <Badge status={isPaid ? 'PAID' : inv.sent ? 'SENT' : 'DRAFT'} />
+                                                <StatusBadge status={isPaid ? 'PAID' : inv.sent ? 'SENT' : 'DRAFT'} type="INVOICE" />
                                             </td>
                                             <td className="px-6 py-4 text-muted-foreground">
                                                 {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}
@@ -95,19 +143,25 @@ export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props
                                                 {formatMoney(inv.amountPaidGross)}
                                             </td>
                                             <td className="px-6 py-4 text-right flex justify-end space-x-2">
-                                                {!inv.sent && (
-                                                    <button onClick={() => handleMarkSent(inv.id)} className="p-1 text-blue-600 hover:bg-blue-50/50 rounded" title="Marcar Enviada">
-                                                        <Send className="w-4 h-4" />
-                                                    </button>
+                                                {isProcessing ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                                ) : (
+                                                    <>
+                                                        {!inv.sent && (
+                                                            <button onClick={() => handleMarkSent(inv.id)} className="p-1 text-blue-600 hover:bg-blue-50/50 rounded" title="Marcar Enviada">
+                                                                <Send className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                        {inv.sent && !isPaid && (
+                                                            <button onClick={() => handlePay(inv.id, inv.amountInvoicedGross)} className="p-1 text-green-600 hover:bg-green-50/50 rounded" title="Registrar Pago">
+                                                                <CheckCircle className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                        <button onClick={() => handleDelete(inv.id)} className="p-1 text-muted-foreground hover:text-destructive">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </>
                                                 )}
-                                                {inv.sent && !isPaid && (
-                                                    <button onClick={() => handlePay(inv.id, inv.amountInvoicedGross)} className="p-1 text-green-600 hover:bg-green-50/50 rounded" title="Registrar Pago">
-                                                        <CheckCircle className="w-4 h-4" />
-                                                    </button>
-                                                )}
-                                                <button onClick={() => handleDelete(inv.id)} className="p-1 text-muted-foreground hover:text-destructive">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
                                             </td>
                                         </tr>
                                     );
@@ -141,7 +195,14 @@ export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props
                     </div>
                     <div className="flex justify-end space-x-3">
                         <button type="button" onClick={() => setIsAdding(false)} className="text-sm text-zinc-500">Cancelar</button>
-                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Crear</button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center disabled:opacity-50"
+                        >
+                            {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Crear
+                        </button>
                     </div>
                 </form>
             ) : (
@@ -153,17 +214,4 @@ export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props
     );
 }
 
-function Badge({ status }: { status: 'DRAFT' | 'SENT' | 'PAID' }) {
-    const styles = {
-        DRAFT: "bg-zinc-100 text-zinc-600 border-zinc-200",
-        SENT: "bg-blue-100 text-blue-600 border-blue-200",
-        PAID: "bg-green-100 text-green-600 border-green-200"
-    };
-    const labels = { DRAFT: "Borrador", SENT: "Enviada", PAID: "Pagada" };
 
-    return (
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status]}`}>
-            {labels[status]}
-        </span>
-    );
-}

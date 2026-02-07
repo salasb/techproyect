@@ -6,11 +6,18 @@ import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { PaginationControl } from "@/components/ui/PaginationControl";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({ searchParams }: { searchParams: { page?: string } }) {
     const supabase = await createClient();
+
+    const page = Number(searchParams?.page) || 1;
+    const itemsPerPage = 10;
+    const start = (page - 1) * itemsPerPage;
+    const end = start + itemsPerPage - 1;
 
     // 1. Fetch settings for VAT and thresholds
     let { data: settings } = await supabase.from('Settings').select('*').single();
@@ -20,7 +27,7 @@ export default async function ProjectsPage() {
     }
 
     // 2. Fetch projects with all relations needed for calculation
-    const { data: projectsData, error } = await supabase
+    const { data: projectsData, error, count } = await supabase
         .from('Project')
         .select(`
             *,
@@ -28,8 +35,9 @@ export default async function ProjectsPage() {
             costEntries:CostEntry(*),
             invoices:Invoice(*),
             quoteItems:QuoteItem(*)
-        `)
-        .order('updatedAt', { ascending: false });
+        `, { count: 'exact' })
+        .order('updatedAt', { ascending: false })
+        .range(start, end);
 
     if (error) {
         console.error("Error fetching projects:", error);
@@ -37,6 +45,9 @@ export default async function ProjectsPage() {
     }
 
     const projects = projectsData || [];
+    const totalPages = count ? Math.ceil(count / itemsPerPage) : 0;
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     return (
         <div className="space-y-6">
@@ -53,8 +64,9 @@ export default async function ProjectsPage() {
                 </Link>
             </div>
 
-            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="bg-transparent md:bg-card md:rounded-xl md:border md:border-border md:shadow-sm overflow-hidden">
+                {/* Desktop View (Table) */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
                             <tr>
@@ -100,34 +112,30 @@ export default async function ProjectsPage() {
                                     };
 
                                     return (
-                                        <tr key={project.id} className="hover:bg-muted/50 transition-colors">
+                                        <tr key={project.id} className="group border-b border-border hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-all hover:shadow-sm hover:border-l-[3px] hover:border-l-blue-500 relative">
                                             <td className="px-6 py-4">
-                                                <div className="group relative">
-                                                    <Link
-                                                        href={`/projects/${project.id}`}
-                                                        className="block -mx-3 -my-2 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all duration-200 group-hover:shadow-sm"
-                                                    >
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                                                                    {project.name}
-                                                                </span>
-                                                                <ChevronRight className="w-4 h-4 opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-primary" />
-                                                            </div>
-                                                            <span className="text-xs text-muted-foreground">{project.company.name}</span>
-                                                        </div>
-
-                                                        {project.blockingReason && (
-                                                            <div className="mt-2 flex items-center text-[10px] font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded-full w-fit">
-                                                                <Lock className="w-3 h-3 mr-1" />
-                                                                {project.blockingReason}
-                                                            </div>
-                                                        )}
-                                                    </Link>
+                                                <div className="flex flex-col gap-0.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <Link
+                                                            href={`/projects/${project.id}`}
+                                                            className="font-medium text-foreground group-hover:text-blue-600 transition-colors flex items-center gap-2"
+                                                        >
+                                                            {project.name}
+                                                            <ChevronRight className="w-4 h-4 opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-blue-600" />
+                                                        </Link>
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground">{project.company.name}</span>
                                                 </div>
+
+                                                {project.blockingReason && (
+                                                    <div className="mt-2 flex items-center text-[10px] font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded-full w-fit">
+                                                        <Lock className="w-3 h-3 mr-1" />
+                                                        {project.blockingReason}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <StatusBadge status={project.status} />
+                                                <StatusBadge status={project.status} type="PROJECT" />
                                             </td>
                                             <td className="px-6 py-4">
                                                 {project.nextAction ? (
@@ -142,102 +150,83 @@ export default async function ProjectsPage() {
                                                 ) : <span className="text-muted-foreground text-xs">-</span>}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex flex-col gap-2">
-                                                    {/* Status Logic - ALWAYS SHOW HEALTH INDICATORS */}
-                                                    <div className="flex flex-col gap-1.5">
-                                                        {/* Financial Health */}
-                                                        <div className="flex items-center gap-2">
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightFinancial === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
-                                                                            fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
-                                                                                'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300'
-                                                                            }`}>
-                                                                            <DollarSign className="w-3 h-3" />
-                                                                            <span>Finanzas</span>
-                                                                        </div>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent side="right">
-                                                                        <p className="font-semibold">Salud Financiera</p>
-                                                                        <p className="text-xs">Basado en el margen actual ({(fin.priceNet > 0 ? (fin.marginAmountNet / fin.priceNet) : 0).toLocaleString('es-CL', { style: 'percent' })})</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        </div>
+                                                {/* Health Indicators (Icons Only) */}
+                                                <div className="flex items-center gap-3">
+                                                    {/* Financial Health Icon */}
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className={`p-1.5 rounded-full cursor-help transition-colors ${fin.trafficLightFinancial === 'RED' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                                                    fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+                                                                        fin.trafficLightFinancial === 'GREEN' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                                                            'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'
+                                                                    }`}>
+                                                                    <DollarSign className="w-4 h-4" />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">
+                                                                <p className="font-semibold mb-1">Salud Financiera</p>
+                                                                <p className="text-xs">
+                                                                    {fin.trafficLightFinancial === 'RED' ? 'Crítico (< 20% margen)' :
+                                                                        fin.trafficLightFinancial === 'YELLOW' ? 'Precaución (20-30% margen)' :
+                                                                            fin.trafficLightFinancial === 'GREEN' ? 'Saludable (> 30% margen)' :
+                                                                                'Sin datos suficientes'}
+                                                                </p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
 
-                                                        {/* Time Health */}
-                                                        {project.plannedEndDate && (
-                                                            <div className="flex items-center gap-2">
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightTime === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
-                                                                                fin.trafficLightTime === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
-                                                                                    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'
-                                                                                }`}>
-                                                                                <Timer className="w-3 h-3" />
-                                                                                <span>Tiempo</span>
-                                                                            </div>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent side="right">
-                                                                            <p className="font-semibold">Salud de Plazos</p>
-                                                                            <p className="text-xs">
-                                                                                {fin.trafficLightTime === 'RED' ? 'Atrasado' : fin.trafficLightTime === 'YELLOW' ? 'Por vencer' : 'A tiempo'}
-                                                                            </p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    {/* Time Health Icon */}
+                                                    {project.plannedEndDate && (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <div className={`p-1.5 rounded-full cursor-help transition-colors ${fin.trafficLightTime === 'RED' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                                                        fin.trafficLightTime === 'YELLOW' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+                                                                            fin.trafficLightTime === 'GREEN' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                                                'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'
+                                                                        }`}>
+                                                                        <Timer className="w-4 h-4" />
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top">
+                                                                    <p className="font-semibold mb-1">Salud de Plazos</p>
+                                                                    <p className="text-xs">
+                                                                        {fin.trafficLightTime === 'RED' ? 'Atrasado' : fin.trafficLightTime === 'YELLOW' ? 'Por vencer' : 'A tiempo'}
+                                                                    </p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col text-sm">
-                                                    <span className="font-medium text-foreground">
-                                                        {formatCurrency(fin.priceGross)} <span className="text-xs text-muted-foreground font-normal">Total</span>
+                                                    <span className="font-bold text-foreground">
+                                                        {formatCurrency(fin.priceGross)} <span className="text-xs text-muted-foreground font-normal ml-1">Total</span>
                                                     </span>
 
-                                                    {/* Financial Health Indicator */}
-                                                    <div className="mt-1.5 flex flex-col gap-0.5">
-                                                        <span className="text-xs font-medium text-muted-foreground">
-                                                            Margen:
+                                                    {/* Margin Display */}
+                                                    <div className="mt-1 flex items-center gap-2">
+                                                        <span className="text-xs text-muted-foreground">Margen:</span>
+                                                        <span className={`text-xs font-bold ${fin.trafficLightFinancial === 'RED' ? 'text-red-600' :
+                                                            fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
+                                                                fin.trafficLightFinancial === 'GREEN' ? 'text-green-600' :
+                                                                    'text-zinc-500'
+                                                            }`}>
+                                                            {formatCurrency(fin.marginAmountNet)}
                                                         </span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`text-xs font-bold ${fin.trafficLightFinancial === 'RED' ? 'text-red-600' :
-                                                                fin.trafficLightFinancial === 'YELLOW' ? 'text-yellow-600' :
-                                                                    'text-green-600'
-                                                                }`}>
-                                                                {formatCurrency(fin.marginAmountNet)}
-                                                            </span>
-                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${fin.trafficLightFinancial === 'RED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                                fin.trafficLightFinancial === 'YELLOW' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                                    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                                }`}>
-                                                                {fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%
-                                                            </span>
 
-                                                            {fin.trafficLightFinancial === 'RED' && (
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <AlertTriangle className="w-3 h-3 text-red-600 cursor-help" />
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent className="bg-destructive text-destructive-foreground border-destructive">
-                                                                            <p className="font-semibold flex items-center gap-1.5">
-                                                                                <AlertTriangle className="w-3.5 h-3.5" />
-                                                                                ¡Alerta Financiera! Margen negativo.
-                                                                            </p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            )}
-                                                        </div>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${fin.trafficLightFinancial === 'RED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                            fin.trafficLightFinancial === 'YELLOW' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                                fin.trafficLightFinancial === 'GREEN' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                                    'bg-zinc-100 text-zinc-500 dark:bg-zinc-800'
+                                                            }`}>
+                                                            {fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}%
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </td>
-
                                         </tr>
                                     )
                                 })
@@ -245,25 +234,100 @@ export default async function ProjectsPage() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Mobile View (Cards) */}
+                <div className="md:hidden space-y-4">
+                    {projects.length === 0 ? (
+                        <div className="p-6 text-center text-zinc-500 bg-card rounded-lg border border-border">
+                            No hay proyectos registrados.
+                        </div>
+                    ) : (
+                        projects.map((project) => {
+                            // Calculate financials on the fly
+                            const fin = calculateProjectFinancials(
+                                project,
+                                project.costEntries || [],
+                                project.invoices || [],
+                                settings!,
+                                project.quoteItems || []
+                            );
+
+                            const today = new Date();
+                            const nextActionDate = project.nextActionDate ? new Date(project.nextActionDate) : null;
+                            const isOverdue = nextActionDate && isBefore(startOfDay(nextActionDate), startOfDay(today));
+                            const isDueToday = nextActionDate && differenceInCalendarDays(nextActionDate, today) === 0;
+
+                            const currency = project.currency || 'CLP';
+                            const formatCurrency = (amount: number) => {
+                                if (currency === 'CLP') return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+                                // ... other currencies
+                                return '$ ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+                            };
+
+                            return (
+                                <Link
+                                    href={`/projects/${project.id}`}
+                                    key={project.id}
+                                    className="block bg-card rounded-xl border border-border shadow-sm p-4 active:scale-[0.98] transition-all"
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <h3 className="font-semibold text-foreground text-sm">{project.name}</h3>
+                                            <p className="text-xs text-muted-foreground mt-0.5">{project.company.name}</p>
+                                        </div>
+                                        <StatusBadge status={project.status} type="PROJECT" />
+                                    </div>
+
+                                    {/* Financials & Health Row */}
+                                    <div className="flex items-center justify-between py-3 border-t border-b border-border/50 mb-3">
+                                        <div className="flex items-center gap-3">
+                                            {/* Financial Health Dot */}
+                                            <div className="flex items-center gap-1.5">
+                                                <div className={`w-2 h-2 rounded-full ${fin.trafficLightFinancial === 'RED' ? 'bg-red-500' :
+                                                        fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-500' :
+                                                            fin.trafficLightFinancial === 'GREEN' ? 'bg-emerald-500' : 'bg-zinc-300'
+                                                    }`} />
+                                                <span className="text-xs font-medium text-muted-foreground">{fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}% Margen</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="block text-sm font-bold text-foreground">{formatCurrency(fin.priceGross)}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Footer */}
+                                    <div className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2 text-muted-foreground overflow-hidden">
+                                            {isOverdue ? <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" /> :
+                                                isDueToday ? <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" /> :
+                                                    <Info className="w-3.5 h-3.5 flex-shrink-0" />}
+                                            <span className={`truncate ${isOverdue ? 'text-red-500 font-medium' : ''}`}>
+                                                {project.nextAction || 'Sin acción pendiente'}
+                                            </span>
+                                        </div>
+                                        {nextActionDate && (
+                                            <span className={`flex-shrink-0 ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                                                {nextActionDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                                            </span>
+                                        )}
+                                    </div>
+                                </Link>
+                            );
+                        })
+                    )}
+                </div>
             </div>
+            {/* Pagination Control */}
+            {projects.length > 0 && (
+                <PaginationControl
+                    currentPage={page}
+                    totalPages={totalPages}
+                    hasNextPage={hasNextPage}
+                    hasPrevPage={hasPrevPage}
+                />
+            )}
         </div>
     );
 }
 
-function StatusBadge({ status }: { status: string }) {
-    const styles: Record<string, string> = {
-        EN_CURSO: "bg-blue-100/50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20",
-        EN_ESPERA: "bg-yellow-100/50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/20",
-        BLOQUEADO: "bg-red-100/50 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20",
-        CERRADO: "bg-green-100/50 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-200 dark:border-green-500/20",
-        CANCELADO: "bg-muted text-muted-foreground border-border",
-    };
 
-    const label = status.replace('_', ' ');
-
-    return (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${styles[status] || styles.CANCELADO}`}>
-            {label}
-        </span>
-    );
-}
