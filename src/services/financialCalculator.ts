@@ -46,6 +46,7 @@ export interface FinancialResult {
     trafficLightFinancial: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
     totalExecutedCostNet: number
     calculatedProgress: number
+    marginPct: number
 }
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row']
@@ -149,7 +150,8 @@ export function calculateProjectFinancials(
         trafficLightCollection,
         trafficLightFinancial, // New
         totalExecutedCostNet: sumCostNet,
-        calculatedProgress // New field
+        calculatedProgress, // New field
+        marginPct
     }
 }
 

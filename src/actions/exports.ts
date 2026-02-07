@@ -85,11 +85,11 @@ export async function getFinancialReport(period: string = '30d') {
             Estado: p.status,
             Etapa: p.stage,
             Presupuesto_Neto: financials.priceNet,
-            Costos_Reales: financials.costNet,
+            Costos_Reales: financials.totalExecutedCostNet,
             Margen_Neto: financials.marginAmountNet,
             Margen_Pct: (financials.marginPct * 100).toFixed(1) + '%',
-            Facturado: financials.invoicedNet,
-            Cobrado: financials.paidNet,
+            Facturado: financials.totalInvoicedGross,
+            Cobrado: financials.totalPaidGross,
             Por_Cobrar: financials.receivableGross // Gross usually relevant for cashflow
         };
     });
