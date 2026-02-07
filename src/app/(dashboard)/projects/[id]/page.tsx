@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { ProjectDetailView } from "@/components/projects/ProjectDetailView";
 import { Database } from "@/types/supabase";
+import { RiskEngine } from "@/services/riskEngine";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
@@ -85,5 +86,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         project.quoteItems || []
     );
 
-    return <ProjectDetailView project={project} financials={financials} settings={settings} auditLogs={auditLogs || []} projectLogs={projectLogs || []} clients={clients || []} />;
+    // Calculate Risk
+    const risk = RiskEngine.calculateProjectRisk(project as any, settings!);
+
+    return <ProjectDetailView project={project} financials={financials} settings={settings} auditLogs={auditLogs || []} projectLogs={projectLogs || []} clients={clients || []} risk={risk} />;
 }

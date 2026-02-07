@@ -8,6 +8,8 @@ import { differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PaginationControl } from "@/components/ui/PaginationControl";
+import { RiskEngine } from "@/services/riskEngine";
+import { RiskBadge } from "@/components/projects/RiskBadge";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
@@ -96,6 +98,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                         project.quoteItems || []
                                     );
 
+                                    // Risk Analysis
+                                    const risk = RiskEngine.calculateProjectRisk(project as any, settings!);
+
                                     // Alert Logic
                                     const today = new Date();
                                     const nextActionDate = project.nextActionDate ? new Date(project.nextActionDate) : null;
@@ -123,6 +128,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                                             {project.name}
                                                             <ChevronRight className="w-4 h-4 opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-blue-600" />
                                                         </Link>
+                                                        {risk.level !== 'LOW' && (
+                                                            <RiskBadge level={risk.level} score={risk.score} className="scale-75 origin-left" />
+                                                        )}
                                                     </div>
                                                     <span className="text-xs text-muted-foreground">{project.company.name}</span>
                                                 </div>
@@ -264,6 +272,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                 return '$ ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
                             };
 
+                            // Risk Analysis (Mobile)
+                            const risk = RiskEngine.calculateProjectRisk(project as any, settings!);
+
                             return (
                                 <Link
                                     href={`/projects/${project.id}`}
@@ -272,8 +283,13 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h3 className="font-semibold text-foreground text-sm">{project.name}</h3>
-                                            <p className="text-xs text-muted-foreground mt-0.5">{project.company.name}</p>
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <h3 className="font-semibold text-foreground text-sm">{project.name}</h3>
+                                                {risk.level !== 'LOW' && (
+                                                    <RiskBadge level={risk.level} score={risk.score} className="scale-75 origin-left" />
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">{project.company.name}</p>
                                         </div>
                                         <StatusBadge status={project.status} type="PROJECT" />
                                     </div>
@@ -284,8 +300,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                             {/* Financial Health Dot */}
                                             <div className="flex items-center gap-1.5">
                                                 <div className={`w-2 h-2 rounded-full ${fin.trafficLightFinancial === 'RED' ? 'bg-red-500' :
-                                                        fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-500' :
-                                                            fin.trafficLightFinancial === 'GREEN' ? 'bg-emerald-500' : 'bg-zinc-300'
+                                                    fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-500' :
+                                                        fin.trafficLightFinancial === 'GREEN' ? 'bg-emerald-500' : 'bg-zinc-300'
                                                     }`} />
                                                 <span className="text-xs font-medium text-muted-foreground">{fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}% Margen</span>
                                             </div>

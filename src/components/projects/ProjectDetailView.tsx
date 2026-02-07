@@ -37,6 +37,8 @@ import { ProjectHeader } from "./ProjectHeader";
 import { AuditLog } from "./AuditLog";
 import { ProjectScope } from "./ProjectScope";
 import { ProjectLogsManager } from "./ProjectLogsManager";
+import { RiskAnalysis } from "@/services/riskEngine";
+import { ProjectRiskPanel } from "./ProjectRiskPanel";
 
 
 type Project = Database['public']['Tables']['Project']['Row']
@@ -56,9 +58,10 @@ type Props = {
     auditLogs: AuditLogEntry[];
     projectLogs: ProjectLog[];
     clients: Database['public']['Tables']['Client']['Row'][];
+    risk: RiskAnalysis;
 }
 
-export function ProjectDetailView({ project, financials, settings, auditLogs, projectLogs, clients }: Props) {
+export function ProjectDetailView({ project, financials, settings, auditLogs, projectLogs, clients, risk }: Props) {
     const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'financials' | 'settings' | 'logs'>('overview');
     const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string } | null>(null);
 
@@ -147,6 +150,9 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Left Column: Project Status & Details */}
                         <div className="lg:col-span-2 space-y-6">
+
+                            {/* RISK PANEL */}
+                            <ProjectRiskPanel risk={risk} />
 
                             {/* ALERTS & PENDING ACTIONS CARD */}
                             <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
