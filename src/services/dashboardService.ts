@@ -51,6 +51,73 @@ export class DashboardService {
         return { blockedProjects, focusProjects };
     }
 
+    static getActionCenterData(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
+        const actions: {
+            id: string;
+            projectId: string;
+            projectName: string;
+            companyName: string;
+            type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER';
+            title: string;
+            dueDate?: Date;
+            isOverdue?: boolean;
+            priority: 'HIGH' | 'MEDIUM' | 'LOW';
+        }[] = [];
+
+        const now = new Date();
+
+        projects.forEach(p => {
+            // 1. Blockers (High Priority)
+            if (p.status === 'BLOQUEADO') {
+                actions.push({
+                    id: `block-${p.id}`,
+                    projectId: p.id,
+                    projectName: p.name,
+                    companyName: p.company?.name || 'Sin Cliente',
+                    type: 'BLOCKER',
+                    title: p.blockingReason || 'Proyecto Bloqueado',
+                    priority: 'HIGH',
+                    dueDate: new Date(p.updatedAt) // Use last update as reference
+                });
+            }
+
+            // 2. Next Actions (Medium/High based on date)
+            if ((p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') && p.nextAction) {
+                const actionDate = p.nextActionDate ? new Date(p.nextActionDate) : null;
+                const isOverdue = actionDate ? actionDate < now : false;
+                const isToday = actionDate ? actionDate.toDateString() === now.toDateString() : false;
+
+                // Simple keyword detection for type
+                const lowerAction = p.nextAction.toLowerCase();
+                let type: 'CALL' | 'EMAIL' | 'TASK' = 'TASK';
+                if (lowerAction.includes('llamar') || lowerAction.includes('call')) type = 'CALL';
+                else if (lowerAction.includes('correo') || lowerAction.includes('mail') || lowerAction.includes('enviar')) type = 'EMAIL';
+
+                if (isOverdue || isToday) {
+                    actions.push({
+                        id: `action-${p.id}`,
+                        projectId: p.id,
+                        projectName: p.name,
+                        companyName: p.company?.name || 'Sin Cliente',
+                        type: type,
+                        title: p.nextAction,
+                        dueDate: actionDate || undefined,
+                        isOverdue: isOverdue,
+                        priority: isOverdue ? 'HIGH' : 'MEDIUM'
+                    });
+                }
+            }
+        });
+
+        // Sort by priority (HIGH first) then by date
+        return actions.sort((a, b) => {
+            if (a.priority === 'HIGH' && b.priority !== 'HIGH') return -1;
+            if (a.priority !== 'HIGH' && b.priority === 'HIGH') return 1;
+            if (a.dueDate && b.dueDate) return a.dueDate.getTime() - b.dueDate.getTime();
+            return 0;
+        });
+    }
+
     static getFinancialTrends(projects: Project[], period: string = '6m') {
         const now = new Date();
         let startDate = new Date();

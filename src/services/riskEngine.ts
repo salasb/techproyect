@@ -20,6 +20,7 @@ export interface RiskAnalysis {
         cpi: number; // Cost Performance Index
         liquidityRisk: number; // % of overdue invoices
     };
+    context: string; // Human-readable explanation
 }
 
 export class RiskEngine {
@@ -33,7 +34,8 @@ export class RiskEngine {
                 score: 0,
                 level: 'LOW',
                 factors: ['Proyecto inactivo o finalizado'],
-                details: { spi: 1, cpi: 1, liquidityRisk: 0 }
+                details: { spi: 1, cpi: 1, liquidityRisk: 0 },
+                context: "El proyecto se encuentra inactivo, por lo que no requiere análisis de riesgo activo."
             };
         }
 
@@ -156,6 +158,33 @@ export class RiskEngine {
         if (score > 70) level = 'HIGH';
         else if (score > 30) level = 'MEDIUM';
 
+        // 6. Generate Human Context
+        let context = "El proyecto muestra un desempeño saludable en plazos y costos.";
+
+        if (score === 0) {
+            context = "El proyecto avanza impecablemente, sin alertas de riesgo detectadas.";
+        } else if (level === 'HIGH') {
+            if (liquidityRisk > 0.3) {
+                context = "Situación crítica financiera: La alta morosidad está comprometiendo la liquidez, sumado a otros factores de riesgo.";
+            } else if (spi < 0.8) {
+                context = "Retraso grave detectado: El cronograma se ha desviado significativamente y requiere un plan de recuperación inmediato.";
+            } else if (cpi < 0.8) {
+                context = "Alerta de rentabilidad: Los costos están aumentando mucho más rápido que el avance físico del proyecto.";
+            } else {
+                context = "El proyecto se encuentra en estado crítico debido a la acumulación de múltiples factores de riesgo.";
+            }
+        } else if (level === 'MEDIUM') {
+            if (spi < 0.95 && cpi < 0.95) {
+                context = "Atención requerida: Se observan desviaciones leves tanto en plazos como en costos que podrían agravarse.";
+            } else if (spi < 0.95) {
+                context = "El proyecto avanza más lento de lo planificado. Se sugiere revisar la asignación de recursos.";
+            } else if (cpi < 0.9) {
+                context = "Eficiencia de costos reducida. Revise gastos recientes para evitar afectar el margen.";
+            } else if (liquidityRisk > 0) {
+                context = "Gestión de cobro necesaria: Existen facturas vencidas que afectan el flujo de caja.";
+            }
+        }
+
         return {
             score,
             level,
@@ -164,7 +193,8 @@ export class RiskEngine {
                 spi,
                 cpi,
                 liquidityRisk
-            }
+            },
+            context
         };
     }
 }

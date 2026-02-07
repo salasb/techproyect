@@ -154,9 +154,9 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
     const projectMarginPct = totalNet > 0 ? (totalMargin / totalNet) * 100 : 0;
 
     function getMarginColorClass(margin: number) {
-        if (margin < 0) return 'text-red-600 bg-red-100 border-red-200';
-        if (margin < 20) return 'text-yellow-600 bg-yellow-100 border-yellow-200'; // Warning Zone
-        return 'text-green-600 bg-green-100 border-green-200'; // Healthy
+        if (margin < 20) return 'text-red-600 bg-red-100 border-red-200'; // Critical < 20%
+        if (margin < 30) return 'text-yellow-600 bg-yellow-100 border-yellow-200'; // Warning 20-30%
+        return 'text-green-600 bg-green-100 border-green-200'; // Healthy > 30%
     }
 
     return (
@@ -176,7 +176,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                         <p className="text-xs text-muted-foreground uppercase flex items-center justify-end gap-1">
                                             Margen Global <AlertCircle className="w-3 h-3" />
                                         </p>
-                                        <p className={`text-xl font-bold ${projectMarginPct >= 20 ? 'text-green-600' : (projectMarginPct < 0 ? 'text-red-600' : 'text-yellow-600')}`}>{projectMarginPct.toFixed(0)}%</p>
+                                        <p className={`text-xl font-bold ${projectMarginPct >= 30 ? 'text-green-600' : (projectMarginPct < 20 ? 'text-red-600' : 'text-yellow-600')}`}>{projectMarginPct.toFixed(0)}%</p>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent>

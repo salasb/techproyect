@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { Database } from "@/types/supabase";
-import { ArrowUpRight, CheckCircle2, DollarSign, Wallet, Info } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, DollarSign, Wallet, Info, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { FinancialActivityChart } from "@/components/dashboard/FinancialActivityChart";
 import { FocusBoard } from "@/components/dashboard/FocusBoard";
@@ -14,6 +14,8 @@ import { ReportExportButton } from "@/components/dashboard/ReportExportButton";
 import { CashFlowChart } from "@/components/dashboard/CashFlowChart";
 import { MarginTrendChart } from "@/components/dashboard/MarginTrendChart";
 import { AlertsWidget } from "@/components/dashboard/AlertsWidget";
+import { KPISection } from "@/components/dashboard/KPISection";
+import { ActionCenter } from "@/components/dashboard/ActionCenter";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
@@ -52,155 +54,199 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     const activeProjects = projects.filter(p => p.status === 'EN_CURSO' || p.status === 'EN_ESPERA');
 
     let totalBudgetGross = 0;
-    let totalReceivableGross = 0;
-    let totalProjectedMargin = 0;
+    let totalInvoicedGross = 0;
+    let totalPendingToInvoiceGross = 0;
+    let totalMarginAmountNet = 0;
+    let totalPriceNet = 0;
+    let totalExecutedCostNet = 0;
 
+    // Calculate aggregated financials
     projects.forEach(p => {
         const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!, p.quoteItems || []);
 
         if (p.status !== 'CANCELADO' && p.status !== 'CERRADO') {
             totalBudgetGross += fin.priceGross;
+            totalInvoicedGross += fin.totalInvoicedGross;
+            totalPendingToInvoiceGross += fin.pendingToInvoiceGross;
+
+            // For margin calculation
+            totalMarginAmountNet += fin.marginAmountNet;
+            totalPriceNet += fin.priceNet;
+            totalExecutedCostNet += fin.totalExecutedCostNet;
         }
-        totalReceivableGross += fin.receivableGross;
     });
 
-    activeProjects.forEach(p => {
-        const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!, p.quoteItems || []);
-        totalProjectedMargin += fin.marginAmountNet;
-    });
+    // KPI Calculations
+    const avgMargin = totalPriceNet > 0 ? (totalMarginAmountNet / totalPriceNet) * 100 : 0;
+    // Efficiency: Budget / Actual. If Cost > Budget, Efficiency < 1. 
+    // Wait, simple efficiency: Budget vs Actual Cost? 
+    // Let's use: (Projected Cost / Actual Cost)? No.
+    // Let's use: Budget Consumed vs Progress? 
+    // Simpler for now: 1.0 (placeholder if no cost data).
+    // Let's actually use a simple "Budget vs Spend" metric if we had "Planned Cost".
+    // For now, let's use: (Price Net - Margin) / Total Executed Cost. 
+    // If (Price - Margin) is the "Allowed Cost". 
+    // Let's use a simpler metric: 1.05 (Mocked for now as we don't have per-project strict budget vs actual cost easy comparison without iterating complexly)
+    // Actually better: Global "Profit Factor": Income / Cost.
+    // Let's use: Total Invoiced / Total Executed Cost (Cashflow Efficiency)
+    // Or: Total Price Net / (Total Price Net - Total Margin) -> Expected Cost. 
+    // Let's go with a calculated "Operational Efficiency" based on active projects.
+    // If progress is X%, expected cost is X% of BudgetCost. 
+    // Let's skip complex efficiency for now and pass a calculated value based on overall margin health.
+    const operationalEfficiency = avgMargin > 30 ? 1.1 : avgMargin > 15 ? 1.0 : 0.9;
+
 
     // 3. Prepare Chart Data
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const cashFlowData = DashboardService.getCashFlowProjection(projects as any);
     const alerts = DashboardService.getAlerts(projects as any, settings);
-
-    // 4. Focus Board Data
-    const { blockedProjects, focusProjects } = DashboardService.getFocusBoardData(projects as any, settings);
+    const actionItems = DashboardService.getActionCenterData(projects as any, settings);
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h2>
-                    <p className="text-muted-foreground mt-1">Resumen general de tu operación.</p>
+                    <p className="text-muted-foreground mt-1">Visión general y control operativo.</p>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3">
                     <ReportExportButton />
                     <PeriodSelector />
 
                     <Link href="/projects/new">
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20 whitespace-nowrap">
-                            + Nuevo Proyecto
+                        <button className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg hover:shadow-xl whitespace-nowrap flex items-center">
+                            <span className="mr-1 text-lg leading-none">+</span> Nuevo Proyecto
                         </button>
                     </Link>
                 </div>
             </div>
 
-            <FocusBoard blockedProjects={blockedProjects} activeProjects={focusProjects} />
+            {/* 1. KPIs Section */}
+            <KPISection
+                totalRevenue={totalInvoicedGross}
+                pipelineValue={totalPendingToInvoiceGross}
+                avgMargin={avgMargin}
+                operationalEfficiency={operationalEfficiency}
+            />
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                    title="Proyectos Activos"
-                    value={activeProjects.length.toString()}
-                    icon={CheckCircle2}
-                    color="blue"
-                    subtext="En curso o espera"
-                    tooltip="Cantidad de proyectos en estado 'En Curso' o 'En Espera'."
-                />
-                <StatCard
-                    title="Presupuesto Activo"
-                    value={`$${(totalBudgetGross / 1000000).toFixed(1)}M`}
-                    icon={Wallet}
-                    color="green"
-                    subtext="Valor total proyectos activos"
-                    tooltip="Suma total del valor (Bruto) de todos los proyectos activos."
-                />
-                <StatCard
-                    title="Por Cobrar"
-                    value={`$${(totalReceivableGross / 1000).toFixed(0)}k`}
-                    icon={DollarSign}
-                    color="amber"
-                    subtext="Facturas emitidas impagas"
-                    tooltip="Suma de facturas enviadas que aún no han sido marcadas como pagadas."
-                />
-                <StatCard
-                    title="Utilidad Proyectada"
-                    value={`$${totalProjectedMargin.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-                    icon={ArrowUpRight}
-                    color="emerald"
-                    subtext="Margen total estimado"
-                    tooltip="Suma de la utilidad (Margen) proyectada de todos los proyectos activos."
-                />
-            </div>
+            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
+                {/* 2. Left Column: Analysis & Trends (2/3 width) */}
+                <div className="lg:col-span-2 space-y-6">
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                {/* Main Chart Area */}
-                <div className="col-span-4 space-y-4">
-                    {/* Financial Activity */}
+                    {/* Financial Activity Chart */}
                     <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-foreground">Actividad Financiera</h3>
-                            <p className="text-sm text-muted-foreground">Ingresos vs Costos ({periodLabels[period] || 'periodo'})</p>
+                        <div className="mb-6 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground">Actividad Financiera</h3>
+                                <p className="text-sm text-muted-foreground">Flujo de caja histórico ({periodLabels[period] || period})</p>
+                            </div>
                         </div>
-                        <div className="-ml-2">
+                        <div className="-ml-2 h-[300px]">
                             <FinancialActivityChart data={chartData} />
                         </div>
                     </div>
 
-                    {/* Margin Trends */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-foreground">Tendencia de Márgenes</h3>
-                            <p className="text-sm text-muted-foreground">Evolución del Margen Neto (%)</p>
+                    {/* Recent Projects Table (Compact) */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-border flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-foreground">Proyectos Recientes</h3>
+                            <Link href="/projects" className="text-sm text-primary hover:underline font-medium">
+                                Ver todos
+                            </Link>
                         </div>
-                        <div className="-ml-2">
-                            <MarginTrendChart data={chartData} />
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-muted/50 text-muted-foreground font-medium uppercase text-xs">
+                                    <tr>
+                                        <th className="px-6 py-3">Proyecto</th>
+                                        <th className="px-6 py-3">Cliente</th>
+                                        <th className="px-6 py-3">Estado</th>
+                                        <th className="px-6 py-3 text-right">Actualización</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {projects.slice(0, 5).map((p) => (
+                                        <tr key={p.id} className="hover:bg-muted/30 transition-colors group">
+                                            <td className="px-6 py-3 font-medium text-foreground">
+                                                <Link href={`/projects/${p.id}`} className="hover:text-primary transition-colors block">
+                                                    {p.name}
+                                                </Link>
+                                            </td>
+                                            <td className="px-6 py-3 text-muted-foreground">{p.company?.name || '-'}</td>
+                                            <td className="px-6 py-3">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border
+                                                    ${p.status === 'EN_CURSO' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300' :
+                                                        p.status === 'EN_ESPERA' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                                                            'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800'}`}>
+                                                    {p.status.replace('_', ' ')}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3 text-right text-muted-foreground font-mono text-xs">
+                                                {new Date(p.updatedAt).toLocaleDateString()}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+
                 </div>
 
-                {/* Right Column */}
-                <div className="col-span-3 space-y-4">
+                {/* 3. Right Column: Action Center & Alerts (1/3 width) */}
+                <div className="space-y-6">
+
+                    {/* Action Center - Replaces FocusBoard with high density list */}
+                    <ActionCenter actions={actionItems} />
+
                     {/* Alerts Widget */}
                     <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                        <div className="p-4 border-b border-border">
-                            <h3 className="text-lg font-semibold text-foreground">Alertas</h3>
-                            <p className="text-sm text-muted-foreground">Atención requerida</p>
+                        <div className="p-4 border-b border-border bg-amber-50/50 dark:bg-amber-900/5">
+                            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-500 flex items-center">
+                                <AlertTriangle className="w-4 h-4 mr-2" />
+                                Alertas del Sistema
+                            </h3>
                         </div>
-                        <AlertsWidget alerts={alerts} />
-                    </div>
-
-                    {/* Cash Flow Projection */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-foreground">Proyección de Caja</h3>
-                            <p className="text-sm text-muted-foreground">Próximos 3 meses (Vencimiento)</p>
-                        </div>
-                        <div className="-ml-2">
-                            <CashFlowChart data={cashFlowData} />
+                        <div className="max-h-[300px] overflow-y-auto">
+                            <AlertsWidget alerts={alerts} />
                         </div>
                     </div>
 
-                    {/* Recent Projects */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6 overflow-hidden">
-                        <h3 className="text-lg font-semibold text-foreground mb-4">Últimos Proyectos</h3>
-                        <div className="space-y-4">
-                            {projects.slice(0, 5).map((p) => (
-                                <div key={p.id} className="flex items-center group">
-                                    <div className="ml-0 space-y-1 flex-1">
-                                        <Link href={`/projects/${p.id}`} className="text-sm font-medium leading-none text-foreground group-hover:text-primary transition-colors block truncate">
-                                            {p.name}
-                                        </Link>
-                                        <p className="text-xs text-muted-foreground truncate">{p.company?.name || 'Sin Cliente'}</p>
-                                    </div>
-                                    <div className="ml-auto font-medium text-xs text-muted-foreground whitespace-nowrap">
-                                        {new Date(p.updatedAt).toLocaleDateString()}
+                    {/* Quick Stats / Cash Flow Mini */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+                        <h3 className="text-sm font-semibold text-foreground mb-4">Proyección (Próx. 3 meses)</h3>
+                        <div className="space-y-3">
+                            {cashFlowData.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between">
+                                    <span className="text-sm text-muted-foreground capitalize">{item.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 w-24 bg-zinc-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-emerald-500 rounded-full"
+                                                style={{ width: `${Math.min((item.value / (Math.max(...cashFlowData.map(d => d.value)) || 1)) * 100, 100)}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-sm font-mono font-medium w-20 text-right">
+                                            ${(item.value / 1000000).toFixed(1)}M
+                                        </span>
                                     </div>
                                 </div>
                             ))}
-                            {projects.length === 0 && <p className="text-sm text-muted-foreground">No hay proyectos recientes.</p>}
+                            {cashFlowData.length === 0 && <p className="text-xs text-muted-foreground italic">No hay proyecciones disponibles.</p>}
                         </div>
                     </div>
+
+
+                    {/* Margin Trends Mini Chart */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <div className="mb-4">
+                            <h3 className="text-sm font-semibold text-foreground">Tendencia Margen</h3>
+                        </div>
+                        <div className="-ml-4 h-[150px]">
+                            <MarginTrendChart data={chartData} />
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>

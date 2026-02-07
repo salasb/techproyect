@@ -2,7 +2,8 @@
 
 import { RiskAnalysis } from "@/services/riskEngine";
 import { RiskBadge } from "./RiskBadge";
-import { AlertTriangle, TrendingDown, Clock, Banknote } from "lucide-react";
+import { AlertTriangle, TrendingDown, Clock, Banknote, Info, Sparkles } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function ProjectRiskPanel({ risk }: { risk: RiskAnalysis }) {
     return (
@@ -31,47 +32,88 @@ export function ProjectRiskPanel({ risk }: { risk: RiskAnalysis }) {
                     <span className="text-xs text-muted-foreground uppercase tracking-wider">Score de Riesgo</span>
                 </div>
 
-                {/* Right: Factors */}
+                {/* Right: Factors & Context */}
                 <div className="space-y-4">
-                    <h4 className="text-sm font-medium text-muted-foreground">Factores Detectados</h4>
-                    {risk.factors.length > 0 ? (
-                        <ul className="space-y-2">
-                            {risk.factors.map((factor, i) => (
-                                <li key={i} className="text-sm flex items-start gap-2 text-foreground/90">
-                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                                    {factor}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-sm text-muted-foreground italic">No se han detectado factores de riesgo críticos. El proyecto avanza según lo previsto.</p>
-                    )}
+                    {/* New Human Context */}
+                    <div className={`p-3 rounded-lg border text-sm flex items-start gap-2 ${risk.level === 'HIGH' ? 'bg-red-50 border-red-100 text-red-800 dark:bg-red-900/10 dark:border-red-900/20' :
+                            risk.level === 'MEDIUM' ? 'bg-amber-50 border-amber-100 text-amber-800 dark:bg-amber-900/10 dark:border-amber-900/20' :
+                                'bg-blue-50 border-blue-100 text-blue-800 dark:bg-blue-900/10 dark:border-blue-900/20'
+                        }`}>
+                        <Sparkles className="w-4 h-4 mt-0.5 shrink-0 opacity-70" />
+                        <p className="leading-snug">{risk.context}</p>
+                    </div>
+
+                    <div className="pl-1">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Factores Clave</h4>
+                        {risk.factors.length > 0 ? (
+                            <ul className="space-y-2">
+                                {risk.factors.map((factor, i) => (
+                                    <li key={i} className="text-sm flex items-start gap-2 text-foreground/90">
+                                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                        {factor}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-muted-foreground italic">No se han detectado factores de riesgo críticos.</p>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-3 divide-x border-t border-border bg-muted/10">
                 <div className="p-3 text-center">
-                    <div className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                        <Clock className="w-3 h-3" /> SPI (Cronograma)
-                    </div>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1 cursor-help">
+                                    <Clock className="w-3 h-3" /> SPI
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p className="font-semibold">Schedule Performance Index</p>
+                                <p className="text-xs">Mide el avance vs tiempo. &lt; 1.0 es retraso.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                     <div className={`font-mono font-medium ${risk.details.spi < 0.9 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {risk.details.spi.toFixed(2)}
                     </div>
                 </div>
                 <div className="p-3 text-center">
-                    <div className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                        <TrendingDown className="w-3 h-3" /> CPI (Costos)
-                    </div>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1 cursor-help">
+                                    <TrendingDown className="w-3 h-3" /> CPI
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p className="font-semibold">Cost Performance Index</p>
+                                <p className="text-xs">Mide eficiencia de gasto. &lt; 1.0 es sobrecosto.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                     <div className={`font-mono font-medium ${risk.details.cpi < 0.9 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {risk.details.cpi.toFixed(2)}
                     </div>
                 </div>
                 <div className="p-3 text-center">
-                    <div className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                        <Banknote className="w-3 h-3" /> Liquidez
-                    </div>
-                    <div className={`font-mono font-medium ${risk.details.liquidityRisk > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1 cursor-help">
+                                    <Banknote className="w-3 h-3" /> Liquidez
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p className="font-semibold">Riesgo de Liquidez</p>
+                                <p className="text-xs">% de facturación vencida impaga.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <div className={`font-mono font-medium ${risk.details.liquidityRisk > 0.3 ? 'text-red-600' : risk.details.liquidityRisk > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                         {(risk.details.liquidityRisk * 100).toFixed(0)}%
                     </div>
                 </div>
