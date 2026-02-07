@@ -102,18 +102,28 @@ export default async function ProjectsPage() {
                                     return (
                                         <tr key={project.id} className="hover:bg-muted/50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <div className="flex flex-col group relative">
-                                                    <Link href={`/projects/${project.id}`} className="font-medium text-foreground hover:text-primary transition-colors flex items-center gap-2">
-                                                        {project.name}
-                                                        <ChevronRight className="w-4 h-4 opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all text-primary" />
-                                                    </Link>
-                                                    <span className="text-xs text-muted-foreground">{project.company.name}</span>
-                                                    {project.blockingReason && (
-                                                        <div className="mt-1 flex items-center text-xs text-destructive bg-destructive/10 p-1 rounded max-w-fit">
-                                                            <Lock className="w-3 h-3 mr-1" />
-                                                            {project.blockingReason}
+                                                <div className="group relative">
+                                                    <Link
+                                                        href={`/projects/${project.id}`}
+                                                        className="block -mx-3 -my-2 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all duration-200 group-hover:shadow-sm"
+                                                    >
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                                                                    {project.name}
+                                                                </span>
+                                                                <ChevronRight className="w-4 h-4 opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-primary" />
+                                                            </div>
+                                                            <span className="text-xs text-muted-foreground">{project.company.name}</span>
                                                         </div>
-                                                    )}
+
+                                                        {project.blockingReason && (
+                                                            <div className="mt-2 flex items-center text-[10px] font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded-full w-fit">
+                                                                <Lock className="w-3 h-3 mr-1" />
+                                                                {project.blockingReason}
+                                                            </div>
+                                                        )}
+                                                    </Link>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -133,61 +143,54 @@ export default async function ProjectsPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-2">
-                                                    {/* Status Logic */}
-                                                    {project.status === 'EN_ESPERA' || project.status === 'BLOQUEADO' ? (
-                                                        <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded w-fit">
-                                                            <Info className="w-3.5 h-3.5 mr-1.5" />
-                                                            <span>{project.status === 'EN_ESPERA' ? 'En Pausa' : 'Bloqueado'}</span>
+                                                    {/* Status Logic - ALWAYS SHOW HEALTH INDICATORS */}
+                                                    <div className="flex flex-col gap-1.5">
+                                                        {/* Financial Health */}
+                                                        <div className="flex items-center gap-2">
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightFinancial === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
+                                                                            fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
+                                                                                'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300'
+                                                                            }`}>
+                                                                            <DollarSign className="w-3 h-3" />
+                                                                            <span>Finanzas</span>
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="right">
+                                                                        <p className="font-semibold">Salud Financiera</p>
+                                                                        <p className="text-xs">Basado en el margen actual ({(fin.priceNet > 0 ? (fin.marginAmountNet / fin.priceNet) : 0).toLocaleString('es-CL', { style: 'percent' })})</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
                                                         </div>
-                                                    ) : (
-                                                        <div className="flex flex-col gap-1.5">
-                                                            {/* Financial Health */}
+
+                                                        {/* Time Health */}
+                                                        {project.plannedEndDate && (
                                                             <div className="flex items-center gap-2">
                                                                 <TooltipProvider>
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
-                                                                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightFinancial === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
-                                                                                fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
-                                                                                    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300'
+                                                                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightTime === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
+                                                                                fin.trafficLightTime === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
+                                                                                    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'
                                                                                 }`}>
-                                                                                <DollarSign className="w-3 h-3" />
-                                                                                <span>Finanzas</span>
+                                                                                <Timer className="w-3 h-3" />
+                                                                                <span>Tiempo</span>
                                                                             </div>
                                                                         </TooltipTrigger>
                                                                         <TooltipContent side="right">
-                                                                            <p className="font-semibold">Salud Financiera</p>
-                                                                            <p className="text-xs">Basado en el margen actual ({(fin.priceNet > 0 ? (fin.marginAmountNet / fin.priceNet) : 0).toLocaleString('es-CL', { style: 'percent' })})</p>
+                                                                            <p className="font-semibold">Salud de Plazos</p>
+                                                                            <p className="text-xs">
+                                                                                {fin.trafficLightTime === 'RED' ? 'Atrasado' : fin.trafficLightTime === 'YELLOW' ? 'Por vencer' : 'A tiempo'}
+                                                                            </p>
                                                                         </TooltipContent>
                                                                     </Tooltip>
                                                                 </TooltipProvider>
                                                             </div>
-
-                                                            {/* Time Health */}
-                                                            {project.plannedEndDate && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <TooltipProvider>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger asChild>
-                                                                                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border cursor-help w-fit ${fin.trafficLightTime === 'RED' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
-                                                                                    fin.trafficLightTime === 'YELLOW' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' :
-                                                                                        'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'
-                                                                                    }`}>
-                                                                                    <Timer className="w-3 h-3" />
-                                                                                    <span>Tiempo</span>
-                                                                                </div>
-                                                                            </TooltipTrigger>
-                                                                            <TooltipContent side="right">
-                                                                                <p className="font-semibold">Salud de Plazos</p>
-                                                                                <p className="text-xs">
-                                                                                    {fin.trafficLightTime === 'RED' ? 'Atrasado' : fin.trafficLightTime === 'YELLOW' ? 'Por vencer' : 'A tiempo'}
-                                                                                </p>
-                                                                            </TooltipContent>
-                                                                        </Tooltip>
-                                                                    </TooltipProvider>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
