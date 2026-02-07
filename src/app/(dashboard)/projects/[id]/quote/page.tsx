@@ -60,9 +60,6 @@ export default async function QuotePage({ params }: Props) {
             {/* We cast project to any to overlap the loaded relations with the expected type if needed, 
                 but Typescript should match mostly. */}
             <QuoteDocument project={project as any} settings={settings} />
-
-            {/* Quick Print Script */}
-            <QuotePrintButton />
         </div>
     )
 }

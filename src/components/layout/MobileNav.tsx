@@ -8,7 +8,7 @@ export function MobileNav() {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <div className="md:hidden flex flex-col">
+        <div className="md:hidden flex flex-col print:hidden">
             {/* Header Mobile */}
             <div className="bg-background border-b border-border p-4 flex items-center justify-between sticky top-0 z-40">
                 <img src="/techwise logo negro.png" alt="TechWise" className="h-8 w-auto object-contain" />

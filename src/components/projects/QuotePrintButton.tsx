@@ -10,7 +10,7 @@ export function QuotePrintButton({ variant = "floating" }: { variant?: "floating
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors"
             >
                 <Printer className="w-4 h-4" />
-                Descargar PDF / Imprimir
+                Imprimir / Guardar como PDF
             </button>
         )
     }

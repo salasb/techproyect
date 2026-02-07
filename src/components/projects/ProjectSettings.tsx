@@ -173,7 +173,9 @@ export function ProjectSettings({ project, clients }: Props) {
         setIsLoading(true);
         try {
             // Use state 'name' or formData (formData should have it if input has name attribute)
-            const marginPct = (parseFloat(formData.get("marginPct") as string) || 0) / 100;
+            // const marginPct = (parseFloat(formData.get("marginPct") as string) || 0) / 100; 
+            // We removed the input, so we preserve the existing value or default to 0.3 if null/undefined
+            const marginPct = project.marginPct ?? 0.3;
             const currency = formData.get("currency") as string;
             const nextAction = formData.get("nextAction") as string;
             const nextActionDateStr = formData.get("nextActionDate") as string;
@@ -331,26 +333,7 @@ export function ProjectSettings({ project, clients }: Props) {
                         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 border-b border-border pb-2">Financiero</h4>
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-1">
-                                    Margen Objetivo (%)
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        name="marginPct"
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="1"
-                                        defaultValue={project.marginPct ? Math.round(project.marginPct * 100) : 30}
-                                        className="w-full pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-foreground"
-                                    />
-                                    <span className="absolute right-3 top-2 text-muted-foreground">%</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Esto actualizará automáticamente el precio de venta sugerido.
-                                </p>
-                            </div>
+
 
                             <div>
                                 <label className="block text-sm font-medium text-foreground mb-1">
