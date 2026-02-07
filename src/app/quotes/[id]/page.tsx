@@ -34,7 +34,8 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
 
     // 3. Sort Items
     if (project.quoteItems) {
-        project.quoteItems.sort((a, b) => (a.sku || '').localeCompare(b.sku || ''));
+        type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
+        project.quoteItems.sort((a: QuoteItem, b: QuoteItem) => (a.sku || '').localeCompare(b.sku || ''));
     }
 
     // 4. Client/Company resolution for Actions
