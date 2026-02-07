@@ -116,53 +116,54 @@ export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props
                         </tbody>
                     </table>
                 </div>
-
-                {isAdding ? (
-                    <form action={handleCreate} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
-                        <h4 className="text-sm font-medium mb-4">Nueva Factura</h4>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label className="block text-xs font-medium text-zinc-500 mb-1">Monto (Bruto)</label>
-                                <MoneyInput name="amount" required placeholder="0" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-zinc-500 mb-1">Vencimiento</label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
-                                    <input
-                                        name="dueDate"
-                                        type="date"
-                                        required
-                                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex justify-end space-x-3">
-                            <button type="button" onClick={() => setIsAdding(false)} className="text-sm text-zinc-500">Cancelar</button>
-                            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Crear</button>
-                        </div>
-                    </form>
-                ) : (
-                    <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600">
-                        <Plus className="w-4 h-4 mr-2" /> Nueva Factura
-                    </button>
-                )}
             </div>
-            );
+
+            {isAdding ? (
+                <form action={handleCreate} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
+                    <h4 className="text-sm font-medium mb-4">Nueva Factura</h4>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Monto (Bruto)</label>
+                            <MoneyInput name="amount" required placeholder="0" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Vencimiento</label>
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
+                                <input
+                                    name="dueDate"
+                                    type="date"
+                                    required
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                        <button type="button" onClick={() => setIsAdding(false)} className="text-sm text-zinc-500">Cancelar</button>
+                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Crear</button>
+                    </div>
+                </form>
+            ) : (
+                <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600">
+                    <Plus className="w-4 h-4 mr-2" /> Nueva Factura
+                </button>
+            )}
+        </div>
+    );
 }
 
-            function Badge({status}: {status: 'DRAFT' | 'SENT' | 'PAID' }) {
+function Badge({ status }: { status: 'DRAFT' | 'SENT' | 'PAID' }) {
     const styles = {
-                DRAFT: "bg-zinc-100 text-zinc-600 border-zinc-200",
-            SENT: "bg-blue-100 text-blue-600 border-blue-200",
-            PAID: "bg-green-100 text-green-600 border-green-200"
+        DRAFT: "bg-zinc-100 text-zinc-600 border-zinc-200",
+        SENT: "bg-blue-100 text-blue-600 border-blue-200",
+        PAID: "bg-green-100 text-green-600 border-green-200"
     };
-            const labels = {DRAFT: "Borrador", SENT: "Enviada", PAID: "Pagada" };
+    const labels = { DRAFT: "Borrador", SENT: "Enviada", PAID: "Pagada" };
 
-            return (
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status]}`}>
-                {labels[status]}
-            </span>
-            );
+    return (
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status]}`}>
+            {labels[status]}
+        </span>
+    );
 }
