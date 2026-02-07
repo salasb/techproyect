@@ -20,6 +20,8 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
 
     // Form State
     const [taxIdError, setTaxIdError] = useState<string | null>(null);
+    const [phoneType, setPhoneType] = useState<'mobile' | 'landline'>('mobile');
+    const [rawPhone, setRawPhone] = useState('');
 
     const filteredClients = initialClients.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,6 +81,25 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
         setEditingClient(client || null);
         setIsAdding(true);
         setTaxIdError(null);
+
+        // Parse Phone Logic
+        if (client?.phone) {
+            const cleanPhone = client.phone.replace(/\s/g, ''); // Remove spaces
+            if (cleanPhone.startsWith('+569') || cleanPhone.startsWith('9')) {
+                setPhoneType('mobile');
+                setRawPhone(cleanPhone.replace('+569', '').replace('+56', ''));
+            } else if (cleanPhone.startsWith('+562') || cleanPhone.startsWith('2')) {
+                setPhoneType('landline');
+                setRawPhone(cleanPhone.replace('+562', '').replace('+56', ''));
+            } else {
+                // Fallback for non-standard numbers
+                setPhoneType('mobile');
+                setRawPhone(cleanPhone);
+            }
+        } else {
+            setPhoneType('mobile');
+            setRawPhone('');
+        }
     };
 
     return (
@@ -198,7 +219,38 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Teléfono</label>
-                                    <input name="phone" defaultValue={editingClient?.phone} className="w-full p-2 rounded-lg border border-input bg-background" />
+                                    <div className="flex gap-2">
+                                        <select
+                                            className="p-2 rounded-lg border border-input bg-background w-[110px] text-sm"
+                                            value={phoneType}
+                                            onChange={(e) => setPhoneType(e.target.value as 'mobile' | 'landline')}
+                                        >
+                                            <option value="mobile">Móvil (+56 9)</option>
+                                            <option value="landline">Fijo (+56 2)</option>
+                                        </select>
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-3 top-2 text-muted-foreground text-sm pointer-events-none">
+                                                {phoneType === 'mobile' ? '+56 9' : '+56 2'}
+                                            </span>
+                                            <input
+                                                name="phone_suffix"
+                                                className="w-full p-2 pl-[4.5rem] rounded-lg border border-input bg-background"
+                                                placeholder="12345678"
+                                                value={rawPhone}
+                                                onChange={(e) => {
+                                                    // Only allow numbers
+                                                    const val = e.target.value.replace(/\D/g, '');
+                                                    setRawPhone(val.slice(0, 8)); // Max 8 digits
+                                                }}
+                                            />
+                                            {/* Hidden input to send the full formatted value */}
+                                            <input
+                                                type="hidden"
+                                                name="phone"
+                                                value={rawPhone ? (phoneType === 'mobile' ? `+56 9 ${rawPhone}` : `+56 2 ${rawPhone}`) : ''}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div>

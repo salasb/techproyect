@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { createInvoice, deleteInvoice, markInvoiceSent, registerPayment } from "@/app/actions/invoices";
+import { closeProject } from "@/app/actions/projects";
 import { Plus, Trash2, Calendar, FileText, Send, CheckCircle, Clock } from "lucide-react";
 
 type Invoice = Database['public']['Tables']['Invoice']['Row'];
@@ -36,7 +37,13 @@ export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props
     async function handlePay(id: string, currentAmount: number) {
         // Simple full payment for now
         if (confirm("¿Registrar pago total de esta factura?")) {
-            await registerPayment(projectId, id, currentAmount);
+            const res = await registerPayment(projectId, id, currentAmount);
+            if (res?.isFullyPaid) {
+                // Determine if we should prompt
+                if (confirm("El proyecto ha sido pagado en su totalidad. ¿Deseas cerrar el proyecto y marcarlo como Finalizado?")) {
+                    await closeProject(projectId);
+                }
+            }
         }
     }
 

@@ -124,16 +124,18 @@ export default async function ProjectsPage() {
                                             <td className="px-6 py-4">
                                                 <div className="w-28">
                                                     <div className="flex justify-between text-xs mb-1">
-                                                        <span className="font-semibold text-foreground">{fin.calculatedProgress.toFixed(0)}%</span>
+                                                        <span className="font-semibold text-foreground">{project.progress}%</span>
                                                         <div className="flex items-center gap-1">
-                                                            <span className="text-[10px] text-muted-foreground">Financiero</span>
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                Financiero: {fin.calculatedProgress.toFixed(0)}%
+                                                            </span>
                                                             <TooltipProvider>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <Info className="w-3 h-3 text-muted-foreground/70 cursor-help" />
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
-                                                                        <p>Progreso basado en Costos Ejecutados vs Presupuesto Total.</p>
+                                                                        <p>Barra: Avance Manual (Real).<br />Texto: Avance Financiero (Costos vs Presupuesto).</p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TooltipProvider>
@@ -141,8 +143,8 @@ export default async function ProjectsPage() {
                                                     </div>
                                                     <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
                                                         <div
-                                                            className={`h-1.5 rounded-full transition-all duration-500 ${fin.calculatedProgress > 100 ? 'bg-red-500' : 'bg-blue-600'}`}
-                                                            style={{ width: `${Math.min(fin.calculatedProgress, 100)}%` }}
+                                                            className={`h-1.5 rounded-full transition-all duration-500 bg-blue-600`}
+                                                            style={{ width: `${project.progress}%` }}
                                                         ></div>
                                                     </div>
                                                     {fin.calculatedProgress > 100 && (

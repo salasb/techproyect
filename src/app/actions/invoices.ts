@@ -80,14 +80,34 @@ export async function registerPayment(projectId: string, invoiceId: string, amou
     const { error } = await supabase
         .from('Invoice')
         .update({
-            amountPaidGross: amount // For now setting total. Partial payments Logic requires fetching first.
+            amountPaidGross: amount
         })
         .eq('id', invoiceId);
 
     if (error) throw new Error(error.message);
+
+    // Check if Project is fully paid
+    // 1. Get Project Price (from Plan) - This is tricky as price is calculated dynamic. 
+    // Simplified Logic: Check if ALL Invoices are Paid.
+
+    const { data: invoices } = await supabase
+        .from('Invoice')
+        .select('amountInvoicedGross, amountPaidGross')
+        .eq('projectId', projectId);
+
+    let isFullyPaid = false;
+    if (invoices && invoices.length > 0) {
+        const totalInvoiced = invoices.reduce((acc, i) => acc + i.amountInvoicedGross, 0);
+        const totalPaid = invoices.reduce((acc, i) => acc + i.amountPaidGross, 0);
+        // Tolerance for floating point
+        isFullyPaid = totalPaid >= (totalInvoiced - 1);
+    }
+
     revalidatePath(`/projects/${projectId}`);
     revalidatePath('/');
     revalidatePath('/projects');
+
+    return { success: true, isFullyPaid };
 }
 
 export async function deleteInvoice(projectId: string, invoiceId: string) {

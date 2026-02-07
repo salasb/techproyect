@@ -15,12 +15,28 @@ export async function updateProjectSettings(
 
     console.log(`[UPDATE_SETTINGS] ProjectId: ${projectId}`, data);
 
+    const { data: { user } } = await supabase.auth.getUser();
+    let userName = 'Sistema';
+    let userEmail = 'sistema@techwise.com';
+
+    if (user) {
+        // Fetch profile/metadata if possible, or use metadata
+        userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Usuario';
+        userEmail = user.email || '';
+    }
+
+    // Auto-update responsible to the current user who is editing
+    const updateData = {
+        ...data,
+        updatedAt: new Date().toISOString(),
+        responsible: userName // Always set responsible to last editor as requested
+    };
+
+    console.log(`[UPDATE_SETTINGS] ProjectId: ${projectId}`, updateData);
+
     const { error } = await supabase
         .from('Project')
-        .update({
-            ...data,
-            updatedAt: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', projectId);
 
     // Handle currency conversion if requested
@@ -80,7 +96,7 @@ export async function updateProjectSettings(
         projectId,
         action: 'UPDATE_SETTINGS',
         details: `Updated fields: ${changes}`,
-        userName: 'Usuario Actual' // Placeholder until Auth is fully context aware or passed
+        userName: userName
     });
 
     revalidatePath(`/projects/${projectId}`);

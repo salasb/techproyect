@@ -90,8 +90,13 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
 
     // Calculate Alerts
     const alerts = [];
-    if (project.status === 'EN_CURSO' && project.progress < 100) {
-        if (financials.trafficLightTime === 'RED') alerts.push({ type: 'danger', msg: 'Proyecto atrasado' });
+
+    if (project.status === 'EN_ESPERA') {
+        alerts.push({ type: 'warning', msg: 'Proyecto en espera. No se están registrando avances.' });
+    } else if (project.status === 'BLOQUEADO') {
+        alerts.push({ type: 'danger', msg: `Proyecto Bloqueado: ${project.blockingReason || 'Sin motivo'}` });
+    } else if (project.status === 'EN_CURSO' && project.progress < 100) {
+        if (financials.trafficLightTime === 'RED') alerts.push({ type: 'danger', msg: 'Proyecto atrasado respecto a fecha término.' });
         if (financials.trafficLightTime === 'YELLOW') alerts.push({ type: 'warning', msg: 'Fecha de término cercana' });
     }
 
@@ -163,18 +168,22 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm mb-4 dark:bg-green-900/10 dark:border-green-900/30">
+                                    <div className={`p-4 border rounded-lg text-sm mb-4 ${project.status === 'EN_ESPERA' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/10 dark:border-green-900/30'}`}>
                                         <div className="flex items-center font-medium mb-1">
                                             <Check className="w-4 h-4 mr-2" />
-                                            Todo en orden
+                                            {project.status === 'EN_ESPERA' ? 'Sin Alertas (En Espera)' : 'Todo en orden'}
                                         </div>
                                         <p className="text-xs opacity-90 leading-relaxed">
-                                            El proyecto avanza según lo planificado.
-                                            <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
-                                                <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
-                                                <li>Margen actual del <strong>{(financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0).toFixed(1)}%</strong> considerado saludable.</li>
-                                                {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM')}</strong>.</li>}
-                                            </ul>
+                                            {project.status === 'EN_ESPERA'
+                                                ? 'El proyecto está detenido. No se esperan avances ni movimientos financieros.'
+                                                : 'El proyecto avanza según lo planificado.'}
+                                            {project.status === 'EN_CURSO' && (
+                                                <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
+                                                    <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
+                                                    <li>Margen actual del <strong>{(financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0).toFixed(1)}%</strong> considerado saludable.</li>
+                                                    {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM')}</strong>.</li>}
+                                                </ul>
+                                            )}
                                         </p>
                                     </div>
                                 )}
@@ -256,10 +265,27 @@ export function ProjectDetailView({ project, financials, settings, auditLogs, pr
                                 </div>
 
                                 <div className="space-y-8">
+                                    {/* Work Progress (Manual) */}
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-2">
+                                            <span className="font-medium text-foreground">Avance Manual (Reportado)</span>
+                                            <span className="font-bold text-foreground">{project.progress}%</span>
+                                        </div>
+                                        <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-1000 ease-out bg-primary`}
+                                                style={{ width: `${project.progress}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                            Progreso físico real reportado manualmente.
+                                        </p>
+                                    </div>
+
                                     {/* Work Progress (Automatic based on Financials) */}
                                     <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg border border-blue-100 dark:border-blue-900/30">
                                         <div className="flex justify-between text-xs mb-2">
-                                            <span className="font-medium text-blue-700 dark:text-blue-300">Avance Total</span>
+                                            <span className="font-medium text-blue-700 dark:text-blue-300">Avance Financiero Total</span>
                                             <span className="font-bold text-blue-700 dark:text-blue-300">{financials.calculatedProgress.toFixed(1)}%</span>
                                         </div>
                                         <div className="w-full bg-blue-200 dark:bg-blue-900/30 rounded-full h-2 overflow-hidden">

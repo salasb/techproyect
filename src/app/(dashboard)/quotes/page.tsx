@@ -15,19 +15,19 @@ function getStatusBadge(status: string) {
     switch (s) {
         case 'EN_CURSO':
         case 'EN CURSO':
-            return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800">En Curso</Badge>;
+            return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800 whitespace-nowrap">En Curso</Badge>;
         case 'EN_ESPERA':
         case 'EN ESPERA':
-            return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800">En Espera</Badge>;
+            return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800 whitespace-nowrap">En Espera</Badge>;
         case 'BLOQUEADO':
-            return <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800">Bloqueado</Badge>;
+            return <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800 whitespace-nowrap">Bloqueado</Badge>;
         case 'FINALIZADO':
         case 'CERRADO':
         case 'COMPLETADO':
-            return <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800">Finalizado</Badge>;
+            return <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800 whitespace-nowrap">Finalizado</Badge>;
         case 'BORRADOR':
         default:
-            return <Badge variant="secondary" className="text-zinc-500">Borrador</Badge>;
+            return <Badge variant="secondary" className="text-zinc-500 whitespace-nowrap">Borrador</Badge>;
     }
 }
 
@@ -111,6 +111,14 @@ export default function QuotesPage() {
                                         return acc + (item.priceNet * item.quantity);
                                     }, 0) || 0;
 
+                                    // Determine Currency
+                                    const currency = quote.currency || 'CLP';
+                                    const formattedTotal = currency === 'CLP'
+                                        ? `CLP $${totalValue.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
+                                        : currency === 'USD'
+                                            ? `USD $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                            : `UF ${totalValue.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
                                     return (
                                         <tr key={quote.id} className="hover:bg-muted/50 transition-colors group">
                                             <td className="px-6 py-4">
@@ -125,8 +133,8 @@ export default function QuotesPage() {
                                             <td className="px-6 py-4">
                                                 {getStatusBadge(quote.status)}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono font-medium text-foreground">
-                                                ${totalValue.toLocaleString()}
+                                            <td className="px-6 py-4 text-right font-mono font-medium text-foreground whitespace-nowrap">
+                                                {formattedTotal}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <Link

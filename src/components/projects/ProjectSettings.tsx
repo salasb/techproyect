@@ -147,12 +147,16 @@ export function ProjectSettings({ project, clients }: Props) {
 
     // State for controlled inputs
     const [name, setName] = useState(project.name);
+    const [status, setStatus] = useState(project.status);
+    const [progress, setProgress] = useState(project.progress);
 
     // Sync state with props when project updates
     useEffect(() => {
         setName(project.name);
+        setStatus(project.status);
+        setProgress(project.progress);
         setSelectedCurrency(project.currency || 'CLP');
-    }, [project.name, project.currency, project.updatedAt]);
+    }, [project.name, project.currency, project.status, project.progress, project.updatedAt]);
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true);
@@ -167,7 +171,10 @@ export function ProjectSettings({ project, clients }: Props) {
             const nextActionDate = nextActionDateStr ? new Date(nextActionDateStr).toISOString() : null;
 
             await updateProjectSettings(project.id, {
-                name, // Use state
+                name,
+                clientId: selectedClientId,
+                status,
+                progress,
                 marginPct,
                 currency,
                 nextAction,
@@ -208,6 +215,86 @@ export function ProjectSettings({ project, clients }: Props) {
                         />
                     </div>
                     {/* ... other general inputs could go here if any ... */}
+                </div>
+
+                {/* Client Selection, Status & Progress */}
+                <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+                    {/* Client Selection */}
+                    <div>
+                        <h3 className="text-sm font-medium text-foreground mb-4">Cliente Asociado</h3>
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar cliente por nombre o RUT..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background"
+                                />
+                            </div>
+                            <div className="border border-border rounded-lg max-h-48 overflow-y-auto">
+                                {filteredClients.length === 0 ? (
+                                    <div className="p-4 text-center text-sm text-muted-foreground">No se encontraron clientes.</div>
+                                ) : (
+                                    <div className="divide-y divide-border">
+                                        {filteredClients.map((client) => (
+                                            <button
+                                                key={client.id}
+                                                type="button"
+                                                onClick={() => setSelectedClientId(client.id)}
+                                                className={`w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors ${selectedClientId === client.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
+                                            >
+                                                <div>
+                                                    <p className="font-medium text-sm text-foreground">{client.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{client.taxId || 'Sin RUT'}</p>
+                                                </div>
+                                                {selectedClientId === client.id && <Check className="h-4 w-4 text-primary" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {selectedClientId && (
+                                <p className="text-xs text-muted-foreground">
+                                    Cliente: <span className="font-medium text-foreground">{clients.find(c => c.id === selectedClientId)?.name}</span>
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-1">Estado del Proyecto</label>
+                            <select
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value as any)}
+                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                            >
+                                <option value="EN_ESPERA">En Espera</option>
+                                <option value="EN_CURSO">En Curso</option>
+                                <option value="BLOQUEADO">Bloqueado</option>
+                                <option value="CERRADO">Cerrado</option>
+                                <option value="CANCELADO">Cancelado</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-1">Avance Manual ({progress}%)</label>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    value={progress}
+                                    onChange={(e) => setProgress(Number(e.target.value))}
+                                    className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                                />
+                                <span className="text-sm font-medium w-12 text-right">{progress}%</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">Progreso real/físico.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-6">

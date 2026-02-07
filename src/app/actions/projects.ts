@@ -88,3 +88,33 @@ export async function deleteProject(projectId: string) {
     revalidatePath("/projects");
     redirect("/projects");
 }
+
+export async function closeProject(projectId: string) {
+    const supabase = await createClient();
+
+    // 1. Update Project Status
+    const { error } = await supabase
+        .from('Project')
+        .update({
+            status: 'FINALIZADO',
+            updatedAt: new Date().toISOString()
+        })
+        .eq('id', projectId);
+
+    if (error) {
+        throw new Error(`Error closing project: ${error.message}`);
+    }
+
+    // 2. Log the event
+    await supabase.from('ProjectLog').insert({
+        id: crypto.randomUUID(),
+        projectId,
+        type: 'STATUS_CHANGE',
+        content: 'El proyecto ha sido cerrado automáticamente tras el pago total.',
+        createdAt: new Date().toISOString()
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/');
+    revalidatePath('/projects');
+}
