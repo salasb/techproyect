@@ -1,11 +1,11 @@
-import { getPipelineProjects } from "@/actions/crm";
+import { getClients } from "@/actions/clients";
 import { PipelineBoard } from "@/components/crm/PipelineBoard";
 import { KanbanSquare } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
 export default async function PipelinePage() {
-    const projects = await getPipelineProjects();
+    const clients = await getClients();
 
     return (
         <div className="flex flex-col h-full bg-zinc-100/50 dark:bg-black/20">
@@ -15,12 +15,12 @@ export default async function PipelinePage() {
                         <KanbanSquare className="w-6 h-6 text-indigo-600" />
                         Pipeline de Oportunidades
                     </h1>
-                    <p className="text-sm text-zinc-500">Gestión visual del estado de los proyectos</p>
+                    <p className="text-sm text-zinc-500">Gestión visual del estado de los clientes</p>
                 </div>
             </div>
 
             <div className="flex-1 overflow-x-auto overflow-y-hidden px-6">
-                <PipelineBoard initialProjects={projects} />
+                <PipelineBoard clients={clients} />
             </div>
         </div>
     );
