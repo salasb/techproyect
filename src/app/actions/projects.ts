@@ -20,11 +20,44 @@ export async function createProject(formData: FormData) {
 
     const supabase = await createClient();
 
-
-
     let finalCompanyId = companyId;
+    let finalClientId: string | null = null;
 
-    // Si seleccionó crear nueva empresa
+    // Handle Prefixed IDs (from SearchableSelect combining Company and Client)
+    if (companyId.startsWith("client:")) {
+        const selectedClientId = companyId.split(":")[1];
+        finalClientId = selectedClientId;
+
+        // Fetch Client Name to sync/find Company
+        const { data: clientData } = await supabase.from('Client').select('name').eq('id', selectedClientId).single();
+        if (clientData) {
+            const clientName = clientData.name;
+            // Check if company exists with same name
+            const { data: existingCompany } = await supabase.from('Company').select('id').eq('name', clientName).single();
+
+            if (existingCompany) {
+                finalCompanyId = existingCompany.id;
+            } else {
+                // Create Company for this Client (Sync)
+                const { data: newCompany, error: createError } = await supabase
+                    .from('Company')
+                    .insert({
+                        id: crypto.randomUUID(),
+                        name: clientName
+                    })
+                    .select()
+                    .single();
+
+                if (newCompany) {
+                    finalCompanyId = newCompany.id;
+                }
+            }
+        }
+    } else if (companyId.startsWith("company:")) {
+        finalCompanyId = companyId.split(":")[1];
+    }
+
+    // Si seleccionó crear nueva empresa (legacy/direct flow)
     if (companyId === "new" && newCompanyName) {
         // Create company with Supabase
         const { data: newCompany, error: companyError } = await supabase
@@ -52,6 +85,7 @@ export async function createProject(formData: FormData) {
             id: projectId,
             name,
             companyId: finalCompanyId,
+            clientId: finalClientId,
             status: "EN_ESPERA",
             stage: "LEVANTAMIENTO",
             startDate: new Date(startDate).toISOString(),

@@ -168,7 +168,11 @@ export function QuoteDocument({ project, settings }: Props) {
                 <div className="flex-1 text-[10px] text-slate-500 text-justify leading-relaxed pr-8">
                     <p className="mb-2"><strong>Condiciones Comerciales:</strong></p>
                     <ul className="list-disc list-inside space-y-0.5 pl-1 mb-2">
-                        <li>Forma de pago: 50% anticipo, 50% contra entrega conforme (o según acuerdo).</li>
+                        <li>Forma de pago: {
+                            (project as any).paymentMethod === 'CASH' ? 'Contado contra entrega.' :
+                                (project as any).paymentMethod === '30_DAYS' ? 'Crédito 30 días contra factura.' :
+                                    '50% anticipo, 50% contra entrega conforme (o según acuerdo).'
+                        }</li>
                         <li>Entrega: A coordinar según stock.</li>
                         <li>Validez de la oferta: 15 días.</li>
                     </ul>

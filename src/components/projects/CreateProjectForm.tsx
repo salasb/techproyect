@@ -13,7 +13,12 @@ type Company = {
     name: string;
 }
 
-export function CreateProjectForm({ companies }: { companies: Company[] }) {
+type Client = {
+    id: string;
+    name: string;
+}
+
+export function CreateProjectForm({ companies, clients = [] }: { companies: Company[], clients?: Client[] }) {
     const [isNewCompany, setIsNewCompany] = useState(false);
     const [selectedCompanyId, setSelectedCompanyId] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -97,9 +102,12 @@ export function CreateProjectForm({ companies }: { companies: Company[] }) {
                     <div>
                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Cliente / Empresa</label>
                         <SearchableSelect
-                            name="companyId"
+                            name="companyId" // We keep the name, but value will be prefixed
                             required
-                            options={companies.map(c => ({ value: c.id, label: c.name }))}
+                            options={[
+                                ...companies.map(c => ({ value: `company:${c.id}`, label: c.name })),
+                                ...clients.map(c => ({ value: `client:${c.id}`, label: c.name }))
+                            ]}
                             value={selectedCompanyId}
                             onChange={(val) => {
                                 setSelectedCompanyId(val);

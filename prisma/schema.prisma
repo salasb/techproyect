@@ -44,6 +44,7 @@ model Project {
   blockingReason String?
   nextActionDate DateTime?     @db.Timestamptz(6)
   currency       String?       @default("CLP")
+  paymentMethod  String        @default("FIFTY_FIFTY") // CASH, FIFTY_FIFTY, 30_DAYS
   scopeDetails   String?
   clientId       String?       @db.Uuid
   quoteSentDate  DateTime?     @db.Timestamptz(6)

@@ -148,6 +148,7 @@ export function ProjectSettings({ project, clients }: Props) {
     // State for controlled inputs
     const [name, setName] = useState(project.name);
     const [status, setStatus] = useState(project.status);
+    const [paymentMethod, setPaymentMethod] = useState((project as any).paymentMethod || 'FIFTY_FIFTY');
     const [progress, setProgress] = useState(project.progress);
 
     // Sync state with props when project updates
@@ -155,6 +156,7 @@ export function ProjectSettings({ project, clients }: Props) {
     useEffect(() => {
         setName(project.name);
         setStatus(project.status);
+        setPaymentMethod((project as any).paymentMethod || 'FIFTY_FIFTY');
         // Progress kept from prop but not editable via slider anymore.
         // If we want to fully rely on automated progress, we might ignore this or use it for display only elsewhere.
         // For now, removing it from editable state sync to avoid confusion, 
@@ -190,9 +192,10 @@ export function ProjectSettings({ project, clients }: Props) {
                 progress: project.progress, // Preserve existing value, do not update from removed slider
                 marginPct,
                 currency,
+                paymentMethod,
                 nextAction,
                 nextActionDate
-            }, {
+            } as any, {
                 convertValues: shouldConvert,
                 conversionFactor: (shouldConvert && conversionRate) ? conversionRate : 1
             });
@@ -370,6 +373,21 @@ export function ProjectSettings({ project, clients }: Props) {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-1">
+                                    Condición de Pago
+                                </label>
+                                <select
+                                    value={paymentMethod}
+                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                                >
+                                    <option value="FIFTY_FIFTY">50% Anticipo / 50% Contra Entrega</option>
+                                    <option value="CASH">Contado Contra Entrega</option>
+                                    <option value="30_DAYS">Crédito 30 Días</option>
+                                </select>
                             </div>
                         </div>
                     </div>

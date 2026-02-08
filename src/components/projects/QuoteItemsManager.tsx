@@ -29,7 +29,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
     // Helper for currency
     const formatMoney = (amount: number) => {
         if (currency === 'CLP') return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-        if (currency === 'USD') return 'USD ' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (currency === 'USD') return 'USD ' + amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
         if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
     }
@@ -37,7 +37,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
     // Helper for rounding based on currency
     const roundMoney = (amount: number) => {
         if (!amount) return 0;
-        if (currency === 'USD' || currency === 'UF') {
+        if (currency === 'UF') {
             return Math.round(amount * 100) / 100;
         }
         return Math.round(amount);
@@ -221,9 +221,10 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
     const projectMarginPct = totalNet > 0 ? (totalMargin / totalNet) * 100 : 0;
 
     function getMarginColorClass(margin: number) {
-        if (margin < 20) return 'text-red-600 bg-red-100 border-red-200'; // Critical < 20%
-        if (margin < 30) return 'text-yellow-600 bg-yellow-100 border-yellow-200'; // Warning 20-30%
-        return 'text-green-600 bg-green-100 border-green-200'; // Healthy > 30%
+        const m = Math.round(margin);
+        if (m < 20) return 'text-red-600 bg-red-100 border-red-200'; // Critical < 20%
+        if (m < 30) return 'text-yellow-600 bg-yellow-100 border-yellow-200'; // Warning 20-30%
+        return 'text-green-600 bg-green-100 border-green-200'; // Healthy >= 30%
     }
 
     return (
@@ -275,9 +276,9 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                             <th className="px-4 py-3 font-medium">Detalle</th>
                             <th className="px-4 py-3 font-medium w-16 text-center">Cant.</th>
                             <th className="px-4 py-3 font-medium w-32 text-right text-zinc-500">Costo U.</th>
-                            <th className="px-4 py-3 font-medium w-32 text-right">Precio V.</th>
+                            <th className="px-4 py-3 font-medium w-40 text-right">Precio V.</th>
                             <th className="px-4 py-3 font-medium w-24 text-center">Margen</th>
-                            <th className="px-4 py-3 font-medium text-right w-32">Total</th>
+                            <th className="px-4 py-3 font-medium text-right w-40">Total</th>
                             <th className="px-4 py-3 font-medium text-right w-24">Acciones</th>
                         </tr>
                     </thead>
@@ -306,7 +307,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                         <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500 align-top">
                                             {formatMoney(item.costNet)}
                                         </td>
-                                        <td className="px-4 py-3 text-right font-mono font-medium align-top">
+                                        <td className="px-4 py-3 text-right font-mono font-medium align-top whitespace-nowrap">
                                             {formatMoney(item.priceNet)}
                                         </td>
                                         <td className="px-4 py-3 text-center align-top">
@@ -314,7 +315,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                                 {marginP.toFixed(0)}%
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-right font-mono text-foreground font-semibold align-top">
+                                        <td className="px-4 py-3 text-right font-mono text-foreground font-semibold align-top whitespace-nowrap">
                                             {formatMoney(item.priceNet * item.quantity)}
                                         </td>
                                         <td className="px-4 py-3 text-right align-top">
@@ -482,7 +483,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                         type="number"
                                         required
                                         min="0"
-                                        step={currency === 'USD' || currency === 'UF' ? "0.01" : "1"}
+                                        step={currency === 'UF' ? "0.01" : "1"}
                                         defaultValue={editingItem?.costNet}
                                         value={costNet || (editingItem ? undefined : '')}
                                         placeholder="0"
@@ -525,7 +526,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                         type="number"
                                         required
                                         min="0"
-                                        step={currency === 'USD' || currency === 'UF' ? "0.01" : "1"}
+                                        step={currency === 'UF' ? "0.01" : "1"}
                                         defaultValue={editingItem?.priceNet}
                                         value={priceNet || (editingItem ? undefined : '')}
                                         placeholder="0"

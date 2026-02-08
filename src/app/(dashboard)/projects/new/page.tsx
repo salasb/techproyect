@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateProjectForm } from "@/components/projects/CreateProjectForm";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { getClients } from "@/actions/clients";
 
 export default async function NewProjectPage() {
     const supabase = await createClient();
@@ -14,6 +15,7 @@ export default async function NewProjectPage() {
 
     // Ensure array even if fetch fails slightly
     const companies = companiesData || [];
+    const clients = await getClients();
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">
@@ -27,7 +29,7 @@ export default async function NewProjectPage() {
                 </div>
             </div>
 
-            <CreateProjectForm companies={companies} />
+            <CreateProjectForm companies={companies} clients={clients || []} />
         </div>
     );
 }
