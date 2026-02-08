@@ -59,8 +59,8 @@ export async function createProject(formData: FormData) {
             budgetNet: budget,
             responsible: "TBD",
             scopeDetails: formData.get("scopeDetails") as string || null,
-            nextAction: formData.get("nextAction") as string || null,
-            nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : null,
+            nextAction: formData.get("nextAction") as string || 'Preparar Cotización',
+            nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : new Date(startDate).toISOString(),
             updatedAt: new Date().toISOString(),
             createdAt: new Date().toISOString()
         })
@@ -123,4 +123,58 @@ export async function closeProject(projectId: string) {
     revalidatePath(`/projects/${projectId}`);
     revalidatePath('/');
     revalidatePath('/projects');
+}
+
+export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string) {
+    const supabase = await createClient();
+
+    const updateData: any = {
+        status,
+        updatedAt: new Date().toISOString()
+    };
+
+    if (stage) updateData.stage = stage;
+    if (nextAction) {
+        updateData.nextAction = nextAction;
+        updateData.nextActionDate = new Date().toISOString(); // Default to today/now
+    }
+
+    // Special logic for Quote Sent
+    if (status === 'EN_ESPERA' && stage === 'COTIZACION') {
+        const followUpDate = new Date();
+        followUpDate.setDate(followUpDate.getDate() + 7); // Follow up in 7 days
+
+        updateData.nextAction = 'Seguimiento Cotización';
+        updateData.nextActionDate = followUpDate.toISOString();
+    }
+
+    // Special logic for Accepted (Kickoff)
+    if (status === 'EN_CURSO' && stage === 'DISENO') { // Assuming DISENO is the stage after acceptance
+        const kickoffDate = new Date();
+        kickoffDate.setDate(kickoffDate.getDate() + 2); // Kickoff in 2 days
+
+        updateData.nextAction = 'Planificar Kickoff';
+        updateData.nextActionDate = kickoffDate.toISOString();
+    }
+
+    const { error } = await supabase
+        .from('Project')
+        .update(updateData)
+        .eq('id', projectId);
+
+    if (error) {
+        throw new Error(`Error updating project status: ${error.message}`);
+    }
+
+    // Log it
+    await supabase.from('ProjectLog').insert({
+        id: crypto.randomUUID(),
+        projectId,
+        type: 'STATUS_CHANGE',
+        content: `Estado actualizado a ${status} ${stage ? `(${stage})` : ''}`,
+        createdAt: new Date().toISOString()
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true };
 }

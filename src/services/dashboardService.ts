@@ -77,7 +77,7 @@ export class DashboardService {
                     type: 'BLOCKER',
                     title: p.blockingReason || 'Proyecto Bloqueado',
                     priority: 'HIGH',
-                    dueDate: new Date(p.updatedAt) // Use last update as reference
+                    dueDate: new Date(p.updatedAt)
                 });
             }
 
@@ -87,7 +87,6 @@ export class DashboardService {
                 const isOverdue = actionDate ? actionDate < now : false;
                 const isToday = actionDate ? actionDate.toDateString() === now.toDateString() : false;
 
-                // Simple keyword detection for type
                 const lowerAction = p.nextAction.toLowerCase();
                 let type: 'CALL' | 'EMAIL' | 'TASK' = 'TASK';
                 if (lowerAction.includes('llamar') || lowerAction.includes('call')) type = 'CALL';
@@ -104,6 +103,27 @@ export class DashboardService {
                         dueDate: actionDate || undefined,
                         isOverdue: isOverdue,
                         priority: isOverdue ? 'HIGH' : 'MEDIUM'
+                    });
+                }
+            }
+
+            // 3. Stale Quotes (Sent > 5 days ago)
+            if (p.status === 'EN_ESPERA') {
+                const updated = new Date(p.updatedAt);
+                const diffTime = Math.abs(now.getTime() - updated.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 5) {
+                    actions.push({
+                        id: `stale-quote-${p.id}`,
+                        projectId: p.id,
+                        projectName: p.name,
+                        companyName: p.company?.name || 'Sin Cliente',
+                        type: 'EMAIL',
+                        title: `Seguimiento Cotización (${diffDays} días)`,
+                        dueDate: now,
+                        isOverdue: true,
+                        priority: 'HIGH'
                     });
                 }
             }
@@ -323,6 +343,21 @@ export class DashboardService {
                     alerts.push({
                         type: 'danger',
                         message: `Bajo Margen: ${p.name}`,
+                        link: `/projects/${p.id}/financials`
+                    });
+                }
+
+                // Check Budget Execution (Profitability Assistant)
+                if (fin.calculatedProgress >= 80 && fin.calculatedProgress < 100) {
+                    alerts.push({
+                        type: 'warning',
+                        message: `Presupuesto al ${Math.round(fin.calculatedProgress)}%: ${p.name}`,
+                        link: `/projects/${p.id}/financials`
+                    });
+                } else if (fin.calculatedProgress >= 100) {
+                    alerts.push({
+                        type: 'danger',
+                        message: `Presupuesto Excedido (${Math.round(fin.calculatedProgress)}%): ${p.name}`,
                         link: `/projects/${p.id}/financials`
                     });
                 }

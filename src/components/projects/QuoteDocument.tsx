@@ -201,10 +201,21 @@ export function QuoteDocument({ project, settings }: Props) {
                         <p className="font-bold text-slate-900 text-xs uppercase">Christian Salas / Techwise SpA</p>
                         <p className="text-[10px] text-slate-500 uppercase">Proveedor</p>
                     </div>
-                    <div className="text-center">
-                        <div className="border-t border-slate-300 w-3/4 mx-auto mb-2"></div>
-                        <p className="font-bold text-slate-900 text-xs uppercase">Aceptación Cliente</p>
-                        <p className="text-[10px] text-slate-500 uppercase">Firma y Timbre</p>
+                    <div className="text-center relative">
+                        {project.status === 'EN_CURSO' ? (
+                            <div className="absolute inset-0 flex items-center justify-center -top-8">
+                                <div className="border-4 border-emerald-600 text-emerald-600 rounded-lg px-4 py-2 font-black uppercase text-lg transform -rotate-12 opacity-80 select-none pointer-events-none">
+                                    ACEPTADO DIGITALMENTE
+                                    <div className="text-[8px] font-mono font-normal text-center mt-1 text-emerald-600">
+                                        {format(new Date(project.updatedAt || new Date()), 'dd/MM/yyyy HH:mm')}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="border-t border-slate-300 w-3/4 mx-auto mb-2"></div>
+                        )}
+                        <p className="font-bold text-slate-900 text-xs uppercase z-10 relative">Aceptación Cliente</p>
+                        <p className="text-[10px] text-slate-500 uppercase z-10 relative">Firma y Timbre</p>
                     </div>
                 </div>
             </div>

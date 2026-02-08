@@ -73,6 +73,17 @@ export async function markInvoiceSent(projectId: string, invoiceId: string) {
         .eq('id', invoiceId);
 
     if (error) throw new Error(error.message);
+
+    // Automation: Trigger Follow-up Task
+    const followUpDate = new Date();
+    followUpDate.setDate(followUpDate.getDate() + 5); // Follow up in 5 days
+
+    await supabase.from('Project').update({
+        nextAction: 'Seguimiento Pago Factura',
+        nextActionDate: followUpDate.toISOString(),
+        updatedAt: new Date().toISOString()
+    }).eq('id', projectId);
+
     revalidatePath(`/projects/${projectId}`);
     revalidatePath('/');
     revalidatePath('/projects');

@@ -129,12 +129,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 operationalEfficiency={operationalEfficiency}
             />
 
-            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-                {/* 2. Left Column: Analysis & Trends (2/3 width) */}
-                <div className="lg:col-span-2 space-y-6">
+            {/* 2. Main Dashboard Content - Big Picture Layout */}
+            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-12 h-full">
+
+                {/* LEFT COLUMN: Financial Overview & Trends (Cols 1-4) */}
+                <div className="lg:col-span-4 space-y-6 flex flex-col h-full">
 
                     {/* Financial Activity Chart */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex-1 min-h-[400px]">
                         <div className="mb-6 flex justify-between items-center">
                             <div>
                                 <h3 className="text-lg font-semibold text-foreground">Actividad Financiera</h3>
@@ -146,72 +148,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                         </div>
                     </div>
 
-                    {/* Recent Projects Table (Compact) */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-border flex justify-between items-center">
-                            <h3 className="text-lg font-semibold text-foreground">Proyectos Recientes</h3>
-                            <Link href="/projects" className="text-sm text-primary hover:underline font-medium">
-                                Ver todos
-                            </Link>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-muted/50 text-muted-foreground font-medium uppercase text-xs">
-                                    <tr>
-                                        <th className="px-6 py-3">Proyecto</th>
-                                        <th className="px-6 py-3">Cliente</th>
-                                        <th className="px-6 py-3">Estado</th>
-                                        <th className="px-6 py-3 text-right">Actualización</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {projects.slice(0, 5).map((p) => (
-                                        <tr key={p.id} className="hover:bg-muted/30 transition-colors group">
-                                            <td className="px-6 py-3 font-medium text-foreground">
-                                                <Link href={`/projects/${p.id}`} className="hover:text-primary transition-colors block">
-                                                    {p.name}
-                                                </Link>
-                                            </td>
-                                            <td className="px-6 py-3 text-muted-foreground">{p.company?.name || '-'}</td>
-                                            <td className="px-6 py-3">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border
-                                                    ${p.status === 'EN_CURSO' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300' :
-                                                        p.status === 'EN_ESPERA' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300' :
-                                                            'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800'}`}>
-                                                    {p.status.replace('_', ' ')}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-3 text-right text-muted-foreground font-mono text-xs">
-                                                {new Date(p.updatedAt).toLocaleDateString()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                </div>
-
-                {/* 3. Right Column: Action Center & Alerts (1/3 width) */}
-                <div className="space-y-6">
-
-                    {/* Action Center - Replaces FocusBoard with high density list */}
-                    <ActionCenter actions={actionItems} />
-
-                    {/* Alerts Widget */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                        <div className="p-4 border-b border-border bg-amber-50/50 dark:bg-amber-900/5">
-                            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-500 flex items-center">
-                                <AlertTriangle className="w-4 h-4 mr-2" />
-                                Alertas del Sistema
-                            </h3>
-                        </div>
-                        <div className="max-h-[300px] overflow-y-auto">
-                            <AlertsWidget alerts={alerts} />
-                        </div>
-                    </div>
-
                     {/* Quick Stats / Cash Flow Mini */}
                     <div className="bg-card rounded-xl border border-border shadow-sm p-5">
                         <h3 className="text-sm font-semibold text-foreground mb-4">Proyección (Próx. 3 meses)</h3>
@@ -220,13 +156,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                                 <div key={idx} className="flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground capitalize">{item.name}</span>
                                     <div className="flex items-center gap-2">
-                                        <div className="h-2 w-24 bg-zinc-100 rounded-full overflow-hidden">
+                                        <div className="h-2 w-24 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                                             <div
                                                 className="h-full bg-emerald-500 rounded-full"
                                                 style={{ width: `${Math.min((item.value / (Math.max(...cashFlowData.map(d => d.value)) || 1)) * 100, 100)}%` }}
                                             />
                                         </div>
-                                        <span className="text-sm font-mono font-medium w-20 text-right">
+                                        <span className="text-sm font-mono font-medium w-20 text-right text-foreground">
                                             ${(item.value / 1000000).toFixed(1)}M
                                         </span>
                                     </div>
@@ -236,17 +172,68 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                         </div>
                     </div>
 
+                </div>
 
-                    {/* Margin Trends Mini Chart */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-                        <div className="mb-4">
-                            <h3 className="text-sm font-semibold text-foreground">Tendencia Margen</h3>
-                        </div>
-                        <div className="-ml-4 h-[150px]">
-                            <MarginTrendChart data={chartData} />
-                        </div>
+                {/* RIGHT COLUMN: Focus Board (Cols 5-12) */}
+                <div className="lg:col-span-8 flex flex-col h-full space-y-6">
+
+                    {/* Focus Board Title */}
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                            <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                            Tablero de Enfoque
+                        </h3>
+                        {/* Alerts Widget (Integrated here or kept separate? Let's keep it separate or integrated) */}
                     </div>
 
+                    <div className="flex-1">
+                        <FocusBoard actions={actionItems} />
+                    </div>
+
+                    {/* Recent Projects Table (Moved to bottom of Focus Board area or below) */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-border flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/20">
+                            <h3 className="text-sm font-semibold text-foreground">Proyectos Recientes</h3>
+                            <Link href="/projects" className="text-xs text-primary hover:underline font-medium">
+                                Ver todos
+                            </Link>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-muted/50 text-muted-foreground font-medium uppercase text-xs">
+                                    <tr>
+                                        <th className="px-4 py-2">Proyecto</th>
+                                        <th className="px-4 py-2">Cliente</th>
+                                        <th className="px-4 py-2">Estado</th>
+                                        <th className="px-4 py-2 text-right">Actualización</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {projects.slice(0, 3).map((p) => (
+                                        <tr key={p.id} className="hover:bg-muted/30 transition-colors group">
+                                            <td className="px-4 py-2 font-medium text-foreground">
+                                                <Link href={`/projects/${p.id}`} className="hover:text-primary transition-colors block truncate max-w-[150px]">
+                                                    {p.name}
+                                                </Link>
+                                            </td>
+                                            <td className="px-4 py-2 text-muted-foreground truncate max-w-[120px]">{p.company?.name || '-'}</td>
+                                            <td className="px-4 py-2">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border
+                                                    ${p.status === 'EN_CURSO' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300' :
+                                                        p.status === 'EN_ESPERA' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                                                            'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800'}`}>
+                                                    {p.status.replace('_', ' ')}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2 text-right text-muted-foreground font-mono text-[10px]">
+                                                {new Date(p.updatedAt).toLocaleDateString()}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

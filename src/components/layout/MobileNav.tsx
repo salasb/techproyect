@@ -41,7 +41,10 @@ export function MobileNav() {
                         </div>
 
                         <div className="h-full overflow-hidden pt-2">
-                            <SidebarContent onLinkClick={() => setIsOpen(false)} />
+                            <SidebarContent
+                                onLinkClick={() => setIsOpen(false)}
+                                badges={{ projects: 3, quotes: 1 }} // TODO: Replace with real data from context/store
+                            />
                         </div>
                     </div>
                 </div>

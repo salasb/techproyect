@@ -41,7 +41,69 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
     const [marginPct, setMarginPct] = useState(defaultMargin); // Use defaultMargin prop
     const [priceNet, setPriceNet] = useState(0);
 
-    // Determines if we are in "Form Mode" (either adding or editing)
+    // Catalog State
+    const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+    const [catalogItems, setCatalogItems] = useState<any[]>([]);
+    const [catalogLoading, setCatalogLoading] = useState(false);
+    const [catalogSearch, setCatalogSearch] = useState("");
+
+    async function openCatalog() {
+        setIsCatalogOpen(true);
+        setCatalogLoading(true);
+        try {
+            const products = await getProducts();
+            setCatalogItems(products || []);
+        } catch (error) {
+            console.error(error);
+            toast({ type: 'error', message: "Error al cargar catálogo" });
+        } finally {
+            setCatalogLoading(false);
+        }
+    }
+
+    async function handleCatalogSearch(query: string) {
+        setCatalogSearch(query);
+        setCatalogLoading(true);
+        try {
+            const products = await getProducts(query);
+            setCatalogItems(products || []);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setCatalogLoading(false);
+        }
+    }
+
+    function selectProduct(product: any) {
+        setIsAdding(true);
+        setIsCatalogOpen(false);
+
+        // Auto-fill form
+        setTimeout(() => {
+            setCostNet(product.costNet);
+            setPriceNet(product.priceNet);
+            setUnit(product.unit);
+
+            // Calc margin
+            if (product.priceNet > 0) {
+                const m = ((product.priceNet - product.costNet) / product.priceNet) * 100;
+                setMarginPct(Math.round(m));
+            } else {
+                setMarginPct(defaultMargin);
+            }
+
+            // Fill text inputs via DOM or State if controlled? 
+            // We need to control detail input or use ref. 
+            // Current input is uncontrolled (defaultValue). We need to switch to controlled or force update.
+            // Let's use a key or simple ref approach for the textarea.
+            const descInput = document.querySelector('textarea[name="detail"]') as HTMLTextAreaElement;
+            if (descInput) descInput.value = `${product.name}\n${product.description || ''}`;
+
+            const skuInput = document.querySelector('input[name="sku"]') as HTMLInputElement;
+            if (skuInput) skuInput.value = product.sku;
+
+        }, 100);
+    }
     const showForm = isAdding || editingItem !== null;
 
     // Handlers for auto-calculation
@@ -276,6 +338,61 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                 </table>
             </div>
 
+            {/* Catalog Modal */}
+            {isCatalogOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-background rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden border border-border">
+                        <div className="p-4 border-b border-border flex justify-between items-center">
+                            <h3 className="font-semibold text-lg">Catálogo de Productos</h3>
+                            <button onClick={() => setIsCatalogOpen(false)} className="text-zinc-500 hover:text-foreground">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 border-b border-border bg-muted/30">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por nombre o SKU..."
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-primary outline-none"
+                                    value={catalogSearch}
+                                    onChange={(e) => handleCatalogSearch(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-2">
+                            {catalogLoading ? (
+                                <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+                            ) : catalogItems.length === 0 ? (
+                                <div className="text-center p-8 text-muted-foreground">No se encontraron productos.</div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    {catalogItems.map(prod => (
+                                        <button
+                                            key={prod.id}
+                                            onClick={() => selectProduct(prod)}
+                                            className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent hover:text-accent-foreground text-left transition-colors group"
+                                        >
+                                            <div>
+                                                <p className="font-semibold text-sm flex items-center">
+                                                    <span className="font-mono text-xs text-muted-foreground mr-2 bg-muted px-1.5 py-0.5 rounded">{prod.sku}</span>
+                                                    {prod.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{prod.description}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-mono font-bold text-sm">{formatMoney(prod.priceNet)}</p>
+                                                <span className="text-[10px] text-muted-foreground">Margen sugg.</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Add/Edit Form */}
             {showForm ? (
                 <form id="item-form" action={handleSubmit} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-blue-200 dark:border-blue-900/50 animate-in slide-in-from-top-2 ring-1 ring-blue-500/20 mt-6">
@@ -435,16 +552,25 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                     </div>
                 </form>
             ) : (
-                <button
-                    onClick={() => {
-                        resetForm();
-                        setIsAdding(true);
-                    }}
-                    className="mt-6 flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
-                >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Agregar Ítem
-                </button>
+                <div className="flex gap-4 mt-6">
+                    <button
+                        onClick={() => {
+                            resetForm();
+                            setIsAdding(true);
+                        }}
+                        className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+                    >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Agregar Ítem
+                    </button>
+                    <button
+                        onClick={openCatalog}
+                        className="flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
+                    >
+                        <Search className="w-4 h-4 mr-2" />
+                        Buscar en Catálogo
+                    </button>
+                </div>
             )}
 
             <ConfirmDialog

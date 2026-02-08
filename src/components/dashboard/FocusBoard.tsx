@@ -1,178 +1,170 @@
-'use client'
+'use client';
 
 import React from 'react';
-import Link from "next/link";
-import { AlertOctagon, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import Link from 'next/link';
+import {
+    AlertTriangle,
+    Phone,
+    Mail,
+    CheckSquare,
+    ArrowRight,
+    Clock,
+    FileText,
+    AlertOctagon
+} from 'lucide-react';
 
-interface ProjectSummary {
+// Reuse the ActionItem interface (or import it if it was shared)
+// For now defining it here to match ActionCenter's data structure
+export interface ActionItem {
     id: string;
-    name: string;
-    status: string;
+    projectId: string;
+    projectName: string;
     companyName: string;
-    nextAction: string | null;
-    nextActionDate: string | null;
-    blockingReason: string | null;
-    companyContactName?: string | null;
-    companyPhone?: string | null;
-    companyEmail?: string | null;
-    financialHealth?: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED';
+    type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER';
+    title: string;
+    dueDate?: Date;
+    isOverdue?: boolean;
+    priority: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
-interface Props {
-    blockedProjects: ProjectSummary[];
-    activeProjects: ProjectSummary[];
+interface FocusBoardProps {
+    actions: ActionItem[];
 }
 
-export function FocusBoard({ blockedProjects, activeProjects }: Props) {
-    return (
+export function FocusBoard({ actions }: FocusBoardProps) {
 
-        <div className={`grid grid-cols-1 ${blockedProjects.length > 0 ? 'md:grid-cols-2' : ''} gap-6 mb-8`}>
-            {/* Blocked Projects - Only show if there are items */}
-            {blockedProjects.length > 0 && (
-                <div className="rounded-xl border border-red-200 bg-red-50/50 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-red-900 flex items-center">
-                            <AlertOctagon className="w-5 h-5 mr-2 text-red-600" />
-                            Bloqueos / Atención Inmediata
-                            <span className="ml-2 bg-red-200 text-red-800 text-xs px-2 py-0.5 rounded-full font-bold">
-                                {blockedProjects.length}
-                            </span>
-                        </h3>
-                    </div>
+    // 1. Group Actions
+    const criticalActions = actions.filter(a => a.priority === 'HIGH' || a.type === 'BLOCKER');
+    const commercialActions = actions.filter(a => (a.type === 'CALL' || a.type === 'EMAIL') && a.priority !== 'HIGH');
+    const adminActions = actions.filter(a => a.type === 'TASK' && a.priority !== 'HIGH');
 
-                    <div className="space-y-3">
-                        {blockedProjects.map((project) => (
-                            <Link key={project.id} href={`/projects/${project.id}`}>
-                                <div className="bg-white p-3 rounded-lg border border-red-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">
-                                            {project.companyName}
-                                        </span>
-                                        <span className="text-[10px] text-muted-foreground">{project.id.substring(0, 8)}...</span>
-                                    </div>
-                                    <h4 className="font-bold text-foreground text-sm line-clamp-1">{project.name}</h4>
-                                    <p className="text-xs text-red-700 mt-2 font-medium flex items-start">
-                                        <span className="mr-1">⛔</span>
-                                        {project.blockingReason || "Bloqueado sin motivo especificado"}
-                                    </p>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-            )}
+    // Helper to render a card
+    const ActionCard = ({ action, colorClass, icon: Icon }: { action: ActionItem, colorClass: string, icon: any }) => (
+        <Link href={`/projects/${action.projectId}`} className="block group">
+            <div className={`bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden`}>
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${colorClass}`}></div>
 
-            {/* Active Projects - Focus Today */}
-            <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-blue-900 flex items-center">
-                        <AlertCircle className="w-5 h-5 mr-2 text-blue-600" />
-                        Foco de Hoy
-                        <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Próximas Acciones</span>
-                    </h3>
+                <div className="flex justify-between items-start mb-1 pl-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {action.companyName}
+                    </span>
+                    {action.isOverdue && (
+                        <span className="text-[10px] font-bold text-red-500 flex items-center bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">
+                            <Clock className="w-3 h-3 mr-1" /> Atrasado
+                        </span>
+                    )}
                 </div>
 
-                {activeProjects.length === 0 ? (
-                    <div className="text-sm text-blue-700/60 italic flex items-center justify-center h-20 border border-dashed border-blue-200 rounded-lg">
-                        Nada pendiente para hoy
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {activeProjects.slice(0, 3).map((project) => {
-                            // Smart Action Detection
-                            const actionText = project.nextAction?.toLowerCase() || "";
-                            const isCall = actionText.includes("llamar") || actionText.includes("call") || actionText.includes("telefono") || actionText.includes("celular");
-                            const isEmail = actionText.includes("correo") || actionText.includes("email") || actionText.includes("enviar") || actionText.includes("mail");
+                <div className="pl-2">
+                    <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                        {action.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5 mb-2 line-clamp-1">
+                        {action.projectName}
+                    </p>
 
-                            // Determine contact data
-                            const showCallAction = isCall && project.companyPhone;
-                            const showEmailAction = isEmail && project.companyEmail;
-
-                            // Health Color
-                            const healthColor = project.financialHealth === 'RED' ? 'bg-red-500' :
-                                project.financialHealth === 'YELLOW' ? 'bg-yellow-500' :
-                                    project.financialHealth === 'GREEN' ? 'bg-green-500' : 'bg-gray-300';
-
-                            return (
-                                <div key={project.id} className="relative group">
-                                    <Link href={`/projects/${project.id}`}>
-                                        <div className={`bg-white p-3.5 rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 ${project.financialHealth === 'RED' ? 'border-red-200' : 'border-blue-100'}`}>
-                                            <div className="flex justify-between items-start mb-1.5">
-                                                <span className="text-[11px] font-bold tracking-wide text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase">
-                                                    {project.companyName}
-                                                </span>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="group/tooltip relative">
-                                                        {project.financialHealth === 'RED' ? (
-                                                            <div className="flex items-center bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 animate-pulse"></span>
-                                                                CRÍTICO
-                                                            </div>
-                                                        ) : project.financialHealth === 'YELLOW' ? (
-                                                            <div className="flex items-center bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-yellow-200">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
-                                                                RIESGO
-                                                            </div>
-                                                        ) : project.financialHealth === 'GREEN' ? (
-                                                            <div className="flex items-center bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 opacity-80">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                                                                VIABLE
-                                                            </div>
-                                                        ) : null}
-                                                    </div>
-                                                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors transform group-hover:translate-x-0.5" />
-                                                </div>
-                                            </div>
-                                            <h4 className="font-bold text-foreground text-sm line-clamp-1 group-hover:text-blue-700 transition-colors">{project.name}</h4>
-
-                                            <div className="mt-2 flex items-center text-xs justify-between">
-                                                <div className="flex items-center text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 max-w-[70%]">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-2 animate-pulse min-w-[6px]"></span>
-                                                    <span className="truncate">{project.nextAction || "Seguimiento General"}</span>
-                                                </div>
-
-                                                {project.nextActionDate && (
-                                                    <span className={`font-mono ml-2 whitespace-nowrap ${new Date(project.nextActionDate) < new Date() ? 'text-red-600 font-bold' : 'text-slate-400'
-                                                        }`}>
-                                                        {new Date(project.nextActionDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </Link>
-
-                                    {/* Proactive Action Buttons overlay (or inserted) */}
-                                    {(showCallAction || showEmailAction) && (
-                                        <div className="mt-2 ml-4 flex gap-2">
-                                            {showCallAction && (
-                                                <a href={`tel:${project.companyPhone}`}
-                                                    className="flex items-center text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-md hover:bg-green-100 transition-colors font-medium shadow-sm"
-                                                    onClick={(e) => e.stopPropagation()}>
-                                                    <span className="mr-1.5">📞</span>
-                                                    Llamar a {project.companyContactName?.split(' ')[0] || 'Cliente'} ({project.companyPhone})
-                                                </a>
-                                            )}
-                                            {showEmailAction && (
-                                                <a href={`mailto:${project.companyEmail}`}
-                                                    className="flex items-center text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-md hover:bg-indigo-100 transition-colors font-medium shadow-sm"
-                                                    onClick={(e) => e.stopPropagation()}>
-                                                    <span className="mr-1.5">✉️</span>
-                                                    Enviar Correo
-                                                </a>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        <div className="text-center pt-2">
-                            <Link href="/projects" className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                                Ver todos los proyectos activos &rarr;
-                            </Link>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-50 dark:border-zinc-800">
+                        <div className="flex items-center text-xs text-muted-foreground">
+                            <Icon className="w-3.5 h-3.5 mr-1.5" />
+                            {action.type === 'CALL' ? 'Llamada' : action.type === 'EMAIL' ? 'Correo' : action.type === 'BLOCKER' ? 'Bloqueo' : 'Tarea'}
                         </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-primary transition-colors" />
                     </div>
-                )}
+                </div>
             </div>
-        </div >
+        </Link>
+    );
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-full">
+
+            {/* Column 1: Critical / High Priority */}
+            <div className="bg-zinc-50/50 dark:bg-zinc-900/20 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800 flex flex-col h-full">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+                    <h3 className="font-semibold text-foreground flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                        Prioridad Alta
+                    </h3>
+                    <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {criticalActions.length}
+                    </span>
+                </div>
+                <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+                    {criticalActions.length > 0 ? (
+                        criticalActions.map(action => (
+                            <ActionCard
+                                key={action.id}
+                                action={action}
+                                colorClass="bg-red-500"
+                                icon={AlertOctagon}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-8 text-muted-foreground text-sm italic">
+                            No hay acciones críticas.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Column 2: Commercial / Follow-up */}
+            <div className="bg-zinc-50/50 dark:bg-zinc-900/20 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800 flex flex-col h-full">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+                    <h3 className="font-semibold text-foreground flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
+                        Gestión Comercial
+                    </h3>
+                    <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {commercialActions.length}
+                    </span>
+                </div>
+                <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+                    {commercialActions.length > 0 ? (
+                        commercialActions.map(action => (
+                            <ActionCard
+                                key={action.id}
+                                action={action}
+                                colorClass="bg-purple-500"
+                                icon={action.type === 'CALL' ? Phone : Mail}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-8 text-muted-foreground text-sm italic">
+                            Todo al día en comercial.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Column 3: Admin / Tasks */}
+            <div className="bg-zinc-50/50 dark:bg-zinc-900/20 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800 flex flex-col h-full">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+                    <h3 className="font-semibold text-foreground flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></div>
+                        Administración
+                    </h3>
+                    <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {adminActions.length}
+                    </span>
+                </div>
+                <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+                    {adminActions.length > 0 ? (
+                        adminActions.map(action => (
+                            <ActionCard
+                                key={action.id}
+                                action={action}
+                                colorClass="bg-emerald-500"
+                                icon={CheckSquare}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-8 text-muted-foreground text-sm italic">
+                            Sin tareas administrativas.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+        </div>
     );
 }

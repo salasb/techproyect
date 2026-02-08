@@ -14,9 +14,16 @@ const navigation = [
 
 interface SidebarContentProps {
     onLinkClick?: () => void;
+    badges?: Record<string, number>;
 }
 
-export function SidebarContent({ onLinkClick }: SidebarContentProps) {
+export function SidebarContent({ onLinkClick, badges = {} }: SidebarContentProps) {
+    // Map href to badge key for simpler lookup if needed, or just use hardcoded check
+    const getBadgeCount = (href: string) => {
+        if (href === '/projects') return badges.projects || 0;
+        if (href === '/quotes') return badges.quotes || 0;
+        return 0;
+    };
     return (
         <div className="flex flex-col h-full bg-card text-foreground">
             <div className="p-6">
@@ -30,17 +37,27 @@ export function SidebarContent({ onLinkClick }: SidebarContentProps) {
             </div>
 
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-                {navigation.map((item) => (
-                    <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={onLinkClick}
-                        className="flex items-center px-4 py-3 text-sm font-medium text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors group"
-                    >
-                        <item.icon className="w-5 h-5 mr-3 text-muted-foreground group-hover:text-primary transition-colors" />
-                        {item.name}
-                    </Link>
-                ))}
+                {navigation.map((item) => {
+                    const count = getBadgeCount(item.href);
+                    return (
+                        <Link
+                            key={item.name}
+                            href={item.href}
+                            onClick={onLinkClick}
+                            className="flex items-center justify-between px-4 py-3 text-sm font-medium text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors group"
+                        >
+                            <div className="flex items-center">
+                                <item.icon className="w-5 h-5 mr-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                                {item.name}
+                            </div>
+                            {count > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center shadow-sm animate-in zoom-in">
+                                    {count}
+                                </span>
+                            )}
+                        </Link>
+                    );
+                })}
             </nav>
 
             <div className="p-4 border-t border-border mt-auto">

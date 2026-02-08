@@ -47,6 +47,7 @@ export interface FinancialResult {
     totalExecutedCostNet: number
     calculatedProgress: number
     marginPct: number
+    overallHealth: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
 }
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row']
@@ -135,6 +136,20 @@ export function calculateProjectFinancials(
         trafficLightFinancial = 'GREEN'; // > 30% is healthy
     }
 
+    // 7. Overall Health (Health Traffic Light)
+    // RED if any sub-traffic light is RED.
+    // YELLOW if any is YELLOW (and none RED).
+    // GREEN otherwise.
+    let overallHealth: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED' = 'GREEN';
+
+    if (trafficLightTime === 'RED' || trafficLightCollection === 'RED' || trafficLightFinancial === 'RED') {
+        overallHealth = 'RED';
+    } else if (trafficLightTime === 'YELLOW' || trafficLightCollection === 'YELLOW' || trafficLightFinancial === 'YELLOW') {
+        overallHealth = 'YELLOW';
+    } else if (trafficLightTime === 'GRAY' && trafficLightCollection === 'GRAY' && trafficLightFinancial === 'GRAY') {
+        overallHealth = 'GRAY';
+    }
+
     return {
         sumCostNet, // Keeping for backward compat if needed, but redundant with totalExecutedCostNet logic-wise
         baseCostNet,
@@ -151,7 +166,8 @@ export function calculateProjectFinancials(
         trafficLightFinancial, // New
         totalExecutedCostNet: sumCostNet,
         calculatedProgress, // New field
-        marginPct
+        marginPct,
+        overallHealth
     }
 }
 

@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     <div
                         key={t.id}
                         className={cn(
-                            "pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border transition-all duration-300 animate-in slide-in-from-bottom-5 fade-in",
+                            "pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border transition-all duration-300 animate-in slide-in-from-bottom-5 fade-in zoom-in-95",
                             "bg-white dark:bg-zinc-900/95 backdrop-blur-sm",
                             t.type === 'success' && "border-green-200 text-green-700 dark:border-green-900/50 dark:text-green-400",
                             t.type === 'error' && "border-red-200 text-red-700 dark:border-red-900/50 dark:text-red-400",
@@ -64,9 +64,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                         role="alert"
                     >
                         <div className="flex-shrink-0">
-                            {t.type === 'success' && <CheckCircle2 className="w-5 h-5" />}
-                            {t.type === 'error' && <AlertCircle className="w-5 h-5" />}
-                            {t.type === 'info' && <Info className="w-5 h-5" />}
+                            {t.type === 'success' && <CheckCircle2 className="w-5 h-5 animate-in zoom-in spin-in-90 duration-300" />}
+                            {t.type === 'error' && <AlertCircle className="w-5 h-5 animate-in zoom-in duration-300" />}
+                            {t.type === 'info' && <Info className="w-5 h-5 animate-in zoom-in duration-300" />}
                             {t.type === 'loading' && <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
                         </div>
                         <p className="text-sm font-medium flex-1 leading-snug">{t.message}</p>

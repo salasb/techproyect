@@ -2,15 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { createClientAction, deleteClientAction, updateClientAction } from "@/actions/clients";
-import { Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, FileText, Eye } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, FileText, Eye, LayoutGrid, List } from "lucide-react";
 import { formatRut, validateRut } from "@/lib/rut";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
+import { PipelineBoard } from "@/components/crm/PipelineBoard";
 
 export function ClientsClientView({ initialClients }: { initialClients: any[] }) {
     const [clients] = useState(initialClients); // We depend on server revalidation to update the list, but initial state is useful until then.
     // Ideally, we'd use useOptimistic here, but for now simple revalidation is fine.
+    const [view, setView] = useState<'list' | 'board'>('list');
 
     const [isAdding, setIsAdding] = useState(false);
     const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -116,6 +118,22 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
+                <div className="flex gap-2 bg-zinc-100 p-1 rounded-lg">
+                    <button
+                        onClick={() => setView('list')}
+                        className={`p-2 rounded-md transition-all ${view === 'list' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        title="Lista"
+                    >
+                        <List className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setView('board')}
+                        className={`p-2 rounded-md transition-all ${view === 'board' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        title="Tablero Kanban"
+                    >
+                        <LayoutGrid className="w-4 h-4" />
+                    </button>
+                </div>
                 <button
                     onClick={() => openModal()}
                     className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
@@ -125,63 +143,69 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredClients.map((client) => (
-                    <div key={client.id} className="group bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <Link href={`/clients/${client.id}`} className="hover:text-blue-600 transition-colors">
-                                    <h3 className="font-bold text-foreground text-lg">{client.name}</h3>
-                                </Link>
-                                {client.taxId && (
-                                    <div className="flex items-center text-xs text-muted-foreground mt-1">
-                                        <FileText className="w-3 h-3 mr-1" />
-                                        {client.taxId}
+            {view === 'list' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredClients.map((client) => (
+                        <div key={client.id} className="group bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <Link href={`/clients/${client.id}`} className="hover:text-blue-600 transition-colors">
+                                        <h3 className="font-bold text-foreground text-lg">{client.name}</h3>
+                                    </Link>
+                                    {client.taxId && (
+                                        <div className="flex items-center text-xs text-muted-foreground mt-1">
+                                            <FileText className="w-3 h-3 mr-1" />
+                                            {client.taxId}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex bg-muted/50 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Link href={`/clients/${client.id}`} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded" title="Ver Detalles">
+                                        <Eye className="w-4 h-4" />
+                                    </Link>
+                                    <button onClick={() => openModal(client)} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded" title="Editar">
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => handleDelete(client.id)} className="p-1.5 text-zinc-500 hover:text-red-600 rounded" title="Eliminar">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 text-sm">
+                                {client.contactName && (
+                                    <div className="flex items-center text-zinc-600 dark:text-zinc-400">
+                                        <User className="w-4 h-4 mr-2" />
+                                        {client.contactName}
+                                    </div>
+                                )}
+                                {client.email && (
+                                    <div className="flex items-center text-zinc-600 dark:text-zinc-400">
+                                        <Mail className="w-4 h-4 mr-2" />
+                                        {client.email}
+                                    </div>
+                                )}
+                                {client.phone && (
+                                    <div className="flex items-center text-zinc-600 dark:text-zinc-400">
+                                        <Phone className="w-4 h-4 mr-2" />
+                                        {client.phone}
+                                    </div>
+                                )}
+                                {client.address && (
+                                    <div className="flex items-center text-zinc-600 dark:text-zinc-400">
+                                        <MapPin className="w-4 h-4 mr-2" />
+                                        <span className="truncate">{client.address}</span>
                                     </div>
                                 )}
                             </div>
-                            <div className="flex bg-muted/50 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Link href={`/clients/${client.id}`} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded" title="Ver Detalles">
-                                    <Eye className="w-4 h-4" />
-                                </Link>
-                                <button onClick={() => openModal(client)} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded" title="Editar">
-                                    <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleDelete(client.id)} className="p-1.5 text-zinc-500 hover:text-red-600 rounded" title="Eliminar">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
                         </div>
-
-                        <div className="space-y-2 text-sm">
-                            {client.contactName && (
-                                <div className="flex items-center text-zinc-600 dark:text-zinc-400">
-                                    <User className="w-4 h-4 mr-2" />
-                                    {client.contactName}
-                                </div>
-                            )}
-                            {client.email && (
-                                <div className="flex items-center text-zinc-600 dark:text-zinc-400">
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    {client.email}
-                                </div>
-                            )}
-                            {client.phone && (
-                                <div className="flex items-center text-zinc-600 dark:text-zinc-400">
-                                    <Phone className="w-4 h-4 mr-2" />
-                                    {client.phone}
-                                </div>
-                            )}
-                            {client.address && (
-                                <div className="flex items-center text-zinc-600 dark:text-zinc-400">
-                                    <MapPin className="w-4 h-4 mr-2" />
-                                    <span className="truncate">{client.address}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="overflow-x-auto pb-4">
+                    <PipelineBoard clients={filteredClients.length > 0 ? filteredClients : clients} />
+                </div>
+            )}
 
             {/* Modal Form */}
             {(isAdding || editingClient) && (

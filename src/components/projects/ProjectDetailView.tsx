@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Database } from "@/types/supabase";
 import { FinancialResult } from "@/services/financialCalculator";
 import { getDollarRateAction } from "@/app/actions/currency";
+import { updateProjectStatus } from "@/app/actions/projects";
+import { useToast } from "@/components/ui/Toast";
 import {
     Calendar,
     Clock,
@@ -56,6 +58,36 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
     const [isCostsModalOpen, setIsCostsModalOpen] = useState(false);
     const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string } | null>(null);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const { toast } = useToast();
+    const router = useRouter();
+
+    async function handleQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT') {
+        setIsUpdatingStatus(true);
+        try {
+            if (action === 'SEND') {
+                await updateProjectStatus(project.id, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
+                // Open Mailto
+                const subject = `Cotización ${project.name} - TechWise SpA`;
+                const body = `Estimado cliente,\n\nAdjunto encontrará la cotización para el proyecto reference.\n\nQuedamos atentos.\n\nSaludos,\nChristian Salas\nTechWise SpA`;
+                window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+                toast({ type: 'success', message: "Estado actualizado a En Espera" });
+            } else if (action === 'ACCEPT') {
+                await updateProjectStatus(project.id, 'EN_CURSO', 'DISENO', 'Iniciar Desarrollo');
+                toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
+            } else if (action === 'REJECT') {
+                if (!confirm("¿Seguro que deseas marcar como Rechazado?")) return;
+                await updateProjectStatus(project.id, 'CANCELADO');
+                toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
+            }
+            router.refresh();
+        } catch (error) {
+            console.error(error);
+            toast({ type: 'error', message: "Error al actualizar estado" });
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    }
 
     // Alerts logic
     const alerts: { type: 'success' | 'warning' | 'danger', msg: string }[] = [];
@@ -111,11 +143,71 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
             {/* Project Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground tracking-tight">{project.name}</h1>
+                <h1 className="text-3xl font-bold text-foreground tracking-tight flex items-center gap-3">
+                    {project.name}
+                    {financials.overallHealth && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className={`w-4 h-4 rounded-full shadow-sm ring-2 ring-offset-2 ring-offset-background cursor-help
+                                        ${financials.overallHealth === 'RED' ? 'bg-red-500 ring-red-200' :
+                                            financials.overallHealth === 'YELLOW' ? 'bg-yellow-400 ring-yellow-200' :
+                                                financials.overallHealth === 'GREEN' ? 'bg-green-500 ring-green-200' : 'bg-gray-300 ring-gray-100'}`}
+                                    />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="font-semibold">Salud del Proyecto: {financials.overallHealth === 'RED' ? 'Crítico' : financials.overallHealth === 'YELLOW' ? 'En Riesgo' : financials.overallHealth === 'GREEN' ? 'Saludable' : 'Sin Datos'}</p>
+                                    <ul className="text-xs list-disc pl-4 mt-1 space-y-0.5">
+                                        <li>Finanzas: {financials.trafficLightFinancial === 'RED' ? 'Bajo Margen' : financials.trafficLightFinancial === 'YELLOW' ? 'Margen Ajustado' : 'OK'}</li>
+                                        <li>Tiempo: {financials.trafficLightTime === 'RED' ? 'Atrasado' : financials.trafficLightTime === 'YELLOW' ? 'Próximo a Vencer' : 'OK'}</li>
+                                        <li>Cobranza: {financials.trafficLightCollection === 'RED' ? 'Pagos Vencidos' : financials.trafficLightCollection === 'YELLOW' ? 'Por Vencer' : 'OK'}</li>
+                                    </ul>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </h1>
                 <div className="flex items-center text-muted-foreground mt-1">
                     <span className="font-medium mr-2 text-lg">{project.client?.name || project.clientName || 'Cliente por definir'}</span>
                 </div>
             </div>
+
+            {/* Quote Actions - Context Aware */}
+            {project.status !== 'FINALIZADO' && project.status !== 'CANCELADO' && (
+                <div className="flex gap-2 justify-end -mt-4 mb-4">
+                    {project.status !== 'EN_ESPERA' && project.status !== 'EN_CURSO' && (
+                        <button
+                            onClick={() => handleQuoteAction('SEND')}
+                            disabled={isUpdatingStatus}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                        >
+                            <Sparkles className="w-3 h-3 mr-1.5" />
+                            Enviar Cotización
+                        </button>
+                    )}
+
+                    {project.status === 'EN_ESPERA' && (
+                        <>
+                            <button
+                                onClick={() => handleQuoteAction('ACCEPT')}
+                                disabled={isUpdatingStatus}
+                                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                            >
+                                <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                Registrar Aceptación
+                            </button>
+                            <button
+                                onClick={() => handleQuoteAction('REJECT')}
+                                disabled={isUpdatingStatus}
+                                className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                            >
+                                <X className="w-3 h-3 mr-1.5" />
+                                Rechazar
+                            </button>
+                        </>
+                    )}
+                </div>
+            )}
 
             {/* Header / Navigation Tabs */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-2 rounded-xl shadow-sm sticky top-4 z-30 backdrop-blur-md bg-opacity-90">
@@ -159,7 +251,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             </div>
 
             {activeTab === 'overview' && (
-                <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+                <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {/* Left Column: Status & Key Info */}
                     <div className="lg:col-span-2 space-y-6">
 
@@ -459,20 +551,24 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             )}
 
             {activeTab === 'logs' && (
-                <ProjectLogsManager projectId={project.id} logs={projectLogs} />
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <ProjectLogsManager projectId={project.id} logs={projectLogs} />
+                </div>
             )}
 
             {activeTab === 'items' && (
-                <QuoteItemsManager
-                    projectId={project.id}
-                    items={project.quoteItems || []}
-                    defaultMargin={project.marginPct ? project.marginPct * 100 : 30}
-                    currency={currency}
-                />
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <QuoteItemsManager
+                        projectId={project.id}
+                        items={project.quoteItems || []}
+                        defaultMargin={project.marginPct ? project.marginPct * 100 : 30}
+                        currency={currency}
+                    />
+                </div>
             )}
 
             {activeTab === 'financials' && (
-                <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
+                <div className="grid gap-8 grid-cols-1 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {/* Left Column: Management */}
                     <div className="lg:col-span-2 space-y-8">
                         <section>
@@ -481,217 +577,203 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         <section>
                             <InvoicesManager projectId={project.id} invoices={project.invoices} currency={currency} />
                         </section>
+                        <div className="p-5">
+                            {(() => {
+                                const marginPct = financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0;
+                                const isProfitable = marginPct > 10;
+                                const isHighProfit = marginPct > 30;
+                                const hasBalance = (financials.priceNet - financials.totalExecutedCostNet) > 0;
+
+                                let verdict = "El proyecto presenta indicadores positivos.";
+                                let statusColor = "text-green-600";
+
+                                if (isHighProfit) {
+                                    verdict = "Este proyecto es altamente rentable con un margen superior al 30%.";
+                                } else if (isProfitable) {
+                                    verdict = "El proyecto es rentable y se mantiene dentro de los márgenes esperados.";
+                                } else {
+                                    verdict = "La rentabilidad es baja. Se recomienda revisar la estructura de costos.";
+                                    statusColor = "text-amber-600";
+                                }
+
+                                if (!hasBalance) {
+                                    verdict = "ALERTA: El proyecto presenta déficit (gastos superan venta).";
+                                    statusColor = "text-red-600";
+                                }
+
+                                return (
+                                    <div className="space-y-4">
+                                        <div className={`text-sm font-medium ${statusColor}`}>
+                                            {verdict}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded border border-zinc-100 dark:border-zinc-800">
+                                                <span className="text-[10px] uppercase text-muted-foreground block">Rentabilidad</span>
+                                                <span className={`text-sm font-bold ${marginPct < 10 ? 'text-amber-600' : 'text-green-600'}`}>
+                                                    {marginPct < 10 ? 'BAJA' : marginPct > 30 ? 'ALTA' : 'NORMAL'} ({marginPct.toFixed(1)}%)
+                                                </span>
+                                            </div>
+                                            <div className="p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded border border-zinc-100 dark:border-zinc-800">
+                                                <span className="text-[10px] uppercase text-muted-foreground block">Flujo de Caja</span>
+                                                <span className={`text-sm font-bold ${hasBalance ? 'text-blue-600' : 'text-red-600'}`}>
+                                                    {hasBalance ? 'POSITIVO' : 'DÉFICIT'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
 
-                    {/* Right Column: Financial Summary Widget */}
-                    <div className="lg:col-span-1 space-y-6">
-
-                        {/* 1. ANALYSIS WIDGET (PROACTIVE) */}
-                        <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
-                            <div className="p-4 border-b border-border bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/20 dark:to-zinc-950">
-                                <h3 className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 flex items-center">
-                                    <Sparkles className="w-4 h-4 mr-2" />
-                                    Análisis de Viabilidad
-                                </h3>
-                            </div>
-                            <div className="p-5">
-                                {(() => {
-                                    const marginPct = financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0;
-                                    const isProfitable = marginPct > 10;
-                                    const isHighProfit = marginPct > 30;
-                                    const hasBalance = (financials.priceNet - financials.totalExecutedCostNet) > 0;
-
-                                    let verdict = "El proyecto presenta indicadores positivos.";
-                                    let statusColor = "text-green-600";
-
-                                    if (isHighProfit) {
-                                        verdict = "Este proyecto es altamente rentable con un margen superior al 30%.";
-                                    } else if (isProfitable) {
-                                        verdict = "El proyecto es rentable y se mantiene dentro de los márgenes esperados.";
-                                    } else {
-                                        verdict = "La rentabilidad es baja. Se recomienda revisar la estructura de costos.";
-                                        statusColor = "text-amber-600";
-                                    }
-
-                                    if (!hasBalance) {
-                                        verdict = "ALERTA: El proyecto presenta déficit (gastos superan venta).";
-                                        statusColor = "text-red-600";
-                                    }
-
-                                    return (
-                                        <div className="space-y-4">
-                                            <div className={`text-sm font-medium ${statusColor}`}>
-                                                {verdict}
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded border border-zinc-100 dark:border-zinc-800">
-                                                    <span className="text-[10px] uppercase text-muted-foreground block">Rentabilidad</span>
-                                                    <span className={`text-sm font-bold ${marginPct < 10 ? 'text-amber-600' : 'text-green-600'}`}>
-                                                        {marginPct < 10 ? 'BAJA' : marginPct > 30 ? 'ALTA' : 'NORMAL'} ({marginPct.toFixed(1)}%)
-                                                    </span>
-                                                </div>
-                                                <div className="p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded border border-zinc-100 dark:border-zinc-800">
-                                                    <span className="text-[10px] uppercase text-muted-foreground block">Flujo de Caja</span>
-                                                    <span className={`text-sm font-bold ${hasBalance ? 'text-blue-600' : 'text-red-600'}`}>
-                                                        {hasBalance ? 'POSITIVO' : 'DÉFICIT'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
+                    <div className="bg-card rounded-xl border border-border sticky top-6 overflow-hidden">
+                        {/* Header */}
+                        <div className="p-6 border-b border-border bg-muted/30">
+                            <h3 className="text-base font-semibold text-foreground flex items-center flex-wrap gap-2">
+                                <Wallet className="w-5 h-5 mr-2 text-primary" />
+                                Desglose Financiero
+                                <div className="ml-auto flex items-center gap-2">
+                                    {currency === 'USD' && (
+                                        <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title="Tipo de cambio del día">
+                                            <RefreshCw className="w-3 h-3 mr-1" />
+                                            {exchangeRate ? `Hoy: $${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 0 })} CLP` : 'Cargando tasa...'}
+                                        </span>
+                                    )}
+                                    <span className="text-xs font-mono bg-background px-2 py-1 rounded border border-border text-muted-foreground">
+                                        {currency}
+                                    </span>
+                                </div>
+                            </h3>
                         </div>
 
-                        <div className="bg-card rounded-xl border border-border sticky top-6 overflow-hidden">
-                            {/* Header */}
-                            <div className="p-6 border-b border-border bg-muted/30">
-                                <h3 className="text-base font-semibold text-foreground flex items-center flex-wrap gap-2">
-                                    <Wallet className="w-5 h-5 mr-2 text-primary" />
-                                    Desglose Financiero
-                                    <div className="ml-auto flex items-center gap-2">
-                                        {currency === 'USD' && (
-                                            <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title="Tipo de cambio del día">
-                                                <RefreshCw className="w-3 h-3 mr-1" />
-                                                {exchangeRate ? `Hoy: $${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 0 })} CLP` : 'Cargando tasa...'}
+                        <div className="p-6 space-y-8">
+                            {/* Cost Analysis */}
+                            {/* Financial Breakdown Table */}
+                            <div className="space-y-4">
+
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b border-border pb-2">Estado de Resultados</h4>
+
+                                <div className="space-y-2 text-sm">
+                                    {/* Real P&L */}
+                                    <div className="grid grid-cols-2 py-1">
+                                        <span className="text-muted-foreground">Venta Neta</span>
+                                        <div className="text-right font-mono text-zinc-700 dark:text-zinc-300">
+                                            {formatMoney(financials.priceNet)}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 py-1">
+                                        <span className="text-muted-foreground">Gastos Ejecutados</span>
+                                        <div className={`text-right font-mono font-medium ${financials.totalExecutedCostNet > financials.priceNet ? 'text-red-600 font-bold' : 'text-amber-600 dark:text-amber-500'}`}>
+                                            -{formatMoney(financials.totalExecutedCostNet)}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 py-1 border-t border-dashed border-border">
+                                        <div className="flex items-center gap-1.5 pt-1">
+                                            <span className="text-muted-foreground font-medium text-foreground">Saldo Disponible</span>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="right">
+                                                        <p className="font-semibold">Venta Total - Gastos</p>
+                                                        <p className="text-xs">No es utilidad final hasta cerrar el proyecto.</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
+                                        <div className="text-right pt-1">
+                                            {(() => {
+                                                const balance = financials.priceNet - financials.totalExecutedCostNet;
+                                                return (
+                                                    <span className={`font-mono font-bold block ${balance < 0 ? 'text-red-600' : 'text-zinc-900'}`}>
+                                                        {formatMoney(balance)}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+
+                                    {/* Projected Reference */}
+                                    {/* Projected Reference (Highlighted) */}
+                                    <div className="grid grid-cols-2 py-2 px-3 mt-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg">
+                                        <div className="flex flex-col justify-center">
+                                            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-tight">Utilidad Proyectada</span>
+                                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500 mt-0.5">
+                                                Margen Objetivo: {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
                                             </span>
-                                        )}
-                                        <span className="text-xs font-mono bg-background px-2 py-1 rounded border border-border text-muted-foreground">
-                                            {currency}
-                                        </span>
-                                    </div>
-                                </h3>
-                            </div>
-
-                            <div className="p-6 space-y-8">
-                                {/* Cost Analysis */}
-                                {/* Financial Breakdown Table */}
-                                <div className="space-y-4">
-
-                                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b border-border pb-2">Estado de Resultados</h4>
-
-                                    <div className="space-y-2 text-sm">
-                                        {/* Real P&L */}
-                                        <div className="grid grid-cols-2 py-1">
-                                            <span className="text-muted-foreground">Venta Neta</span>
-                                            <div className="text-right font-mono text-zinc-700 dark:text-zinc-300">
-                                                {formatMoney(financials.priceNet)}
-                                            </div>
                                         </div>
-
-                                        <div className="grid grid-cols-2 py-1">
-                                            <span className="text-muted-foreground">Gastos Ejecutados</span>
-                                            <div className={`text-right font-mono font-medium ${financials.totalExecutedCostNet > financials.priceNet ? 'text-red-600 font-bold' : 'text-amber-600 dark:text-amber-500'}`}>
-                                                -{formatMoney(financials.totalExecutedCostNet)}
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 py-1 border-t border-dashed border-border">
-                                            <div className="flex items-center gap-1.5 pt-1">
-                                                <span className="text-muted-foreground font-medium text-foreground">Saldo Disponible</span>
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Info className="w-3 h-3 text-muted-foreground cursor-help" />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="right">
-                                                            <p className="font-semibold">Venta Total - Gastos</p>
-                                                            <p className="text-xs">No es utilidad final hasta cerrar el proyecto.</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                            <div className="text-right pt-1">
-                                                {(() => {
-                                                    const balance = financials.priceNet - financials.totalExecutedCostNet;
-                                                    return (
-                                                        <span className={`font-mono font-bold block ${balance < 0 ? 'text-red-600' : 'text-zinc-900'}`}>
-                                                            {formatMoney(balance)}
-                                                        </span>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-
-                                        {/* Projected Reference */}
-                                        {/* Projected Reference (Highlighted) */}
-                                        <div className="grid grid-cols-2 py-2 px-3 mt-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg">
-                                            <div className="flex flex-col justify-center">
-                                                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-tight">Utilidad Proyectada</span>
-                                                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500 mt-0.5">
-                                                    Margen Objetivo: {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
-                                                </span>
-                                            </div>
-                                            <div className="text-right flex items-center justify-end">
-                                                <span className="text-sm font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
-                                                    {formatMoney(financials.marginAmountNet)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-6 border-b border-border pb-2">Resumen Venta</h4>
-                                    <div className="space-y-1 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Neto</span>
-                                            <span className="font-mono font-medium">{formatMoney(financials.priceNet)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">IVA ({(settings?.vatRate || 0.19) * 100}%)</span>
-                                            <span className="font-mono font-medium text-muted-foreground">+{formatMoney(financials.vatAmount)}</span>
-                                        </div>
-                                        <div className="flex justify-between pt-2 border-t border-border mt-2">
-                                            <span className="font-bold text-foreground">Total Bruto</span>
-                                            <span className="font-mono font-bold text-lg text-primary">{formatMoney(financials.priceGross)}</span>
+                                        <div className="text-right flex items-center justify-end">
+                                            <span className="text-sm font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
+                                                {formatMoney(financials.marginAmountNet)}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Collections Status */}
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cobranza</h4>
-                                        <span className="text-xs font-mono text-muted-foreground">
-                                            {((financials.totalInvoicedGross / financials.priceGross) * 100).toFixed(0)}% Facturado
-                                        </span>
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-6 border-b border-border pb-2">Resumen Venta</h4>
+                                <div className="space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Neto</span>
+                                        <span className="font-mono font-medium">{formatMoney(financials.priceNet)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">IVA ({(settings?.vatRate || 0.19) * 100}%)</span>
+                                        <span className="font-mono font-medium text-muted-foreground">+{formatMoney(financials.vatAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between pt-2 border-t border-border mt-2">
+                                        <span className="font-bold text-foreground">Total Bruto</span>
+                                        <span className="font-mono font-bold text-lg text-primary">{formatMoney(financials.priceGross)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Collections Status */}
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cobranza</h4>
+                                    <span className="text-xs font-mono text-muted-foreground">
+                                        {((financials.totalInvoicedGross / financials.priceGross) * 100).toFixed(0)}% Facturado
+                                    </span>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                                        <div
+                                            className="bg-primary h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                                            style={{ width: `${Math.min((financials.totalInvoicedGross / financials.priceGross) * 100, 100)}%` }}
+                                        />
                                     </div>
 
-                                    <div className="space-y-4">
-                                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                                            <div
-                                                className="bg-primary h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-                                                style={{ width: `${Math.min((financials.totalInvoicedGross / financials.priceGross) * 100, 100)}%` }}
-                                            />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 bg-card border border-border rounded-lg shadow-sm">
+                                            <span className="block text-[10px] uppercase text-muted-foreground mb-1 font-semibold">Facturado</span>
+                                            <span className="font-mono text-lg font-semibold text-foreground block">
+                                                {formatMoney(financials.totalInvoicedGross)}
+                                            </span>
                                         </div>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="p-3 bg-card border border-border rounded-lg shadow-sm">
-                                                <span className="block text-[10px] uppercase text-muted-foreground mb-1 font-semibold">Facturado</span>
-                                                <span className="font-mono text-lg font-semibold text-foreground block">
-                                                    {formatMoney(financials.totalInvoicedGross)}
-                                                </span>
-                                            </div>
-                                            <div className="p-3 bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 rounded-lg shadow-sm">
-                                                <span className="block text-[10px] uppercase text-orange-600 dark:text-orange-400 mb-1 font-semibold">Por Facturar</span>
-                                                <span className="font-mono text-lg font-semibold text-orange-700 dark:text-orange-300 block">
-                                                    {formatMoney(financials.pendingToInvoiceGross)}
-                                                </span>
-                                            </div>
+                                        <div className="p-3 bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 rounded-lg shadow-sm">
+                                            <span className="block text-[10px] uppercase text-orange-600 dark:text-orange-400 mb-1 font-semibold">Por Facturar</span>
+                                            <span className="font-mono text-lg font-semibold text-orange-700 dark:text-orange-300 block">
+                                                {formatMoney(financials.pendingToInvoiceGross)}
+                                            </span>
                                         </div>
-
-                                        {financials.receivableGross > 0 && (
-                                            <div className="p-3 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg flex justify-between items-center animate-pulse">
-                                                <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase flex items-center">
-                                                    <span className="w-2 h-2 rounded-full bg-red-500 mr-2"></span>
-                                                    Pendiente de Pago
-                                                </span>
-                                                <span className="font-mono font-bold text-red-700 dark:text-red-300">
-                                                    {formatMoney(financials.receivableGross)}
-                                                </span>
-                                            </div>
-                                        )}
                                     </div>
+
+                                    {financials.receivableGross > 0 && (
+                                        <div className="p-3 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg flex justify-between items-center animate-pulse">
+                                            <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase flex items-center">
+                                                <span className="w-2 h-2 rounded-full bg-red-500 mr-2"></span>
+                                                Pendiente de Pago
+                                            </span>
+                                            <span className="font-mono font-bold text-red-700 dark:text-red-300">
+                                                {formatMoney(financials.receivableGross)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -700,7 +782,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             )}
 
             {activeTab === 'settings' && (
-                <div className="space-y-8">
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <ProjectSettings key={project.clientId ? `${project.clientId}-${project.updatedAt}` : `no-client-${project.updatedAt}`} project={project} clients={clients} />
 
                     <div>
@@ -710,8 +792,9 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
 
