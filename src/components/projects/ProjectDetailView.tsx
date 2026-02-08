@@ -398,6 +398,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                                     <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
                                                     <li>Margen actual del <strong>{(financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0).toFixed(1)}%</strong> considerado saludable.</li>
                                                     {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM', { locale: es })}</strong>.</li>}
+                                                    {project.quoteSentDate && <li>Cotización enviada el <strong>{format(new Date(project.quoteSentDate), "d 'de' MMMM", { locale: es })}</strong>.</li>}
                                                 </ul>
                                             )}
                                         </div>
