@@ -55,8 +55,8 @@
     /* #09090b - Zinc 950 */
     --foreground: 0 0% 98%;
 
-    --card: 240 10% 3.9%;
-    /* Same as bg for clean linear look */
+    --card: 240 6% 10%;
+    /* Slightly lighter than bg for proper card effect */
     --card-foreground: 0 0% 98%;
 
     --popover: 240 10% 3.9%;
@@ -142,6 +142,8 @@
 
   body {
     background-color: hsl(var(--background));
+    background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(var(--muted) / 0.3));
+    background-attachment: fixed;
     color: hsl(var(--foreground));
   }
 }

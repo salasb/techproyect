@@ -111,7 +111,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                     const currency = project.currency || 'CLP';
                                     const formatCurrency = (amount: number) => {
                                         if (currency === 'CLP') return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-                                        if (currency === 'USD') return 'USD $' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                        if (currency === 'USD') return 'USD $' + amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
                                         if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                         return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
                                     };

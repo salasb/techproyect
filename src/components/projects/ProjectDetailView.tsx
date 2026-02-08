@@ -154,7 +154,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
         // 2. Format
         if (targetCurrency === 'CLP') return `$${Math.round(value).toLocaleString('es-CL')}`;
-        if (targetCurrency === 'USD') return `US$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (targetCurrency === 'USD') return `US$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
         if (targetCurrency === 'UF') return `UF ${value.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
         return `$${Math.round(value).toLocaleString('es-CL')}`;
@@ -277,7 +277,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
                 <div className="flex items-center gap-1 w-full sm:w-auto p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
                     <span className="text-[10px] font-semibold text-muted-foreground px-2 uppercase tracking-wider hidden sm:block">Visualizar en:</span>
-                    {['CLP', 'UF', 'USD'].map((c) => (
+                    {['CLP', 'USD'].map((c) => (
                         <button
                             key={c}
                             onClick={() => setCurrency(c as 'CLP' | 'UF' | 'USD')}

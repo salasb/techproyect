@@ -266,8 +266,8 @@ export function ProjectSettings({ project, clients }: Props) {
                                 )}
                             </div>
 
-                            {/* Combobox Dropdown - Only show if searching or if we want to show list */}
-                            {(searchTerm || !selectedClientId) && (
+                            {/* Combobox Dropdown - Only show if searching */}
+                            {searchTerm && (
                                 <div className="border border-border rounded-lg max-h-48 overflow-y-auto bg-popover/50 backdrop-blur-sm">
                                     {filteredClients.length === 0 ? (
                                         <div className="p-4 text-center text-sm text-muted-foreground">No se encontraron clientes.</div>
