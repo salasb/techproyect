@@ -205,12 +205,34 @@ export async function updateProjectStatus(projectId: string, status: string, sta
         throw new Error(`Error updating project status: ${error.message}`);
     }
 
+    // Human Interface Mapping
+    const STATUS_LABELS: Record<string, string> = {
+        'EN_ESPERA': 'En Espera',
+        'EN_CURSO': 'En Curso',
+        'FINALIZADO': 'Finalizado',
+        'CANCELADO': 'Cancelado',
+        'BLOQUEADO': 'Bloqueado'
+    };
+
+    const STAGE_LABELS: Record<string, string> = {
+        'LEVANTAMIENTO': 'Levantamiento',
+        'COTIZACION': 'Cotización',
+        'NEGOCIACION': 'Negociación',
+        'DISENO': 'Diseño',
+        'DESARROLLO': 'Desarrollo',
+        'PRUEBAS': 'Pruebas',
+        'ENTREGA': 'Entrega'
+    };
+
+    const readableStatus = STATUS_LABELS[status] || status;
+    const readableStage = stage ? (STAGE_LABELS[stage] || stage) : '';
+
     // Log it
     await supabase.from('ProjectLog').insert({
         id: crypto.randomUUID(),
         projectId,
         type: 'STATUS_CHANGE',
-        content: `Estado actualizado a ${status} ${stage ? `(${stage})` : ''}`,
+        content: `Estado actualizado a ${readableStatus} ${readableStage ? `(${readableStage})` : ''}`,
         createdAt: new Date().toISOString()
     });
 
