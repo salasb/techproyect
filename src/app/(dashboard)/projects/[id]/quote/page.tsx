@@ -1,4 +1,5 @@
 import { QuotePrintButton } from "@/components/projects/QuotePrintButton";
+import { QuoteAcceptance } from "@/components/projects/QuoteAcceptance";
 import { QuoteDocument } from "@/components/projects/QuoteDocument";
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
@@ -52,7 +53,8 @@ export default async function QuotePage({ params }: Props) {
     return (
         <div className="min-h-screen bg-zinc-100 dark:bg-zinc-900 p-8 print:p-0 print:bg-white">
             {/* Toolbar - Hidden when printing */}
-            <div className="max-w-[210mm] mx-auto mb-6 flex justify-end print:hidden">
+            <div className="max-w-[210mm] mx-auto mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 print:hidden">
+                <QuoteAcceptance projectId={project.id} initialAccepted={!!project.acceptedAt} />
                 <QuotePrintButton variant="solid" />
             </div>
 

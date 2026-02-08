@@ -10,6 +10,7 @@ type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'] | null;
     quoteItems: Database['public']['Tables']['QuoteItem']['Row'][];
     client?: Database['public']['Tables']['Client']['Row'] | null;
+    acceptedAt?: string | null;
 }
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -202,12 +203,12 @@ export function QuoteDocument({ project, settings }: Props) {
                         <p className="text-[10px] text-slate-500 uppercase">Proveedor</p>
                     </div>
                     <div className="text-center relative">
-                        {project.status === 'EN_CURSO' ? (
+                        {project.acceptedAt ? (
                             <div className="absolute inset-0 flex items-center justify-center -top-8">
                                 <div className="border-4 border-emerald-600 text-emerald-600 rounded-lg px-4 py-2 font-black uppercase text-lg transform -rotate-12 opacity-80 select-none pointer-events-none">
                                     ACEPTADO DIGITALMENTE
                                     <div className="text-[8px] font-mono font-normal text-center mt-1 text-emerald-600">
-                                        {format(new Date(project.updatedAt || new Date()), 'dd/MM/yyyy HH:mm')}
+                                        {format(new Date(project.acceptedAt), 'dd/MM/yyyy HH:mm')}
                                     </div>
                                 </div>
                             </div>
