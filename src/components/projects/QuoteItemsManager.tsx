@@ -34,6 +34,15 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
         return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
     }
 
+    // Helper for rounding based on currency
+    const roundMoney = (amount: number) => {
+        if (!amount) return 0;
+        if (currency === 'USD' || currency === 'UF') {
+            return Math.round(amount * 100) / 100;
+        }
+        return Math.round(amount);
+    };
+
     // Form states
     const [quantity, setQuantity] = useState(1);
     const [unit, setUnit] = useState("UN");
@@ -80,8 +89,8 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
 
         // Auto-fill form
         setTimeout(() => {
-            setCostNet(product.costNet);
-            setPriceNet(product.priceNet);
+            setCostNet(roundMoney(product.costNet));
+            setPriceNet(roundMoney(product.priceNet));
             setUnit(product.unit);
 
             // Calc margin
@@ -92,10 +101,6 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                 setMarginPct(defaultMargin);
             }
 
-            // Fill text inputs via DOM or State if controlled? 
-            // We need to control detail input or use ref. 
-            // Current input is uncontrolled (defaultValue). We need to switch to controlled or force update.
-            // Let's use a key or simple ref approach for the textarea.
             const descInput = document.querySelector('textarea[name="detail"]') as HTMLTextAreaElement;
             if (descInput) descInput.value = `${product.name}\n${product.description || ''}`;
 
@@ -108,11 +113,11 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
 
     // Handlers for auto-calculation
     function handleCostChange(val: number) {
-        setCostNet(val);
+        setCostNet(val); // Allow typing decimals, blur will fix if needed
         // Keep Margin, Update Price
         const marginDecimal = marginPct / 100;
         const newPrice = val / (1 - marginDecimal);
-        if (isFinite(newPrice)) setPriceNet(Math.round(newPrice));
+        if (isFinite(newPrice)) setPriceNet(roundMoney(newPrice));
     }
 
     function handleMarginChange(val: number) {
@@ -120,7 +125,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
         // Keep Cost, Update Price
         const marginDecimal = val / 100;
         const newPrice = costNet / (1 - marginDecimal);
-        if (isFinite(newPrice)) setPriceNet(Math.round(newPrice));
+        if (isFinite(newPrice)) setPriceNet(roundMoney(newPrice));
     }
 
     function handlePriceChange(val: number) {
@@ -179,8 +184,8 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
         // Initialize State
         setQuantity(item.quantity);
         setUnit(item.unit);
-        setCostNet(item.costNet);
-        setPriceNet(item.priceNet);
+        setCostNet(roundMoney(item.costNet));
+        setPriceNet(roundMoney(item.priceNet));
 
         // Calculate margin for state
         if (item.priceNet > 0) {
@@ -477,6 +482,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                         type="number"
                                         required
                                         min="0"
+                                        step={currency === 'USD' || currency === 'UF' ? "0.01" : "1"}
                                         defaultValue={editingItem?.costNet}
                                         value={costNet || (editingItem ? undefined : '')}
                                         placeholder="0"
@@ -519,6 +525,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                         type="number"
                                         required
                                         min="0"
+                                        step={currency === 'USD' || currency === 'UF' ? "0.01" : "1"}
                                         defaultValue={editingItem?.priceNet}
                                         value={priceNet || (editingItem ? undefined : '')}
                                         placeholder="0"

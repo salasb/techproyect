@@ -165,8 +165,7 @@
   .card,
   [data-panel],
   .bg-card,
-  .dark .bg-card,
-  .bg-white {
+  .dark .bg-card {
     background-image: var(--card-gradient) !important;
     background-color: hsl(var(--card)) !important;
     box-shadow: var(--shadow-card) !important;
