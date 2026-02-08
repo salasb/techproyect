@@ -237,8 +237,8 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                             Ver Cotización
                         </button>
                     </Link>
-                    {/* Show Send Options if Stage is LEVANTAMIENTO (or undefined) and not Started/Cancelled */}
-                    {(project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
+                    {/* Show Send Options if Quote NOT Sent and Stage is LEVANTAMIENTO (or undefined) and not Started/Cancelled */}
+                    {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
                         <>
                             <button
                                 onClick={() => handleQuoteAction('SEND')}
@@ -261,8 +261,8 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         </>
                     )}
 
-                    {/* Show Response Options if Stage is COTIZACION (Quote Sent) */}
-                    {project.stage === 'COTIZACION' && project.status === 'EN_ESPERA' && (
+                    {/* Show Response Options if Quote HAS BEEN SENT */}
+                    {project.quoteSentDate && project.status === 'EN_ESPERA' && (
                         <>
                             <button
                                 onClick={() => handleQuoteAction('ACCEPT')}

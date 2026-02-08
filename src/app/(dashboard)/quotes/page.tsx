@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -97,8 +97,16 @@ export default async function QuotesPage({ searchParams }: { searchParams: { pag
                                                     {quote.client?.name || quote.company?.name || 'Cliente sin asignar'}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-muted-foreground">
-                                                {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col gap-1">
+                                                    <span>{quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}</span>
+                                                    {quote.quoteSentDate && (
+                                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full w-fit flex items-center gap-1">
+                                                            <CheckCircle2 className="w-3 h-3" />
+                                                            Enviada: {format(new Date(quote.quoteSentDate), 'dd MMM', { locale: es })}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <StatusBadge status={quote.status} type="QUOTE" />

@@ -26,6 +26,7 @@ export default async function QuotePage({ params }: Props) {
         .select(`
             *,
             company:Company(*),
+            client:Client(*),
             costEntries:CostEntry(*),
             invoices:Invoice(*),
             quoteItems:QuoteItem(*)

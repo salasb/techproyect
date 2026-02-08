@@ -38,7 +38,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
             invoices:Invoice(*),
             quoteItems:QuoteItem(*)
         `, { count: 'exact' })
-        .order('updatedAt', { ascending: false })
+        .order('createdAt', { ascending: false })
         .range(start, end);
 
     if (error) {

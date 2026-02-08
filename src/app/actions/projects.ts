@@ -180,6 +180,11 @@ export async function updateProjectStatus(projectId: string, status: string, sta
 
         updateData.nextAction = 'Seguimiento Cotización';
         updateData.nextActionDate = followUpDate.toISOString();
+
+        // Correction for DB Enum: 'COTIZACION' is not in the Enum.
+        // We map it to 'LEVANTAMIENTO' but set quoteSentDate to track progress.
+        updateData.stage = 'LEVANTAMIENTO';
+        updateData.quoteSentDate = new Date().toISOString();
     }
 
     // Special logic for Accepted (Kickoff)

@@ -13,6 +13,7 @@ export async function getQuotesForExport(query: string = "") {
             id,
             name,
             createdAt,
+            quoteSentDate,
             status,
             currency,
             client:Client(name),
@@ -41,7 +42,8 @@ export async function getQuotesForExport(query: string = "") {
             ID: project.id,
             Proyecto: project.name,
             Cliente: clientName,
-            Fecha: project.createdAt ? new Date(project.createdAt).toLocaleDateString('es-CL') : '',
+            Fecha_Creacion: project.createdAt ? new Date(project.createdAt).toLocaleDateString('es-CL') : '',
+            Fecha_Envio: project.quoteSentDate ? new Date(project.quoteSentDate).toLocaleDateString('es-CL') : 'No Enviada',
             Estado: project.status,
             Moneda: project.currency || 'CLP',
             Valor_Total: totalValue
