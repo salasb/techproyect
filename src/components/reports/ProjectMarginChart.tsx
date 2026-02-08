@@ -48,8 +48,8 @@ export function ProjectMarginChart({ data }: ProjectMarginChartProps) {
                                 <Cell
                                     key={`cell-${index}`}
                                     fill={
-                                        entry.marginPct < 15 ? '#ef4444' :
-                                            entry.marginPct < 30 ? '#eab308' :
+                                        entry.marginPct <= 5 ? '#ef4444' :
+                                            entry.marginPct <= 15 ? '#eab308' :
                                                 '#22c55e'
                                     }
                                 />

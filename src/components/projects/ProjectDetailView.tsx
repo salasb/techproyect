@@ -64,7 +64,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     const { toast } = useToast();
     const router = useRouter();
 
-    async function handleQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT') {
+    async function handleQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') {
         setIsUpdatingStatus(true);
         try {
             if (action === 'SEND') {
@@ -81,6 +81,10 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 if (!confirm("¿Seguro que deseas marcar como Rechazado?")) return;
                 await updateProjectStatus(project.id, 'CANCELADO');
                 toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
+            } else if (action === 'REOPEN') {
+                if (!confirm("¿Estás seguro que deseas reabrir este proyecto? Volverá a estado En Espera.")) return;
+                await updateProjectStatus(project.id, 'EN_ESPERA', project.stage || 'LEVANTAMIENTO', 'Reevaluar Proyecto');
+                toast({ type: 'success', message: "Proyecto reabierto exitosamente" });
             }
             router.refresh();
         } catch (error) {
@@ -111,8 +115,8 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
     // Financial Alerts
     const marginPct = financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) : 0;
-    if (marginPct < 0.1) alerts.push({ type: 'danger', msg: 'Margen crítico (< 10%)' });
-    else if (marginPct < 0.3) alerts.push({ type: 'warning', msg: 'Margen bajo (< 30%)' });
+    if (marginPct <= 0.05) alerts.push({ type: 'danger', msg: 'Margen crítico (0-5%)' });
+    else if (marginPct <= 0.15) alerts.push({ type: 'warning', msg: 'Margen bajo (6-15%)' });
 
     // Date Alerts
     if (project.plannedEndDate && new Date(project.plannedEndDate) < new Date() && project.status === 'EN_CURSO') {
@@ -229,62 +233,77 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 </div>
             </div>
 
-            {project.status !== 'FINALIZADO' && project.status !== 'CANCELADO' && (
-                <div className="flex gap-2 justify-end -mt-4 mb-4">
-                    <Link href={`/projects/${project.id}/quote`}>
-                        <button className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center">
-                            <FileText className="w-3 h-3 mr-1.5" />
-                            Ver Cotización
-                        </button>
-                    </Link>
-                    {/* Show Send Options if Quote NOT Sent and Stage is LEVANTAMIENTO (or undefined) and not Started/Cancelled */}
-                    {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
-                        <>
-                            <button
-                                onClick={() => handleQuoteAction('SEND')}
-                                disabled={isUpdatingStatus}
-                                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                            >
-                                <Sparkles className="w-3 h-3 mr-1.5" />
-                                Enviar Cotización
-                            </button>
+            <div className="flex gap-2 justify-end -mt-4 mb-4">
+                <Link href={`/projects/${project.id}/quote`}>
+                    <button className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+                        <FileText className="w-3 h-3 mr-1.5" />
+                        Ver Cotización
+                    </button>
+                </Link>
 
-                            <button
-                                onClick={handleManualQuoteSent}
-                                disabled={isUpdatingStatus}
-                                className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                                title="Registrar envío sin abrir correo"
-                            >
-                                <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                                Registrar Envío
-                            </button>
-                        </>
-                    )}
+                {/* CANCELLED STATE ACTIONS */}
+                {project.status === 'CANCELADO' && (
+                    <button
+                        onClick={() => handleQuoteAction('REOPEN')}
+                        disabled={isUpdatingStatus}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                    >
+                        <RefreshCw className="w-3 h-3 mr-1.5" />
+                        Reabrir Proyecto
+                    </button>
+                )}
 
-                    {/* Show Response Options if Quote HAS BEEN SENT */}
-                    {project.quoteSentDate && project.status === 'EN_ESPERA' && (
-                        <>
-                            <button
-                                onClick={() => handleQuoteAction('ACCEPT')}
-                                disabled={isUpdatingStatus}
-                                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                            >
-                                <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                                Registrar Aceptación
-                            </button>
-                            <button
-                                onClick={() => handleQuoteAction('REJECT')}
-                                disabled={isUpdatingStatus}
-                                className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                            >
-                                <X className="w-3 h-3 mr-1.5" />
-                                Rechazar
-                            </button>
-                        </>
-                    )}
-                </div>
-            )
-            }
+                {/* ACTIVE STATE ACTIONS */}
+                {project.status !== 'FINALIZADO' && project.status !== 'CANCELADO' && (
+                    <>
+                        {/* Show Send Options if Quote NOT Sent and Stage is LEVANTAMIENTO (or undefined) and not Started/Cancelled */}
+                        {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
+                            <>
+                                <button
+                                    onClick={() => handleQuoteAction('SEND')}
+                                    disabled={isUpdatingStatus}
+                                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                                >
+                                    <Sparkles className="w-3 h-3 mr-1.5" />
+                                    Enviar Cotización
+                                </button>
+
+                                <button
+                                    onClick={handleManualQuoteSent}
+                                    disabled={isUpdatingStatus}
+                                    className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                                    title="Registrar envío sin abrir correo"
+                                >
+                                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                    Registrar Envío
+                                </button>
+                            </>
+                        )}
+
+                        {/* Show Response Options if Quote HAS BEEN SENT */}
+                        {project.quoteSentDate && project.status === 'EN_ESPERA' && (
+                            <>
+                                <button
+                                    onClick={() => handleQuoteAction('ACCEPT')}
+                                    disabled={isUpdatingStatus}
+                                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                                >
+                                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                    Registrar Aceptación
+                                </button>
+                                <button
+                                    onClick={() => handleQuoteAction('REJECT')}
+                                    disabled={isUpdatingStatus}
+                                    className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                                >
+                                    <X className="w-3 h-3 mr-1.5" />
+                                    Rechazar
+                                </button>
+                            </>
+                        )}
+                    </>
+                )}
+            </div>
 
             {/* Header / Navigation Tabs */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-2 rounded-xl shadow-sm sticky top-4 z-30 backdrop-blur-md bg-opacity-90">
@@ -360,10 +379,20 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                             <Check className="w-4 h-4 mr-2" />
                                             {project.status === 'EN_ESPERA' ? 'Sin Alertas (En Espera)' : 'Todo en orden'}
                                         </div>
-                                        <p className="text-xs opacity-90 leading-relaxed">
+                                        <div className="text-xs opacity-90 leading-relaxed">
                                             {project.status === 'EN_ESPERA'
-                                                ? 'El proyecto está detenido. No se esperan avances ni movimientos financieros.'
-                                                : 'El proyecto avanza según lo planificado.'}
+                                                ? (
+                                                    <div>
+                                                        El proyecto está detenido. No se esperan avances ni movimientos financieros.
+                                                        {project.quoteSentDate && (
+                                                            <div className="mt-2 text-yellow-700 bg-yellow-100/50 p-2 rounded-md flex items-center">
+                                                                <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
+                                                                <span>Cotización enviada el <strong>{format(new Date(project.quoteSentDate), "d 'de' MMMM", { locale: es })}</strong></span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                                : <span>El proyecto avanza según lo planificado.</span>}
                                             {project.status === 'EN_CURSO' && (
                                                 <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
                                                     <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
@@ -371,7 +400,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                                     {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM', { locale: es })}</strong>.</li>}
                                                 </ul>
                                             )}
-                                        </p>
+                                        </div>
                                     </div>
                                 )}
 

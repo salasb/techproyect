@@ -132,12 +132,12 @@ export function calculateProjectFinancials(
 
     if (priceNet === 0 && baseCostNet === 0 && sumCostNet === 0) {
         trafficLightFinancial = 'GRAY'; // No activity
-    } else if (marginPct < 20) {
-        trafficLightFinancial = 'RED'; // Below 20% is considered risky/unhealthy now (was < 0)
-    } else if (marginPct < 30) {
-        trafficLightFinancial = 'YELLOW'; // 20% - 30% is acceptable but needs monitoring
+    } else if (marginPct <= 5) {
+        trafficLightFinancial = 'RED'; // 0-5% is Critical
+    } else if (marginPct <= 15) {
+        trafficLightFinancial = 'YELLOW'; // 6-15% is Warning
     } else {
-        trafficLightFinancial = 'GREEN'; // > 30% is healthy
+        trafficLightFinancial = 'GREEN'; // > 15% is Healthy
     }
 
     // 7. Overall Health (Health Traffic Light)

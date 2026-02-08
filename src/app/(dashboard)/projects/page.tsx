@@ -175,9 +175,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                                             <TooltipContent side="top">
                                                                 <p className="font-semibold mb-1">Salud Financiera</p>
                                                                 <p className="text-xs">
-                                                                    {fin.trafficLightFinancial === 'RED' ? 'Crítico (< 20% margen)' :
-                                                                        fin.trafficLightFinancial === 'YELLOW' ? 'Precaución (20-30% margen)' :
-                                                                            fin.trafficLightFinancial === 'GREEN' ? 'Saludable (> 30% margen)' :
+                                                                    {fin.trafficLightFinancial === 'RED' ? 'Crítico (0-5% margen)' :
+                                                                        fin.trafficLightFinancial === 'YELLOW' ? 'Precaución (6-15% margen)' :
+                                                                            fin.trafficLightFinancial === 'GREEN' ? 'Saludable (> 15% margen)' :
                                                                                 'Sin datos suficientes'}
                                                                 </p>
                                                             </TooltipContent>
