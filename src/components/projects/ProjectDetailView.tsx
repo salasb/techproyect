@@ -225,7 +225,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     )}
                 </h1>
                 <div className="flex items-center text-muted-foreground mt-1">
-                    <span className="font-medium mr-2 text-lg">{project.client?.name || project.clientName || 'Cliente por definir'}</span>
+                    <span className="font-medium mr-2 text-lg">{project.client?.name || project.company?.name || project.clientName || 'Cliente por definir'}</span>
                 </div>
             </div>
 
@@ -237,30 +237,32 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                             Ver Cotización
                         </button>
                     </Link>
-                    {project.status !== 'EN_ESPERA' && project.status !== 'EN_CURSO' && (
-                        <button
-                            onClick={() => handleQuoteAction('SEND')}
-                            disabled={isUpdatingStatus}
-                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                        >
-                            <Sparkles className="w-3 h-3 mr-1.5" />
-                            Enviar Cotización
-                        </button>
+                    {/* Show Send Options if Stage is LEVANTAMIENTO (or undefined) and not Started/Cancelled */}
+                    {(project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
+                        <>
+                            <button
+                                onClick={() => handleQuoteAction('SEND')}
+                                disabled={isUpdatingStatus}
+                                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                            >
+                                <Sparkles className="w-3 h-3 mr-1.5" />
+                                Enviar Cotización
+                            </button>
+
+                            <button
+                                onClick={handleManualQuoteSent}
+                                disabled={isUpdatingStatus}
+                                className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                                title="Registrar envío sin abrir correo"
+                            >
+                                <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                Registrar Envío
+                            </button>
+                        </>
                     )}
 
-                    {project.status !== 'EN_ESPERA' && project.status !== 'EN_CURSO' && (
-                        <button
-                            onClick={handleManualQuoteSent}
-                            disabled={isUpdatingStatus}
-                            className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                            title="Registrar envío sin abrir correo"
-                        >
-                            <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                            Registrar Envío
-                        </button>
-                    )}
-
-                    {project.status === 'EN_ESPERA' && (
+                    {/* Show Response Options if Stage is COTIZACION (Quote Sent) */}
+                    {project.stage === 'COTIZACION' && project.status === 'EN_ESPERA' && (
                         <>
                             <button
                                 onClick={() => handleQuoteAction('ACCEPT')}

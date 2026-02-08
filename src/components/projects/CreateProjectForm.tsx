@@ -105,7 +105,9 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
                             name="companyId" // We keep the name, but value will be prefixed
                             required
                             options={[
-                                ...companies.map(c => ({ value: `company:${c.id}`, label: c.name })),
+                                ...companies.filter(company =>
+                                    !clients.some(client => client.name.trim().toLowerCase() === company.name.trim().toLowerCase())
+                                ).map(c => ({ value: `company:${c.id}`, label: c.name })),
                                 ...clients.map(c => ({ value: `client:${c.id}`, label: c.name }))
                             ]}
                             value={selectedCompanyId}

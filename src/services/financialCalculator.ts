@@ -122,7 +122,11 @@ export function calculateProjectFinancials(
     // unless we exceeded some budget cap (but budget cap isn't strictly enforced in cost-plus usually).
     // For now, let's assume if priceNet > 0 we use actuals.
 
-    const marginPct = priceNet > 0 ? (usefulMarginAmount / priceNet) * 100 : 0;
+    const projectedMarginPct = priceNet > 0 ? (marginAmountNet / priceNet) * 100 : 0;
+    const actualMarginPct = priceNet > 0 ? (usefulMarginAmount / priceNet) * 100 : 0;
+
+    // Use the worst-case margin for the traffic light to be conservative
+    const marginPct = Math.min(projectedMarginPct, actualMarginPct);
 
     let trafficLightFinancial: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED' = 'GRAY';
 
