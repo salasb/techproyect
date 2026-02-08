@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Database } from "@/types/supabase";
 import { FinancialResult } from "@/services/financialCalculator";
-import { getDollarRateAction } from "@/app/actions/currency";
+import { getDollarRateAction, getUfRateAction } from "@/app/actions/currency";
 import { updateProjectStatus } from "@/app/actions/projects";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -53,11 +53,12 @@ interface ProjectDetailViewProps {
 }
 
 export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk }: ProjectDetailViewProps) {
-    const [currency, setCurrency] = useState<'CLP' | 'USD'>('CLP');
+    const [currency, setCurrency] = useState<'CLP' | 'USD' | 'UF'>(project.currency as 'CLP' | 'USD' | 'UF' || 'CLP');
     const [activeTab, setActiveTab] = useState('overview');
     const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
     const [isCostsModalOpen, setIsCostsModalOpen] = useState(false);
     const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string } | null>(null);
+    const [ufRate, setUfRate] = useState<{ value: number, date: string } | null>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
@@ -104,19 +105,59 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
     useEffect(() => {
         const fetchRate = async () => {
-            const rate = await getDollarRateAction();
+            const [rate, uf] = await Promise.all([
+                getDollarRateAction(),
+                getUfRateAction()
+            ]);
             if (rate) setExchangeRate(rate);
+            if (uf) setUfRate(uf);
         };
         fetchRate();
     }, []);
 
+    useEffect(() => {
+        if (project.currency) setCurrency(project.currency as 'CLP' | 'USD' | 'UF');
+    }, [project.currency]);
+
     const formatMoney = (amount: number) => {
-        if (currency === 'CLP') {
-            return `$${Math.round(amount).toLocaleString('es-CL')}`;
-        } else {
-            const rate = exchangeRate?.value || 1;
-            return `US$${(amount / rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const baseCurrency = project.currency || 'CLP';
+        let value = amount;
+        let targetCurrency = currency;
+
+        // 1. Calculate Value in Target Currency
+        if (baseCurrency !== targetCurrency) {
+            // Conversion Logic
+            // Case A: Base is CLP
+            if (baseCurrency === 'CLP') {
+                if (targetCurrency === 'USD') value = amount / (exchangeRate?.value || 1);
+                if (targetCurrency === 'UF') value = amount / (ufRate?.value || 1);
+            }
+            // Case B: Base is USD
+            else if (baseCurrency === 'USD') {
+                if (targetCurrency === 'CLP') value = amount * (exchangeRate?.value || 1);
+                if (targetCurrency === 'UF') {
+                    // USD -> CLP -> UF
+                    const clp = amount * (exchangeRate?.value || 1);
+                    value = clp / (ufRate?.value || 1);
+                }
+            }
+            // Case C: Base is UF
+            else if (baseCurrency === 'UF') {
+                if (targetCurrency === 'CLP') value = amount * (ufRate?.value || 1);
+                if (targetCurrency === 'USD') {
+                    // UF -> CLP -> USD
+                    const clp = amount * (ufRate?.value || 1);
+                    value = clp / (exchangeRate?.value || 1);
+                }
+            }
         }
+
+        // 2. Format
+        if (targetCurrency === 'CLP') return `$${Math.round(value).toLocaleString('es-CL')}`;
+        if (targetCurrency === 'USD') return `US$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (targetCurrency === 'UF') return `UF ${value.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        return `$${Math.round(value).toLocaleString('es-CL')}`;
     };
 
     // Last Activity Logic
@@ -234,19 +275,20 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     ))}
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto p-1 bg-muted/50 rounded-lg">
-                    <button
-                        onClick={() => setCurrency('CLP')}
-                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-1 text-center ${currency === 'CLP' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        CLP
-                    </button>
-                    <button
-                        onClick={() => setCurrency('USD')}
-                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-1 text-center ${currency === 'USD' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        USD
-                    </button>
+                <div className="flex items-center gap-1 w-full sm:w-auto p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <span className="text-[10px] font-semibold text-muted-foreground px-2 uppercase tracking-wider hidden sm:block">Visualizar en:</span>
+                    {['CLP', 'UF', 'USD'].map((c) => (
+                        <button
+                            key={c}
+                            onClick={() => setCurrency(c as 'CLP' | 'UF' | 'USD')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all min-w-[3.5rem] text-center
+                                        ${currency === c
+                                    ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-700'
+                                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-700 dark:text-zinc-400'}`}
+                        >
+                            {c}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -562,7 +604,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         projectId={project.id}
                         items={project.quoteItems || []}
                         defaultMargin={project.marginPct ? project.marginPct * 100 : 30}
-                        currency={currency}
+                        currency={project.currency || 'CLP'}
                     />
                 </div>
             )}
@@ -572,10 +614,10 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     {/* Left Column: Management */}
                     <div className="lg:col-span-2 space-y-8">
                         <section>
-                            <CostsManager projectId={project.id} costs={project.costEntries} currency={currency} />
+                            <CostsManager projectId={project.id} costs={project.costEntries} currency={project.currency || 'CLP'} />
                         </section>
                         <section>
-                            <InvoicesManager projectId={project.id} invoices={project.invoices} currency={currency} />
+                            <InvoicesManager projectId={project.id} invoices={project.invoices} currency={project.currency || 'CLP'} />
                         </section>
                         <div className="p-5">
                             {(() => {
