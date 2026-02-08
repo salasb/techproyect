@@ -51,12 +51,12 @@
 
   .dark {
     /* Linear Dark Mode (High Contrast Borders, Low Shadow) */
-    --background: 240 10% 3.9%;
-    /* #09090b - Zinc 950 */
+    --background: 240 10% 6%;
+    /* #09090b -> Slightly lighter charcoal */
     --foreground: 0 0% 98%;
 
-    --card: 240 6% 10%;
-    /* Slightly lighter than bg for proper card effect */
+    --card: 240 10% 10%;
+    /* Distinctly lighter than bg for separation */
     --card-foreground: 0 0% 98%;
 
     --popover: 240 10% 3.9%;
@@ -142,7 +142,8 @@
 
   body {
     background-color: hsl(var(--background));
-    background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(var(--muted) / 0.3));
+    background-image: radial-gradient(at 0% 0%, hsl(var(--background)) 0%, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(var(--muted)) 0%, transparent 50%);
     background-attachment: fixed;
     color: hsl(var(--foreground));
   }

@@ -6,6 +6,7 @@ import { FinancialResult } from "@/services/financialCalculator";
 import { getDollarRateAction, getUfRateAction } from "@/app/actions/currency";
 import { updateProjectStatus } from "@/app/actions/projects";
 import { useToast } from "@/components/ui/Toast";
+import Link from "next/link";
 import {
     Calendar,
     Clock,
@@ -33,7 +34,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { format, differenceInDays, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { usePathname, useRouter } from "next/navigation";
-import Link from "next/link";
+
 import { ProjectSettings } from "./ProjectSettings";
 import { AuditLog } from "./AuditLog";
 import { ProjectLogsManager } from "./ProjectLogsManager";
@@ -213,9 +214,14 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 </div>
             </div>
 
-            {/* Quote Actions - Context Aware */}
             {project.status !== 'FINALIZADO' && project.status !== 'CANCELADO' && (
                 <div className="flex gap-2 justify-end -mt-4 mb-4">
+                    <Link href={`/projects/${project.id}/quote`}>
+                        <button className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+                            <FileText className="w-3 h-3 mr-1.5" />
+                            Ver Cotización
+                        </button>
+                    </Link>
                     {project.status !== 'EN_ESPERA' && project.status !== 'EN_CURSO' && (
                         <button
                             onClick={() => handleQuoteAction('SEND')}
