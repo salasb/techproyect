@@ -30,13 +30,10 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, operational
 
             {/* CARD 1: REVENUE (Realized) */}
             <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <DollarSign className="w-16 h-16 text-emerald-600" />
-                </div>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Facturación Total</h3>
-                    <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg text-emerald-600 dark:text-emerald-400">
-                        <DollarSign className="w-4 h-4" />
+                    <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-100 transition-all duration-300">
+                        <DollarSign className="w-5 h-5" />
                     </div>
                 </div>
                 <div>
@@ -48,13 +45,10 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, operational
 
             {/* CARD 2: PIPELINE (Future) */}
             <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Wallet className="w-16 h-16 text-blue-600" />
-                </div>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Por Facturar</h3>
-                    <div className="p-2 bg-blue-50 dark:bg-blue-500/10 rounded-lg text-blue-600 dark:text-blue-400">
-                        <Wallet className="w-4 h-4" />
+                    <div className="p-2 bg-blue-50 dark:bg-blue-500/10 rounded-lg text-blue-600 dark:text-blue-400 group-hover:scale-110 group-hover:bg-blue-100 transition-all duration-300">
+                        <Wallet className="w-5 h-5" />
                     </div>
                 </div>
                 <div>
@@ -66,13 +60,10 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, operational
 
             {/* CARD 3: MARGIN (Profitability) */}
             <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Activity className="w-16 h-16 text-indigo-600" />
-                </div>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Margen Promedio</h3>
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-indigo-600 dark:text-indigo-400">
-                        <Activity className="w-4 h-4" />
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-indigo-600 dark:text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-100 transition-all duration-300">
+                        <Activity className="w-5 h-5" />
                     </div>
                 </div>
                 <div>
@@ -89,9 +80,6 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, operational
 
             {/* CARD 4: EFFICIENCY (CPI) */}
             <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Target className="w-16 h-16 text-amber-600" />
-                </div>
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Eficiencia Costos</h3>
@@ -106,8 +94,8 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, operational
                             </Tooltip>
                         </TooltipProvider>
                     </div>
-                    <div className="p-2 bg-amber-50 dark:bg-amber-500/10 rounded-lg text-amber-600 dark:text-amber-400">
-                        <Target className="w-4 h-4" />
+                    <div className="p-2 bg-amber-50 dark:bg-amber-500/10 rounded-lg text-amber-600 dark:text-amber-400 group-hover:scale-110 group-hover:bg-amber-100 transition-all duration-300">
+                        <Target className="w-5 h-5" />
                     </div>
                 </div>
                 <div>

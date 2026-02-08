@@ -58,8 +58,6 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string } | null>(null);
 
     // Alerts logic
-
-    // Alerts logic
     const alerts: { type: 'success' | 'warning' | 'danger', msg: string }[] = [];
 
     // Financial Alerts
@@ -111,6 +109,14 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+            {/* Project Header */}
+            <div>
+                <h1 className="text-3xl font-bold text-foreground tracking-tight">{project.name}</h1>
+                <div className="flex items-center text-muted-foreground mt-1">
+                    <span className="font-medium mr-2 text-lg">{project.client?.name || project.clientName || 'Cliente por definir'}</span>
+                </div>
+            </div>
+
             {/* Header / Navigation Tabs */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-2 rounded-xl shadow-sm sticky top-4 z-30 backdrop-blur-md bg-opacity-90">
                 <div className="flex p-1 bg-muted/50 rounded-lg w-full sm:w-auto">
@@ -124,13 +130,13 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex-1 sm:flex-none justify-center
+                            className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex-1 sm:flex-none justify-center border group
                                 ${activeTab === tab.id
-                                    ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm ring-1 ring-border'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                    ? 'bg-blue-600 text-white border-blue-700 shadow-md shadow-blue-500/20'
+                                    : 'bg-transparent text-zinc-600 border-transparent hover:bg-blue-50 hover:text-blue-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-blue-400'
                                 }`}
                         >
-                            <tab.icon className={`w-4 h-4 mr-2 ${activeTab === tab.id ? 'text-primary' : ''}`} />
+                            <tab.icon className={`w-4 h-4 mr-2 ${activeTab === tab.id ? 'text-blue-100' : 'text-zinc-400 group-hover:text-blue-500'}`} />
                             {tab.label}
                         </button>
                     ))}
@@ -376,14 +382,19 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
                                                 <div className="col-span-2 my-1 border-t border-border"></div>
 
-                                                <div className="font-medium text-foreground">Utilidad Proy.</div>
-                                                <div className="text-right font-bold text-green-600 dark:text-green-500">
-                                                    {formatMoney(financials.marginAmountNet)}
-                                                </div>
-
-                                                <div className="text-xs text-muted-foreground">Margen %</div>
-                                                <div className="text-right text-xs font-medium text-green-600 dark:text-green-500">
-                                                    {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
+                                                <div className="col-span-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-3 mt-1">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-tight">Utilidad Proy.</span>
+                                                        <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+                                                            {formatMoney(financials.marginAmountNet)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="text-emerald-600 dark:text-emerald-500 font-medium">Margen %</span>
+                                                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                                                            {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

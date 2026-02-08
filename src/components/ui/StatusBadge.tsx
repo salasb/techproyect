@@ -40,6 +40,7 @@ const STATUS_CONFIG: Record<StatusType, Record<string, { label: string; color: s
         SENT: { label: "Enviada", color: "bg-blue-100/50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400", icon: PlayCircle },
         ACCEPTED: { label: "Aceptada", color: "bg-emerald-100/50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400", icon: CheckCircle2 },
         REJECTED: { label: "Rechazada", color: "bg-red-100/50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400", icon: XCircle },
+        EN_ESPERA: { label: "En Espera", color: "bg-amber-100/50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900", icon: Clock },
     }
 };
 
