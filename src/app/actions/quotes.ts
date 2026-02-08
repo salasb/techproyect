@@ -9,12 +9,30 @@ export async function toggleQuoteAcceptance(projectId: string, isAccepted: boole
 
     const { error } = await supabase
         .from('Project')
-        .update({ acceptedAt } as any) // Type assertion until types are regenerated
+        .update({ acceptedAt } as any)
         .eq('id', projectId);
 
     if (error) {
         console.error("Error toggling quote acceptance:", error);
         throw new Error("Failed to update quote acceptance status");
+    }
+
+    // Log the action in ProjectLog
+    const logContent = isAccepted
+        ? "Cotización Aceptada Digitalmente (Timbre Generado)"
+        : "Aceptación Digital Revocada";
+
+    const { error: logError } = await supabase
+        .from('ProjectLog')
+        .insert({
+            projectId,
+            content: logContent,
+            type: 'MILESTONE'
+        });
+
+    if (logError) {
+        console.error("Error logging quote acceptance:", logError);
+        // We don't throw here to avoid failing the UI toggle if just the log fails
     }
 
     revalidatePath(`/projects/${projectId}`);

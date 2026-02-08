@@ -7,17 +7,17 @@ datasource db {
 }
 
 model Settings {
-  id                      Int     @id @default(1)
-  currency                String  @default("CLP")
-  vatRate                 Float   @default(0.19)
-  defaultPaymentTermsDays Int     @default(30)
-  yellowThresholdDays     Int     @default(7)
+  id                      Int    @id @default(autoincrement())
+  currency                String @default("CLP")
+  vatRate                 Float  @default(0.19)
+  defaultPaymentTermsDays Int    @default(30)
+  yellowThresholdDays     Int    @default(7)
 }
 
 model Company {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
-  taxId       String?  // RUT
+  taxId       String?
   address     String?
   phone       String?
   email       String?
@@ -26,14 +26,13 @@ model Company {
 }
 
 model Project {
-  id             String        @id // PRJ-###
+  id             String        @id
   companyId      String
-  company        Company       @relation(fields: [companyId], references: [id])
   name           String
   responsible    String
   status         ProjectStatus
   stage          ProjectStage
-  progress       Int           @default(0) // 0-100
+  progress       Int           @default(0)
   startDate      DateTime
   plannedEndDate DateTime
   nextAction     String?
@@ -42,39 +41,47 @@ model Project {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   acceptedAt     DateTime?
-
-  costEntries CostEntry[]
-  invoices    Invoice[]
-  quoteItems  QuoteItem[]
-  logs        ProjectLog[]
+  blockingReason String?
+  nextActionDate DateTime?     @db.Timestamptz(6)
+  currency       String?       @default("CLP")
+  scopeDetails   String?
+  clientId       String?       @db.Uuid
+  quoteSentDate  DateTime?     @db.Timestamptz(6)
+  AuditLog       AuditLog[]
+  costEntries    CostEntry[]
+  Interaction    Interaction[]
+  invoices       Invoice[]
+  Client         Client?       @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company        Company       @relation(fields: [companyId], references: [id])
+  logs           ProjectLog[]
+  quoteItems     QuoteItem[]
 }
 
 model QuoteItem {
-  id        String @id @default(uuid())
+  id        String  @id @default(dbgenerated("(gen_random_uuid())::text"))
   projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sku       String?
   detail    String
   quantity  Float   @default(1)
-  unit      String  @default("UN") // UN, GL, HR...
+  unit      String  @default("UN")
   priceNet  Float   @default(0)
   costNet   Float   @default(0)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model CostEntry {
   id          String       @id @default(uuid())
   projectId   String
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   date        DateTime
   category    CostCategory
   description String
   amountNet   Float
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model Invoice {
   id                  String    @id @default(uuid())
   projectId           String
-  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sent                Boolean   @default(false)
   sentDate            DateTime?
   paymentTermsDays    Int?
@@ -82,40 +89,16 @@ model Invoice {
   amountInvoicedGross Float     @default(0)
   amountPaidGross     Float     @default(0)
   updatedAt           DateTime  @updatedAt
-}
-
-enum ProjectStatus {
-  EN_CURSO   @map("En curso")
-  EN_ESPERA  @map("En espera")
-  BLOQUEADO  @map("Bloqueado")
-  CERRADO    @map("Cerrado")
-  CANCELADO  @map("Cancelado")
-}
-
-enum ProjectStage {
-  LEVANTAMIENTO  @map("Levantamiento")
-  DISENO         @map("Diseño")
-  DESARROLLO     @map("Desarrollo")
-  QA             @map("QA")
-  IMPLEMENTACION @map("Implementación")
-  SOPORTE        @map("Soporte")
-}
-
-enum CostCategory {
-  SERVICIOS @map("Servicios")
-  HARDWARE  @map("Hardware")
-  SOFTWARE  @map("Software")
-  LOGISTICA @map("Logística")
-  OTROS     @map("Otros")
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ProjectLog {
   id        String   @id @default(uuid())
   projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   content   String
-  type      String   @default("INFO") // INFO, BLOCKER, MILESTONE, STATUS_CHANGE
+  type      String   @default("INFO")
   createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model Product {
@@ -128,4 +111,110 @@ model Product {
   costNet     Float    @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String
+  action    String
+  details   String?
+  userName  String?
+  createdAt DateTime? @default(now()) @db.Timestamptz(6)
+  userId    String?   @db.Uuid
+  Project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  Profile   Profile?  @relation(fields: [userId], references: [id], onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Client {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  taxId       String?
+  contactName String?
+  createdAt   DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updatedAt   DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  status      ClientStatus  @default(PROSPECT)
+  Contact     Contact[]
+  Interaction Interaction[]
+  Project     Project[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Contact {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId  String   @db.Uuid
+  name      String
+  email     String?
+  phone     String?
+  role      String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @db.Timestamptz(6)
+  Client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Interaction {
+  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId  String          @db.Uuid
+  projectId String?
+  type      InteractionType
+  date      DateTime        @default(now()) @db.Timestamptz(6)
+  notes     String
+  createdAt DateTime        @default(now()) @db.Timestamptz(6)
+  Client    Client          @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  Project   Project?        @relation(fields: [projectId], references: [id], onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Profile {
+  id        String     @id(map: "profile_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  email     String     @unique(map: "profile_email_key")
+  role      String     @default("USER")
+  avatarUrl String?
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @default(now()) @db.Timestamptz(6)
+  AuditLog  AuditLog[]
+}
+
+enum ProjectStatus {
+  EN_CURSO
+  EN_ESPERA
+  BLOQUEADO
+  CERRADO
+  CANCELADO
+}
+
+enum ProjectStage {
+  LEVANTAMIENTO
+  DISENO
+  DESARROLLO
+  QA             @map("QA")
+  IMPLEMENTACION
+  SOPORTE
+}
+
+enum CostCategory {
+  SERVICIOS
+  HARDWARE
+  SOFTWARE
+  LOGISTICA
+  OTROS
+}
+
+enum ClientStatus {
+  LEAD
+  PROSPECT
+  CLIENT
+  CHURNED
+}
+
+enum InteractionType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
 }
