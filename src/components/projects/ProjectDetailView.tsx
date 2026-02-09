@@ -38,6 +38,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ProjectSettings } from "./ProjectSettings";
 import { AuditLog } from "./AuditLog";
 import { ProjectLogsManager } from "./ProjectLogsManager";
+import { UnifiedTimeline } from "./UnifiedTimeline";
 import { QuoteItemsManager } from "./QuoteItemsManager";
 import { CostsManager } from "./CostsManager";
 import { InvoicesManager } from "./InvoicesManager";
@@ -917,6 +918,14 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )
+            }
+
+            {
+                activeTab === 'logs' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <UnifiedTimeline projectId={project.id} />
                     </div>
                 )
             }

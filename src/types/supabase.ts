@@ -293,6 +293,53 @@ export type Database = {
                     },
                 ]
             }
+            Opportunity: {
+                Row: {
+                    clientId: string | null
+                    createdAt: string
+                    description: string | null
+                    expectedCloseDate: string | null
+                    id: string
+                    probability: number
+                    stage: Database["public"]["Enums"]["OpportunityStage"]
+                    title: string
+                    updatedAt: string
+                    value: number
+                }
+                Insert: {
+                    clientId?: string | null
+                    createdAt?: string
+                    description?: string | null
+                    expectedCloseDate?: string | null
+                    id?: string
+                    probability?: number
+                    stage?: Database["public"]["Enums"]["OpportunityStage"]
+                    title: string
+                    updatedAt?: string
+                    value?: number
+                }
+                Update: {
+                    clientId?: string | null
+                    createdAt?: string
+                    description?: string | null
+                    expectedCloseDate?: string | null
+                    id?: string
+                    probability?: number
+                    stage?: Database["public"]["Enums"]["OpportunityStage"]
+                    title?: string
+                    updatedAt?: string
+                    value?: number
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "Opportunity_clientId_fkey"
+                        columns: ["clientId"]
+                        isOneToOne: false
+                        referencedRelation: "Client"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             Product: {
                 Row: {
                     costNet: number
@@ -353,7 +400,7 @@ export type Database = {
                     createdAt?: string
                     email?: string
                     id?: string
-                    name: string
+                    name?: string
                     role?: string
                     updatedAt?: string
                 }
@@ -361,6 +408,7 @@ export type Database = {
             }
             Project: {
                 Row: {
+                    acceptedAt: string | null
                     blockingReason: string | null
                     budgetNet: number
                     clientId: string | null
@@ -372,6 +420,7 @@ export type Database = {
                     name: string
                     nextAction: string | null
                     nextActionDate: string | null
+                    paymentMethod: string
                     plannedEndDate: string
                     progress: number
                     quoteSentDate: string | null
@@ -383,6 +432,7 @@ export type Database = {
                     updatedAt: string
                 }
                 Insert: {
+                    acceptedAt?: string | null
                     blockingReason?: string | null
                     budgetNet?: number
                     clientId?: string | null
@@ -394,6 +444,7 @@ export type Database = {
                     name: string
                     nextAction?: string | null
                     nextActionDate?: string | null
+                    paymentMethod?: string
                     plannedEndDate: string
                     progress?: number
                     quoteSentDate?: string | null
@@ -405,6 +456,7 @@ export type Database = {
                     updatedAt: string
                 }
                 Update: {
+                    acceptedAt?: string | null
                     blockingReason?: string | null
                     budgetNet?: number
                     clientId?: string | null
@@ -416,6 +468,7 @@ export type Database = {
                     name?: string
                     nextAction?: string | null
                     nextActionDate?: string | null
+                    paymentMethod?: string
                     plannedEndDate?: string
                     progress?: number
                     quoteSentDate?: string | null
@@ -556,6 +609,13 @@ export type Database = {
             | "LOGISTICA"
             | "OTROS"
             InteractionType: "CALL" | "EMAIL" | "MEETING" | "NOTE"
+            OpportunityStage:
+            | "LEAD"
+            | "QUALIFIED"
+            | "PROPOSAL"
+            | "NEGOTIATION"
+            | "WON"
+            | "LOST"
             ProjectStage:
             | "LEVANTAMIENTO"
             | "DISENO"
@@ -699,6 +759,14 @@ export const Constants = {
             ClientStatus: ["LEAD", "PROSPECT", "CLIENT", "CHURNED"],
             CostCategory: ["SERVICIOS", "HARDWARE", "SOFTWARE", "LOGISTICA", "OTROS"],
             InteractionType: ["CALL", "EMAIL", "MEETING", "NOTE"],
+            OpportunityStage: [
+                "LEAD",
+                "QUALIFIED",
+                "PROPOSAL",
+                "NEGOTIATION",
+                "WON",
+                "LOST",
+            ],
             ProjectStage: [
                 "LEVANTAMIENTO",
                 "DISENO",

@@ -1,7 +1,9 @@
 import { getClientDetails } from "@/actions/crm";
+import { getOpportunitiesByClient } from "@/actions/opportunities";
 import { ClientHeader } from "@/components/clients/ClientHeader";
 import { ContactsList } from "@/components/clients/ContactsList";
 import { InteractionsTimeline } from "@/components/clients/InteractionsTimeline";
+import { ClientOpportunities } from "@/components/clients/ClientOpportunities";
 import Link from "next/link";
 import { ChevronLeft, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
@@ -14,6 +16,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
 
     try {
         const { client, contacts, interactions, projects } = await getClientDetails(params.id);
+        const opportunities = await getOpportunitiesByClient(params.id);
 
         return (
             <div className="p-8 space-y-8 max-w-7xl mx-auto">
@@ -27,6 +30,10 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
                     {/* Main Content (Left, 2 cols) */}
                     <div className="lg:col-span-2 space-y-8">
                         <ContactsList clientId={client.id} contacts={contacts} />
+
+                        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                            <ClientOpportunities clientId={client.id} opportunities={opportunities} />
+                        </div>
 
                         <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
                             <InteractionsTimeline
