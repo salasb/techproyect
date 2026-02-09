@@ -8,10 +8,11 @@ interface KPIProps {
     totalRevenue: number;
     pipelineValue: number;
     avgMargin: number;
+    avgMarginAmount: number;
     operationalEfficiency: number; // e.g., 1.0 = on budget, > 1.0 under budget (good), < 1.0 over budget (bad)
 }
 
-export function KPISection({ totalRevenue, pipelineValue, avgMargin, operationalEfficiency }: KPIProps) {
+export function KPISection({ totalRevenue, pipelineValue, avgMargin, avgMarginAmount, operationalEfficiency }: KPIProps) {
 
     // Helper for currency
     const formatMoney = (amount: number) => {
@@ -69,12 +70,13 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, operational
                 <div>
                     <div className="flex items-end gap-2 mb-1">
                         <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                            {avgMargin.toFixed(1)}%
+                            {formatMoney(avgMarginAmount)}
                         </div>
                         <span className={`text-xs font-medium mb-1.5 ${avgMargin >= 30 ? 'text-emerald-500' : avgMargin >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
-                            {avgMargin >= 30 ? 'Excelente' : avgMargin >= 20 ? 'Regular' : 'Bajo'}
+                            ({avgMargin.toFixed(0)}%)
                         </span>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">Por proyecto activo</p>
                 </div>
             </div>
 

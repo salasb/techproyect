@@ -119,7 +119,7 @@ export function AppHeader() {
                 </div>            {/* ... search ... */}
                 <div className="flex items-center w-1/3" ref={searchRef}>
                     {/* DEBUG MARKER */}
-                    <span className="text-xs text-muted-foreground font-mono absolute top-1 left-1 opacity-50">v1.0.4</span>
+
                     <div className="relative w-full max-w-md hidden md:block">
                         {/* ... existing search code ... */}
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />

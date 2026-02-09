@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Database } from "@/types/supabase";
 import { addQuoteItem, removeQuoteItem, updateQuoteItem } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
@@ -25,7 +25,6 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
     const [isLoading, setIsLoading] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-    // Helper for currency
     // Helper for currency
     const formatMoney = (amount: number) => {
         if (currency === 'CLP') return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -70,17 +69,27 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
         }
     }
 
+    // Debounce Ref
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     async function handleCatalogSearch(query: string) {
         setCatalogSearch(query);
-        setCatalogLoading(true);
-        try {
-            const products = await getProducts(query);
-            setCatalogItems(products || []);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setCatalogLoading(false);
+
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
         }
+
+        searchTimeoutRef.current = setTimeout(async () => {
+            setCatalogLoading(true);
+            try {
+                const products = await getProducts(query);
+                setCatalogItems(products || []);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setCatalogLoading(false);
+            }
+        }, 500); // 500ms debounce
     }
 
     function selectProduct(product: any) {
@@ -346,11 +355,20 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
 
             {/* Catalog Modal */}
             {isCatalogOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setIsCatalogOpen(false);
+                    }}
+                >
                     <div className="bg-background rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden border border-border">
                         <div className="p-4 border-b border-border flex justify-between items-center">
                             <h3 className="font-semibold text-lg">Catálogo de Productos</h3>
-                            <button onClick={() => setIsCatalogOpen(false)} className="text-zinc-500 hover:text-foreground">
+                            <button
+                                type="button"
+                                onClick={() => setIsCatalogOpen(false)}
+                                className="text-zinc-500 hover:text-foreground p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -363,6 +381,7 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-primary outline-none"
                                     value={catalogSearch}
                                     onChange={(e) => handleCatalogSearch(e.target.value)}
+                                    autoFocus
                                 />
                             </div>
                         </div>
@@ -370,12 +389,16 @@ export function QuoteItemsManager({ projectId, items, defaultMargin = 30, curren
                             {catalogLoading ? (
                                 <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
                             ) : catalogItems.length === 0 ? (
-                                <div className="text-center p-8 text-muted-foreground">No se encontraron productos.</div>
+                                <div className="text-center p-8 text-muted-foreground">
+                                    No se encontraron productos.
+                                    {catalogSearch && <p className="text-xs mt-2">Prueba con otro término de búsqueda.</p>}
+                                </div>
                             ) : (
                                 <div className="grid gap-2">
                                     {catalogItems.map(prod => (
                                         <button
                                             key={prod.id}
+                                            type="button"
                                             onClick={() => selectProduct(prod)}
                                             className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent hover:text-accent-foreground text-left transition-colors group"
                                         >

@@ -78,6 +78,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
     // KPI Calculations
     const avgMargin = totalPriceNet > 0 ? (totalMarginAmountNet / totalPriceNet) * 100 : 0;
+
+    // Calculate Average Margin Amount per Active Project
+    // We filter out cancelled/closed for the sum, so we should divide by the count of those same projects.
+    // The 'activeProjects' array above (EN_CURSO, EN_ESPERA) might not strictly match the loop's if condition if we want to include all non-cancelled.
+    // Let's count how many projects contributed to totalMarginAmountNet.
+    const projectsWithFinancials = projects.filter(p => p.status !== 'CANCELADO' && p.status !== 'CERRADO').length;
+    const avgMarginAmount = projectsWithFinancials > 0 ? totalMarginAmountNet / projectsWithFinancials : 0;
+
     // Efficiency: Budget / Actual. If Cost > Budget, Efficiency < 1. 
     // Wait, simple efficiency: Budget vs Actual Cost? 
     // Let's use: (Projected Cost / Actual Cost)? No.
@@ -126,6 +134,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 totalRevenue={totalInvoicedGross}
                 pipelineValue={totalPendingToInvoiceGross}
                 avgMargin={avgMargin}
+                avgMarginAmount={avgMarginAmount}
                 operationalEfficiency={operationalEfficiency}
             />
 
