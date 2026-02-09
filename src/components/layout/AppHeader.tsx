@@ -129,7 +129,7 @@ export function AppHeader() {
                             value={searchQuery}
                             onChange={(e) => handleSearch(e.target.value)}
                             onFocus={() => { if (searchQuery.length >= 2) setShowResults(true) }}
-                            className="w-full pl-10 pr-4 py-2 text-sm bg-zinc-100 dark:bg-zinc-900 border-none rounded-full focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-full focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all shadow-sm hover:border-zinc-400"
                         />
                         {showResults && (
                             <div className="absolute top-full left-0 w-full mt-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">

@@ -58,7 +58,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: { pag
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                        <thead className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-medium border-b border-zinc-200 dark:border-zinc-700 shadow-sm">
                             <tr>
                                 <th className="px-6 py-3">Proyecto / Cliente</th>
                                 <th className="px-6 py-3">Fecha</th>

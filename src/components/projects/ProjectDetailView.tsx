@@ -183,6 +183,12 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     // Last Activity Logic
     const lastActivity = auditLogs && auditLogs.length > 0 ? auditLogs[0] : null;
 
+    // Digital Acceptance Logic
+    const acceptanceLog = auditLogs?.find((log: any) =>
+        log.type === 'STATUS_CHANGE' &&
+        (log.content.includes('En Curso') || log.content.includes('Aceptado'))
+    );
+
     // Next Action Status Logic
     const getNextActionStatus = () => {
         if (!project.nextActionDate) return null;
@@ -230,6 +236,12 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 </h1>
                 <div className="flex items-center text-muted-foreground mt-1">
                     <span className="font-medium mr-2 text-lg">{project.client?.name || project.company?.name || project.clientName || 'Cliente por definir'}</span>
+                    {acceptanceLog && (
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center w-fit">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Aceptado Digitalmente
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -392,7 +404,19 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                                         )}
                                                     </div>
                                                 )
-                                                : <span>El proyecto avanza según lo planificado.</span>}
+                                                : (
+                                                    <div>
+                                                        <span>El proyecto avanza según lo planificado.</span>
+                                                        {acceptanceLog && (
+                                                            <div className="mt-2 text-emerald-700 bg-emerald-100/50 p-2 rounded-md flex items-center border border-emerald-200/50">
+                                                                <CheckCircle2 className="w-3.5 h-3.5 mr-2 flex-shrink-0" />
+                                                                <span>
+                                                                    Aceptación Digital registrada el <strong>{format(new Date(acceptanceLog.createdAt), "d 'de' MMMM", { locale: es })}</strong>
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             {project.status === 'EN_CURSO' && (
                                                 <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
                                                     <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>

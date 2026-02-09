@@ -70,7 +70,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                 {/* Desktop View (Table) */}
                 <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
+                        <thead className="text-xs text-slate-700 dark:text-slate-200 uppercase bg-slate-100 dark:bg-slate-800/80 border-b border-zinc-200 dark:border-zinc-700 shadow-sm">
                             <tr>
                                 <th className="px-6 py-3 font-medium">Proyecto / Cliente</th>
                                 <th className="px-6 py-3 font-medium">Estado</th>
