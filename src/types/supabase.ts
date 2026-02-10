@@ -20,7 +20,7 @@ export type Database = {
                     createdAt: string | null
                     details: string | null
                     id: string
-                    projectId: string
+                    projectId: string | null
                     userId: string | null
                     userName: string | null
                 }
@@ -29,7 +29,7 @@ export type Database = {
                     createdAt?: string | null
                     details?: string | null
                     id?: string
-                    projectId: string
+                    projectId?: string | null
                     userId?: string | null
                     userName?: string | null
                 }
@@ -38,18 +38,11 @@ export type Database = {
                     createdAt?: string | null
                     details?: string | null
                     id?: string
-                    projectId?: string
+                    projectId?: string | null
                     userId?: string | null
                     userName?: string | null
                 }
                 Relationships: [
-                    {
-                        foreignKeyName: "AuditLog_projectId_fkey"
-                        columns: ["projectId"]
-                        isOneToOne: false
-                        referencedRelation: "Project"
-                        referencedColumns: ["id"]
-                    },
                     {
                         foreignKeyName: "AuditLog_userId_fkey"
                         columns: ["userId"]
@@ -752,36 +745,3 @@ export type CompositeTypes<
     : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
-export const Constants = {
-    public: {
-        Enums: {
-            ClientStatus: ["LEAD", "PROSPECT", "CLIENT", "CHURNED"],
-            CostCategory: ["SERVICIOS", "HARDWARE", "SOFTWARE", "LOGISTICA", "OTROS"],
-            InteractionType: ["CALL", "EMAIL", "MEETING", "NOTE"],
-            OpportunityStage: [
-                "LEAD",
-                "QUALIFIED",
-                "PROPOSAL",
-                "NEGOTIATION",
-                "WON",
-                "LOST",
-            ],
-            ProjectStage: [
-                "LEVANTAMIENTO",
-                "DISENO",
-                "DESARROLLO",
-                "QA",
-                "IMPLEMENTACION",
-                "SOPORTE",
-            ],
-            ProjectStatus: [
-                "EN_CURSO",
-                "EN_ESPERA",
-                "BLOQUEADO",
-                "CERRADO",
-                "CANCELADO",
-            ],
-        },
-    },
-} as const

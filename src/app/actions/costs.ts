@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
+import { AuditService } from "@/services/auditService";
 
 type CostCategory = Database['public']['Enums']['CostCategory'];
 
@@ -36,6 +37,9 @@ export async function addCost(projectId: string, formData: FormData) {
         throw new Error(`Error al agregar costo: ${error.message}`);
     }
 
+    // Log the action
+    await AuditService.logAction(projectId, 'COST_ADD', `Costo agregado: "${description}" por $${amount.toLocaleString('es-CL')}`);
+
     revalidatePath(`/projects/${projectId}`);
     revalidatePath('/');
     revalidatePath('/projects');
@@ -52,6 +56,9 @@ export async function deleteCost(projectId: string, costId: string) {
     if (error) {
         throw new Error(`Error al eliminar costo: ${error.message}`);
     }
+
+    // Log the action
+    await AuditService.logAction(projectId, 'COST_DELETE', `Costo eliminado (ID: ${costId})`);
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath('/');
@@ -84,6 +91,9 @@ export async function updateCost(projectId: string, costId: string, formData: Fo
     if (error) {
         throw new Error(`Error al actualizar costo: ${error.message}`);
     }
+
+    // Log the action
+    await AuditService.logAction(projectId, 'COST_UPDATE', `Costo actualizado: "${description}" por $${amount.toLocaleString('es-CL')}`);
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath('/');

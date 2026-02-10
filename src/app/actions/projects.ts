@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 import { validateProject } from "@/lib/validators";
+import { AuditService } from "@/services/auditService";
 
 export async function createProject(formData: FormData) {
     const name = formData.get("name") as string;
@@ -105,6 +106,9 @@ export async function createProject(formData: FormData) {
         throw new Error(`Error creating project: ${projectError?.message}`);
     }
 
+    // Log the creation
+    await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${name}" creado para ${project.clientId ? 'Client' : 'Company'}: ${finalCompanyId}`);
+
     revalidatePath("/projects");
     revalidatePath("/projects");
     return { success: true, projectId: project.id };
@@ -124,6 +128,9 @@ export async function deleteProject(projectId: string) {
     if (error) {
         throw new Error(`Error deleting project: ${error.message}`);
     }
+
+    // Log the deletion (global scope since project is gone)
+    await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto ID: ${projectId} eliminado permanentemente.`);
 
     revalidatePath("/projects");
     redirect("/projects");

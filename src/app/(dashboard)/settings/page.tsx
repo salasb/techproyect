@@ -4,13 +4,21 @@ import { revalidatePath } from "next/cache";
 export const dynamic = 'force-dynamic';
 
 import Link from "next/link";
-import { Users, ChevronRight } from "lucide-react";
+import { Users, ChevronRight, History } from "lucide-react";
 import { SettingsForm } from "@/components/settings/SettingsForm";
+import { GlobalAuditLog } from "@/components/settings/GlobalAuditLog";
 
 export default async function SettingsPage() {
     const supabase = await createClient();
 
     let { data: settings } = await supabase.from('Settings').select('*').single();
+
+    // Fetch Global Audit Logs
+    const { data: auditLogs } = await supabase
+        .from('AuditLog')
+        .select('*')
+        .order('createdAt', { ascending: false })
+        .limit(50);
 
     // Create if not exists (should be handled by page wrapper typically, but safe check here)
     if (!settings) {
@@ -39,7 +47,7 @@ export default async function SettingsPage() {
         <div className="max-w-4xl mx-auto space-y-8">
             <div>
                 <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Configuración del Sistema</h2>
-                <p className="text-zinc-500 dark:text-zinc-400 mt-1">Ajusta los parámetros globales para todos tus proyectos.</p>
+                <p className="text-zinc-500 dark:text-zinc-400 mt-1">Ajusta los parámetros globales y revisa el historial de cambios.</p>
             </div>
 
             {/* Quick Access */}
@@ -58,8 +66,29 @@ export default async function SettingsPage() {
                 </Link>
             </div>
 
-            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6">
-                <SettingsForm settings={settings!} updateSettingsAction={updateSettings} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6">
+                        <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                            Parámetros Generales
+                        </h3>
+                        <SettingsForm settings={settings!} updateSettingsAction={updateSettings} />
+                    </div>
+                </div>
+
+                <div className="lg:col-span-1">
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6 h-full">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <History className="w-5 h-5 text-blue-500" />
+                                Logs de Cambio
+                            </h3>
+                        </div>
+                        <div className="max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
+                            <GlobalAuditLog logs={auditLogs || []} />
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     )

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { AuditService } from "@/services/auditService";
 
 export async function toggleQuoteAcceptance(projectId: string, isAccepted: boolean) {
     const supabase = await createClient();
@@ -34,6 +35,9 @@ export async function toggleQuoteAcceptance(projectId: string, isAccepted: boole
         console.error("Error logging quote acceptance:", logError);
         // We don't throw here to avoid failing the UI toggle if just the log fails
     }
+
+    // Add entry to AuditLog (System Audit)
+    await AuditService.logAction(projectId, 'QUOTE_ACCEPTANCE_TOGGLE', logContent);
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/quote`);
