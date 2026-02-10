@@ -86,33 +86,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     const projectsWithFinancials = projects.filter(p => p.status !== 'CANCELADO' && p.status !== 'CERRADO').length;
     const avgMarginAmount = projectsWithFinancials > 0 ? totalMarginAmountNet / projectsWithFinancials : 0;
 
-    // Efficiency: Budget / Actual. If Cost > Budget, Efficiency < 1. 
-    // Wait, simple efficiency: Budget vs Actual Cost? 
-    // Let's use: (Projected Cost / Actual Cost)? No.
-    // Let's use: Budget Consumed vs Progress? 
-    // Simpler for now: 1.0 (placeholder if no cost data).
-    // Let's actually use a simple "Budget vs Spend" metric if we had "Planned Cost".
-    // For now, let's use: (Price Net - Margin) / Total Executed Cost. 
-    // If (Price - Margin) is the "Allowed Cost". 
-    // Let's use a simpler metric: 1.05 (Mocked for now as we don't have per-project strict budget vs actual cost easy comparison without iterating complexly)
-    // Actually better: Global "Profit Factor": Income / Cost.
-    // Let's use: Total Invoiced / Total Executed Cost (Cashflow Efficiency)
-    // Or: Total Price Net / (Total Price Net - Total Margin) -> Expected Cost. 
-    // Let's go with a calculated "Operational Efficiency" based on active projects.
-    // If progress is X%, expected cost is X% of BudgetCost. 
-    // Let's skip complex efficiency for now and pass a calculated value based on overall margin health.
-    const operationalEfficiency = avgMargin > 30 ? 1.1 : avgMargin > 15 ? 1.0 : 0.9;
-
-
     // 3. Prepare Chart Data
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const cashFlowData = DashboardService.getCashFlowProjection(projects as any);
 
     // Focus Board Data
-    // Get Alerts (reusing getActionCenterData logic or getAlerts?)
-    // getActionCenterData returns broader actions. FocusBoard expects 'alerts' to be High Priority.
-    // Let's use getActionCenterData but filter for blocking/high priority to be safe, 
-    // OR just use the new FocusBoard prop structure which expects 'alerts'.
     const rawActions = DashboardService.getActionCenterData(projects as any, settings);
     const alerts = rawActions
         .filter(a => a.priority === 'HIGH' || a.type === 'BLOCKER')
@@ -160,7 +138,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 pipelineValue={totalPendingToInvoiceGross}
                 avgMargin={avgMargin}
                 marginAmount={totalMarginAmountNet}
-                operationalEfficiency={operationalEfficiency}
             />
 
             {/* 2. Main Dashboard Content - Big Picture Layout */}
@@ -273,7 +250,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 

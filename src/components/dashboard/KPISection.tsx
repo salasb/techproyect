@@ -9,21 +9,13 @@ interface KPIProps {
     pipelineValue: number;
     avgMargin: number;
     marginAmount: number;
-    operationalEfficiency: number; // e.g., 1.0 = on budget, > 1.0 under budget (good), < 1.0 over budget (bad)
 }
 
-export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmount, operationalEfficiency }: KPIProps) {
+export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmount }: KPIProps) {
 
     // Helper for currency
     const formatMoney = (amount: number) => {
         return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(amount);
-    };
-
-    // Helper for efficiency color
-    const getEffColor = (val: number) => {
-        if (val >= 1.05) return 'text-emerald-500'; // Efficient
-        if (val >= 0.95) return 'text-blue-500';    // On Track
-        return 'text-red-500';                      // Inefficient
     };
 
     return (
@@ -59,53 +51,28 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmoun
                 </div>
             </div>
 
-            {/* CARD 3: MARGIN (Profitability) */}
-            <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300">
+            {/* CARD 3: MARGIN (Profitability) - Expanded */}
+            <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300 md:col-span-2">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Margen Esperado</h3>
+                    <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Margen Esperado (Utilidad)</h3>
                     <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-indigo-600 dark:text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-100 transition-all duration-300">
                         <Activity className="w-5 h-5" />
                     </div>
                 </div>
                 <div>
-                    <div className="flex items-end gap-2 mb-1">
-                        <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                    <div className="flex items-end gap-3 mb-1">
+                        <div className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
                             {formatMoney(marginAmount)}
                         </div>
-                        <span className={`text-xs font-medium mb-1.5 ${avgMargin >= 30 ? 'text-emerald-500' : avgMargin >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
-                            ({avgMargin.toFixed(0)}%)
-                        </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Proyectado Global</p>
-                </div>
-            </div>
-
-            {/* CARD 4: EFFICIENCY (CPI) */}
-            <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Eficiencia Costos</h3>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <div className="w-4 h-4 rounded-full border border-zinc-300 text-zinc-400 text-[10px] flex items-center justify-center font-serif italic">i</div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="text-xs">Relación Presupuesto / Gasto Real.<br />Mayor a 100% indica ahorro.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                    <div className="p-2 bg-amber-50 dark:bg-amber-500/10 rounded-lg text-amber-600 dark:text-amber-400 group-hover:scale-110 group-hover:bg-amber-100 transition-all duration-300">
-                        <Target className="w-5 h-5" />
-                    </div>
-                </div>
-                <div>
-                    <div className="flex items-end gap-2 mb-1">
-                        <div className={`text-2xl font-bold ${getEffColor(operationalEfficiency)}`}>
-                            {(operationalEfficiency * 100).toFixed(0)}%
+                        <div className={`flex items-center pb-1.5 ${avgMargin >= 30 ? 'text-emerald-500' : avgMargin >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
+                            <span className="text-sm font-bold bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
+                                {avgMargin.toFixed(0)}%
+                            </span>
                         </div>
                     </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Utilidad Proyectada Global
+                    </p>
                 </div>
             </div>
 
