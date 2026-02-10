@@ -59,7 +59,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     const [activeTab, setActiveTab] = useState('overview');
     const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
     const [isCostsModalOpen, setIsCostsModalOpen] = useState(false);
-    const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string } | null>(null);
+    const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string, source: string } | null>(null);
     const [ufRate, setUfRate] = useState<{ value: number, date: string } | null>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const { toast } = useToast();
@@ -577,10 +577,10 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                         <DollarSign className="w-5 h-5 mr-2 text-green-600" />
                                         Finanzas
                                         <div className="ml-auto flex items-center gap-2">
-                                            {currency === 'USD' && exchangeRate && (
-                                                <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title={`Dólar Observado al ${new Date(exchangeRate.date).toLocaleDateString()}`}>
+                                            {project.currency === 'USD' && exchangeRate && (
+                                                <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title={`Fuente: ${exchangeRate.source} (${new Date(exchangeRate.date).toLocaleDateString()})`}>
                                                     <RefreshCw className="w-3 h-3 mr-1" />
-                                                    Hoy: ${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 1 })}
+                                                    Hoy: ${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 1 })} ({exchangeRate.date ? format(new Date(exchangeRate.date), "dd/MM/yy") : ''}) • {exchangeRate.source}
                                                 </span>
                                             )}
                                         </div>
@@ -774,10 +774,10 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                     <Wallet className="w-5 h-5 mr-2 text-primary" />
                                     Desglose Financiero
                                     <div className="ml-auto flex items-center gap-2">
-                                        {currency === 'USD' && (
-                                            <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title="Tipo de cambio del día">
+                                        {project.currency === 'USD' && (
+                                            <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title={`Cotización oficial ${exchangeRate?.source}`}>
                                                 <RefreshCw className="w-3 h-3 mr-1" />
-                                                {exchangeRate ? `Hoy: $${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 0 })} CLP` : 'Cargando tasa...'}
+                                                {exchangeRate ? `USD/CLP: $${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 0 })} (${exchangeRate.date ? format(new Date(exchangeRate.date), "dd/MM/yy") : ''})` : 'Cargando tasa...'}
                                             </span>
                                         )}
                                         <span className="text-xs font-mono bg-background px-2 py-1 rounded border border-border text-muted-foreground">

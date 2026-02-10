@@ -1,8 +1,8 @@
-
 export interface ExchangeRate {
     code: string;
     value: number;
     date: string; // ISO string
+    source: string;
 }
 
 export async function getDollarRate(): Promise<ExchangeRate | null> {
@@ -24,7 +24,8 @@ export async function getDollarRate(): Promise<ExchangeRate | null> {
         return {
             code: 'USD',
             value: dolar.valor,
-            date: dolar.fecha
+            date: dolar.fecha,
+            source: 'mindicador.cl'
         };
     } catch (error) {
         console.error("Error fetching dollar rate:", error);
@@ -48,7 +49,8 @@ export async function getUfRate(): Promise<ExchangeRate | null> {
         return {
             code: 'UF',
             value: serie[0].valor,
-            date: serie[0].fecha
+            date: serie[0].fecha,
+            source: 'mindicador.cl'
         };
     } catch (error) {
         console.error("Error fetching UF rate:", error);
