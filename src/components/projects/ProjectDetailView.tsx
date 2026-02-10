@@ -43,6 +43,7 @@ import { QuoteItemsManager } from "./QuoteItemsManager";
 import { CostsManager } from "./CostsManager";
 import { InvoicesManager } from "./InvoicesManager";
 import { ProjectScope } from "./ProjectScope";
+import { ExchangeRate } from "@/services/currency";
 
 interface ProjectDetailViewProps {
     project: any; // Using any for now to avoid strict type checks on complex joined data
@@ -52,15 +53,17 @@ interface ProjectDetailViewProps {
     settings: any;
     projectLogs: any[];
     risk: any;
+    exchangeRate: ExchangeRate;
+    ufRate: ExchangeRate;
 }
 
-export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk }: ProjectDetailViewProps) {
+export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk, exchangeRate: initialExchangeRate, ufRate: initialUfRate }: ProjectDetailViewProps) {
     const [currency, setCurrency] = useState<'CLP' | 'USD' | 'UF'>(project.currency as 'CLP' | 'USD' | 'UF' || 'CLP');
     const [activeTab, setActiveTab] = useState('overview');
     const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
     const [isCostsModalOpen, setIsCostsModalOpen] = useState(false);
-    const [exchangeRate, setExchangeRate] = useState<{ value: number, date: string, source: string } | null>(null);
-    const [ufRate, setUfRate] = useState<{ value: number, date: string } | null>(null);
+    const [exchangeRate, setExchangeRate] = useState<ExchangeRate>(initialExchangeRate);
+    const [ufRate, setUfRate] = useState<ExchangeRate>(initialUfRate);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
@@ -123,18 +126,6 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     if (project.plannedEndDate && new Date(project.plannedEndDate) < new Date() && project.status === 'EN_CURSO') {
         alerts.push({ type: 'danger', msg: 'Proyecto atrasado en fecha de término' });
     }
-
-    useEffect(() => {
-        const fetchRate = async () => {
-            const [rate, uf] = await Promise.all([
-                getDollarRateAction(),
-                getUfRateAction()
-            ]);
-            if (rate) setExchangeRate(rate);
-            if (uf) setUfRate(uf);
-        };
-        fetchRate();
-    }, []);
 
     useEffect(() => {
         if (project.currency) setCurrency(project.currency as 'CLP' | 'USD' | 'UF');

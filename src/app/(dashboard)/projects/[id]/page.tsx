@@ -4,6 +4,7 @@ import { calculateProjectFinancials } from "@/services/financialCalculator";
 import ProjectDetailView from "@/components/projects/ProjectDetailView";
 import { Database } from "@/types/supabase";
 import { RiskEngine } from "@/services/riskEngine";
+import { getDollarRate, getUfRate } from "@/services/currency";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
@@ -89,5 +90,23 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     // Calculate Risk
     const risk = RiskEngine.calculateProjectRisk(project as any, settings!);
 
-    return <ProjectDetailView project={project} financials={financials} settings={settings} auditLogs={auditLogs || []} projectLogs={projectLogs || []} clients={clients || []} risk={risk} />;
+    // 1.5 Fetch Exchange Rates (Server Side)
+    const [exchangeRate, ufRate] = await Promise.all([
+        getDollarRate(),
+        getUfRate()
+    ]);
+
+    return (
+        <ProjectDetailView
+            project={project}
+            financials={financials}
+            settings={settings}
+            auditLogs={auditLogs || []}
+            projectLogs={projectLogs || []}
+            clients={clients || []}
+            risk={risk}
+            exchangeRate={exchangeRate}
+            ufRate={ufRate}
+        />
+    );
 }

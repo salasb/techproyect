@@ -4,16 +4,14 @@ import React from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Wallet, Activity, Target } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+import { ExchangeRate } from '@/services/currency';
+
 interface KPIProps {
     totalRevenue: number;
     pipelineValue: number;
     avgMargin: number;
     marginAmount: number;
-    exchangeRateInfo?: {
-        rate: number;
-        date: string;
-        source: string;
-    };
+    exchangeRateInfo?: ExchangeRate;
 }
 
 export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmount, exchangeRateInfo }: KPIProps) {
@@ -63,7 +61,7 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmoun
                         <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Margen Esperado (Utilidad)</h3>
                         {exchangeRateInfo && (
                             <span className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                                USD/CLP: ${exchangeRateInfo.rate} ({exchangeRateInfo.date}) • {exchangeRateInfo.source}
+                                USD/CLP: ${exchangeRateInfo.value.toLocaleString('es-CL')} ({exchangeRateInfo.date ? new Date(exchangeRateInfo.date).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}) • {exchangeRateInfo.source}
                             </span>
                         )}
                     </div>

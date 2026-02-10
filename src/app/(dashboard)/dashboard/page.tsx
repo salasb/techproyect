@@ -8,7 +8,7 @@ import { FocusBoard } from "@/components/dashboard/FocusBoard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { DashboardService } from "@/services/dashboardService";
-import { CurrencyService, ExchangeRateInfo } from "@/services/currencyService";
+import { getDollarRate } from "@/services/currency";
 import { DEFAULT_VAT_RATE, EXCHANGE_RATE_USD_CLP } from "@/lib/constants";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { ReportExportButton } from "@/components/dashboard/ReportExportButton";
@@ -52,8 +52,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     const projects = projectsData || [];
 
     // 1.5 Fetch Exchange Rate
-    const exchangeRateInfo = await CurrencyService.getExchangeRate();
-    const currentRate = exchangeRateInfo.rate;
+    const exchangeRateInfo = await getDollarRate();
+    const currentRate = exchangeRateInfo.value;
 
     // 2. Calculate Global KPIs
     const activeProjects = projects.filter(p => p.status === 'EN_CURSO' || p.status === 'EN_ESPERA');
