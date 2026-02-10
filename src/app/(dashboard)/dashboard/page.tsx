@@ -8,7 +8,8 @@ import { FocusBoard } from "@/components/dashboard/FocusBoard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { DashboardService } from "@/services/dashboardService";
-import { DEFAULT_VAT_RATE } from "@/lib/constants";
+import { CurrencyService, ExchangeRateInfo } from "@/services/currencyService";
+import { DEFAULT_VAT_RATE, EXCHANGE_RATE_USD_CLP } from "@/lib/constants";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { ReportExportButton } from "@/components/dashboard/ReportExportButton";
 import { CashFlowChart } from "@/components/dashboard/CashFlowChart";
@@ -50,6 +51,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
     const projects = projectsData || [];
 
+    // 1.5 Fetch Exchange Rate
+    const exchangeRateInfo = await CurrencyService.getExchangeRate();
+    const currentRate = exchangeRateInfo.rate;
+
     // 2. Calculate Global KPIs
     const activeProjects = projects.filter(p => p.status === 'EN_CURSO' || p.status === 'EN_ESPERA');
 
@@ -65,14 +70,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings!, p.quoteItems || []);
 
         if (p.status !== 'CANCELADO' && p.status !== 'CERRADO') {
-            totalBudgetGross += fin.priceGross;
-            totalInvoicedGross += fin.totalInvoicedGross;
-            totalPendingToInvoiceGross += fin.pendingToInvoiceGross;
+            const rate = p.currency === 'USD' ? currentRate : 1;
+
+            totalBudgetGross += fin.priceGross * rate;
+            totalInvoicedGross += fin.totalInvoicedGross * rate;
+            totalPendingToInvoiceGross += fin.pendingToInvoiceGross * rate;
 
             // For margin calculation
-            totalMarginAmountNet += fin.marginAmountNet;
-            totalPriceNet += fin.priceNet;
-            totalExecutedCostNet += fin.totalExecutedCostNet;
+            totalMarginAmountNet += fin.marginAmountNet * rate;
+            totalPriceNet += fin.priceNet * rate;
+            totalExecutedCostNet += fin.totalExecutedCostNet * rate;
         }
     });
 
@@ -138,6 +145,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 pipelineValue={totalPendingToInvoiceGross}
                 avgMargin={avgMargin}
                 marginAmount={totalMarginAmountNet}
+                exchangeRateInfo={exchangeRateInfo}
             />
 
             {/* 2. Main Dashboard Content - Big Picture Layout */}
