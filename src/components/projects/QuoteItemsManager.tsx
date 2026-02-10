@@ -543,7 +543,7 @@ export function QuoteItemsManager({
                                         type="number"
                                         required
                                         min="0"
-                                        step={currency === 'UF' ? "0.01" : "1"}
+                                        step={displayCurrency === 'UF' ? "0.01" : "1"}
                                         defaultValue={editingItem?.costNet}
                                         value={costNet || (editingItem ? undefined : '')}
                                         placeholder="0"
@@ -586,7 +586,7 @@ export function QuoteItemsManager({
                                         type="number"
                                         required
                                         min="0"
-                                        step={currency === 'UF' ? "0.01" : "1"}
+                                        step={displayCurrency === 'UF' ? "0.01" : "1"}
                                         defaultValue={editingItem?.priceNet}
                                         value={priceNet || (editingItem ? undefined : '')}
                                         placeholder="0"
