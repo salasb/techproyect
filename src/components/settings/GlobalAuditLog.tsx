@@ -47,7 +47,7 @@ export function GlobalAuditLog({ logs }: Props) {
     const visibleLogs = isExpanded ? logs : logs.slice(0, MAX_ITEMS);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <div className="flow-root">
                 <ul role="list" className="-mb-8">
                     {visibleLogs.map((log, logIdx) => {
@@ -66,23 +66,23 @@ export function GlobalAuditLog({ logs }: Props) {
                                                 <Icon className="h-4 w-4 shadow-sm" aria-hidden="true" />
                                             </div>
                                         </div>
-                                        <div className="min-w-0 flex-1 py-1">
+                                        <div className="min-w-0 flex-1 py-1 px-3 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-xl border border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
                                             <div className="text-sm">
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-semibold text-zinc-900 dark:text-white">
                                                         {log.userName || 'Sistema'}
                                                     </span>
-                                                    <span className="text-xs text-zinc-400">
+                                                    <span className="text-[10px] text-zinc-400 font-medium">
                                                         {log.createdAt
                                                             ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true, locale: es })
                                                             : '-'}
                                                     </span>
                                                 </div>
-                                                <p className="text-zinc-600 dark:text-zinc-400 mt-0.5">
-                                                    realizó: <span className="font-medium text-zinc-800 dark:text-zinc-200">{log.action.replace(/_/g, ' ')}</span>
+                                                <p className="text-zinc-600 dark:text-zinc-400 mt-0.5 text-xs">
+                                                    realizó: <span className="font-semibold text-blue-600 dark:text-blue-400">{log.action.replace(/_/g, ' ')}</span>
                                                 </p>
                                                 {log.details && (
-                                                    <div className="mt-1.5 p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg text-xs font-mono text-zinc-500 dark:text-zinc-400 break-words border border-zinc-100 dark:border-zinc-800/50">
+                                                    <div className="mt-2 p-2.5 bg-white dark:bg-zinc-900 rounded-lg text-[11px] font-mono text-zinc-600 dark:text-zinc-400 break-words border border-zinc-200 dark:border-zinc-800 shadow-sm leading-relaxed">
                                                         {log.details}
                                                     </div>
                                                 )}
@@ -90,7 +90,7 @@ export function GlobalAuditLog({ logs }: Props) {
                                                     <div className="mt-2 text-right">
                                                         <Link
                                                             href={`/projects/${log.projectId}`}
-                                                            className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors uppercase tracking-wider"
+                                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase tracking-widest"
                                                         >
                                                             Ver Proyecto <ExternalLink className="w-2.5 h-2.5" />
                                                         </Link>
@@ -107,12 +107,12 @@ export function GlobalAuditLog({ logs }: Props) {
             </div>
 
             {logs.length > MAX_ITEMS && (
-                <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-center">
+                <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-center pb-4">
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors px-4 py-2 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
+                        className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors px-6 py-2 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-sm uppercase tracking-wider"
                     >
-                        {isExpanded ? 'Ver menos' : `Cargar historial completo (${logs.length - MAX_ITEMS} registros más)`}
+                        {isExpanded ? 'Ver menos' : `Cargar historial completo (${logs.length - MAX_ITEMS} más)`}
                     </button>
                 </div>
             )}

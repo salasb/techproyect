@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import Link from "next/link";
 import { Users, ChevronRight, History } from "lucide-react";
 import { SettingsForm } from "@/components/settings/SettingsForm";
-import { GlobalAuditLog } from "@/components/settings/GlobalAuditLog";
+import { GlobalAuditModal } from "@/components/settings/GlobalAuditModal";
 
 export default async function SettingsPage() {
     const supabase = await createClient();
@@ -66,27 +66,18 @@ export default async function SettingsPage() {
                 </Link>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-8">
+            <div className="grid grid-cols-1 gap-8">
+                <div className="space-y-8">
+                    {/* Audit Log Trigger */}
+                    <div className="max-w-2xl">
+                        <GlobalAuditModal logs={auditLogs || []} />
+                    </div>
+
                     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6">
                         <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
                             Parámetros Generales
                         </h3>
                         <SettingsForm settings={settings!} updateSettingsAction={updateSettings} />
-                    </div>
-                </div>
-
-                <div className="lg:col-span-1">
-                    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6 h-full">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <History className="w-5 h-5 text-blue-500" />
-                                Logs de Cambio
-                            </h3>
-                        </div>
-                        <div className="max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
-                            <GlobalAuditLog logs={auditLogs || []} />
-                        </div>
                     </div>
                 </div>
             </div>
