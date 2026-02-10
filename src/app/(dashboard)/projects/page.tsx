@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, AlertTriangle, Lock, Clock, Info, DollarSign, Timer, ChevronRight } from "lucide-react";
+import { Plus, AlertTriangle, Lock, Clock, Info, DollarSign, Timer, ChevronRight, Send, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
@@ -158,54 +158,51 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                                 ) : <span className="text-muted-foreground text-xs">-</span>}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {/* Health Indicators (Icons Only) */}
+                                                {/* Health Indicators (Business Milestones) */}
                                                 <div className="flex items-center gap-3">
-                                                    {/* Financial Health Icon */}
+                                                    {/* Quote Sent Indicator */}
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <div className={`p-1.5 rounded-full cursor-help transition-colors ${fin.trafficLightFinancial === 'RED' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                                                                    fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-                                                                        fin.trafficLightFinancial === 'GREEN' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                                                            'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'
+                                                                <div className={`p-1.5 rounded-full transition-all ${project.quoteSentDate
+                                                                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400'
+                                                                    : 'bg-zinc-100/50 text-zinc-300 dark:bg-zinc-800/30 dark:text-zinc-700'
                                                                     }`}>
-                                                                    <DollarSign className="w-4 h-4" />
+                                                                    <Send className="w-4 h-4" />
                                                                 </div>
                                                             </TooltipTrigger>
                                                             <TooltipContent side="top">
-                                                                <p className="font-semibold mb-1">Salud Financiera</p>
+                                                                <p className="font-semibold mb-1">Cotización Enviada</p>
                                                                 <p className="text-xs">
-                                                                    {fin.trafficLightFinancial === 'RED' ? 'Crítico (0-5% margen)' :
-                                                                        fin.trafficLightFinancial === 'YELLOW' ? 'Precaución (6-15% margen)' :
-                                                                            fin.trafficLightFinancial === 'GREEN' ? 'Saludable (> 15% margen)' :
-                                                                                'Sin datos suficientes'}
+                                                                    {project.quoteSentDate
+                                                                        ? `Enviada el ${new Date(project.quoteSentDate).toLocaleDateString()}`
+                                                                        : 'Aún no enviada'}
                                                                 </p>
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
 
-                                                    {/* Time Health Icon */}
-                                                    {project.plannedEndDate && (
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <div className={`p-1.5 rounded-full cursor-help transition-colors ${fin.trafficLightTime === 'RED' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                                                                        fin.trafficLightTime === 'YELLOW' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-                                                                            fin.trafficLightTime === 'GREEN' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                                                                                'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'
-                                                                        }`}>
-                                                                        <Timer className="w-4 h-4" />
-                                                                    </div>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent side="top">
-                                                                    <p className="font-semibold mb-1">Salud de Plazos</p>
-                                                                    <p className="text-xs">
-                                                                        {fin.trafficLightTime === 'RED' ? 'Atrasado' : fin.trafficLightTime === 'YELLOW' ? 'Por vencer' : 'A tiempo'}
-                                                                    </p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    )}
+                                                    {/* Digital Acceptance Indicator */}
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className={`p-1.5 rounded-full transition-all ${project.acceptedAt
+                                                                    ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400'
+                                                                    : 'bg-zinc-100/50 text-zinc-300 dark:bg-zinc-800/30 dark:text-zinc-700'
+                                                                    }`}>
+                                                                    <CheckCircle2 className="w-4 h-4" />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">
+                                                                <p className="font-semibold mb-1">Aceptación Digital</p>
+                                                                <p className="text-xs">
+                                                                    {project.acceptedAt
+                                                                        ? `Aceptado el ${new Date(project.acceptedAt).toLocaleDateString()}`
+                                                                        : 'Pendiente de aceptación'}
+                                                                </p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -296,14 +293,19 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
 
                                     {/* Financials & Health Row */}
                                     <div className="flex items-center justify-between py-3 border-t border-b border-border/50 mb-3">
-                                        <div className="flex items-center gap-3">
-                                            {/* Financial Health Dot */}
+                                        <div className="flex items-center gap-4">
+                                            {/* Indicators Row */}
+                                            <div className="flex items-center gap-2">
+                                                <Send className={`w-3.5 h-3.5 ${project.quoteSentDate ? 'text-blue-500' : 'text-zinc-300'}`} />
+                                                <CheckCircle2 className={`w-3.5 h-3.5 ${project.acceptedAt ? 'text-emerald-500' : 'text-zinc-300'}`} />
+                                            </div>
+                                            <div className="h-4 w-px bg-border/50" />
                                             <div className="flex items-center gap-1.5">
                                                 <div className={`w-2 h-2 rounded-full ${fin.trafficLightFinancial === 'RED' ? 'bg-red-500' :
                                                     fin.trafficLightFinancial === 'YELLOW' ? 'bg-amber-500' :
                                                         fin.trafficLightFinancial === 'GREEN' ? 'bg-emerald-500' : 'bg-zinc-300'
                                                     }`} />
-                                                <span className="text-xs font-medium text-muted-foreground">{fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}% Margen</span>
+                                                <span className="text-[11px] font-medium text-muted-foreground">{fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(0) : 0}% Margen</span>
                                             </div>
                                         </div>
                                         <div className="text-right">
