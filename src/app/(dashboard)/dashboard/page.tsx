@@ -107,8 +107,33 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     // 3. Prepare Chart Data
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const cashFlowData = DashboardService.getCashFlowProjection(projects as any);
-    const alerts = DashboardService.getAlerts(projects as any, settings);
-    const actionItems = DashboardService.getActionCenterData(projects as any, settings);
+
+    // Focus Board Data
+    // Get Alerts (reusing getActionCenterData logic or getAlerts?)
+    // getActionCenterData returns broader actions. FocusBoard expects 'alerts' to be High Priority.
+    // Let's use getActionCenterData but filter for blocking/high priority to be safe, 
+    // OR just use the new FocusBoard prop structure which expects 'alerts'.
+    const rawActions = DashboardService.getActionCenterData(projects as any, settings);
+    const alerts = rawActions
+        .filter(a => a.priority === 'HIGH' || a.type === 'BLOCKER')
+        .map(a => ({
+            ...a,
+            dueDate: a.dueDate ? a.dueDate.toISOString() : undefined
+        }));
+
+    const recentProjects = projects.slice(0, 5).map(p => ({
+        id: p.id,
+        name: p.name,
+        companyName: p.company?.name || 'Sin Cliente',
+        updatedAt: p.updatedAt,
+        status: p.status
+    }));
+
+    const upcomingDeadlines = DashboardService.getUpcomingDeadlines(projects as any, settings)
+        .map(d => ({
+            ...d,
+            date: d.date.toISOString()
+        }));
 
     return (
         <div className="space-y-6">
@@ -134,7 +159,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 totalRevenue={totalInvoicedGross}
                 pipelineValue={totalPendingToInvoiceGross}
                 avgMargin={avgMargin}
-                avgMarginAmount={avgMarginAmount}
+                marginAmount={totalMarginAmountNet}
                 operationalEfficiency={operationalEfficiency}
             />
 
@@ -192,11 +217,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                             <span className="w-1.5 h-6 bg-primary rounded-full"></span>
                             Tablero de Enfoque
                         </h3>
-                        {/* Alerts Widget (Integrated here or kept separate? Let's keep it separate or integrated) */}
                     </div>
 
                     <div className="flex-1">
-                        <FocusBoard actions={actionItems} />
+                        <FocusBoard
+                            alerts={alerts}
+                            recentProjects={recentProjects}
+                            upcomingDeadlines={upcomingDeadlines}
+                        />
                     </div>
 
                     {/* Recent Projects Table (Moved to bottom of Focus Board area or below) */}

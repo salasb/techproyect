@@ -391,4 +391,82 @@ export class DashboardService {
 
         return alerts.slice(0, 10); // Limit to 10 alerts
     }
+
+    static getUpcomingDeadlines(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
+        const deadlines: {
+            id: string;
+            title: string;
+            date: Date;
+            type: 'INVOICE' | 'DELIVERY' | 'MEETING';
+            entityName: string;
+            subtext?: string;
+            link?: string;
+        }[] = [];
+
+        const now = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(now.getDate() + 14); // Look ahead 2 weeks
+
+        projects.forEach(p => {
+            // 1. Upcoming Invoices to Collect (Sent but not Paid)
+            p.invoices?.forEach(inv => {
+                if (inv.sent && !inv.amountPaidGross) {
+                    let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+                    if (!dueDate && inv.sentDate) {
+                        const terms = inv.paymentTermsDays ?? settings.defaultPaymentTermsDays;
+                        dueDate = new Date(inv.sentDate);
+                        dueDate.setDate(dueDate.getDate() + terms);
+                    }
+
+                    if (dueDate && dueDate >= now && dueDate <= nextWeek) {
+                        deadlines.push({
+                            id: `inv-${inv.id}`,
+                            title: `Vencimiento Factura`,
+                            date: dueDate,
+                            type: 'INVOICE',
+                            entityName: p.company?.name || p.name,
+                            subtext: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(inv.amountInvoicedGross),
+                            link: `/projects/${p.id}/invoices`
+                        });
+                    }
+                }
+            });
+
+            // 2. Next Actions with Dates (Meetings, Follow-ups)
+            if (p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') {
+                if (p.nextActionDate && p.nextAction) {
+                    const date = new Date(p.nextActionDate);
+                    if (date >= now && date <= nextWeek) {
+                        deadlines.push({
+                            id: `action-${p.id}`,
+                            title: p.nextAction,
+                            date: date,
+                            type: 'MEETING',
+                            entityName: p.company?.name || p.name,
+                            subtext: 'Próxima Acción',
+                            link: `/projects/${p.id}`
+                        });
+                    }
+                }
+            }
+
+            // 3. Project Planned End Date
+            if (p.status === 'EN_CURSO' && p.plannedEndDate) {
+                const date = new Date(p.plannedEndDate);
+                if (date >= now && date <= nextWeek) {
+                    deadlines.push({
+                        id: `end-${p.id}`,
+                        title: 'Entrega de Proyecto',
+                        date: date,
+                        type: 'DELIVERY',
+                        entityName: p.company?.name || p.name,
+                        subtext: 'Fecha de Término Planificada',
+                        link: `/projects/${p.id}`
+                    });
+                }
+            }
+        });
+
+        return deadlines.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 10);
+    }
 }

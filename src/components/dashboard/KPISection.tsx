@@ -8,11 +8,11 @@ interface KPIProps {
     totalRevenue: number;
     pipelineValue: number;
     avgMargin: number;
-    avgMarginAmount: number;
+    marginAmount: number;
     operationalEfficiency: number; // e.g., 1.0 = on budget, > 1.0 under budget (good), < 1.0 over budget (bad)
 }
 
-export function KPISection({ totalRevenue, pipelineValue, avgMargin, avgMarginAmount, operationalEfficiency }: KPIProps) {
+export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmount, operationalEfficiency }: KPIProps) {
 
     // Helper for currency
     const formatMoney = (amount: number) => {
@@ -62,7 +62,7 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, avgMarginAm
             {/* CARD 3: MARGIN (Profitability) */}
             <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm group hover:shadow-md transition-all duration-300">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Margen Promedio</h3>
+                    <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Margen Esperado</h3>
                     <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-indigo-600 dark:text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-100 transition-all duration-300">
                         <Activity className="w-5 h-5" />
                     </div>
@@ -70,13 +70,13 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, avgMarginAm
                 <div>
                     <div className="flex items-end gap-2 mb-1">
                         <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                            {formatMoney(avgMarginAmount)}
+                            {formatMoney(marginAmount)}
                         </div>
                         <span className={`text-xs font-medium mb-1.5 ${avgMargin >= 30 ? 'text-emerald-500' : avgMargin >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
                             ({avgMargin.toFixed(0)}%)
                         </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">Por proyecto activo</p>
+                    <p className="text-xs text-muted-foreground mt-1">Proyectado Global</p>
                 </div>
             </div>
 
