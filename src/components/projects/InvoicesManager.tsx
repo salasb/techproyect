@@ -15,22 +15,58 @@ type Invoice = Database['public']['Tables']['Invoice']['Row'];
 interface Props {
     projectId: string;
     invoices: Invoice[];
-    currency?: string;
+    baseCurrency?: string;
+    displayCurrency?: string;
+    exchangeRate?: { value: number };
+    ufRate?: { value: number };
 }
 
-export function InvoicesManager({ projectId, invoices, currency = 'CLP' }: Props) {
+export function InvoicesManager({
+    projectId,
+    invoices,
+    baseCurrency = 'CLP',
+    displayCurrency = 'CLP',
+    exchangeRate,
+    ufRate
+}: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [isLoading, setIsLoading] = useState<string | null>(null); // Stores ID of item being processed
     const [isSubmitting, setIsSubmitting] = useState(false); // For creation form
 
     const { toast } = useToast();
 
-    // Helper for currency
+    // Helper for currency conversion and formatting
     const formatMoney = (amount: number) => {
-        if (currency === 'CLP') return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-        if (currency === 'USD') return 'USD ' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+        let value = amount;
+        let targetCurrency = displayCurrency;
+
+        // 1. Calculate Value in Target Currency
+        if (baseCurrency !== targetCurrency) {
+            if (baseCurrency === 'CLP') {
+                if (targetCurrency === 'USD') value = amount / (exchangeRate?.value || 1);
+                if (targetCurrency === 'UF') value = amount / (ufRate?.value || 1);
+            }
+            else if (baseCurrency === 'USD') {
+                if (targetCurrency === 'CLP') value = amount * (exchangeRate?.value || 1);
+                if (targetCurrency === 'UF') {
+                    const clp = amount * (exchangeRate?.value || 1);
+                    value = clp / (ufRate?.value || 1);
+                }
+            }
+            else if (baseCurrency === 'UF') {
+                if (targetCurrency === 'CLP') value = amount * (ufRate?.value || 1);
+                if (targetCurrency === 'USD') {
+                    const clp = amount * (ufRate?.value || 1);
+                    value = clp / (exchangeRate?.value || 1);
+                }
+            }
+        }
+
+        // 2. Format
+        if (targetCurrency === 'CLP') return '$' + Math.round(value).toLocaleString('es-CL');
+        if (targetCurrency === 'USD') return 'US$' + value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        if (targetCurrency === 'UF') return 'UF ' + value.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return '$' + Math.round(value).toLocaleString('es-CL');
     }
 
     async function handleCreate(formData: FormData) {

@@ -16,27 +16,64 @@ interface Props {
     projectId: string;
     items: QuoteItem[];
     defaultMargin?: number;
-    currency?: string;
+    baseCurrency?: string;
+    displayCurrency?: string;
+    exchangeRate?: { value: number };
+    ufRate?: { value: number };
 }
 
-export function QuoteItemsManager({ projectId, items, defaultMargin = 30, currency = 'CLP' }: Props) {
+export function QuoteItemsManager({
+    projectId,
+    items,
+    defaultMargin = 30,
+    baseCurrency = 'CLP',
+    displayCurrency = 'CLP',
+    exchangeRate,
+    ufRate
+}: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-    // Helper for currency
+    // Helper for currency conversion and formatting
     const formatMoney = (amount: number) => {
-        if (currency === 'CLP') return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-        if (currency === 'USD') return 'USD ' + amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
-        if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        return 'CLP ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+        let value = amount;
+        let targetCurrency = displayCurrency;
+
+        // 1. Calculate Value in Target Currency (if different from base)
+        if (baseCurrency !== targetCurrency) {
+            if (baseCurrency === 'CLP') {
+                if (targetCurrency === 'USD') value = amount / (exchangeRate?.value || 1);
+                if (targetCurrency === 'UF') value = amount / (ufRate?.value || 1);
+            }
+            else if (baseCurrency === 'USD') {
+                if (targetCurrency === 'CLP') value = amount * (exchangeRate?.value || 1);
+                if (targetCurrency === 'UF') {
+                    const clp = amount * (exchangeRate?.value || 1);
+                    value = clp / (ufRate?.value || 1);
+                }
+            }
+            else if (baseCurrency === 'UF') {
+                if (targetCurrency === 'CLP') value = amount * (ufRate?.value || 1);
+                if (targetCurrency === 'USD') {
+                    const clp = amount * (ufRate?.value || 1);
+                    value = clp / (exchangeRate?.value || 1);
+                }
+            }
+        }
+
+        // 2. Format
+        if (targetCurrency === 'CLP') return 'CLP ' + Math.round(value).toLocaleString('es-CL');
+        if (targetCurrency === 'USD') return 'USD ' + value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        if (targetCurrency === 'UF') return 'UF ' + value.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return 'CLP ' + Math.round(value).toLocaleString('es-CL');
     }
 
-    // Helper for rounding based on currency
+    // Helper for rounding based on target currency
     const roundMoney = (amount: number) => {
         if (!amount) return 0;
-        if (currency === 'UF') {
+        if (displayCurrency === 'UF') {
             return Math.round(amount * 100) / 100;
         }
         return Math.round(amount);

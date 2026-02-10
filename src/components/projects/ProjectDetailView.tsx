@@ -691,7 +691,10 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                             projectId={project.id}
                             items={project.quoteItems || []}
                             defaultMargin={project.marginPct ? project.marginPct * 100 : 30}
-                            currency={project.currency || 'CLP'}
+                            baseCurrency={project.currency || 'CLP'}
+                            displayCurrency={currency}
+                            exchangeRate={exchangeRate}
+                            ufRate={ufRate}
                         />
                     </div>
                 )
@@ -703,10 +706,24 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         {/* Left Column: Management */}
                         <div className="lg:col-span-2 space-y-8">
                             <section>
-                                <CostsManager projectId={project.id} costs={project.costEntries} currency={project.currency || 'CLP'} />
+                                <CostsManager
+                                    projectId={project.id}
+                                    costs={project.costEntries}
+                                    baseCurrency={project.currency || 'CLP'}
+                                    displayCurrency={currency}
+                                    exchangeRate={exchangeRate}
+                                    ufRate={ufRate}
+                                />
                             </section>
                             <section>
-                                <InvoicesManager projectId={project.id} invoices={project.invoices} currency={project.currency || 'CLP'} />
+                                <InvoicesManager
+                                    projectId={project.id}
+                                    invoices={project.invoices}
+                                    baseCurrency={project.currency || 'CLP'}
+                                    displayCurrency={currency}
+                                    exchangeRate={exchangeRate}
+                                    ufRate={ufRate}
+                                />
                             </section>
                             <div className="p-5">
                                 {(() => {
