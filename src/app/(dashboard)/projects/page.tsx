@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
+import { differenceInCalendarDays, isBefore, startOfDay, format } from "date-fns";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PaginationControl } from "@/components/ui/PaginationControl";
@@ -175,7 +175,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                                                 <p className="font-semibold mb-1">Cotización Enviada</p>
                                                                 <p className="text-xs">
                                                                     {project.quoteSentDate
-                                                                        ? `Enviada el ${new Date(project.quoteSentDate).toLocaleDateString()}`
+                                                                        ? `Enviada el ${format(new Date(project.quoteSentDate), "dd/MM/yyyy")}`
                                                                         : 'Aún no enviada'}
                                                                 </p>
                                                             </TooltipContent>
@@ -197,7 +197,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                                                 <p className="font-semibold mb-1">Aceptación Digital</p>
                                                                 <p className="text-xs">
                                                                     {project.acceptedAt
-                                                                        ? `Aceptado el ${new Date(project.acceptedAt).toLocaleDateString()}`
+                                                                        ? `Aceptado el ${format(new Date(project.acceptedAt), "dd/MM/yyyy")}`
                                                                         : 'Pendiente de aceptación'}
                                                                 </p>
                                                             </TooltipContent>
