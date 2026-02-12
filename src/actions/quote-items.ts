@@ -101,6 +101,7 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
 
 export async function toggleQuoteItemSelection(itemId: string, projectId: string, isSelected: boolean) {
     try {
+        console.log("Server Action toggleQuoteItemSelection:", itemId, isSelected);
         const supabase = await createClient();
 
         const { error } = await supabase.from('QuoteItem').update({
@@ -112,6 +113,7 @@ export async function toggleQuoteItemSelection(itemId: string, projectId: string
             throw new Error(`Failed to toggle selection: ${error.message}`);
         }
 
+        console.log("Update success, revalidating:", `/projects/${projectId}`);
         revalidatePath(`/projects/${projectId}`);
     } catch (error) {
         console.error("Critical error in toggleQuoteItemSelection:", error);

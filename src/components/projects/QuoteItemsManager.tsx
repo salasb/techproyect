@@ -266,10 +266,13 @@ export function QuoteItemsManager({
     const someSelected = items.some(i => i.isSelected !== false) && !allSelected;
 
     async function handleToggleItem(id: string, current: boolean) {
+        console.log("handleToggleItem called", id, current);
         setIsLoading(true); // fast optimistic? better to wait for server actions usually or useOptimistic
         try {
             await toggleQuoteItemSelection(id, projectId, !current);
+            console.log("server action completed");
         } catch (error) {
+            console.error("error in handleToggleItem", error);
             toast({ type: 'error', message: "Error al actualizar selección" });
         } finally {
             setIsLoading(false);
