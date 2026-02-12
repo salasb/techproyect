@@ -140,27 +140,21 @@ export function InvoicesManager({
                 <h3 className="text-lg font-medium text-foreground">Facturación</h3>
             </div>
 
-            <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
-                            <tr>
-                                <th className="px-6 py-3 font-medium">Estado</th>
-                                <th className="px-6 py-3 font-medium">Vencimiento</th>
-                                <th className="px-6 py-3 font-medium text-right">Monto</th>
-                                <th className="px-6 py-3 font-medium text-right">Pagado</th>
-                                <th className="px-6 py-3 font-medium text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {invoices.length === 0 ? (
+            {invoices.length > 0 ? (
+                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                                        No hay facturas emitidas.
-                                    </td>
+                                    <th className="px-6 py-3 font-medium">Estado</th>
+                                    <th className="px-6 py-3 font-medium">Vencimiento</th>
+                                    <th className="px-6 py-3 font-medium text-right">Monto</th>
+                                    <th className="px-6 py-3 font-medium text-right">Pagado</th>
+                                    <th className="px-6 py-3 font-medium text-right">Acciones</th>
                                 </tr>
-                            ) : (
-                                invoices.map((inv) => {
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                                {invoices.map((inv) => {
                                     const isPaid = inv.amountPaidGross >= inv.amountInvoicedGross;
                                     const isProcessing = isLoading === inv.id;
 
@@ -201,12 +195,25 @@ export function InvoicesManager({
                                             </td>
                                         </tr>
                                     );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                !isAdding && (
+                    <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 p-6 text-center">
+                        <p className="text-sm text-muted-foreground mb-4">No hay facturas emitidas.</p>
+                        <button
+                            onClick={() => setIsAdding(true)}
+                            className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Nueva Factura
+                        </button>
+                    </div>
+                )
+            )}
 
             {isAdding ? (
                 <form action={handleCreate} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
@@ -242,9 +249,11 @@ export function InvoicesManager({
                     </div>
                 </form>
             ) : (
-                <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600">
-                    <Plus className="w-4 h-4 mr-2" /> Nueva Factura
-                </button>
+                invoices.length > 0 && (
+                    <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600">
+                        <Plus className="w-4 h-4 mr-2" /> Nueva Factura
+                    </button>
+                )
             )}
         </div>
     );

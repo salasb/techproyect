@@ -320,6 +320,9 @@ export function QuoteItemsManager({
     const totalMargin = totalNet - totalCost;
     const projectMarginPct = totalNet > 0 ? (totalMargin / totalNet) * 100 : 0;
 
+    // Visibility Logic
+    const showSku = optimisticItems.some(item => item.sku && item.sku.trim().length > 0 && item.sku !== '-');
+
     function getMarginColorClass(margin: number) {
         const m = Math.round(margin);
         if (m <= 5) return 'text-red-600 bg-red-100 border-red-200'; // Critical (0-5%)
@@ -388,7 +391,7 @@ export function QuoteItemsManager({
                                     onChange={handleToggleAll}
                                 />
                             </th>
-                            <th className="px-4 py-3 font-medium w-24">SKU</th>
+                            {showSku && <th className="px-4 py-3 font-medium w-24">SKU</th>}
                             <th className="px-4 py-3 font-medium">Detalle</th>
                             <th className="px-4 py-3 font-medium w-16 text-center">Cant.</th>
                             <th className="px-4 py-3 font-medium w-32 text-right text-zinc-500">Costo U.</th>
@@ -401,7 +404,7 @@ export function QuoteItemsManager({
                     <tbody className="divide-y divide-border">
                         {items.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="px-6 py-12 text-center text-muted-foreground">
+                                <td colSpan={showSku ? 9 : 8} className="px-6 py-12 text-center text-muted-foreground">
                                     No hay ítems registrados. Comienza agregando uno.
                                 </td>
                             </tr>
@@ -421,9 +424,11 @@ export function QuoteItemsManager({
                                                 onChange={() => handleToggleItem(item.id, isSelected)}
                                             />
                                         </td>
-                                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs align-top">
-                                            {item.sku || '-'}
-                                        </td>
+                                        {showSku && (
+                                            <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs align-top">
+                                                {item.sku}
+                                            </td>
+                                        )}
                                         <td className="px-4 py-3 align-top">
                                             <ItemDetailRenderer text={item.detail} unit={item.unit} />
                                         </td>
@@ -471,255 +476,259 @@ export function QuoteItemsManager({
             </div>
 
             {/* Catalog Modal */}
-            {isCatalogOpen && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in"
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) setIsCatalogOpen(false);
-                    }}
-                >
-                    <div className="bg-background rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden border border-border">
-                        <div className="p-4 border-b border-border flex justify-between items-center">
-                            <h3 className="font-semibold text-lg">Catálogo de Productos</h3>
-                            <button
-                                type="button"
-                                onClick={() => setIsCatalogOpen(false)}
-                                className="text-zinc-500 hover:text-foreground p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                            >
+            {
+                isCatalogOpen && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in"
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget) setIsCatalogOpen(false);
+                        }}
+                    >
+                        <div className="bg-background rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden border border-border">
+                            <div className="p-4 border-b border-border flex justify-between items-center">
+                                <h3 className="font-semibold text-lg">Catálogo de Productos</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCatalogOpen(false)}
+                                    className="text-zinc-500 hover:text-foreground p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-4 border-b border-border bg-muted/30">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por nombre o SKU..."
+                                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-primary outline-none"
+                                        value={catalogSearch}
+                                        onChange={(e) => handleCatalogSearch(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-2">
+                                {catalogLoading ? (
+                                    <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+                                ) : catalogItems.length === 0 ? (
+                                    <div className="text-center p-8 text-muted-foreground">
+                                        No se encontraron productos.
+                                        {catalogSearch && <p className="text-xs mt-2">Prueba con otro término de búsqueda.</p>}
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-2">
+                                        {catalogItems.map(prod => (
+                                            <button
+                                                key={prod.id}
+                                                type="button"
+                                                onClick={() => selectProduct(prod)}
+                                                className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent hover:text-accent-foreground text-left transition-colors group"
+                                            >
+                                                <div>
+                                                    <p className="font-semibold text-sm flex items-center">
+                                                        <span className="font-mono text-xs text-muted-foreground mr-2 bg-muted px-1.5 py-0.5 rounded">{prod.sku}</span>
+                                                        {prod.name}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{prod.description}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-mono font-bold text-sm">{formatMoney(prod.priceNet)}</p>
+                                                    <span className="text-[10px] text-muted-foreground">Margen sugg.</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Add/Edit Form */}
+            {
+                showForm ? (
+                    <form id="item-form" action={handleSubmit} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-blue-200 dark:border-blue-900/50 animate-in slide-in-from-top-2 ring-1 ring-blue-500/20 mt-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase flex items-center">
+                                {editingItem ? <Edit2 className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                                {editingItem ? 'Editar Ítem' : 'Nuevo Ítem'}
+                            </h4>
+                            <button type="button" onClick={cancelForm} className="text-zinc-400 hover:text-zinc-600">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="p-4 border-b border-border bg-muted/30">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-                                <input
-                                    type="text"
-                                    placeholder="Buscar por nombre o SKU..."
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-primary outline-none"
-                                    value={catalogSearch}
-                                    onChange={(e) => handleCatalogSearch(e.target.value)}
-                                    autoFocus
-                                />
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-2">
-                            {catalogLoading ? (
-                                <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-                            ) : catalogItems.length === 0 ? (
-                                <div className="text-center p-8 text-muted-foreground">
-                                    No se encontraron productos.
-                                    {catalogSearch && <p className="text-xs mt-2">Prueba con otro término de búsqueda.</p>}
-                                </div>
-                            ) : (
-                                <div className="grid gap-2">
-                                    {catalogItems.map(prod => (
-                                        <button
-                                            key={prod.id}
-                                            type="button"
-                                            onClick={() => selectProduct(prod)}
-                                            className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent hover:text-accent-foreground text-left transition-colors group"
-                                        >
-                                            <div>
-                                                <p className="font-semibold text-sm flex items-center">
-                                                    <span className="font-mono text-xs text-muted-foreground mr-2 bg-muted px-1.5 py-0.5 rounded">{prod.sku}</span>
-                                                    {prod.name}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{prod.description}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-mono font-bold text-sm">{formatMoney(prod.priceNet)}</p>
-                                                <span className="text-[10px] text-muted-foreground">Margen sugg.</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Add/Edit Form */}
-            {showForm ? (
-                <form id="item-form" action={handleSubmit} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-blue-200 dark:border-blue-900/50 animate-in slide-in-from-top-2 ring-1 ring-blue-500/20 mt-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase flex items-center">
-                            {editingItem ? <Edit2 className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                            {editingItem ? 'Editar Ítem' : 'Nuevo Ítem'}
-                        </h4>
-                        <button type="button" onClick={cancelForm} className="text-zinc-400 hover:text-zinc-600">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-                        <div className="md:col-span-8">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Detalle</label>
-                            <div className="relative">
-                                {/* Changed from Input to Textarea for Smart List support */}
-                                <textarea
-                                    name="detail"
-                                    required
-                                    autoComplete="off"
-                                    defaultValue={editingItem?.detail}
-                                    placeholder="Describe el ítem... (Presiona Enter para crear listas)"
-                                    rows={3}
-                                    className="w-full p-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                                />
-                                <p className="text-[10px] text-muted-foreground mt-1 mx-1">
-                                    Tip: Usa saltos de línea para crear una lista automática en la vista.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="md:col-span-2 hidden">
-                            <input name="sku" type="hidden" defaultValue={editingItem?.sku || ''} />
-                        </div>
-
-                        <div className="md:col-span-4 grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-zinc-500 mb-1">Cantidad</label>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                            <div className="md:col-span-8">
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción / Detalle</label>
                                 <div className="relative">
-                                    <Hash className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                    <input
-                                        name="quantity"
-                                        type="number"
+                                    {/* Changed from Input to Textarea for Smart List support */}
+                                    <textarea
+                                        name="detail"
                                         required
-                                        min="1"
-                                        step="1" // Force Integer
-                                        defaultValue={editingItem?.quantity || 1}
-                                        className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        autoComplete="off"
+                                        defaultValue={editingItem?.detail}
+                                        placeholder="Describe el ítem... (Presiona Enter para crear listas)"
+                                        rows={3}
+                                        className="w-full p-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                                     />
+                                    <p className="text-[10px] text-muted-foreground mt-1 mx-1">
+                                        Tip: Usa saltos de línea para crear una lista automática en la vista.
+                                    </p>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-medium text-zinc-500 mb-1">Unidad</label>
-                                <select
-                                    name="unit"
-                                    required
-                                    defaultValue={editingItem?.unit || "UN"}
-                                    className="w-full px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                    <option value="UN">UN</option>
-                                    <option value="GL">GL</option>
-                                    <option value="HR">Horas</option>
-                                    <option value="MT">Metros</option>
-                                    <option value="M2">M2</option>
-                                    <option value="M3">M3</option>
-                                    <option value="VG">Viajes</option>
-                                </select>
+                            <div className="md:col-span-2 hidden">
+                                <input name="sku" type="hidden" defaultValue={editingItem?.sku || ''} />
                             </div>
-                        </div>
 
-                        {/* Financial Row */}
-                        <div className="md:col-span-12 grid grid-cols-12 gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800/50">
-                            <div className="col-span-4">
-                                <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unit.</label>
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                    <input
-                                        name="costNet"
-                                        type="number"
+                            <div className="md:col-span-4 grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-500 mb-1">Cantidad</label>
+                                    <div className="relative">
+                                        <Hash className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                        <input
+                                            name="quantity"
+                                            type="number"
+                                            required
+                                            min="1"
+                                            step="1" // Force Integer
+                                            defaultValue={editingItem?.quantity || 1}
+                                            className="w-full pl-9 pr-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-500 mb-1">Unidad</label>
+                                    <select
+                                        name="unit"
                                         required
-                                        min="0"
-                                        step={displayCurrency === 'UF' ? "0.01" : "1"}
-                                        defaultValue={editingItem?.costNet}
-                                        value={costNet || (editingItem ? undefined : '')}
-                                        placeholder="0"
-                                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                                        onChange={(e) => handleCostChange(Number(e.target.value))}
-                                    />
+                                        defaultValue={editingItem?.unit || "UN"}
+                                        className="w-full px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    >
+                                        <option value="UN">UN</option>
+                                        <option value="GL">GL</option>
+                                        <option value="HR">Horas</option>
+                                        <option value="MT">Metros</option>
+                                        <option value="M2">M2</option>
+                                        <option value="M3">M3</option>
+                                        <option value="VG">Viajes</option>
+                                    </select>
                                 </div>
                             </div>
 
-                            <div className="col-span-2">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <label className="block text-xs font-medium text-blue-600 mb-1 cursor-help underline decoration-dotted">Margen %</label>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Ganancia sobre venta: <br /><code>(Precio - Costo) / Precio</code></p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <div className="relative">
-                                    <input
-                                        name="marginPct"
-                                        type="number"
-                                        step="1" // Force Integer
-                                        className="w-full pl-2 pr-6 py-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center text-blue-700 dark:text-blue-400"
-                                        value={marginPct}
-                                        onChange={(e) => handleMarginChange(Number(e.target.value))}
-                                    />
-                                    <span className="absolute right-3 top-2 text-xs text-blue-400">%</span>
+                            {/* Financial Row */}
+                            <div className="md:col-span-12 grid grid-cols-12 gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800/50">
+                                <div className="col-span-4">
+                                    <label className="block text-xs font-medium text-zinc-500 mb-1">Costo Unit.</label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                        <input
+                                            name="costNet"
+                                            type="number"
+                                            required
+                                            min="0"
+                                            step={displayCurrency === 'UF' ? "0.01" : "1"}
+                                            defaultValue={editingItem?.costNet}
+                                            value={costNet || (editingItem ? undefined : '')}
+                                            placeholder="0"
+                                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                            onChange={(e) => handleCostChange(Number(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <label className="block text-xs font-medium text-blue-600 mb-1 cursor-help underline decoration-dotted">Margen %</label>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Ganancia sobre venta: <br /><code>(Precio - Costo) / Precio</code></p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <div className="relative">
+                                        <input
+                                            name="marginPct"
+                                            type="number"
+                                            step="1" // Force Integer
+                                            className="w-full pl-2 pr-6 py-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center text-blue-700 dark:text-blue-400"
+                                            value={marginPct}
+                                            onChange={(e) => handleMarginChange(Number(e.target.value))}
+                                        />
+                                        <span className="absolute right-3 top-2 text-xs text-blue-400">%</span>
+                                    </div>
+                                </div>
+
+                                <div className="col-span-4">
+                                    <label className="block text-xs font-medium text-zinc-500 mb-1">Precio Venta</label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                        <input
+                                            name="priceNet"
+                                            type="number"
+                                            required
+                                            min="0"
+                                            step={displayCurrency === 'UF' ? "0.01" : "1"}
+                                            defaultValue={editingItem?.priceNet}
+                                            value={priceNet || (editingItem ? undefined : '')}
+                                            placeholder="0"
+                                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                            onChange={(e) => handlePriceChange(Number(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2 flex items-end">
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center"
+                                    >
+                                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                        {editingItem ? 'Guardar' : 'Agregar'}
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="col-span-4">
-                                <label className="block text-xs font-medium text-zinc-500 mb-1">Precio Venta</label>
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
-                                    <input
-                                        name="priceNet"
-                                        type="number"
-                                        required
-                                        min="0"
-                                        step={displayCurrency === 'UF' ? "0.01" : "1"}
-                                        defaultValue={editingItem?.priceNet}
-                                        value={priceNet || (editingItem ? undefined : '')}
-                                        placeholder="0"
-                                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                                        onChange={(e) => handlePriceChange(Number(e.target.value))}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="col-span-2 flex items-end">
+                            <div className="md:col-span-12 flex justify-start mt-2">
                                 <button
-                                    type="submit"
-                                    disabled={isLoading}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center"
+                                    type="button"
+                                    onClick={cancelForm}
+                                    className="text-xs text-zinc-400 hover:text-zinc-600 underline"
                                 >
-                                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                                    {editingItem ? 'Guardar' : 'Agregar'}
+                                    Cancelar edición
                                 </button>
                             </div>
                         </div>
-
-                        <div className="md:col-span-12 flex justify-start mt-2">
-                            <button
-                                type="button"
-                                onClick={cancelForm}
-                                className="text-xs text-zinc-400 hover:text-zinc-600 underline"
-                            >
-                                Cancelar edición
-                            </button>
-                        </div>
+                    </form>
+                ) : (
+                    <div className="flex gap-4 mt-6">
+                        <button
+                            onClick={() => {
+                                resetForm();
+                                setIsAdding(true);
+                            }}
+                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Agregar Ítem
+                        </button>
+                        <button
+                            onClick={openCatalog}
+                            className="flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
+                        >
+                            <Search className="w-4 h-4 mr-2" />
+                            Buscar en Catálogo
+                        </button>
                     </div>
-                </form>
-            ) : (
-                <div className="flex gap-4 mt-6">
-                    <button
-                        onClick={() => {
-                            resetForm();
-                            setIsAdding(true);
-                        }}
-                        className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Agregar Ítem
-                    </button>
-                    <button
-                        onClick={openCatalog}
-                        className="flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
-                    >
-                        <Search className="w-4 h-4 mr-2" />
-                        Buscar en Catálogo
-                    </button>
-                </div>
-            )}
+                )
+            }
 
             <ConfirmDialog
                 isOpen={!!itemToDelete}
@@ -731,6 +740,6 @@ export function QuoteItemsManager({
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setItemToDelete(null)}
             />
-        </div>
+        </div >
     );
 }

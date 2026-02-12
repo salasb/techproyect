@@ -152,27 +152,22 @@ export function CostsManager({
 
             {/* List */}
             {/* List */}
-            <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
-                            <tr>
-                                <th className="px-6 py-3 font-medium">Fecha</th>
-                                <th className="px-6 py-3 font-medium">Descripción</th>
-                                <th className="px-6 py-3 font-medium">Categoría</th>
-                                <th className="px-6 py-3 font-medium text-right">Monto Neto</th>
-                                <th className="px-6 py-3 font-medium text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {costs.length === 0 ? (
+            {/* List */}
+            {costs.length > 0 ? (
+                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                                        No hay costos registrados aún.
-                                    </td>
+                                    <th className="px-6 py-3 font-medium">Fecha</th>
+                                    <th className="px-6 py-3 font-medium">Descripción</th>
+                                    <th className="px-6 py-3 font-medium">Categoría</th>
+                                    <th className="px-6 py-3 font-medium text-right">Monto Neto</th>
+                                    <th className="px-6 py-3 font-medium text-right">Acciones</th>
                                 </tr>
-                            ) : (
-                                costs.map((cost) => (
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                                {costs.map((cost) => (
                                     <tr key={cost.id} className="group hover:bg-muted/50 transition-colors">
                                         <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
                                             {new Date(cost.date).toLocaleDateString()}
@@ -205,12 +200,25 @@ export function CostsManager({
                                             </button>
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                !isAdding && (
+                    <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 p-6 text-center">
+                        <p className="text-sm text-muted-foreground mb-4">No hay costos registrados aún.</p>
+                        <button
+                            onClick={() => setIsAdding(true)}
+                            className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Registrar Primer Costo
+                        </button>
+                    </div>
+                )
+            )}
 
             <ConfirmDialog
                 isOpen={!!itemToDelete}
@@ -319,13 +327,15 @@ export function CostsManager({
                         </div>
                     </form>
                 ) : (
-                    <button
-                        onClick={() => setIsAdding(true)}
-                        className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Registrar Nuevo Costo
-                    </button>
+                    costs.length > 0 && (
+                        <button
+                            onClick={() => setIsAdding(true)}
+                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Registrar Nuevo Costo
+                        </button>
+                    )
                 )
             }
         </div >

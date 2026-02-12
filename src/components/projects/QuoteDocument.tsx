@@ -46,7 +46,11 @@ export function QuoteDocument({ project, settings }: Props) {
     }
 
     // Sort Items by SKU? User requested better distribution.
+    // Sort Items by SKU? User requested better distribution.
     // Let's assume passed items are ordered.
+
+    // Visibility Logic
+    const showSku = project.quoteItems?.some(item => item.sku && item.sku.trim().length > 0 && item.sku !== '-');
 
     return (
         <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white text-slate-800 shadow-2xl print:shadow-none p-[15mm] md:p-[20mm] relative flex flex-col font-sans text-sm print:text-xs">
@@ -120,7 +124,7 @@ export function QuoteDocument({ project, settings }: Props) {
                     <thead>
                         <tr className="border-b-2 border-slate-900">
                             {/* Replaced # with SKU for better tracking */}
-                            <th className="text-left py-2 font-bold text-slate-900 w-16">SKU</th>
+                            {showSku && <th className="text-left py-2 font-bold text-slate-900 w-16">SKU</th>}
                             <th className="text-left py-2 font-bold text-slate-900 pl-4">DESCRIPCIÓN</th>
                             <th className="text-center py-2 font-bold text-slate-900 w-12">CANT.</th>
                             <th className="text-right py-2 font-bold text-slate-900 w-24">UNITARIO</th>
@@ -131,9 +135,11 @@ export function QuoteDocument({ project, settings }: Props) {
                         {project.quoteItems && project.quoteItems.length > 0 ? (
                             project.quoteItems.map((item, index) => (
                                 <tr key={item.id} className="break-inside-avoid">
-                                    <td className="py-2 text-slate-400 align-top font-mono text-[10px] leading-relaxed pt-3">
-                                        {item.sku || '-'}
-                                    </td>
+                                    {showSku && (
+                                        <td className="py-2 text-slate-400 align-top font-mono text-[10px] leading-relaxed pt-3">
+                                            {item.sku || '-'}
+                                        </td>
+                                    )}
                                     <td className="py-2 pl-4 align-top pt-3">
                                         <div className="font-medium text-slate-900 uppercase mb-1 leading-snug">
                                             <span className="whitespace-pre-line">{item.detail}</span>
@@ -153,7 +159,7 @@ export function QuoteDocument({ project, settings }: Props) {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={5} className="py-12 px-4 text-center text-zinc-400">
+                                <td colSpan={showSku ? 5 : 4} className="py-12 px-4 text-center text-zinc-400">
                                     <p>No se han agregado ítems a esta cotización.</p>
                                 </td>
                             </tr>
