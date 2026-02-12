@@ -67,6 +67,7 @@ model QuoteItem {
   unit      String  @default("UN")
   priceNet  Float   @default(0)
   costNet   Float   @default(0)
+  isSelected Boolean @default(true)
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 

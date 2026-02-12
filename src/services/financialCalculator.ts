@@ -50,7 +50,7 @@ export interface FinancialResult {
     overallHealth: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
 }
 
-type QuoteItem = Database['public']['Tables']['QuoteItem']['Row']
+type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'] & { isSelected?: boolean }
 
 export function calculateProjectFinancials(
     project: MinimalProject,
@@ -70,9 +70,12 @@ export function calculateProjectFinancials(
 
     // If we have detailed quote items, they dictate the Price AND "Budget" Cost (Bottom-Up).
     if (quoteItems && quoteItems.length > 0) {
-        priceNet = quoteItems.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0)
+        // Filter only selected items for calculation
+        const activeItems = quoteItems.filter(item => item.isSelected !== false); // Default to true if null/undefined
 
-        const itemsCostNet = quoteItems.reduce((acc, item) => acc + (item.costNet * item.quantity), 0)
+        priceNet = activeItems.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0)
+
+        const itemsCostNet = activeItems.reduce((acc, item) => acc + (item.costNet * item.quantity), 0)
 
         // Base Cost (Budget) is derived from the Quote Items
         baseCostNet = itemsCostNet

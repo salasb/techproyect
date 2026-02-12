@@ -95,3 +95,33 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/quote`);
 }
+
+export async function toggleQuoteItemSelection(itemId: string, projectId: string, isSelected: boolean) {
+    const supabase = await createClient();
+
+    const { error } = await supabase.from('QuoteItem').update({
+        isSelected
+    }).eq('id', itemId);
+
+    if (error) {
+        console.error("Error toggling item selection:", error);
+        throw new Error("Failed to toggle selection");
+    }
+
+    revalidatePath(`/projects/${projectId}`);
+}
+
+export async function toggleAllQuoteItems(projectId: string, isSelected: boolean) {
+    const supabase = await createClient();
+
+    const { error } = await supabase.from('QuoteItem').update({
+        isSelected
+    }).eq('projectId', projectId);
+
+    if (error) {
+        console.error("Error toggling all items:", error);
+        throw new Error("Failed to toggle all items");
+    }
+
+    revalidatePath(`/projects/${projectId}`);
+}

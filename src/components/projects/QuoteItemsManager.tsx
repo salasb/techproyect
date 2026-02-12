@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Database } from "@/types/supabase";
-import { addQuoteItem, removeQuoteItem, updateQuoteItem } from "@/actions/quote-items";
+import { addQuoteItem, removeQuoteItem, updateQuoteItem, toggleQuoteItemSelection, toggleAllQuoteItems } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
 import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,7 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ItemDetailRenderer } from "./ItemDetailRenderer";
 
-type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'];
+type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'] & { isSelected?: boolean };
 
 interface Props {
     projectId: string;
@@ -261,8 +261,39 @@ export function QuoteItemsManager({
         resetForm();
     }
 
-    const totalNet = items.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0);
-    const totalCost = items.reduce((acc, item) => acc + (item.costNet * item.quantity), 0);
+    // Selection Logic
+    const allSelected = items.length > 0 && items.every(i => i.isSelected !== false);
+    const someSelected = items.some(i => i.isSelected !== false) && !allSelected;
+
+    async function handleToggleItem(id: string, current: boolean) {
+        setIsLoading(true); // fast optimistic? better to wait for server actions usually or useOptimistic
+        try {
+            await toggleQuoteItemSelection(id, projectId, !current);
+        } catch (error) {
+            toast({ type: 'error', message: "Error al actualizar selección" });
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    async function handleToggleAll() {
+        if (items.length === 0) return;
+        const newValue = !allSelected;
+        setIsLoading(true);
+        try {
+            await toggleAllQuoteItems(projectId, newValue);
+        } catch (error) {
+            toast({ type: 'error', message: "Error al actualizar selección global" });
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    // Filter items for totals
+    const activeItems = items.filter(i => i.isSelected !== false);
+
+    const totalNet = activeItems.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0);
+    const totalCost = activeItems.reduce((acc, item) => acc + (item.costNet * item.quantity), 0);
     const totalMargin = totalNet - totalCost;
     const projectMarginPct = totalNet > 0 ? (totalMargin / totalNet) * 100 : 0;
 
@@ -318,6 +349,15 @@ export function QuoteItemsManager({
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-slate-700 dark:text-slate-200 uppercase bg-slate-100 dark:bg-slate-800/80 border-b border-zinc-200 dark:border-zinc-700 shadow-sm">
                         <tr>
+                            <th className="px-4 py-3 w-10 text-center">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
+                                    checked={allSelected}
+                                    ref={input => { if (input) input.indeterminate = someSelected; }}
+                                    onChange={handleToggleAll}
+                                />
+                            </th>
                             <th className="px-4 py-3 font-medium w-24">SKU</th>
                             <th className="px-4 py-3 font-medium">Detalle</th>
                             <th className="px-4 py-3 font-medium w-16 text-center">Cant.</th>
@@ -331,16 +371,26 @@ export function QuoteItemsManager({
                     <tbody className="divide-y divide-border">
                         {items.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                                <td colSpan={9} className="px-6 py-12 text-center text-muted-foreground">
                                     No hay ítems registrados. Comienza agregando uno.
                                 </td>
                             </tr>
                         ) : (
                             items.map((item) => {
+                                const isSelected = item.isSelected !== false; // Default true
                                 const margin = item.priceNet - item.costNet;
                                 const marginP = item.priceNet > 0 ? (margin / item.priceNet) * 100 : 0;
+
                                 return (
-                                    <tr key={item.id} className="group hover:bg-muted/50 transition-colors">
+                                    <tr key={item.id} className={`group hover:bg-muted/50 transition-colors ${!isSelected ? 'bg-zinc-50/50 dark:bg-zinc-900/20 opacity-60 grayscale-[0.5]' : ''}`}>
+                                        <td className="px-4 py-3 text-center align-top">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
+                                                checked={isSelected}
+                                                onChange={() => handleToggleItem(item.id, isSelected)}
+                                            />
+                                        </td>
                                         <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs align-top">
                                             {item.sku || '-'}
                                         </td>
