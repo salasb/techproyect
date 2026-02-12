@@ -117,7 +117,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
                                     };
 
                                     return (
-                                        <tr key={project.id} className="group border-b border-border hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-all hover:shadow-sm hover:border-l-[3px] hover:border-l-blue-500 relative">
+                                        <tr key={project.id} className="group border-b border-border border-l-[3px] border-l-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-all hover:shadow-sm hover:border-l-blue-500 relative">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-0.5">
                                                     <div className="flex items-center gap-2">

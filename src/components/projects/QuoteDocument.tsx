@@ -53,10 +53,10 @@ export function QuoteDocument({ project, settings }: Props) {
     const showSku = project.quoteItems?.some(item => item.sku && item.sku.trim().length > 0 && item.sku !== '-');
 
     return (
-        <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white text-slate-800 shadow-2xl print:shadow-none p-[15mm] md:p-[20mm] relative flex flex-col font-sans text-sm print:text-xs">
+        <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white text-slate-800 shadow-2xl print:shadow-none p-[12mm] relative flex flex-col font-sans text-sm print:text-xs">
 
             {/* --- COMPACT HEADER LAYOUT --- */}
-            <div className="flex justify-between items-start mb-6 border-b-2 border-slate-900 pb-4">
+            <div className="flex justify-between items-start mb-4 border-b-2 border-slate-900 pb-4">
                 {/* 1. Logo & Provider Info */}
                 <div className="w-1/3 pr-4">
                     <img src="/techwise logo negro.png" alt="TECHWISE" className="h-10 w-auto object-contain mb-3" />
@@ -104,7 +104,7 @@ export function QuoteDocument({ project, settings }: Props) {
             </div>
 
             {/* --- PROJECT SCOPE / TITLE --- */}
-            <div className="mb-6">
+            <div className="mb-4">
                 <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Proyecto</p>
                 <div className="font-bold text-base text-slate-900 uppercase">
                     {project.name}
@@ -119,7 +119,7 @@ export function QuoteDocument({ project, settings }: Props) {
             </div>
 
             {/* --- ITEMS TABLE --- */}
-            <div className="mb-8 flex-grow">
+            <div className="mb-6 flex-grow">
                 <table className="w-full text-xs border-collapse table-auto">
                     <thead>
                         <tr className="border-b-2 border-slate-900">
@@ -169,7 +169,7 @@ export function QuoteDocument({ project, settings }: Props) {
             </div>
 
             {/* --- FOOTER & TOTALS --- */}
-            <div className="flex flex-col md:flex-row gap-8 mb-12 break-inside-avoid">
+            <div className="flex flex-col md:flex-row gap-8 mb-8 break-inside-avoid">
                 {/* Terms / Disclaimer */}
                 <div className="flex-1 text-[10px] text-slate-500 text-justify leading-relaxed pr-8">
                     <p className="mb-2"><strong>Condiciones Comerciales:</strong></p>
@@ -205,7 +205,7 @@ export function QuoteDocument({ project, settings }: Props) {
             </div>
 
             {/* --- SIGNATURES --- */}
-            <div className="mt-auto pt-12 pb-4 break-inside-avoid">
+            <div className="mt-auto pt-8 pb-4 break-inside-avoid">
                 <div className="grid grid-cols-2 gap-16">
                     <div className="text-center">
                         <div className="border-t border-slate-300 w-3/4 mx-auto mb-2"></div>

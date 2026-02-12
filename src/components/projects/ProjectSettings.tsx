@@ -213,7 +213,7 @@ export function ProjectSettings({ project, clients }: Props) {
 
     return (
         <div className="space-y-8">
-            <form action={handleSubmit} className="space-y-6">
+            <form action={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 {/* General Settings */}
                 <div className="space-y-6 bg-card border border-border rounded-xl p-6 shadow-sm">
                     <div>
@@ -230,91 +230,8 @@ export function ProjectSettings({ project, clients }: Props) {
                             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground font-semibold text-lg"
                         />
                     </div>
-                    {/* ... other general inputs could go here if any ... */}
-                </div>
 
-                {/* Client Selection, Status & Workflow */}
-                <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
-                    {/* Client Selection */}
                     <div>
-                        <h3 className="text-sm font-medium text-foreground mb-4">Cliente Asociado</h3>
-                        <div className="space-y-4">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <input
-                                    type="text"
-                                    placeholder="Buscar cliente por nombre o RUT..."
-                                    value={searchTerm}
-                                    onChange={(e) => {
-                                        setSearchTerm(e.target.value);
-                                        // If user clears search or types, we might want to unset selectedClientId or keep it?
-                                        // Standard Combobox behavior: if it doesn't match selected, it's just filtering.
-                                    }}
-                                    onFocus={() => {
-                                        // Show list on focus
-                                    }}
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                                />
-                                {selectedClientId && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedClientId(null);
-                                            setSearchTerm("");
-                                        }}
-                                        className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Combobox Dropdown - Only show if searching */}
-                            {searchTerm && (
-                                <div className="border border-border rounded-lg max-h-48 overflow-y-auto bg-popover/50 backdrop-blur-sm">
-                                    {filteredClients.length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-muted-foreground">No se encontraron clientes.</div>
-                                    ) : (
-                                        <div className="divide-y divide-border">
-                                            {filteredClients.slice(0, 5).map((client) => ( // Limit to 5 results for cleaner UI
-                                                <button
-                                                    key={client.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedClientId(client.id);
-                                                        setSearchTerm(client.name); // Set input to selected Name
-                                                    }}
-                                                    className={`w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors ${selectedClientId === client.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
-                                                >
-                                                    <div>
-                                                        <p className="font-medium text-sm text-foreground">{client.name}</p>
-                                                        <p className="text-xs text-muted-foreground">{client.taxId || 'Sin RUT'}</p>
-                                                    </div>
-                                                    {selectedClientId === client.id && <Check className="h-4 w-4 text-primary" />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {selectedClientId && !searchTerm && (
-                                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-foreground">
-                                            {clients.find(c => c.id === selectedClientId)?.name}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {clients.find(c => c.id === selectedClientId)?.taxId}
-                                        </p>
-                                    </div>
-                                    <Check className="h-4 w-4 text-primary" />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-border">
                         <label className="block text-sm font-medium text-foreground mb-1">Estado del Proyecto</label>
                         <select
                             value={status}
@@ -327,6 +244,90 @@ export function ProjectSettings({ project, clients }: Props) {
                             <option value="CERRADO">Cerrado</option>
                             <option value="CANCELADO">Cancelado</option>
                         </select>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Client Selection */}
+                    <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+                        {/* Client Selection */}
+                        <div>
+                            <h3 className="text-sm font-medium text-foreground mb-4">Cliente Asociado</h3>
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar cliente por nombre o RUT..."
+                                        value={searchTerm}
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value);
+                                            // If user clears search or types, we might want to unset selectedClientId or keep it?
+                                            // Standard Combobox behavior: if it doesn't match selected, it's just filtering.
+                                        }}
+                                        onFocus={() => {
+                                            // Show list on focus
+                                        }}
+                                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                    />
+                                    {selectedClientId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedClientId(null);
+                                                setSearchTerm("");
+                                            }}
+                                            className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Combobox Dropdown - Only show if searching */}
+                                {searchTerm && (
+                                    <div className="border border-border rounded-lg max-h-48 overflow-y-auto bg-popover/50 backdrop-blur-sm">
+                                        {filteredClients.length === 0 ? (
+                                            <div className="p-4 text-center text-sm text-muted-foreground">No se encontraron clientes.</div>
+                                        ) : (
+                                            <div className="divide-y divide-border">
+                                                {filteredClients.slice(0, 5).map((client) => ( // Limit to 5 results for cleaner UI
+                                                    <button
+                                                        key={client.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedClientId(client.id);
+                                                            setSearchTerm(client.name); // Set input to selected Name
+                                                        }}
+                                                        className={`w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors ${selectedClientId === client.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
+                                                    >
+                                                        <div>
+                                                            <p className="font-medium text-sm text-foreground">{client.name}</p>
+                                                            <p className="text-xs text-muted-foreground">{client.taxId || 'Sin RUT'}</p>
+                                                        </div>
+                                                        {selectedClientId === client.id && <Check className="h-4 w-4 text-primary" />}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {selectedClientId && !searchTerm && (
+                                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-foreground">
+                                                {clients.find(c => c.id === selectedClientId)?.name}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {clients.find(c => c.id === selectedClientId)?.taxId}
+                                            </p>
+                                        </div>
+                                        <Check className="h-4 w-4 text-primary" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -429,7 +430,8 @@ export function ProjectSettings({ project, clients }: Props) {
                     </div>
                 </div>
 
-                <div className="pt-4 border-t border-border flex justify-end">
+
+                <div className="col-span-1 lg:col-span-2 pt-4 border-t border-border flex justify-end">
                     <button
                         type="submit"
                         disabled={isLoading}
