@@ -943,15 +943,30 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
                                         {/* Projected Reference */}
                                         {/* Projected Reference (Highlighted) */}
-                                        <div className="grid grid-cols-2 py-2 px-3 mt-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg">
+                                        {/* Projected vs Earned Margin */}
+                                        <div className={`grid grid-cols-2 py-2 px-3 mt-4 border rounded-lg ${(project.status === 'EN_CURSO' || project.status === 'FINALIZADO')
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/50'
+                                                : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/50'
+                                            }`}>
                                             <div className="flex flex-col justify-center">
-                                                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-tight">Utilidad Proyectada</span>
-                                                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-500 mt-0.5">
-                                                    Margen Objetivo: {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
+                                                <span className={`text-xs font-bold uppercase tracking-tight ${(project.status === 'EN_CURSO' || project.status === 'FINALIZADO')
+                                                        ? 'text-blue-800 dark:text-blue-400'
+                                                        : 'text-emerald-800 dark:text-emerald-400'
+                                                    }`}>
+                                                    {(project.status === 'EN_CURSO' || project.status === 'FINALIZADO') ? 'Utilidad Ganada' : 'Utilidad Proyectada'}
+                                                </span>
+                                                <span className={`text-[10px] font-medium mt-0.5 ${(project.status === 'EN_CURSO' || project.status === 'FINALIZADO')
+                                                        ? 'text-blue-600 dark:text-blue-500'
+                                                        : 'text-emerald-600 dark:text-emerald-500'
+                                                    }`}>
+                                                    Margen {(project.status === 'EN_CURSO' || project.status === 'FINALIZADO') ? 'Real' : 'Objetivo'}: {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
                                                 </span>
                                             </div>
                                             <div className="text-right flex items-center justify-end">
-                                                <span className="text-sm font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
+                                                <span className={`text-sm font-mono font-bold block ${(project.status === 'EN_CURSO' || project.status === 'FINALIZADO')
+                                                        ? 'text-blue-700 dark:text-blue-400'
+                                                        : 'text-emerald-700 dark:text-emerald-400'
+                                                    }`}>
                                                     {formatMoney(financials.marginAmountNet)}
                                                 </span>
                                             </div>

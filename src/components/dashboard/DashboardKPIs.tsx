@@ -3,7 +3,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface KPIData {
     billing: { value: number, previous: number, trend: number };
-    margin: { value: number, previous: number, trend: number };
+    margin: { value: number, previous: number, trend: number }; // Kept for compat if needed, but we use new props
+    earnedMargin?: number;
+    projectedMargin?: number;
     pipeline: { value: number, count: number };
 }
 
@@ -32,7 +34,7 @@ export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?:
     }
 
     return (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
             {/* 1. Facturación Real */}
             <KPICard
                 title="Facturación Real"
@@ -43,14 +45,22 @@ export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?:
                 color="blue"
             />
 
-            {/* 2. Margen Global */}
+            {/* 2. Margen Ganado (Real) - NEW */}
             <KPICard
-                title="Margen Global"
-                value={formatCurrency(data.margin.value)}
-                trend={data.margin.trend}
-                trendText="vs periodo anterior"
+                title="Margen Ganado (Real)"
+                value={formatCurrency(data.earnedMargin || 0)}
+                subtext="Proyectos En Curso / Finalizados"
                 icon={Wallet}
                 color="emerald"
+            />
+
+            {/* 3. Margen Proyectado (Potencial) - NEW */}
+            <KPICard
+                title="Margen Proyectado"
+                value={formatCurrency(data.projectedMargin || 0)}
+                subtext="Incluye En Espera"
+                icon={TrendingUp} // Changed icon to distinguish
+                color="blue"
             />
 
             {/* 3. Oportunidades (Pipeline) */}
