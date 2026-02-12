@@ -117,13 +117,21 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     }
 
     const requestQuoteAction = (action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') => {
-        const config = {
+        const config: {
+            isOpen: boolean;
+            title: string;
+            description: string;
+            confirmText?: string;
+            cancelText?: string;
+            variant?: 'danger' | 'warning' | 'info' | 'success';
+            onConfirm: () => void;
+        } = {
             isOpen: true,
             onConfirm: () => executeQuoteAction(action),
             title: '',
             description: '',
             confirmText: 'Confirmar',
-            variant: 'info' as const
+            variant: 'info'
         };
 
         if (action === 'SEND') {
@@ -147,7 +155,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             config.variant = 'warning';
         }
 
-        setConfirmConfig(config);
+        setConfirmConfig(config as any); // Cast to fix potential type mismatches with state
     };
 
     async function handleManualQuoteSent() {
