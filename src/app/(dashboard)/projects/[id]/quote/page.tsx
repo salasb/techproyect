@@ -7,6 +7,8 @@ import { Database } from "@/types/supabase";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +38,9 @@ export default async function QuotePage({ params }: Props) {
 
     // Sort quoteItems by sku (client-side sort since we are using join)
     if (project && project.quoteItems) {
+        // FILTER: Keep only selected items for the Quote View
+        project.quoteItems = project.quoteItems.filter((item: any) => item.isSelected !== false);
+
         project.quoteItems.sort((a: any, b: any) => {
             if (a.sku && b.sku) return a.sku.localeCompare(b.sku);
             return 0;
@@ -56,7 +61,13 @@ export default async function QuotePage({ params }: Props) {
             {/* Toolbar - Hidden when printing */}
             <div className="max-w-[210mm] mx-auto mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 print:hidden">
                 <QuoteAcceptance projectId={project.id} initialAccepted={!!project.acceptedAt} />
-                <QuotePrintButton variant="solid" />
+                <div className="flex gap-2">
+                    <Link href={`/projects/${project.id}`} className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Volver al Proyecto
+                    </Link>
+                    <QuotePrintButton variant="solid" />
+                </div>
             </div>
 
             {/* Render Document */}

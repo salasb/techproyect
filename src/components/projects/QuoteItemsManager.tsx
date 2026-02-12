@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from "react";
+import { useState, useRef, useOptimistic, startTransition } from "react";
 import { Database } from "@/types/supabase";
 import { addQuoteItem, removeQuoteItem, updateQuoteItem, toggleQuoteItemSelection, toggleAllQuoteItems } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
@@ -35,6 +35,19 @@ export function QuoteItemsManager({
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+    // Optimistic State
+    const [optimisticItems, setOptimisticItems] = useOptimistic(
+        items,
+        (state, action: { type: 'TOGGLE_ONE'; id: string; isSelected: boolean } | { type: 'TOGGLE_ALL'; isSelected: boolean }) => {
+            if (action.type === 'TOGGLE_ONE') {
+                return state.map(item => item.id === action.id ? { ...item, isSelected: action.isSelected } : item);
+            } else if (action.type === 'TOGGLE_ALL') {
+                return state.map(item => ({ ...item, isSelected: action.isSelected }));
+            }
+            return state;
+        }
+    );
 
     // Helper for currency conversion and formatting
     const formatMoney = (amount: number) => {
@@ -261,39 +274,46 @@ export function QuoteItemsManager({
         resetForm();
     }
 
-    // Selection Logic
-    const allSelected = items.length > 0 && items.every(i => i.isSelected !== false);
-    const someSelected = items.some(i => i.isSelected !== false) && !allSelected;
+    // Selection Logic using Optimistic State
+    const allSelected = optimisticItems.length > 0 && optimisticItems.every(i => i.isSelected !== false);
+    const someSelected = optimisticItems.some(i => i.isSelected !== false) && !allSelected;
 
     async function handleToggleItem(id: string, current: boolean) {
-        console.log("handleToggleItem called", id, current);
-        setIsLoading(true); // fast optimistic? better to wait for server actions usually or useOptimistic
+        // Optimistic update
+        startTransition(() => {
+            setOptimisticItems({ type: 'TOGGLE_ONE', id, isSelected: !current });
+        });
+
         try {
             await toggleQuoteItemSelection(id, projectId, !current);
-            console.log("server action completed");
         } catch (error) {
             console.error("error in handleToggleItem", error);
             toast({ type: 'error', message: "Error al actualizar selección" });
-        } finally {
-            setIsLoading(false);
+            // Revalidation will revert optimistic state if failed
         }
     }
 
     async function handleToggleAll() {
-        if (items.length === 0) return;
+        if (optimisticItems.length === 0) return;
         const newValue = !allSelected;
-        setIsLoading(true);
+
+        // Optimistic update
+        startTransition(() => {
+            setOptimisticItems({ type: 'TOGGLE_ALL', isSelected: newValue });
+        });
+
         try {
             await toggleAllQuoteItems(projectId, newValue);
         } catch (error) {
+            console.error("error in handleToggleAll", error);
             toast({ type: 'error', message: "Error al actualizar selección global" });
-        } finally {
-            setIsLoading(false);
         }
     }
 
-    // Filter items for totals
-    const activeItems = items.filter(i => i.isSelected !== false);
+    // Filter items for totals using Optimistic State
+    const activeItems = optimisticItems.filter(i => i.isSelected !== false);
+    const selectedCount = activeItems.length;
+    const totalCount = optimisticItems.length;
 
     const totalNet = activeItems.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0);
     const totalCost = activeItems.reduce((acc, item) => acc + (item.costNet * item.quantity), 0);
@@ -310,7 +330,14 @@ export function QuoteItemsManager({
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-foreground">Ítems de Cotización</h3>
+                <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-medium text-foreground">Ítems de Cotización</h3>
+                    {totalCount > 0 && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                            {selectedCount} / {totalCount}
+                        </span>
+                    )}
+                </div>
                 <div className="text-right flex gap-6 items-center">
                     <div>
                         <p className="text-xs text-muted-foreground uppercase">Costo Total</p>
@@ -379,7 +406,7 @@ export function QuoteItemsManager({
                                 </td>
                             </tr>
                         ) : (
-                            items.map((item) => {
+                            optimisticItems.map((item) => {
                                 const isSelected = item.isSelected !== false; // Default true
                                 const margin = item.priceNet - item.costNet;
                                 const marginP = item.priceNet > 0 ? (margin / item.priceNet) * 100 : 0;
