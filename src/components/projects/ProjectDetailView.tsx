@@ -5,6 +5,7 @@ import { Database } from "@/types/supabase";
 import { FinancialResult } from "@/services/financialCalculator";
 import { getDollarRateAction, getUfRateAction } from "@/app/actions/currency";
 import { updateProjectStatus } from "@/app/actions/projects";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import Link from "next/link";
 import {
@@ -68,7 +69,24 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     const { toast } = useToast();
     const router = useRouter();
 
-    async function handleQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') {
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        confirmText?: string;
+        cancelText?: string;
+        variant?: 'danger' | 'warning' | 'info' | 'success';
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        onConfirm: () => { },
+    });
+
+    const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+
+    async function executeQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') {
         setIsUpdatingStatus(true);
         try {
             if (action === 'SEND') {
@@ -82,11 +100,9 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 await updateProjectStatus(project.id, 'EN_CURSO', 'DISENO', 'Iniciar Desarrollo');
                 toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
             } else if (action === 'REJECT') {
-                if (!confirm("¿Seguro que deseas marcar como Rechazado?")) return;
                 await updateProjectStatus(project.id, 'CANCELADO');
                 toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
             } else if (action === 'REOPEN') {
-                if (!confirm("¿Estás seguro que deseas reabrir este proyecto? Volverá a estado En Espera.")) return;
                 await updateProjectStatus(project.id, 'EN_ESPERA', project.stage || 'LEVANTAMIENTO', 'Reevaluar Proyecto');
                 toast({ type: 'success', message: "Proyecto reabierto exitosamente" });
             }
@@ -96,22 +112,66 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             toast({ type: 'error', message: "Error al actualizar estado" });
         } finally {
             setIsUpdatingStatus(false);
+            closeConfirm();
         }
     }
 
-    async function handleManualQuoteSent() {
-        if (!confirm("¿Confirmar que la cotización ha sido enviada manualmente? Esto actualizará la fecha de envío y el estado.")) return;
-        setIsUpdatingStatus(true);
-        try {
-            await updateProjectStatus(project.id, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
-            toast({ type: 'success', message: "Envío registrado exitosamente" });
-            router.refresh();
-        } catch (error) {
-            console.error(error);
-            toast({ type: 'error', message: "Error al registrar envío" });
-        } finally {
-            setIsUpdatingStatus(false);
+    const requestQuoteAction = (action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') => {
+        const config = {
+            isOpen: true,
+            onConfirm: () => executeQuoteAction(action),
+            title: '',
+            description: '',
+            confirmText: 'Confirmar',
+            variant: 'info' as const
+        };
+
+        if (action === 'SEND') {
+            config.title = '¿Enviar Cotización?';
+            config.description = 'Esto cambiará el estado a EN ESPERA y abrirá su cliente de correo. Asegúrese de adjuntar el PDF.';
+            config.confirmText = 'Enviar y Actualizar';
+            config.variant = 'info';
+        } else if (action === 'ACCEPT') {
+            config.title = '¿Aceptar Propuesta?';
+            config.description = 'El proyecto pasará a estado EN CURSO. ¡Felicitaciones!';
+            config.confirmText = '¡Aceptar!';
+            config.variant = 'success';
+        } else if (action === 'REJECT') {
+            config.title = '¿Rechazar Proyecto?';
+            config.description = 'El proyecto será CANCELADO. Esta acción puede revertirse reabriendo el proyecto después.';
+            config.confirmText = 'Rechazar';
+            config.variant = 'danger';
+        } else if (action === 'REOPEN') {
+            config.title = '¿Reabrir Proyecto?';
+            config.description = 'El proyecto volverá a estado EN ESPERA para ser reevaluado.';
+            config.variant = 'warning';
         }
+
+        setConfirmConfig(config);
+    };
+
+    async function handleManualQuoteSent() {
+        setConfirmConfig({
+            isOpen: true,
+            title: '¿Confirmar Envío Manual?',
+            description: 'Se registrará que la cotización fue enviada hoy y el estado cambiará a EN ESPERA.',
+            confirmText: 'Registrar Envío',
+            variant: 'info',
+            onConfirm: async () => {
+                setIsUpdatingStatus(true);
+                try {
+                    await updateProjectStatus(project.id, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
+                    toast({ type: 'success', message: "Envío registrado exitosamente" });
+                    router.refresh();
+                } catch (error) {
+                    console.error(error);
+                    toast({ type: 'error', message: "Error al registrar envío" });
+                } finally {
+                    setIsUpdatingStatus(false);
+                    closeConfirm();
+                }
+            }
+        });
     }
 
     // Alerts logic
@@ -248,7 +308,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 {/* CANCELLED STATE ACTIONS */}
                 {project.status === 'CANCELADO' && (
                     <button
-                        onClick={() => handleQuoteAction('REOPEN')}
+                        onClick={() => requestQuoteAction('REOPEN')}
                         disabled={isUpdatingStatus}
                         className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
                     >
@@ -264,7 +324,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
                             <>
                                 <button
-                                    onClick={() => handleQuoteAction('SEND')}
+                                    onClick={() => requestQuoteAction('SEND')}
                                     disabled={isUpdatingStatus}
                                     className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
                                 >
@@ -288,7 +348,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         {project.quoteSentDate && project.status === 'EN_ESPERA' && (
                             <>
                                 <button
-                                    onClick={() => handleQuoteAction('ACCEPT')}
+                                    onClick={() => requestQuoteAction('ACCEPT')}
                                     disabled={isUpdatingStatus}
                                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
                                 >
@@ -296,7 +356,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                     Registrar Aceptación
                                 </button>
                                 <button
-                                    onClick={() => handleQuoteAction('REJECT')}
+                                    onClick={() => requestQuoteAction('REJECT')}
                                     disabled={isUpdatingStatus}
                                     className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
                                 >
@@ -952,6 +1012,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     </div>
                 )
             }
+            <ConfirmDialog {...confirmConfig} onCancel={closeConfirm} isLoading={isUpdatingStatus} />
         </div >
     );
 }

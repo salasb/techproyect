@@ -469,4 +469,111 @@ export class DashboardService {
 
         return deadlines.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 10);
     }
+
+    static getGlobalKPIs(projects: Project[], opportunities: any[], period: string) {
+        const now = new Date();
+        let startDate = new Date();
+        let previousStartDate = new Date();
+        let previousEndDate = new Date();
+
+        // 1. Define Filter Ranges
+        if (period === '30d') {
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            previousStartDate = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+            previousEndDate = startDate;
+        } else if (period === '7d') {
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            previousStartDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+            previousEndDate = startDate;
+        } else if (period === '12m') {
+            startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+            previousStartDate = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
+            previousEndDate = startDate;
+        } else {
+            // Default 30d
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            previousStartDate = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+            previousEndDate = startDate;
+        }
+
+        // Helper to sum logic
+        const calculateMetrics = (start: Date, end: Date) => {
+            let billing = 0;
+            let cost = 0;
+            let margin = 0;
+
+            projects.forEach(p => {
+                // Billing (Invoices Sent/Paid in range)
+                // Using 'sentDate' for "Facturación" (Billing) as typical in Sales Dashboards, or 'amountPaid' for Cash Flow.
+                // Request says "Facturación Real" -> usually Invoiced. 
+                p.invoices?.forEach(inv => {
+                    if (inv.sent && inv.sentDate) {
+                        const d = new Date(inv.sentDate);
+                        if (d >= start && d < end) {
+                            billing += inv.amountInvoicedGross;
+                        }
+                    }
+                });
+
+                // Margin (Price - Cost) *for projects updated/active in range*? 
+                // Or Margin of *invoiced* items?
+                // Global Margin is tricky providing limited data. 
+                // Let's approximate: Global Margin of *Invoices* in this period.
+                // Est. Margin % * Invoiced Amount.
+                // If we don't have itemized invoice cost, we use Project Margin % * Invoice Amount.
+
+                // Calculate Project Margin %
+                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, {} as any, p.quoteItems); // Settings passed as empty mostly works for margin pct
+                const marginPct = fin.priceNet > 0 ? fin.marginAmountNet / fin.priceNet : 0;
+
+                p.invoices?.forEach(inv => {
+                    if (inv.sent && inv.sentDate) {
+                        const d = new Date(inv.sentDate);
+                        if (d >= start && d < end) {
+                            // Net Billing approx
+                            const amountNet = inv.amountInvoicedGross / 1.19; // Approx VAT
+                            margin += amountNet * marginPct;
+                        }
+                    }
+                });
+            });
+
+            return { billing, margin };
+        };
+
+        const current = calculateMetrics(startDate, now);
+        const previous = calculateMetrics(previousStartDate, previousEndDate);
+
+        // Opportunities (Pipeline) - Snapshot, not really trendable easily without snapshots table.
+        // We will just return Current Open Pipeline.
+        // Filter: Stage NOT WON/LOST
+        const pipelineValue = opportunities
+            .filter(op => op.stage !== 'WON' && op.stage !== 'LOST')
+            .reduce((acc, op) => acc + (op.value || 0), 0);
+
+        // Count opportunities for context
+        const pipelineCount = opportunities.filter(op => op.stage !== 'WON' && op.stage !== 'LOST').length;
+
+        const calcTrend = (curr: number, prev: number) => {
+            if (prev === 0) return curr > 0 ? 100 : 0;
+            return ((curr - prev) / prev) * 100;
+        };
+
+        return {
+            billing: {
+                value: current.billing,
+                previous: previous.billing,
+                trend: calcTrend(current.billing, previous.billing)
+            },
+            margin: {
+                value: current.margin,
+                previous: previous.margin,
+                trend: calcTrend(current.margin, previous.margin)
+            },
+            pipeline: {
+                value: pipelineValue,
+                count: pipelineCount
+            }
+        };
+    }
 }
