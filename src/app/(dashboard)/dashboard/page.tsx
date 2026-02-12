@@ -49,7 +49,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     const opportunities = opportunitiesRes.data || [];
 
     // 2. Calculate Dashboard Data
-    const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period);
+    const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings);
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const topClients = DashboardService.getTopClients(projects as any);
     const actions = DashboardService.getActionCenterData(projects as any, settings);

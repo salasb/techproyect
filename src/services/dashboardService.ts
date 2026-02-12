@@ -470,7 +470,7 @@ export class DashboardService {
         return deadlines.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 10);
     }
 
-    static getGlobalKPIs(projects: Project[], opportunities: any[], period: string) {
+    static getGlobalKPIs(projects: Project[], opportunities: any[], period: string, settings: Database['public']['Tables']['Settings']['Row']) {
         const now = new Date();
         let startDate = new Date();
         let previousStartDate = new Date();
@@ -523,15 +523,16 @@ export class DashboardService {
                 // If we don't have itemized invoice cost, we use Project Margin % * Invoice Amount.
 
                 // Calculate Project Margin %
-                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, {} as any, p.quoteItems); // Settings passed as empty mostly works for margin pct
+                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
                 const marginPct = fin.priceNet > 0 ? fin.marginAmountNet / fin.priceNet : 0;
 
                 p.invoices?.forEach(inv => {
                     if (inv.sent && inv.sentDate) {
                         const d = new Date(inv.sentDate);
                         if (d >= start && d < end) {
-                            // Net Billing approx
-                            const amountNet = inv.amountInvoicedGross / 1.19; // Approx VAT
+                            // Net Billing approx (assuming VAT included in Gross)
+                            const vatRate = settings.vatRate || 0.19;
+                            const amountNet = inv.amountInvoicedGross / (1 + vatRate);
                             margin += amountNet * marginPct;
                         }
                     }
@@ -544,15 +545,30 @@ export class DashboardService {
         const current = calculateMetrics(startDate, now);
         const previous = calculateMetrics(previousStartDate, previousEndDate);
 
-        // Opportunities (Pipeline) - Snapshot, not really trendable easily without snapshots table.
-        // We will just return Current Open Pipeline.
-        // Filter: Stage NOT WON/LOST
-        const pipelineValue = opportunities
+        // Opportunities (Pipeline)
+        // 1. From Opportunity Table (if exists/used)
+        let pipelineValue = opportunities
             .filter(op => op.stage !== 'WON' && op.stage !== 'LOST')
             .reduce((acc, op) => acc + (op.value || 0), 0);
 
-        // Count opportunities for context
-        const pipelineCount = opportunities.filter(op => op.stage !== 'WON' && op.stage !== 'LOST').length;
+        let pipelineCount = opportunities.filter(op => op.stage !== 'WON' && op.stage !== 'LOST').length;
+
+        // 2. From Projects in "EN_ESPERA" (Waiting for Quote Acceptance)
+        // This ensures the dashboard shows value even if Opportunity table is empty
+        const pendingProjects = projects.filter(p => p.status === 'EN_ESPERA');
+
+        pendingProjects.forEach(p => {
+            // Calculate project value (Quote Price)
+            const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
+            // Default to using Net Price (Revenue potential)
+            // If project is generic (no items), might be 0.
+            if (fin.priceNet > 0) {
+                pipelineValue += fin.priceNet; // Or Gross? Standard is usually Deal Value (likely Net or Gross depending on org). Let's use Net for consistency with Margin.
+            }
+        });
+
+        pipelineCount += pendingProjects.length;
+
 
         const calcTrend = (curr: number, prev: number) => {
             if (prev === 0) return curr > 0 ? 100 : 0;
