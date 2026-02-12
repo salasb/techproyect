@@ -59,7 +59,9 @@ export function CreateOpportunityForm({ clients }: Props) {
             <div className="space-y-4">
                 {/* Title */}
                 <div className="space-y-2">
-                    <label htmlFor="title" className="text-sm font-medium text-foreground">Título del Trato *</label>
+                    <label htmlFor="title" className="text-sm font-medium text-foreground">
+                        Título del Trato <span className="text-red-500">*</span>
+                    </label>
                     <input
                         type="text"
                         name="title"
@@ -74,7 +76,9 @@ export function CreateOpportunityForm({ clients }: Props) {
 
                 {/* Client Selection */}
                 <div className="space-y-2">
-                    <label htmlFor="client" className="text-sm font-medium text-foreground">Cliente / Empresa *</label>
+                    <label htmlFor="client" className="text-sm font-medium text-foreground">
+                        Cliente / Empresa <span className="text-red-500">*</span>
+                    </label>
                     <select
                         id="client"
                         name="clientId" // Creates native select for FormData if needed, but we control it locally too

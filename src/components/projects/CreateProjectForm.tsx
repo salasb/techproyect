@@ -88,7 +88,9 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
 
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nombre del Proyecto</label>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                        Nombre del Proyecto <span className="text-red-500">*</span>
+                    </label>
                     <input
                         name="name"
                         required
@@ -100,7 +102,9 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Cliente / Empresa</label>
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Cliente / Empresa <span className="text-red-500">*</span>
+                        </label>
                         <SearchableSelect
                             name="companyId" // We keep the name, but value will be prefixed
                             required
@@ -142,7 +146,9 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Fecha de Inicio</label>
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Fecha de Inicio <span className="text-red-500">*</span>
+                        </label>
                         <input
                             name="startDate"
                             required

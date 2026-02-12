@@ -1,65 +1,74 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check, X } from 'lucide-react';
+import { Button, ButtonProps } from './button';
 import { cn } from '@/lib/utils';
 
-interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface LoadingButtonProps extends ButtonProps {
     isLoading?: boolean;
     loadingText?: string;
-    variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-    size?: 'sm' | 'md' | 'lg' | 'icon';
-    children: React.ReactNode;
+    status?: 'idle' | 'loading' | 'success' | 'error';
+    successText?: string;
+    errorText?: string;
 }
 
 export function LoadingButton({
     isLoading = false,
     loadingText = 'Guardando...',
-    variant = 'primary',
-    size = 'md',
+    status = 'idle',
+    successText = 'Guardado',
+    errorText = 'Error',
     className,
     children,
     disabled,
     ...props
 }: LoadingButtonProps) {
+    // Derived state for backward compatibility with isLoading
+    const currentStatus = isLoading ? 'loading' : status;
 
-    // Base styles
-    const baseStyles = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
-
-    // Variants
-    const variants = {
-        primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow focus:ring-primary/50",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary/50",
-        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground focus:ring-ring",
-        ghost: "hover:bg-accent hover:text-accent-foreground focus:ring-ring",
-        danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+    const getContent = () => {
+        switch (currentStatus) {
+            case 'loading':
+                return (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {loadingText}
+                    </>
+                );
+            case 'success':
+                return (
+                    <>
+                        <Check className="mr-2 h-4 w-4 text-green-500" />
+                        {successText}
+                    </>
+                );
+            case 'error':
+                return (
+                    <>
+                        <X className="mr-2 h-4 w-4 text-red-500" />
+                        {errorText}
+                    </>
+                );
+            default:
+                return children;
+        }
     };
 
-    // Sizes
-    const sizes = {
-        sm: "h-8 px-3 text-xs",
-        md: "h-10 px-4 py-2 text-sm",
-        lg: "h-12 px-8 text-base",
-        icon: "h-10 w-10",
-    };
+    // Determine variant based on status if needed, or stick to passed variant
+    // For success/error, we might want to override variant, but for now let's keep it subtle
+    // and just change content/icons unless explicitly asked.
 
     return (
-        <button
+        <Button
             className={cn(
-                baseStyles,
-                variants[variant],
-                sizes[size],
+                "transition-all duration-300 min-w-[100px]",
+                currentStatus === 'success' && "bg-green-100 text-green-700 hover:bg-green-200 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+                currentStatus === 'error' && "bg-red-100 text-red-700 hover:bg-red-200 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
                 className
             )}
-            disabled={isLoading || disabled}
+            disabled={currentStatus === 'loading' || disabled}
             {...props}
         >
-            {isLoading ? (
-                <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {loadingText}
-                </>
-            ) : (
-                children
-            )}
-        </button>
+            {getContent()}
+        </Button>
     );
 }

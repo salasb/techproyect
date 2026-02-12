@@ -6,7 +6,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 import { ExchangeRate } from '@/services/currency';
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 interface KPIProps {
+    isLoading?: boolean;
     totalRevenue: number;
     pipelineValue: number;
     avgMargin: number;
@@ -14,7 +17,7 @@ interface KPIProps {
     exchangeRateInfo?: ExchangeRate;
 }
 
-export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmount, exchangeRateInfo }: KPIProps) {
+export function KPISection({ isLoading, totalRevenue, pipelineValue, avgMargin, marginAmount, exchangeRateInfo }: KPIProps) {
 
     // Helper for currency
     const formatMoney = (amount: number) => {
@@ -34,7 +37,7 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmoun
                 </div>
                 <div>
                     <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">
-                        {formatMoney(totalRevenue)}
+                        {isLoading ? <Skeleton className="h-8 w-32" /> : formatMoney(totalRevenue)}
                     </div>
                 </div>
             </div>
@@ -49,7 +52,7 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmoun
                 </div>
                 <div>
                     <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">
-                        {formatMoney(pipelineValue)}
+                        {isLoading ? <Skeleton className="h-8 w-32" /> : formatMoney(pipelineValue)}
                     </div>
                 </div>
             </div>
@@ -59,10 +62,14 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmoun
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex flex-col">
                         <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Margen Esperado (Utilidad)</h3>
-                        {exchangeRateInfo && (
-                            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                                USD/CLP: ${exchangeRateInfo.value.toLocaleString('es-CL')} ({exchangeRateInfo.date ? new Date(exchangeRateInfo.date).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}) • {exchangeRateInfo.source}
-                            </span>
+                        {isLoading ? (
+                            <Skeleton className="h-3 w-48 mt-1" />
+                        ) : (
+                            exchangeRateInfo && (
+                                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                                    USD/CLP: ${exchangeRateInfo.value.toLocaleString('es-CL')} ({exchangeRateInfo.date ? new Date(exchangeRateInfo.date).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}) • {exchangeRateInfo.source}
+                                </span>
+                            )
                         )}
                     </div>
                     <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-indigo-600 dark:text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-100 transition-all duration-300">
@@ -72,13 +79,17 @@ export function KPISection({ totalRevenue, pipelineValue, avgMargin, marginAmoun
                 <div>
                     <div className="flex items-end gap-3 mb-1">
                         <div className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                            {formatMoney(marginAmount)}
+                            {isLoading ? <Skeleton className="h-9 w-40" /> : formatMoney(marginAmount)}
                         </div>
-                        <div className={`flex items-center pb-1.5 ${avgMargin >= 30 ? 'text-emerald-500' : avgMargin >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
-                            <span className="text-sm font-bold bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
-                                {avgMargin.toFixed(0)}%
-                            </span>
-                        </div>
+                        {isLoading ? (
+                            <Skeleton className="h-6 w-16" />
+                        ) : (
+                            <div className={`flex items-center pb-1.5 ${avgMargin >= 30 ? 'text-emerald-500' : avgMargin >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
+                                <span className="text-sm font-bold bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
+                                    {avgMargin.toFixed(0)}%
+                                </span>
+                            </div>
+                        )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
                         Utilidad Proyectada Global

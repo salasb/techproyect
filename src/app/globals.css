@@ -3,44 +3,83 @@
 
 @layer theme {
   :root {
-    /* --- Light Mode: High Contrast & Cool Tones --- */
-    /* Background: Cool Gray-Blue (Distinct from white cards) */
-    --background: 210 40% 96.1%;
-    /* #f0f4f8 - Very light cool blue/gray */
-    --foreground: 222.2 84% 4.9%;
+    /* --- Design Tokens: Primitives --- */
 
-    /* Cards: Pure White */
+    /* Neutral Scale (Slate/Zinc hybrid for modern feel) */
+    --color-gray-50: 210 40% 98%;
+    --color-gray-100: 210 40% 96.1%;
+    --color-gray-200: 214.3 31.8% 91.4%;
+    --color-gray-300: 212.7 26.8% 83.9%;
+    --color-gray-400: 215.4 16.3% 46.9%;
+    --color-gray-500: 215.3 19.3% 34.5%;
+    --color-gray-600: 215.3 25% 26.7%;
+    --color-gray-700: 217.2 32.6% 17.5%;
+    --color-gray-800: 217.2 32.6% 15%;
+    --color-gray-900: 222.2 47.4% 11.2%;
+    --color-gray-950: 222.2 84% 4.9%;
+
+    /* Brand Scale (Violet/Indigo) */
+    --color-brand-50: 250 60% 98%;
+    --color-brand-100: 250 60% 94%;
+    --color-brand-500: 242 53% 61%;
+    /* Current Primary */
+    --color-brand-600: 263.4 70% 50.4%;
+    --color-brand-700: 258 90% 66%;
+    --color-brand-900: 260 60% 20%;
+
+    /* Semantic: Success (Green) */
+    --color-success-50: 142 76% 97%;
+    --color-success-500: 142 71% 45%;
+    --color-success-700: 142 76% 36%;
+
+    /* Semantic: Warning (Amber) */
+    --color-warning-50: 48 96% 98%;
+    --color-warning-500: 45 93% 47%;
+    --color-warning-700: 35 92% 33%;
+
+    /* Semantic: Danger (Red) */
+    --color-danger-50: 0 86% 97%;
+    --color-danger-500: 0 84.2% 60.2%;
+    --color-danger-700: 0 72% 51%;
+
+    /* Semantic: Info (Blue) */
+    --color-info-50: 217 91% 97%;
+    --color-info-500: 217 91% 60%;
+    --color-info-700: 224 76% 48%;
+
+    /* --- Light Mode Semantics --- */
+    --background: var(--color-gray-50);
+    --foreground: var(--color-gray-950);
+
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    /* Card Surface Gradient: Subtle white to off-white prevents flatness */
+    --card-foreground: var(--color-gray-950);
     --card-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: var(--color-gray-950);
 
-    /* Vibrant Pastel Accents */
-    --primary: 242 53% 61%;
-    --primary-foreground: 210 40% 98%;
+    --primary: var(--color-brand-500);
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: var(--color-gray-100);
+    --secondary-foreground: var(--color-gray-900);
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: var(--color-gray-100);
+    --muted-foreground: var(--color-gray-500);
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: var(--color-gray-100);
+    --accent-foreground: var(--color-gray-900);
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: var(--color-danger-500);
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 242 53% 61%;
+    --border: var(--color-gray-200);
+    --input: var(--color-gray-200);
+    --ring: var(--color-brand-500);
 
     --radius: 0.75rem;
 
-    /* Stronger Shadows for better Lift */
+    /* Elevation / Motion */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
@@ -48,43 +87,38 @@
   }
 
   .dark {
-    /* --- Dark Mode: Rich Depth (Not Black) --- */
-    /* Background: Deep Slate (Distinct from cards) */
-    --background: 222.2 47.4% 11.2%;
-    /* #0f172a */
-    --foreground: 210 40% 98%;
+    /* --- Dark Mode Semantics --- */
+    --background: var(--color-gray-900);
+    --foreground: var(--color-gray-50);
 
-    /* Cards: Lighter Slate (Pop against bg) */
-    --card: 217.2 32.6% 17.5%;
-    /* #1e293b */
-    --card-foreground: 210 40% 98%;
-    /* Card Gradient: Slight top-down light source effect */
+    --card: var(--color-gray-800);
+    --card-foreground: var(--color-gray-50);
+    /* Subtle gradient for depth */
     --card-gradient: linear-gradient(145deg, hsl(217 33% 20%) 0%, hsl(217 33% 15%) 100%);
 
-    --popover: 222.2 47.4% 11.2%;
-    --popover-foreground: 210 40% 98%;
+    --popover: var(--color-gray-900);
+    --popover-foreground: var(--color-gray-50);
 
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 40% 98%;
+    --primary: var(--color-brand-600);
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: var(--color-gray-800);
+    --secondary-foreground: var(--color-gray-50);
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: var(--color-gray-800);
+    --muted-foreground: var(--color-gray-400);
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: var(--color-gray-800);
+    --accent-foreground: var(--color-gray-50);
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 22%;
-    /* Visible borders */
-    --input: 217.2 32.6% 17.5%;
-    --ring: 263.4 70% 50.4%;
+    --border: var(--color-gray-700);
+    --input: var(--color-gray-800);
+    --ring: var(--color-brand-600);
 
-    /* Dark Mode Shadows (Glow effect) */
+    /* Dark Mode Glows */
     --shadow-sm: 0 0 0 1px hsla(0, 0%, 100%, 0.1);
     --shadow-md: 0 0 0 1px hsla(0, 0%, 100%, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 0 0 1px hsla(0, 0%, 100%, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.5);
@@ -93,15 +127,11 @@
 }
 
 @theme {
-  /* Map CSS variables to Tailwind colors */
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
@@ -128,7 +158,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  /* Shadow overrides */
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
@@ -142,38 +171,27 @@
 
   body {
     background-color: hsl(var(--background));
-    /* Light Mode: Visible Gradient (Lavender/Blue Tint) */
-    background-image:
-      radial-gradient(at 0% 0%, hsla(250, 60%, 94%, 1) 0%, transparent 50%),
-      radial-gradient(at 100% 100%, hsla(210, 60%, 94%, 1) 0%, transparent 50%);
     background-attachment: fixed;
     color: hsl(var(--foreground));
+    /* Subtle texture pattern to reduce flatness */
+    background-image:
+      radial-gradient(at 0% 0%, hsla(250, 60%, 94%, 0.5) 0%, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(210, 60%, 94%, 0.5) 0%, transparent 50%);
   }
 
   .dark body {
-    background-color: hsl(var(--background));
-    /* Dark Mode: Visible Gradient (Deep Purple/Slate) */
     background-image:
-      radial-gradient(at 0% 0%, hsla(250, 40%, 15%, 1) 0%, transparent 50%),
-      radial-gradient(at 100% 100%, hsla(210, 40%, 15%, 1) 0%, transparent 50%);
+      radial-gradient(at 0% 0%, hsla(250, 40%, 15%, 0.4) 0%, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(210, 40%, 15%, 0.4) 0%, transparent 50%);
   }
 
-  /* 
-   * Forced Card Styles 
-   * Enforce separation from background
-   */
+  /* Card Enforcement */
   .card,
   [data-panel],
-  .bg-card,
-  .dark .bg-card {
+  .bg-card {
     background-image: var(--card-gradient) !important;
     background-color: hsl(var(--card)) !important;
     box-shadow: var(--shadow-card) !important;
     border: 1px solid hsl(var(--border)) !important;
-  }
-
-  /* Fix for specific components that might override bg */
-  .bg-background {
-    background-color: transparent !important;
   }
 }

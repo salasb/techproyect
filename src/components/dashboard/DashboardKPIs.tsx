@@ -1,4 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, DollarSign, TrendingUp, Wallet } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface KPIData {
     billing: { value: number, previous: number, trend: number };
@@ -6,10 +7,29 @@ interface KPIData {
     pipeline: { value: number, count: number };
 }
 
-export function DashboardKPIs({ data }: { data: KPIData }) {
+export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?: boolean }) {
     const formatCurrency = (val: number) => {
         return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(val);
     };
+
+    if (isLoading || !data) {
+        return (
+            <div className="grid gap-4 md:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-8 w-8 rounded-lg" />
+                        </div>
+                        <div className="mt-4 space-y-2">
+                            <Skeleton className="h-8 w-32" />
+                            <Skeleton className="h-4 w-40" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="grid gap-4 md:grid-cols-3">

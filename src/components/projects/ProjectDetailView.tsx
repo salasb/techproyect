@@ -86,8 +86,29 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
     const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, isOpen: false }));
 
+    // Optimistic UI State
+    const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
+
+    // Derived project state
+    const displayProject = {
+        ...project,
+        status: optimisticStatus || project.status
+    };
+
     async function executeQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') {
+        const previousStatus = displayProject.status;
+        let newStatus = previousStatus;
+
+        // Optimistic Update
+        if (action === 'SEND') newStatus = 'EN_ESPERA';
+        else if (action === 'ACCEPT') newStatus = 'EN_CURSO';
+        else if (action === 'REJECT') newStatus = 'CANCELADO';
+        else if (action === 'REOPEN') newStatus = 'EN_ESPERA';
+
+        setOptimisticStatus(newStatus);
         setIsUpdatingStatus(true);
+        closeConfirm(); // Close immediately for better UX
+
         try {
             if (action === 'SEND') {
                 await updateProjectStatus(project.id, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
@@ -110,11 +131,18 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
         } catch (error) {
             console.error(error);
             toast({ type: 'error', message: "Error al actualizar estado" });
+            setOptimisticStatus(null); // Revert logic handled by useEffect sync, but explicit null here safegaurds
         } finally {
             setIsUpdatingStatus(false);
-            closeConfirm();
+            // We don't clear optimistic status here immediately to prevent flicker before router.refresh() takes over
+            // The useEffect below will handle sync when new project prop arrives
         }
     }
+
+    // Sync optimistic state when prop updates (router.refresh completes)
+    useEffect(() => {
+        setOptimisticStatus(null);
+    }, [project.status]);
 
     const requestQuoteAction = (action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') => {
         const config: {

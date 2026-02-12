@@ -219,7 +219,7 @@ export function ProjectSettings({ project, clients }: Props) {
                     <div>
                         <h3 className="text-lg font-medium text-foreground mb-4">Configuración General</h3>
                         <label className="block text-sm font-medium text-foreground mb-1">
-                            Nombre del Proyecto
+                            Nombre del Proyecto <span className="text-red-500">*</span>
                         </label>
                         <input
                             name="name"
@@ -232,7 +232,9 @@ export function ProjectSettings({ project, clients }: Props) {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Estado del Proyecto</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">
+                            Estado del Proyecto <span className="text-red-500">*</span>
+                        </label>
                         <select
                             value={status}
                             onChange={(e) => setStatus(e.target.value as any)}
@@ -341,7 +343,7 @@ export function ProjectSettings({ project, clients }: Props) {
 
                             <div>
                                 <label className="block text-sm font-medium text-foreground mb-1">
-                                    Moneda del Proyecto
+                                    Moneda del Proyecto <span className="text-red-500">*</span>
                                 </label>
                                 <select
                                     name="currency"
@@ -378,7 +380,7 @@ export function ProjectSettings({ project, clients }: Props) {
 
                             <div>
                                 <label className="block text-sm font-medium text-foreground mb-1">
-                                    Condición de Pago
+                                    Condición de Pago <span className="text-red-500">*</span>
                                 </label>
                                 <select
                                     value={paymentMethod}
