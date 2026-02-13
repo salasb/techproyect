@@ -13,8 +13,6 @@ export async function POST(req: Request) {
 
     const cookieStore = await cookies();
 
-    const cookieStore = await cookies();
-
     // Debug: Try loading .env manually if missing
     if (!process.env.OPENAI_API_KEY) {
         try {
