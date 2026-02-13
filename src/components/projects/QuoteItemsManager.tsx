@@ -2,9 +2,9 @@
 
 import { useState, useRef, useOptimistic, startTransition } from "react";
 import { Database } from "@/types/supabase";
-import { addQuoteItem, removeQuoteItem, updateQuoteItem, toggleQuoteItemSelection, toggleAllQuoteItems } from "@/actions/quote-items";
+import { addQuoteItem, removeQuoteItem, updateQuoteItem, toggleQuoteItemSelection, toggleAllQuoteItems, addQuoteItemsBulk } from "@/actions/quote-items";
 import { getProducts } from "@/actions/products";
-import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X, AlertCircle, Sparkles, BrainCircuit } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -37,6 +37,41 @@ export function QuoteItemsManager({
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+    // AI Generator State
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState("");
+    const [isAiGenerating, setIsAiGenerating] = useState(false);
+
+    async function handleAiGenerate(e?: React.FormEvent) {
+        e?.preventDefault();
+        if (!aiPrompt.trim()) return;
+
+        setIsAiGenerating(true);
+        try {
+            const res = await fetch('/api/ai/generate-quote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: aiPrompt })
+            });
+
+            if (!res.ok) throw new Error("AI Error");
+
+            const data = await res.json();
+
+            if (data.items && Array.isArray(data.items)) {
+                await addQuoteItemsBulk(projectId, data.items);
+                toast({ type: 'success', message: `¡${data.items.length} ítems generados con éxito!` });
+                setIsAiModalOpen(false);
+                setAiPrompt("");
+            }
+        } catch (error) {
+            console.error(error);
+            toast({ type: 'error', message: "Error al generar cotización con IA" });
+        } finally {
+            setIsAiGenerating(false);
+        }
+    }
 
     // Optimistic State
     const [optimisticItems, setOptimisticItems] = useOptimistic(
@@ -727,6 +762,7 @@ export function QuoteItemsManager({
                                 <Plus className="w-4 h-4 mr-2" />
                                 Agregar Ítem
                             </button>
+
                             <button
                                 onClick={openCatalog}
                                 className="flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
@@ -734,10 +770,90 @@ export function QuoteItemsManager({
                                 <Search className="w-4 h-4 mr-2" />
                                 Buscar en Catálogo
                             </button>
+                            <button
+                                onClick={() => setIsAiModalOpen(true)}
+                                className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 transition-colors bg-purple-50 dark:bg-purple-900/20 px-4 py-2 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800"
+                            >
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                Generar con IA
+                            </button>
                         </div>
                     )
                 )
             }
+
+            {/* AI Generator Modal */}
+            {isAiModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg border border-purple-200 dark:border-purple-900 overflow-hidden">
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 text-white">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-xl font-bold flex items-center gap-2">
+                                        <BrainCircuit className="w-6 h-6" />
+                                        Asistente de Cotización
+                                    </h3>
+                                    <p className="text-purple-100 text-sm mt-1">
+                                        Describe el requerimiento y generaremos los ítems automáticamente.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setIsAiModalOpen(false)}
+                                    className="text-white/80 hover:text-white p-1 hover:bg-white/20 rounded transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6">
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-foreground mb-2">
+                                    ¿Qué necesitas cotizar?
+                                </label>
+                                <textarea
+                                    className="w-full p-4 rounded-xl border border-input bg-background text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none min-h-[120px]"
+                                    placeholder="Ej: Instalación de 8 puntos de red certificación Cat6A en oficinas de Santiago Centro, incluyendo rack mural de 9U y UPS de 1KVA."
+                                    value={aiPrompt}
+                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                    disabled={isAiGenerating}
+                                    autoFocus
+                                />
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    Tip: Sé específico con cantidades y ubicaciones para obtener mejores costos.
+                                </p>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button
+                                    onClick={() => setIsAiModalOpen(false)}
+                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                    disabled={isAiGenerating}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={() => handleAiGenerate()}
+                                    disabled={!aiPrompt.trim() || isAiGenerating}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-bold text-sm transition-all shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:shadow-none flex items-center"
+                                >
+                                    {isAiGenerating ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Analizando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-4 h-4 mr-2" />
+                                            Generar Ítems
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <ConfirmDialog
                 isOpen={!!itemToDelete}
@@ -749,6 +865,6 @@ export function QuoteItemsManager({
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setItemToDelete(null)}
             />
-        </div >
+        </div>
     );
 }

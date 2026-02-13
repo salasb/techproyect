@@ -140,3 +140,37 @@ export async function toggleAllQuoteItems(projectId: string, isSelected: boolean
         throw error;
     }
 }
+
+export async function addQuoteItemsBulk(projectId: string, items: any[]) {
+    try {
+        const supabase = await createClient();
+
+        // Map items to match DB schema
+        const itemsToInsert = items.map(item => ({
+            id: crypto.randomUUID(),
+            projectId,
+            sku: item.sku || '',
+            detail: item.detail,
+            quantity: Number(item.quantity) || 1,
+            unit: item.unit || 'UN',
+            priceNet: Number(item.priceNet) || 0,
+            costNet: Number(item.costNet) || 0,
+            isSelected: true
+        }));
+
+        const { error } = await supabase.from('QuoteItem').insert(itemsToInsert);
+
+        if (error) {
+            console.error("Error adding bulk quote items:", error);
+            throw new Error(`Failed to add bulk items: ${error.message}`);
+        }
+
+        // Audit
+        await AuditService.logAction(projectId, 'ADD_ITEMS_BULK', `Added ${items.length} items via AI Generator`);
+
+        revalidatePath(`/projects/${projectId}`);
+    } catch (error) {
+        console.error("Critical error in addQuoteItemsBulk:", error);
+        throw error;
+    }
+}
