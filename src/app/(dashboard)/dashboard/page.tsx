@@ -35,10 +35,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         supabase.from('Project')
             .select(`
                 *,
-                company:Company(*),
-                costEntries:CostEntry(*),
-                invoices:Invoice(*),
-                quoteItems:QuoteItem(*)
+                company:Company(id, name, contactName, phone, email),
+                costEntries:CostEntry(id, amountNet, date, description),
+                invoices:Invoice(id, amountInvoicedGross, amountPaidGross, sent, sentDate, dueDate, paymentTermsDays),
+                quoteItems:QuoteItem(id, priceNet, costNet, quantity, isSelected)
             `)
             .order('updatedAt', { ascending: false }),
         supabase.from('Opportunity').select('*')

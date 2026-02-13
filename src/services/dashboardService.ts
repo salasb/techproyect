@@ -575,6 +575,26 @@ export class DashboardService {
             return ((curr - prev) / prev) * 100;
         };
 
+        // 6. Total Margin (Projected vs Earned)
+        let projectedMargin = 0;
+        let earnedMargin = 0;
+
+        projects.forEach(p => {
+            const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
+            const margin = fin.marginAmountNet || 0;
+
+            // Projected: All non-cancelled projects contribute to potential/projected margin
+            if (p.status !== 'CANCELADO') {
+                projectedMargin += margin;
+            }
+
+            // Earned: Only projects that are effectively "Won" (En Curso, Finalizado)
+            // Casting to string to avoid TS error if types are stale (FINALIZADO vs CERRADO)
+            if (p.status === 'EN_CURSO' || (p.status as string) === 'FINALIZADO') {
+                earnedMargin += margin;
+            }
+        });
+
         return {
             billing: {
                 value: current.billing,
@@ -586,6 +606,8 @@ export class DashboardService {
                 previous: previous.margin,
                 trend: calcTrend(current.margin, previous.margin)
             },
+            earnedMargin, // NEW
+            projectedMargin, // NEW
             pipeline: {
                 value: pipelineValue,
                 count: pipelineCount
