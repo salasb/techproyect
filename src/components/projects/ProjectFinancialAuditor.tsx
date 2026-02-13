@@ -1,20 +1,9 @@
 'use client'
 
 import { useState } from "react";
-import { Loader2, Sparkles, AlertTriangle, CheckCircle, TrendingUp, Info } from "lucide-react";
+import { Loader2, Calculator, AlertTriangle, CheckCircle, TrendingUp, Info } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-
-interface AuditResult {
-    healthScore: number;
-    summary: string;
-    issues: {
-        title: string;
-        severity: 'CRITICAL' | 'WARNING' | 'INFO';
-        description: string;
-    }[];
-    recommendations: string[];
-    sentiment: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE';
-}
+import { performFinancialAudit, AuditResult } from "@/app/actions/audit";
 
 export default function ProjectFinancialAuditor({ projectId }: { projectId: string }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -24,24 +13,14 @@ export default function ProjectFinancialAuditor({ projectId }: { projectId: stri
     async function handleAudit() {
         setIsLoading(true);
         try {
-            const res = await fetch('/api/ai/project-audit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.details || errorData.error || "Error desconocido al realizar la auditoría IA");
-            }
-
-            const data = await res.json();
-            setAudit(data);
+            // Call Server Action directly (Deterministic Logic)
+            const result = await performFinancialAudit(projectId);
+            setAudit(result);
         } catch (error: any) {
             console.error(error);
             toast({
                 type: 'error',
-                message: error.message || "Error al realizar la auditoría IA",
+                message: error.message || "Error al realizar la auditoría financiera",
                 duration: 5000
             });
         } finally {
@@ -51,17 +30,17 @@ export default function ProjectFinancialAuditor({ projectId }: { projectId: stri
 
     if (!audit && !isLoading) {
         return (
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-6 text-center">
-                <Sparkles className="w-8 h-8 mx-auto text-indigo-500 mb-2" />
-                <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-300">Auditoría Financiera IA</h3>
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-6 text-center">
+                <Calculator className="w-8 h-8 mx-auto text-indigo-500 mb-2" />
+                <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-300">Auditoría Financiera</h3>
                 <p className="text-sm text-indigo-700 dark:text-indigo-400 mb-4 max-w-sm mx-auto">
-                    Analiza automáticamente tus costos, márgenes y riesgos utilizando Inteligencia Artificial.
+                    Analiza automáticamente tus costos, márgenes y riesgos utilizando modelos financieros en tiempo real.
                 </p>
                 <button
                     onClick={handleAudit}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-md hover:shadow-lg flex items-center mx-auto"
                 >
-                    <Sparkles className="w-4 h-4 mr-2" />
+                    <Calculator className="w-4 h-4 mr-2" />
                     Ejecutar Auditoría
                 </button>
             </div>
@@ -72,7 +51,7 @@ export default function ProjectFinancialAuditor({ projectId }: { projectId: stri
         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
             <div className="p-4 border-b border-border bg-muted/30 flex justify-between items-center">
                 <h3 className="font-semibold flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <Calculator className="w-4 h-4 text-indigo-500" />
                     Reporte de Auditoría
                 </h3>
                 {isLoading ? (
@@ -89,7 +68,7 @@ export default function ProjectFinancialAuditor({ projectId }: { projectId: stri
             {isLoading && !audit && (
                 <div className="p-8 text-center bg-background/50">
                     <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground animate-pulse">Analizando finanzas del proyecto...</p>
+                    <p className="text-sm text-muted-foreground animate-pulse">Calculando métricas del proyecto...</p>
                 </div>
             )}
 

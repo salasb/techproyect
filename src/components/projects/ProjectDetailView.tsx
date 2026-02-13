@@ -489,7 +489,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 </div>
 
                 <div className="flex items-center gap-1 w-full sm:w-auto p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                    <span className="text-[10px] font-semibold text-muted-foreground px-2 uppercase tracking-wider hidden sm:block">Visualizar en:</span>
+
                     {['CLP', 'USD'].map((c) => (
                         <button
                             key={c}
@@ -863,17 +863,22 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     <div className="p-6 border-b border-border">
                         <h3 className="text-lg font-medium leading-6 text-foreground flex items-center justify-between">
                             Documentos de Venta
-                            <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
+                            {!project.saleNote && (
+                                <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
+                            )}
                         </h3>
                     </div>
                     <div className="p-6">
                         {project.saleNote ? (
                             <SaleNoteView note={project.saleNote} project={project} />
                         ) : (
-                            <div className="text-center py-12 text-muted-foreground">
+                            <div className="text-center py-12 text-muted-foreground space-y-4">
                                 <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                <p>No se ha generado Nota de Venta para este proyecto.</p>
-                                <p className="text-sm">Genérela cuando la cotización esté aprobada.</p>
+                                <p className="text-lg font-medium">No se ha generado Nota de Venta para este proyecto.</p>
+                                <p className="text-sm">Para crear el documento oficial con correlativo y datos fiscales, presiona el botón de abajo.</p>
+                                <div className="pt-4">
+                                    <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
+                                </div>
                             </div>
                         )}
                     </div>

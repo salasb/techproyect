@@ -79,7 +79,10 @@ export async function createProject(formData: FormData) {
     }
 
     // Create Project
-    const projectId = `PRJ-${Date.now().toString().slice(-6)}`;
+    // Generate ID: PRJ-YYMMDD-XXXX (Random 4 chars)
+    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const projectId = `PRJ-${dateStr}-${randomSuffix}`;
     const { data: project, error: projectError } = await supabase
         .from('Project')
         .insert({
