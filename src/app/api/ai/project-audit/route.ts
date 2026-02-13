@@ -13,8 +13,27 @@ export async function POST(req: Request) {
 
     const cookieStore = await cookies();
 
+    const cookieStore = await cookies();
+
+    // Debug: Try loading .env manually if missing
     if (!process.env.OPENAI_API_KEY) {
-        return Response.json({ error: 'OpenAI API Key is missing in server environment' }, { status: 500 });
+        try {
+            require('dotenv').config();
+            console.log("Manual dotenv load attempted.");
+        } catch (e) {
+            console.error("Dotenv load failed", e);
+        }
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+        return Response.json({
+            error: 'OpenAI API Key is missing in server environment',
+            debug: {
+                nodeEnv: process.env.NODE_ENV,
+                cwd: process.cwd(),
+                keys: Object.keys(process.env).filter(k => k.includes('OPENAI'))
+            }
+        }, { status: 500 });
     }
 
     const supabase = createServerClient(
