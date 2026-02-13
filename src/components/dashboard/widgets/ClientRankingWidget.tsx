@@ -11,14 +11,14 @@ export function ClientRankingWidget({ clients }: { clients: ClientRankingItem[] 
     const maxVal = Math.max(...clients.map(c => c.value)) || 1;
 
     return (
-        <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col h-full">
+        <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col min-h-[300px]">
             <div className="p-4 border-b border-border flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/20">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" />
                     Top Clientes
                 </h3>
             </div>
-            <div className="flex-1 overflow-auto p-4 max-h-[300px]">
+            <div className="flex-1 overflow-auto p-4">
                 {clients.length === 0 ? (
                     <div className="text-center text-muted-foreground text-sm py-4">
                         No hay datos suficientes.

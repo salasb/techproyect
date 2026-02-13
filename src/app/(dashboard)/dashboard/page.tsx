@@ -12,6 +12,7 @@ import { TasksWidget } from "@/components/dashboard/widgets/TasksWidget";
 import { BillingAlertsWidget } from "@/components/dashboard/widgets/BillingAlertsWidget";
 import { ClientRankingWidget } from "@/components/dashboard/widgets/ClientRankingWidget";
 import { ProjectGantt } from "@/components/dashboard/ProjectGantt";
+import { AiAssistantBanner } from "@/components/dashboard/AiAssistantBanner";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
@@ -64,33 +65,38 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     const billingAlerts = alerts.filter(a => a.type === 'INVOICE');
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-8 animate-in fade-in duration-500 pb-10">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-foreground">Command Center</h2>
-                    <p className="text-muted-foreground mt-1">Visión estratégica y operativa en tiempo real.</p>
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent inline-block mb-1">Command Center</h2>
+                    <p className="text-muted-foreground">Visión estratégica y operativa en tiempo real.</p>
                 </div>
                 <div className="flex items-center space-x-3">
                     <ReportExportButton />
                     <PeriodSelector />
                     <Link href="/projects/new">
-                        <button className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg hover:shadow-xl whitespace-nowrap flex items-center">
+                        <button className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 whitespace-nowrap flex items-center">
                             <span className="mr-1 text-lg leading-none">+</span> Nuevo Proyecto
                         </button>
                     </Link>
                 </div>
             </div>
 
+            {/* AI Banner - New Feature Visibility */}
+            <div className="animate-in slide-in-from-top-4 fade-in duration-700">
+                <AiAssistantBanner />
+            </div>
+
             {/* 1. KPIs Section */}
             <DashboardKPIs data={kpis} />
 
             {/* 2. Main Grid Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
 
                 {/* Left Column: Revenue Chart (Span 2) */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                <div className="lg:col-span-2 space-y-6 flex flex-col">
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
                         <div className="mb-6 flex justify-between items-center">
                             <div>
                                 <h3 className="text-lg font-semibold text-foreground">Tendencias Financieras</h3>
@@ -101,18 +107,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                     </div>
 
                     {/* Pending Tasks Widget */}
-                    <TasksWidget tasks={pendingTasks as any} />
+                    <div className="flex-1">
+                        <TasksWidget tasks={pendingTasks as any} />
+                    </div>
                 </div>
 
                 {/* Right Column: Widgets Stack */}
-                <div className="space-y-6">
+                <div className="space-y-6 flex flex-col">
                     {/* Billing Alerts */}
-                    <div className="h-[300px]">
+                    <div className="flex-1">
                         <BillingAlertsWidget alerts={billingAlerts} />
                     </div>
 
                     {/* Top Clients */}
-                    <div className="h-[300px]">
+                    <div className="flex-1">
                         <ClientRankingWidget clients={topClients} />
                     </div>
                 </div>
@@ -121,7 +129,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
             {/* 3. Gantt Chart Section */}
             <div className="mt-6">
-                <ProjectGantt projects={projects as any} />
+                <div className="bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
+                    <ProjectGantt projects={projects as any} />
+                </div>
             </div>
         </div >
     );

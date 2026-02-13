@@ -25,14 +25,14 @@ export function BillingAlertsWidget({ alerts }: { alerts: AlertItem[] }) {
     };
 
     return (
-        <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col h-full">
+        <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col min-h-[300px]">
             <div className="p-4 border-b border-border flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/20">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <DollarSign className="w-4 h-4" />
                     Próxima Facturación
                 </h3>
             </div>
-            <div className="flex-1 overflow-auto max-h-[300px]">
+            <div className="flex-1 overflow-auto">
                 {invoices.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground text-sm">
                         No hay facturas por vencer pronto.
