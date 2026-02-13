@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { createInvoice, deleteInvoice, markInvoiceSent, registerPayment } from "@/app/actions/invoices";
 import { closeProject } from "@/app/actions/projects";
-import { Plus, Trash2, Calendar, FileText, Send, CheckCircle, Clock, Loader2 } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, Send, CheckCircle, Clock, Loader2, DollarSign, X } from "lucide-react";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
@@ -19,6 +19,7 @@ interface Props {
     displayCurrency?: string;
     exchangeRate?: { value: number };
     ufRate?: { value: number };
+    totalAmount?: number; // Project Gross Budget
 }
 
 export function InvoicesManager({
@@ -27,11 +28,16 @@ export function InvoicesManager({
     baseCurrency = 'CLP',
     displayCurrency = 'CLP',
     exchangeRate,
-    ufRate
+    ufRate,
+    totalAmount = 0
 }: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [isLoading, setIsLoading] = useState<string | null>(null); // Stores ID of item being processed
     const [isSubmitting, setIsSubmitting] = useState(false); // For creation form
+
+    // Mark Sent State
+    const [markingSentId, setMarkingSentId] = useState<string | null>(null);
+    const [sentDate, setSentDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     const { toast } = useToast();
 
@@ -69,6 +75,10 @@ export function InvoicesManager({
         return '$' + Math.round(value).toLocaleString('es-CL');
     }
 
+    // Calculate Remaining logic
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.amountInvoicedGross, 0);
+    const remainingToInvoice = Math.max(0, totalAmount - totalInvoiced);
+
     async function handleCreate(formData: FormData) {
         setIsSubmitting(true);
         toast({ type: 'loading', message: "Creando factura...", duration: 2000 });
@@ -83,12 +93,14 @@ export function InvoicesManager({
         }
     }
 
-    async function handleMarkSent(id: string) {
-        setIsLoading(id);
+    async function confirmMarkSent() {
+        if (!markingSentId) return;
+        setIsLoading(markingSentId);
         toast({ type: 'loading', message: "Marcando como enviada...", duration: 1000 });
         try {
-            await markInvoiceSent(projectId, id);
+            await markInvoiceSent(projectId, markingSentId, sentDate);
             toast({ type: 'success', message: "Factura marcada como enviada" });
+            setMarkingSentId(null);
         } catch (error) {
             toast({ type: 'error', message: "Error al actualizar estado" });
         } finally {
@@ -138,6 +150,10 @@ export function InvoicesManager({
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium text-foreground">Facturación</h3>
+                <div className="text-sm text-muted-foreground">
+                    <span className="mr-2">Por facturar:</span>
+                    <span className="font-semibold text-foreground">{formatMoney(remainingToInvoice)}</span>
+                </div>
             </div>
 
             {invoices.length > 0 ? (
@@ -162,6 +178,12 @@ export function InvoicesManager({
                                         <tr key={inv.id} className="hover:bg-muted/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <StatusBadge status={isPaid ? 'PAID' : inv.sent ? 'SENT' : 'DRAFT'} type="INVOICE" />
+                                                {inv.sent && inv.sentDate && (
+                                                    <div className="text-[10px] text-muted-foreground mt-1 flex items-center">
+                                                        <Clock className="w-3 h-3 mr-1" />
+                                                        {new Date(inv.sentDate).toLocaleDateString()}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-muted-foreground">
                                                 {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}
@@ -178,16 +200,29 @@ export function InvoicesManager({
                                                 ) : (
                                                     <>
                                                         {!inv.sent && (
-                                                            <button onClick={() => handleMarkSent(inv.id)} className="p-1 text-blue-600 hover:bg-blue-50/50 rounded" title="Marcar Enviada">
-                                                                <Send className="w-4 h-4" />
+                                                            <button
+                                                                onClick={() => {
+                                                                    setMarkingSentId(inv.id);
+                                                                    setSentDate(new Date().toISOString().split('T')[0]);
+                                                                }}
+                                                                className="flex items-center text-xs bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-2.5 py-1.5 rounded-md transition-colors"
+                                                                title="Registrar Envío"
+                                                            >
+                                                                <Send className="w-3.5 h-3.5 mr-1.5" />
+                                                                Enviada
                                                             </button>
                                                         )}
                                                         {inv.sent && !isPaid && (
-                                                            <button onClick={() => handlePay(inv.id, inv.amountInvoicedGross)} className="p-1 text-green-600 hover:bg-green-50/50 rounded" title="Registrar Pago">
-                                                                <CheckCircle className="w-4 h-4" />
+                                                            <button
+                                                                onClick={() => handlePay(inv.id, inv.amountInvoicedGross)}
+                                                                className="flex items-center text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1.5 rounded-md transition-colors"
+                                                                title="Registrar Pago Completo"
+                                                            >
+                                                                <DollarSign className="w-3.5 h-3.5 mr-1.5" />
+                                                                Pagada
                                                             </button>
                                                         )}
-                                                        <button onClick={() => handleDelete(inv.id)} className="p-1 text-muted-foreground hover:text-destructive">
+                                                        <button onClick={() => handleDelete(inv.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </>
@@ -221,7 +256,9 @@ export function InvoicesManager({
                     <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Monto (Bruto)</label>
-                            <MoneyInput name="amount" required placeholder="0" />
+                            {/* Pre-fill with remaining amount */}
+                            <MoneyInput name="amount" required placeholder="0" defaultValue={remainingToInvoice} />
+                            <p className="text-[10px] text-muted-foreground mt-1">Sugerido: {formatMoney(remainingToInvoice)}</p>
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Vencimiento</label>
@@ -235,28 +272,71 @@ export function InvoicesManager({
                                 />
                             </div>
                         </div>
+                        <div className="col-span-2">
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Días de Pago</label>
+                            <input
+                                name="paymentTerms"
+                                type="number"
+                                placeholder="30"
+                                defaultValue={30}
+                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
+                            />
+                        </div>
                     </div>
                     <div className="flex justify-end space-x-3">
-                        <button type="button" onClick={() => setIsAdding(false)} className="text-sm text-zinc-500">Cancelar</button>
+                        <button type="button" onClick={() => setIsAdding(false)} className="text-sm text-zinc-500 hover:text-zinc-700">Cancelar</button>
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center disabled:opacity-50"
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center disabled:opacity-50 hover:bg-blue-700"
                         >
                             {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            Crear
+                            Crear Factura
                         </button>
                     </div>
                 </form>
             ) : (
                 invoices.length > 0 && (
-                    <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600">
+                    <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700">
                         <Plus className="w-4 h-4 mr-2" /> Nueva Factura
                     </button>
                 )
             )}
+
+            {/* Mark Sent Dialog */}
+            {markingSentId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-card w-full max-w-sm rounded-xl border border-border shadow-lg p-6 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">Registrar Envío</h3>
+                            <button onClick={() => setMarkingSentId(null)} className="text-muted-foreground hover:text-foreground">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Indica la fecha en que se envió esta factura al cliente.
+                        </p>
+                        <div className="space-y-2">
+                            <label className="block text-xs font-medium text-zinc-500">Fecha de Envío</label>
+                            <input
+                                type="date"
+                                value={sentDate}
+                                onChange={(e) => setSentDate(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button onClick={() => setMarkingSentId(null)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
+                            <button
+                                onClick={confirmMarkSent}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+                            >
+                                Confirmar Envío
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
-
-

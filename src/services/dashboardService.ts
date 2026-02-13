@@ -470,7 +470,7 @@ export class DashboardService {
         return deadlines.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 10);
     }
 
-    static getGlobalKPIs(projects: Project[], opportunities: any[], period: string, settings: Database['public']['Tables']['Settings']['Row']) {
+    static getGlobalKPIs(projects: Project[], opportunities: any[], period: string, settings: Database['public']['Tables']['Settings']['Row'], dollarValue: number) {
         const now = new Date();
         let startDate = new Date();
         let previousStartDate = new Date();
@@ -503,6 +503,9 @@ export class DashboardService {
             let margin = 0;
 
             projects.forEach(p => {
+                const isUsd = p.currency === 'USD';
+                const rate = isUsd ? dollarValue : 1;
+
                 // Billing (Invoices Sent/Paid in range)
                 // Using 'sentDate' for "Facturación" (Billing) as typical in Sales Dashboards, or 'amountPaid' for Cash Flow.
                 // Request says "Facturación Real" -> usually Invoiced. 
@@ -510,7 +513,7 @@ export class DashboardService {
                     if (inv.sent && inv.sentDate) {
                         const d = new Date(inv.sentDate);
                         if (d >= start && d < end) {
-                            billing += inv.amountInvoicedGross;
+                            billing += (inv.amountInvoicedGross * rate);
                         }
                     }
                 });
@@ -533,7 +536,7 @@ export class DashboardService {
                             // Net Billing approx (assuming VAT included in Gross)
                             const vatRate = settings.vatRate || 0.19;
                             const amountNet = inv.amountInvoicedGross / (1 + vatRate);
-                            margin += amountNet * marginPct;
+                            margin += (amountNet * marginPct * rate);
                         }
                     }
                 });
@@ -558,12 +561,15 @@ export class DashboardService {
         const pendingProjects = projects.filter(p => p.status === 'EN_ESPERA');
 
         pendingProjects.forEach(p => {
+            const isUsd = p.currency === 'USD';
+            const rate = isUsd ? dollarValue : 1;
+
             // Calculate project value (Quote Price)
             const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
             // Default to using Net Price (Revenue potential)
             // If project is generic (no items), might be 0.
             if (fin.priceNet > 0) {
-                pipelineValue += fin.priceNet; // Or Gross? Standard is usually Deal Value (likely Net or Gross depending on org). Let's use Net for consistency with Margin.
+                pipelineValue += (fin.priceNet * rate); // Or Gross? Standard is usually Deal Value (likely Net or Gross depending on org). Let's use Net for consistency with Margin.
             }
         });
 

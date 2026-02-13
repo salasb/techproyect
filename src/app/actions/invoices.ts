@@ -56,11 +56,11 @@ export async function createInvoice(projectId: string, formData: FormData) {
     }
 }
 
-export async function markInvoiceSent(projectId: string, invoiceId: string) {
+export async function markInvoiceSent(projectId: string, invoiceId: string, date?: string) {
     const supabase = await createClient();
 
-    // Default to today as sent date
-    const now = new Date();
+    // Use provided date or default to today
+    const sentDate = date ? new Date(date) : new Date();
 
     // We ideally need to recalculate due date based on terms if not set, 
     // but for now we set sent/sentDate.
@@ -68,14 +68,14 @@ export async function markInvoiceSent(projectId: string, invoiceId: string) {
         .from('Invoice')
         .update({
             sent: true,
-            sentDate: now.toISOString()
+            sentDate: sentDate.toISOString()
         })
         .eq('id', invoiceId);
 
     if (error) throw new Error(error.message);
 
     // Automation: Trigger Follow-up Task
-    const followUpDate = new Date();
+    const followUpDate = new Date(sentDate);
     followUpDate.setDate(followUpDate.getDate() + 5); // Follow up in 5 days
 
     await supabase.from('Project').update({

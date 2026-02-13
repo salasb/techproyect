@@ -30,7 +30,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
     // 1. Fetch Data (Server Side)
     // Parallel fetching for performance
-    const [settingsRes, projectsRes, opportunitiesRes] = await Promise.all([
+    const [settingsRes, projectsRes, opportunitiesRes, dollarRate] = await Promise.all([
         supabase.from('Settings').select('*').single(),
         supabase.from('Project')
             .select(`
@@ -41,7 +41,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 quoteItems:QuoteItem(id, priceNet, costNet, quantity, isSelected)
             `)
             .order('updatedAt', { ascending: false }),
-        supabase.from('Opportunity').select('*')
+        supabase.from('Opportunity').select('*'),
+        getDollarRate()
     ]);
 
     const settings = settingsRes.data || { vatRate: DEFAULT_VAT_RATE } as Settings;
@@ -49,7 +50,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     const opportunities = opportunitiesRes.data || [];
 
     // 2. Calculate Dashboard Data
-    const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings);
+    const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const topClients = DashboardService.getTopClients(projects as any);
     const actions = DashboardService.getActionCenterData(projects as any, settings);
