@@ -2,10 +2,10 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Printer } from "lucide-react";
+import { Printer, Download, Mail } from "lucide-react";
 
 interface SaleNoteViewProps {
-    note: any; // Type strictly later
+    note: any;
     project: any;
 }
 
@@ -14,117 +14,154 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
 
     const totalNet = project.quoteItems?.reduce((sum: number, item: any) => sum + (item.priceNet * item.quantity), 0) || 0;
     const IVA = totalNet * 0.19;
-    const totalGross = totalNet + IVA;
+    const totalGross = totalNet + IVA; // Assuming standard 19% VAT
 
     return (
-        <div className="bg-white text-black p-8 max-w-4xl mx-auto shadow-lg border border-gray-200 printable-content">
-            {/* Header */}
-            <div className="flex justify-between items-start mb-8 border-b pb-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">NOTA DE VENTA</h1>
-                    <p className="text-gray-500">N° {String(note.correlative).padStart(6, '0')}</p>
-                </div>
-                <div className="text-right">
-                    <p className="font-semibold text-lg">TechProyect SpA</p>
-                    <p className="text-sm text-gray-600">RUT: 76.123.456-7</p>
-                    <p className="text-sm text-gray-600">Av. Providencia 1234, Of 501</p>
-                </div>
-            </div>
+        <div className="bg-white text-slate-900 p-0 max-w-4xl mx-auto shadow-2xl border border-slate-200 printable-content rounded-sm overflow-hidden mb-8">
 
-            {/* Client Info */}
-            <div className="grid grid-cols-2 gap-8 mb-8">
-                <div>
-                    <h3 className="text-xs font-bold text-gray-400 uppercase mb-1">Cliente</h3>
-                    <p className="font-semibold">{project.company?.name || "Cliente General"}</p>
-                    <p className="text-sm text-gray-600">{project.company?.address || "Dirección no registrada"}</p>
-                    <p className="text-sm text-gray-600">RUT: {project.company?.taxId || "S/I"}</p>
-                </div>
-                <div className="text-right">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase mb-1">Detalles</h3>
-                    <p className="text-sm">
-                        <span className="font-medium">Fecha:</span>{' '}
-                        {note.generatedAt ? (
-                            (() => {
-                                try {
-                                    return format(new Date(note.generatedAt), "dd 'de' MMMM, yyyy", { locale: es });
-                                } catch (e) {
-                                    return 'Fecha inválida';
-                                }
-                            })()
-                        ) : 'Sin fecha'}
-                    </p>
-                    <p className="text-sm"><span className="font-medium">Vendedor:</span> {project.responsible}</p>
-                    <p className="text-sm"><span className="font-medium">Ref Proyecto:</span> {project.name}</p>
-                </div>
-            </div>
+            {/* BRANDING HEADER STRIP */}
+            <div className="bg-slate-900 h-2 w-full print:bg-slate-900"></div>
 
-            {/* Items Table */}
-            <div className="mb-8">
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-y border-gray-200">
-                        <tr>
-                            <th className="py-2 px-4 text-left font-semibold text-gray-600">Ítem</th>
-                            <th className="py-2 px-4 text-center font-semibold text-gray-600">Cant.</th>
-                            <th className="py-2 px-4 text-center font-semibold text-gray-600">Unidad</th>
-                            <th className="py-2 px-4 text-right font-semibold text-gray-600">P. Unit</th>
-                            <th className="py-2 px-4 text-right font-semibold text-gray-600">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {project.quoteItems?.map((item: any, i: number) => (
-                            <tr key={item.id || i}>
-                                <td className="py-3 px-4">{item.detail}</td>
-                                <td className="py-3 px-4 text-center">{item.quantity}</td>
-                                <td className="py-3 px-4 text-center text-gray-500">{item.unit}</td>
-                                <td className="py-3 px-4 text-right">
-                                    {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(item.priceNet)}
-                                </td>
-                                <td className="py-3 px-4 text-right font-medium">
-                                    {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(item.priceNet * item.quantity)}
-                                </td>
+            <div className="p-8 md:p-12">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-start mb-12 gap-8">
+                    <div className="flex-1">
+                        <img
+                            src="/techwise logo negro.png"
+                            alt="TechWise"
+                            className="h-12 w-auto object-contain mb-4"
+                        />
+                        <div className="text-sm text-slate-500 space-y-0.5">
+                            <p className="font-bold text-slate-900">TechWise SpA</p>
+                            <p>RUT: 77.966.773-1</p>
+                            <p>Av. Las Condes 10465, Of. 045 A, Edif. Estoril Capital, Las Condes</p>
+                            <p>contacto@techwise.cl</p>
+                        </div>
+                    </div>
+
+                    <div className="text-right">
+                        <h1 className="text-3xl font-light text-slate-900 tracking-tight uppercase mb-2">Nota de Venta</h1>
+                        <p className="text-slate-400 font-mono text-xl">N° {String(note.correlative).padStart(6, '0')}</p>
+                        <div className="mt-4 inline-block text-right bg-slate-50 rounded-lg p-3 border border-slate-100">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Fecha de Emisión</p>
+                            <p className="font-semibold text-slate-900">
+                                {note.generatedAt ? (() => {
+                                    try {
+                                        return format(new Date(note.generatedAt), "dd 'de' MMMM, yyyy", { locale: es });
+                                    } catch { return '-'; }
+                                })() : '-'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12 border-t border-b border-slate-100 py-8">
+                    <div>
+                        <h3 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">Cliente</h3>
+                        <div className="space-y-1">
+                            <p className="text-lg font-bold text-slate-900 leading-tight">{project.company?.name || "Cliente General"}</p>
+                            <p className="text-slate-600">{project.company?.address || "Dirección no registrada"}</p>
+                            <p className="text-slate-600 font-mono text-sm">RUT: {project.company?.taxId || "S/I"}</p>
+                            {project.clientId && <p className="text-slate-500 text-sm mt-2">Atn: {project.client?.name}</p>}
+                        </div>
+                    </div>
+                    <div className="md:text-right">
+                        <h3 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">Referencia</h3>
+                        <div className="space-y-1">
+                            <p className="text-lg font-bold text-slate-900 leading-tight">{project.name}</p>
+                            <p className="text-slate-600">ID Proyecto: {project.id.substring(0, 8).toUpperCase()}</p>
+                            <p className="text-slate-600">Vendedor: {project.responsible || "TechWise Team"}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Items Table - Clean & Modern */}
+                <div className="mb-2">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b-2 border-slate-900">
+                                <th className="py-3 pr-4 text-left font-bold text-slate-900 uppercase text-xs tracking-wider">Ítem / Servicio</th>
+                                <th className="py-3 px-4 text-center font-bold text-slate-900 uppercase text-xs tracking-wider">Cant.</th>
+                                <th className="py-3 px-4 text-right font-bold text-slate-900 uppercase text-xs tracking-wider">Precio Unit.</th>
+                                <th className="py-3 pl-4 text-right font-bold text-slate-900 uppercase text-xs tracking-wider">Total</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {project.quoteItems?.map((item: any, i: number) => (
+                                <tr key={item.id || i} className="group transition-colors hover:bg-slate-50/50">
+                                    <td className="py-4 pr-4 align-top">
+                                        <div className="font-semibold text-slate-800">{item.detail}</div>
+                                        {item.sku && <div className="text-xs text-slate-400 font-mono mt-0.5">SKU: {item.sku}</div>}
+                                    </td>
+                                    <td className="py-4 px-4 text-center align-top text-slate-600">{item.quantity}</td>
+                                    <td className="py-4 px-4 text-right align-top text-slate-600 font-mono">
+                                        {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(item.priceNet)}
+                                    </td>
+                                    <td className="py-4 pl-4 text-right align-top font-bold text-slate-900 font-mono">
+                                        {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(item.priceNet * item.quantity)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
-            {/* Totals */}
-            <div className="flex justify-end mb-12">
-                <div className="w-64 space-y-2">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Neto:</span>
-                        <span className="font-medium">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalNet)}</span>
+                {/* Totals Section */}
+                <div className="flex flex-col md:flex-row justify-between items-end gap-8 pt-8 border-t border-slate-900">
+                    <div className="text-sm text-slate-500 max-w-xs">
+                        <p className="font-bold text-slate-900 mb-2 uppercase text-xs">Información de Pago</p>
+                        <div className="bg-slate-50 p-3 rounded text-xs space-y-1 border border-slate-100">
+                            <p><span className="font-semibold">Banco:</span> Banco de Chile</p>
+                            <p><span className="font-semibold">Titular:</span> TechWise SpA</p>
+                            <p><span className="font-semibold">Cuenta Corriente:</span> 1596166003</p>
+                            <p><span className="font-semibold">Email:</span> contacto@techwise.cl</p>
+                        </div>
+                        <p className="mt-4 text-xs italic">
+                            Esta nota de venta constituye un compromiso formal. Validez de la oferta sujeta a disponibilidad.
+                        </p>
                     </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">IVA (19%):</span>
-                        <span className="font-medium">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(IVA)}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2 mt-2">
-                        <span>Total:</span>
-                        <span>{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalGross)}</span>
+
+                    <div className="w-full md:w-72 space-y-3">
+                        <div className="flex justify-between text-sm text-slate-600">
+                            <span>Subtotal Neto</span>
+                            <span className="font-mono">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalNet)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-slate-600">
+                            <span>IVA (19%)</span>
+                            <span className="font-mono">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(IVA)}</span>
+                        </div>
+                        <div className="flex justify-between text-xl font-bold text-slate-900 pt-3 border-t border-slate-200">
+                            <span>Total</span>
+                            <span className="font-mono text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalGross)}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Footer */}
-            <div className="text-center text-xs text-gray-400 mt-12 pt-8 border-t border-gray-100">
-                <p>Generado automáticamente por TechWise System</p>
-                <div className="mt-4 no-print">
-                    <button
-                        onClick={() => window.print()}
-                        className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded hover:bg-black transition-colors"
-                    >
-                        <Printer className="w-4 h-4 mr-2" />
-                        Imprimir / Guardar PDF
-                    </button>
-                </div>
+            {/* Footer / Actions - Hidden on Print */}
+            <div className="bg-slate-50 p-6 flex justify-center gap-4 border-t border-slate-200 no-print">
+                <button
+                    onClick={() => window.print()}
+                    className="flex items-center px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-lg font-medium transition-colors shadow-sm"
+                >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Imprimir / Guardar PDF
+                </button>
             </div>
 
             <style jsx global>{`
                 @media print {
-                    .no-print, header, nav, aside { display: none !important; }
-                    .printable-content { border: none !important; shadow: none !important; padding: 0 !important; }
-                    body { background: white; }
+                    .no-print, header, nav, aside, .tabs-nav { display: none !important; }
+                    .printable-content { 
+                        border: none !important; 
+                        box-shadow: none !important; 
+                        margin: 0 !important; 
+                        max-width: 100% !important;
+                        padding: 0 !important;
+                        border-radius: 0 !important;
+                    }
+                    body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 }
             `}</style>
         </div>
