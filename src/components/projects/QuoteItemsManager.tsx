@@ -20,6 +20,7 @@ interface Props {
     displayCurrency?: string;
     exchangeRate?: { value: number };
     ufRate?: { value: number };
+    isLocked?: boolean;
 }
 
 export function QuoteItemsManager({
@@ -29,7 +30,8 @@ export function QuoteItemsManager({
     baseCurrency = 'CLP',
     displayCurrency = 'CLP',
     exchangeRate,
-    ufRate
+    ufRate,
+    isLocked = false
 }: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
@@ -389,6 +391,7 @@ export function QuoteItemsManager({
                                     checked={allSelected}
                                     ref={input => { if (input) input.indeterminate = someSelected; }}
                                     onChange={handleToggleAll}
+                                    disabled={isLocked}
                                 />
                             </th>
                             {showSku && <th className="px-4 py-3 font-medium w-24">SKU</th>}
@@ -422,6 +425,7 @@ export function QuoteItemsManager({
                                                 className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
                                                 checked={isSelected}
                                                 onChange={() => handleToggleItem(item.id, isSelected)}
+                                                disabled={isLocked}
                                             />
                                         </td>
                                         {showSku && (
@@ -450,22 +454,25 @@ export function QuoteItemsManager({
                                             {formatMoney(item.priceNet * item.quantity)}
                                         </td>
                                         <td className="px-4 py-3 text-right align-top">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => startEdit(item)}
-                                                    className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-blue-600 transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => confirmDelete(item.id)}
-                                                    className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-red-600 transition-colors"
-                                                    title="Eliminar"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
+
+                                            {!isLocked && (
+                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => startEdit(item)}
+                                                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-blue-600 transition-colors"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => confirmDelete(item.id)}
+                                                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-red-600 transition-colors"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 );
@@ -708,25 +715,27 @@ export function QuoteItemsManager({
                         </div>
                     </form>
                 ) : (
-                    <div className="flex gap-4 mt-6">
-                        <button
-                            onClick={() => {
-                                resetForm();
-                                setIsAdding(true);
-                            }}
-                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Agregar Ítem
-                        </button>
-                        <button
-                            onClick={openCatalog}
-                            className="flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
-                        >
-                            <Search className="w-4 h-4 mr-2" />
-                            Buscar en Catálogo
-                        </button>
-                    </div>
+                    !isLocked && (
+                        <div className="flex gap-4 mt-6">
+                            <button
+                                onClick={() => {
+                                    resetForm();
+                                    setIsAdding(true);
+                                }}
+                                className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Agregar Ítem
+                            </button>
+                            <button
+                                onClick={openCatalog}
+                                className="flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
+                            >
+                                <Search className="w-4 h-4 mr-2" />
+                                Buscar en Catálogo
+                            </button>
+                        </div>
+                    )
                 )
             }
 

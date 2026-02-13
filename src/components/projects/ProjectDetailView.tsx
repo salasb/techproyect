@@ -29,7 +29,8 @@ import {
     Wallet,
     X,
     Sparkles,
-    RefreshCw
+    RefreshCw,
+    Lock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInDays, formatDistanceToNow } from "date-fns";
@@ -45,6 +46,7 @@ import { CostsManager } from "./CostsManager";
 import { InvoicesManager } from "./InvoicesManager";
 import { ProjectScope } from "./ProjectScope";
 import { ExchangeRate } from "@/services/currency";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 interface ProjectDetailViewProps {
     project: any; // Using any for now to avoid strict type checks on complex joined data
@@ -211,7 +213,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     }
 
     // Alerts logic
-    const alerts: { type: 'success' | 'warning' | 'danger', msg: string }[] = [];
+    const alerts: { type: 'success' | 'warning' | 'danger' | 'info', msg: string }[] = [];
 
     // Financial Alerts
     const marginPct = financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) : 0;
@@ -219,8 +221,18 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     else if (marginPct <= 0.15) alerts.push({ type: 'warning', msg: 'Margen bajo (6-15%)' });
 
     // Date Alerts
-    if (project.plannedEndDate && new Date(project.plannedEndDate) < new Date() && project.status === 'EN_CURSO') {
+    if (financials.trafficLightTime === 'RED') {
         alerts.push({ type: 'danger', msg: 'Proyecto atrasado en fecha de término' });
+    }
+
+    // Collection Alerts
+    if (financials.trafficLightCollection === 'RED') {
+        alerts.push({ type: 'danger', msg: 'Facturas Vencidas - Gestionar Cobranza' });
+    }
+
+    // Fully Invoiced but Pending Payment
+    if (financials.totalInvoicedGross >= financials.priceGross && financials.receivableGross > 0) {
+        alerts.push({ type: 'info', msg: '100% Facturado - Esperando Pago Final' });
     }
 
     useEffect(() => {
@@ -294,6 +306,9 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
     const actionStatus = getNextActionStatus();
 
+    // Lock Logic
+    const isLocked = displayProject.status === 'FINALIZADO' || (financials.totalInvoicedGross >= financials.priceGross && financials.priceGross > 0);
+
     return (
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
             {displayProject.status === 'FINALIZADO' && (
@@ -331,37 +346,15 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             <div>
                 <h1 className="text-3xl font-bold text-foreground tracking-tight flex items-center gap-3">
                     {project.name}
-                    {financials.overallHealth && (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className={`w-4 h-4 rounded-full shadow-sm ring-2 ring-offset-2 ring-offset-background cursor-help
-                                        ${financials.overallHealth === 'RED' ? 'bg-red-500 ring-red-200' :
-                                            financials.overallHealth === 'YELLOW' ? 'bg-yellow-400 ring-yellow-200' :
-                                                financials.overallHealth === 'GREEN' ? 'bg-green-500 ring-green-200' : 'bg-gray-300 ring-gray-100'}`}
-                                    />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="font-semibold">Salud del Proyecto: {financials.overallHealth === 'RED' ? 'Crítico' : financials.overallHealth === 'YELLOW' ? 'En Riesgo' : financials.overallHealth === 'GREEN' ? 'Saludable' : 'Sin Datos'}</p>
-                                    <ul className="text-xs list-disc pl-4 mt-1 space-y-0.5">
-                                        <li>Finanzas: {financials.trafficLightFinancial === 'RED' ? 'Bajo Margen' : financials.trafficLightFinancial === 'YELLOW' ? 'Margen Ajustado' : 'OK'}</li>
-                                        <li>Tiempo: {financials.trafficLightTime === 'RED' ? 'Atrasado' : financials.trafficLightTime === 'YELLOW' ? 'Próximo a Vencer' : 'OK'}</li>
-                                        <li>Cobranza: {financials.trafficLightCollection === 'RED' ? 'Pagos Vencidos' : financials.trafficLightCollection === 'YELLOW' ? 'Por Vencer' : 'OK'}</li>
-                                    </ul>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                    <StatusBadge status={displayProject.status} type="PROJECT" />
+                    {isLocked && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium rounded-full border border-zinc-200 dark:border-zinc-700" title="Proyecto bloqueado - Facturación completa o finalizado">
+                            <Lock className="w-3 h-3" />
+                            <span>Contenido Sellado</span>
+                        </div>
                     )}
                 </h1>
-                <div className="flex items-center text-muted-foreground mt-1">
-                    <span className="font-medium mr-2 text-lg">{project.client?.name || project.company?.name || project.clientName || 'Cliente por definir'}</span>
-                    {acceptanceLog && (
-                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center w-fit">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Aceptado Digitalmente
-                        </span>
-                    )}
-                </div>
+                <p className="text-muted-foreground mt-2 text-lg">{project.company?.name || 'Cliente Sin Nombre'}</p>
             </div>
 
             <div className="flex gap-2 justify-end -mt-4 mb-4">
@@ -476,7 +469,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         </button>
                     ))}
                 </div>
-            </div>
+            </div >
 
             {
                 activeTab === 'overview' && (

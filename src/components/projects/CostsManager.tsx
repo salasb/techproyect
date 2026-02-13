@@ -19,6 +19,7 @@ interface Props {
     displayCurrency?: string;
     exchangeRate?: { value: number };
     ufRate?: { value: number };
+    isLocked?: boolean;
 }
 
 const CATEGORIES: { value: CostCategory; label: string }[] = [
@@ -35,7 +36,8 @@ export function CostsManager({
     baseCurrency = 'CLP',
     displayCurrency = 'CLP',
     exchangeRate,
-    ufRate
+    ufRate,
+    isLocked = false
 }: Props) {
     const [isAdding, setIsAdding] = useState(false);
     const [editingCost, setEditingCost] = useState<CostEntry | null>(null);
@@ -184,20 +186,24 @@ export function CostsManager({
                                             {formatMoney(cost.amountNet)}
                                         </td>
                                         <td className="px-6 py-4 text-right flex justify-end gap-2">
-                                            <button
-                                                onClick={() => startEdit(cost)}
-                                                className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-blue-500 transition-colors"
-                                                title="Editar"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => confirmDelete(cost.id)}
-                                                className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-red-500 transition-colors"
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            {!isLocked && (
+                                                <>
+                                                    <button
+                                                        onClick={() => startEdit(cost)}
+                                                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-blue-500 transition-colors"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => confirmDelete(cost.id)}
+                                                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-zinc-500 hover:text-red-500 transition-colors"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -206,7 +212,7 @@ export function CostsManager({
                     </div>
                 </div>
             ) : (
-                !isAdding && (
+                !isAdding && !isLocked && (
                     <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 p-6 text-center">
                         <p className="text-sm text-muted-foreground mb-4">No hay costos registrados aún.</p>
                         <button
@@ -327,7 +333,7 @@ export function CostsManager({
                         </div>
                     </form>
                 ) : (
-                    costs.length > 0 && (
+                    costs.length > 0 && !isLocked && (
                         <button
                             onClick={() => setIsAdding(true)}
                             className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"

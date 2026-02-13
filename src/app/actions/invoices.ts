@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 import { validateInvoice } from "@/lib/validators";
+import { addLog } from "@/actions/project-logs";
 
 export async function createInvoice(projectId: string, formData: FormData) {
     const amountInvoicedGross = parseFloat(formData.get("amount") as string);
@@ -84,6 +85,9 @@ export async function markInvoiceSent(projectId: string, invoiceId: string, date
         updatedAt: new Date().toISOString()
     }).eq('id', projectId);
 
+    // Automation: Log Milestone
+    await addLog(projectId, "Factura enviada a cliente", "MILESTONE");
+
     revalidatePath(`/projects/${projectId}`);
     revalidatePath('/');
     revalidatePath('/projects');
@@ -100,6 +104,9 @@ export async function registerPayment(projectId: string, invoiceId: string, amou
         .eq('id', invoiceId);
 
     if (error) throw new Error(error.message);
+
+    // Automation: Log Milestone
+    await addLog(projectId, `Pago recibido: $${amount.toLocaleString('es-CL')}`, "MILESTONE");
 
     // Check if Project is fully paid
     // 1. Get Project Price (from Plan) - This is tricky as price is calculated dynamic. 
