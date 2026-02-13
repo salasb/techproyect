@@ -39,6 +39,41 @@ export function InvoicesManager({
     const [markingSentId, setMarkingSentId] = useState<string | null>(null);
     const [sentDate, setSentDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
+    // Smart Date Logic
+    const [paymentTerms, setPaymentTerms] = useState<number>(30);
+    const [dueDate, setDueDate] = useState<string>(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return d.toISOString().split('T')[0];
+    });
+
+    const handleTermsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const days = parseInt(e.target.value) || 0;
+        setPaymentTerms(days);
+
+        // Update Date
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        setDueDate(date.toISOString().split('T')[0]);
+    };
+
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newDateStr = e.target.value;
+        setDueDate(newDateStr);
+
+        // Update Terms
+        if (newDateStr) {
+            const start = new Date();
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(newDateStr);
+            end.setHours(0, 0, 0, 0);
+
+            const diffTime = end.getTime() - start.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            setPaymentTerms(diffDays);
+        }
+    };
+
     const { toast } = useToast();
 
     // Helper for currency conversion and formatting
@@ -268,19 +303,28 @@ export function InvoicesManager({
                                     name="dueDate"
                                     type="date"
                                     required
+                                    value={dueDate}
+                                    onChange={handleDateChange}
                                     className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
                                 />
                             </div>
                         </div>
                         <div className="col-span-2">
                             <label className="block text-xs font-medium text-zinc-500 mb-1">Días de Pago</label>
-                            <input
-                                name="paymentTerms"
-                                type="number"
-                                placeholder="30"
-                                defaultValue={30}
-                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
-                            />
+                            <div className="relative">
+                                <Clock className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
+                                <input
+                                    name="paymentTerms"
+                                    type="number"
+                                    placeholder="30"
+                                    value={paymentTerms}
+                                    onChange={handleTermsChange}
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
+                                />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                                Calculado automáticamente: {paymentTerms} días desde hoy.
+                            </p>
                         </div>
                     </div>
                     <div className="flex justify-end space-x-3">
