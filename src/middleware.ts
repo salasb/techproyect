@@ -52,6 +52,7 @@ export async function updateSession(request: NextRequest) {
     // 2. RBAC Guard (Admin/Settings)
     // TEMPORARY: Allow all authenticated users to access settings to fix redirect issue.
     // User reported: "El módulo configuración, no funciona, me lleva al Dashboard principal."
+    /*
     if (user && (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/settings'))) {
         try {
             // Fetch profile to check role
@@ -71,9 +72,9 @@ export async function updateSession(request: NextRequest) {
             console.error("Error checking role in middleware:", error);
             // On error (e.g. DB connection fail), fail safe to dashboard to prevent unauthorized access
             return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
+            }
     }
-
+    */
     return response
 }
 

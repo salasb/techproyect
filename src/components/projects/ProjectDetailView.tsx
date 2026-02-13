@@ -41,6 +41,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ProjectSettings } from "./ProjectSettings";
 import { AuditLog } from "./AuditLog";
 import { ProjectLogsManager } from "./ProjectLogsManager";
+import ProjectFinancialAuditor from "./ProjectFinancialAuditor";
 import { UnifiedTimeline } from "./UnifiedTimeline";
 import { QuoteItemsManager } from "./QuoteItemsManager";
 import { CostsManager } from "./CostsManager";
@@ -728,6 +729,9 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                     </h3>
                                 </div>
                                 <div className="p-6 space-y-8">
+                                    {/* AI Auditor */}
+                                    <ProjectFinancialAuditor projectId={project.id} />
+
                                     {/* Cost Analysis */}
                                     {/* Financial Plan vs Actual */}
                                     <div>
