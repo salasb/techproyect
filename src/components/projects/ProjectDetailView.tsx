@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Database } from "@/types/supabase";
+import { addLog } from "@/actions/project-logs";
 import { FinancialResult } from "@/services/financialCalculator";
 import { getDollarRateAction, getUfRateAction } from "@/app/actions/currency";
 import { updateProjectStatus } from "@/app/actions/projects";
@@ -234,6 +235,35 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     if (financials.totalInvoicedGross >= financials.priceGross && financials.receivableGross > 0) {
         alerts.push({ type: 'info', msg: '100% Facturado - Esperando Pago Final' });
     }
+
+    // AUTO-LOGGING: 100% Invoiced
+    const hasLoggedFullInvoice = projectLogs.some(log =>
+        log.type === 'MILESTONE' && log.content.includes('100% Facturado')
+    );
+
+    // Use a ref to prevent double-firing in strict mode or rapid re-renders
+    const isLoggingRef = useRef(false);
+
+    useEffect(() => {
+        const checkAndLog = async () => {
+            if (
+                financials.totalInvoicedGross >= financials.priceGross &&
+                financials.priceGross > 0 &&
+                !hasLoggedFullInvoice &&
+                !isLoggingRef.current
+            ) {
+                isLoggingRef.current = true;
+                try {
+                    await addLog(project.id, "Hito alcanzado: Proyecto 100% Facturado. Esperando pago.", "MILESTONE");
+                } catch (e) {
+                    console.error("Auto-log failed", e);
+                } finally {
+                    isLoggingRef.current = false;
+                }
+            }
+        };
+        checkAndLog();
+    }, [financials.totalInvoicedGross, financials.priceGross, hasLoggedFullInvoice, project.id]);
 
     useEffect(() => {
         if (project.currency) setCurrency(project.currency as 'CLP' | 'USD' | 'UF');
@@ -815,6 +845,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                             displayCurrency={currency}
                             exchangeRate={exchangeRate}
                             ufRate={ufRate}
+                            isLocked={isLocked}
                         />
                     </div>
                 )
@@ -833,6 +864,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                     displayCurrency={currency}
                                     exchangeRate={exchangeRate}
                                     ufRate={ufRate}
+                                    isLocked={isLocked}
                                 />
                             </section>
                             <section>

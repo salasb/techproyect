@@ -48,6 +48,9 @@ export async function createInvoice(projectId: string, formData: FormData) {
             throw new Error(`Error creando factura: ${error.message}`);
         }
 
+        // Automation: Log creation
+        await addLog(projectId, `Factura creada por $${amountInvoicedGross.toLocaleString('es-CL')}`, "INFO");
+
         revalidatePath(`/projects/${projectId}`);
         revalidatePath('/');
         revalidatePath('/projects');
