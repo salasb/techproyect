@@ -27,9 +27,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         .eq('id', id)
         .single();
 
-    // Normalizing for frontend compatibility if needed
+    // Normalizing for frontend compatibility
     if (project && (project as any).SaleNote) {
-        (project as any).saleNote = (project as any).SaleNote;
+        const noteData = (project as any).SaleNote;
+        // If it's an array, take the first item. If it's an object, take it as is.
+        (project as any).saleNote = Array.isArray(noteData) ? noteData[0] : noteData;
     }
 
     // Fetch audit logs

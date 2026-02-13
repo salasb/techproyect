@@ -41,7 +41,18 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                 </div>
                 <div className="text-right">
                     <h3 className="text-xs font-bold text-gray-400 uppercase mb-1">Detalles</h3>
-                    <p className="text-sm"><span className="font-medium">Fecha:</span> {format(new Date(note.generatedAt), "dd 'de' MMMM, yyyy", { locale: es })}</p>
+                    <p className="text-sm">
+                        <span className="font-medium">Fecha:</span>{' '}
+                        {note.generatedAt ? (
+                            (() => {
+                                try {
+                                    return format(new Date(note.generatedAt), "dd 'de' MMMM, yyyy", { locale: es });
+                                } catch (e) {
+                                    return 'Fecha inválida';
+                                }
+                            })()
+                        ) : 'Sin fecha'}
+                    </p>
                     <p className="text-sm"><span className="font-medium">Vendedor:</span> {project.responsible}</p>
                     <p className="text-sm"><span className="font-medium">Ref Proyecto:</span> {project.name}</p>
                 </div>
