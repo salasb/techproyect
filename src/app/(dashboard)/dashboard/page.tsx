@@ -117,12 +117,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                     </div>
                 </div>
             </div>
-        </div>
 
-            {/* 3. Gantt Chart Section */ }
-    <div className="mt-6">
-        <ProjectGantt projects={projects as any} />
-    </div>
+
+            {/* 3. Gantt Chart Section */}
+            <div className="mt-6">
+                <ProjectGantt projects={projects as any} />
+            </div>
         </div >
     );
 }
