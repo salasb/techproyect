@@ -586,8 +586,11 @@ export class DashboardService {
         let earnedMargin = 0;
 
         projects.forEach(p => {
+            const isUsd = p.currency === 'USD';
+            const rate = isUsd ? dollarValue : 1;
+
             const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
-            const margin = fin.marginAmountNet || 0;
+            const margin = (fin.marginAmountNet || 0) * rate;
 
             // Projected: All non-cancelled projects contribute to potential/projected margin
             if (p.status !== 'CANCELADO') {
