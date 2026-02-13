@@ -56,6 +56,17 @@ model Project {
   company        Company       @relation(fields: [companyId], references: [id])
   logs           ProjectLog[]
   quoteItems     QuoteItem[]
+  saleNote       SaleNote?
+}
+
+model SaleNote {
+  id          String   @id @default(uuid())
+  projectId   String   @unique
+  correlative Int      @default(autoincrement())
+  status      String   @default("ISSUED") // ISSUED, ANNULLED
+  generatedAt DateTime @default(now())
+  pdfUrl      String?
+  project     Project  @relation(fields: [projectId], references: [id])
 }
 
 model QuoteItem {

@@ -42,6 +42,8 @@ import { ProjectSettings } from "./ProjectSettings";
 import { AuditLog } from "./AuditLog";
 import { ProjectLogsManager } from "./ProjectLogsManager";
 import ProjectFinancialAuditor from "./ProjectFinancialAuditor";
+import SaleNoteButton from "@/components/sales/SaleNoteButton";
+import SaleNoteView from "@/components/sales/SaleNoteView";
 import { UnifiedTimeline } from "./UnifiedTimeline";
 import { QuoteItemsManager } from "./QuoteItemsManager";
 import { CostsManager } from "./CostsManager";
@@ -854,6 +856,28 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     </div>
                 )
             }
+
+            {activeTab === 'sales' && (
+                <div className="bg-white dark:bg-card shadow rounded-lg overflow-hidden min-h-[400px]">
+                    <div className="p-6 border-b border-border">
+                        <h3 className="text-lg font-medium leading-6 text-foreground flex items-center justify-between">
+                            Documentos de Venta
+                            <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
+                        </h3>
+                    </div>
+                    <div className="p-6">
+                        {project.saleNote ? (
+                            <SaleNoteView note={project.saleNote} project={project} />
+                        ) : (
+                            <div className="text-center py-12 text-muted-foreground">
+                                <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                                <p>No se ha generado Nota de Venta para este proyecto.</p>
+                                <p className="text-sm">Genérela cuando la cotización esté aprobada.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {
                 activeTab === 'financials' && (
