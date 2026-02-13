@@ -152,16 +152,32 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
 
             <style jsx global>{`
                 @media print {
-                    .no-print, header, nav, aside, .tabs-nav { display: none !important; }
-                    .printable-content { 
-                        border: none !important; 
-                        box-shadow: none !important; 
-                        margin: 0 !important; 
-                        max-width: 100% !important;
-                        padding: 0 !important;
-                        border-radius: 0 !important;
+                    /* Hide everything by default */
+                    body * {
+                        visibility: hidden;
                     }
-                    body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    /* Show only printable content */
+                    .printable-content, .printable-content * {
+                        visibility: visible;
+                    }
+                    .printable-content {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        margin: 0 !important;
+                        padding: 20px !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                    }
+                    /* Avoid breaking inside table rows */
+                    tr, td, th {
+                        page-break-inside: avoid;
+                    }
+                    /* Hide non-printable elements strictly */
+                    .no-print {
+                        display: none !important;
+                    }
                 }
             `}</style>
         </div>
