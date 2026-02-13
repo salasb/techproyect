@@ -1,5 +1,6 @@
 import { QuotePrintButton } from "@/components/projects/QuotePrintButton";
 import { QuoteAcceptance } from "@/components/projects/QuoteAcceptance";
+import { QuoteActions } from "@/components/projects/QuoteActions";
 import { QuoteDocument } from "@/components/projects/QuoteDocument";
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
@@ -61,6 +62,12 @@ export default async function QuotePage({ params }: Props) {
             {/* Toolbar - Hidden when printing */}
             <div className="max-w-[210mm] mx-auto mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 print:hidden">
                 <QuoteAcceptance projectId={project.id} initialAccepted={!!project.acceptedAt} />
+                <QuoteActions
+                    projectId={project.id}
+                    projectStatus={project.status}
+                    projectName={project.name}
+                    quoteSentDate={project.quoteSentDate}
+                />
                 <div className="flex gap-2">
                     <Link href={`/projects/${project.id}`} className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center">
                         <ArrowLeft className="w-4 h-4 mr-2" />

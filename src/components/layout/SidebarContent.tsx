@@ -46,6 +46,7 @@ export function SidebarContent({ onLinkClick, badges = {} }: SidebarContentProps
                             key={item.name}
                             href={item.href}
                             onClick={onLinkClick}
+                            aria-label={`Ir a ${item.name}`}
                             className="flex items-center justify-between px-4 py-3 text-sm font-medium text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors group"
                         >
                             <div className="flex items-center">

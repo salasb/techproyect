@@ -279,20 +279,23 @@ export function QuoteItemsManager({
                         </span>
                     )}
                 </div>
-                <div className="text-right flex gap-6 items-center">
-                    <div>
-                        <p className="text-xs text-muted-foreground uppercase">Costo Total</p>
-                        <p className="text-lg font-semibold text-zinc-500">{formatMoney(totalCost)}</p>
+                <div className="text-right flex items-center gap-4">
+                    <div className="flex flex-col items-end mr-4">
+                        <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider">Costo</p>
+                        <p className="text-base font-medium text-zinc-500">{formatMoney(totalCost)}</p>
                     </div>
-                    <div>
+
+                    <div className="flex flex-col items-end mr-4">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <div className="cursor-help">
-                                        <p className="text-xs text-muted-foreground uppercase flex items-center justify-end gap-1">
-                                            Margen Global <AlertCircle className="w-3 h-3" />
+                                    <div className="cursor-help flex flex-col items-end">
+                                        <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+                                            Margen <AlertCircle className="w-3 h-3" />
                                         </p>
-                                        <p className={`text-xl font-bold ${projectMarginPct > 15 ? 'text-green-600' : (projectMarginPct <= 5 ? 'text-red-600' : 'text-yellow-600')}`}>{projectMarginPct.toFixed(0)}%</p>
+                                        <div className={`px-2.5 py-0.5 rounded-full text-sm font-bold border ${projectMarginPct > 15 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : (projectMarginPct <= 5 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-amber-50 text-amber-600 border-amber-200')}`}>
+                                            {projectMarginPct.toFixed(0)}%
+                                        </div>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -308,9 +311,10 @@ export function QuoteItemsManager({
                             </Tooltip>
                         </TooltipProvider>
                     </div>
-                    <div className="border-l border-zinc-200 dark:border-zinc-700 pl-6">
-                        <p className="text-xs text-muted-foreground uppercase">Total Neto</p>
-                        <p className="text-2xl font-bold text-foreground">{formatMoney(totalNet)}</p>
+
+                    <div className="bg-blue-50 dark:bg-blue-900/20 px-5 py-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm">
+                        <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wider mb-0.5">Total Neto</p>
+                        <p className="text-3xl font-black text-blue-700 dark:text-blue-300 tracking-tight">{formatMoney(totalNet)}</p>
                     </div>
                 </div>
             </div>
@@ -354,7 +358,7 @@ export function QuoteItemsManager({
                                 const marginP = item.priceNet > 0 ? (margin / item.priceNet) * 100 : 0;
 
                                 return (
-                                    <tr key={item.id} className={`group hover:bg-muted/50 transition-colors ${!isSelected ? 'bg-zinc-50/50 dark:bg-zinc-900/20 opacity-60 grayscale-[0.5]' : ''}`}>
+                                    <tr key={item.id} className={`group hover:bg-muted/50 transition-all duration-300 animate-in fade-in slide-in-from-left-2 ${!isSelected ? 'bg-zinc-50/50 dark:bg-zinc-900/20 opacity-60 grayscale-[0.5]' : ''}`}>
                                         <td className="px-4 py-3 text-center align-top">
                                             <input
                                                 type="checkbox"

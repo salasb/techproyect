@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Printer, Download, Mail } from "lucide-react";
+import { Printer, Download, Mail, DollarSign } from "lucide-react";
 
 interface SaleNoteViewProps {
     note: any;
@@ -122,18 +122,25 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                         </p>
                     </div>
 
-                    <div className="w-full md:w-72 space-y-3 print:space-y-1 print:w-64">
-                        <div className="flex justify-between text-sm text-slate-600 print:text-xs">
-                            <span>Subtotal Neto</span>
-                            <span className="font-mono">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalNet)}</span>
+                    <div className="w-full md:w-80 space-y-4 print:space-y-1 print:w-64">
+                        <div className="space-y-2 pb-4 border-b border-slate-100 print:pb-2 print:space-y-1">
+                            <div className="flex justify-between text-sm text-slate-600 print:text-xs">
+                                <span>Subtotal Neto</span>
+                                <span className="font-mono">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalNet)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-slate-600 print:text-xs">
+                                <span>IVA (19%)</span>
+                                <span className="font-mono">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(IVA)}</span>
+                            </div>
                         </div>
-                        <div className="flex justify-between text-sm text-slate-600 print:text-xs">
-                            <span>IVA (19%)</span>
-                            <span className="font-mono">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(IVA)}</span>
-                        </div>
-                        <div className="flex justify-between text-xl font-bold text-slate-900 pt-3 border-t border-slate-200 print:pt-2 print:text-lg">
-                            <span>Total</span>
-                            <span className="font-mono text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalGross)}</span>
+                        <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 rounded-xl shadow-xl print:bg-transparent print:text-slate-900 print:p-0 print:shadow-none print:rounded-none relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-3 opacity-10">
+                                <DollarSign className="w-16 h-16" />
+                            </div>
+                            <div className="flex justify-between items-center relative z-10">
+                                <span className="text-xs uppercase font-bold tracking-widest opacity-90 print:text-slate-900">Total a Pagar</span>
+                                <span className="font-mono text-4xl font-extrabold tracking-tight print:text-xl print:text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(totalGross)}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

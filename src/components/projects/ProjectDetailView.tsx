@@ -1,6 +1,8 @@
 'use client'
 
+import confetti from 'canvas-confetti';
 import { useState, useEffect, useRef } from "react";
+
 import { Database } from "@/types/supabase";
 import { addLog } from "@/actions/project-logs";
 import { FinancialResult } from "@/services/financialCalculator";
@@ -126,6 +128,11 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             } else if (action === 'ACCEPT') {
                 await updateProjectStatus(project.id, 'EN_CURSO', 'DISENO', 'Iniciar Desarrollo');
                 toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
             } else if (action === 'REJECT') {
                 await updateProjectStatus(project.id, 'CANCELADO');
                 toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
@@ -344,6 +351,31 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+            {/* Sale Note CTA for Accepted Projects */}
+            {project.status === 'EN_CURSO' && !project.saleNote && (
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-4 mb-6">
+                    <div className="space-y-1">
+                        <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
+                            <span className="bg-emerald-100 dark:bg-emerald-800 p-1.5 rounded-full flex items-center justify-center w-6 h-6 text-xs">✓</span>
+                            Proyecto Aceptado: Siguiente Paso
+                        </h3>
+                        <p className="text-emerald-700 dark:text-emerald-500 max-w-xl text-sm">
+                            La cotización ha sido aprobada. Genera la Nota de Venta para formalizar el cierre comercial y habilitar la facturación.
+                        </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                        <SaleNoteButton
+                            projectId={project.id}
+                            onNoteGenerated={() => {
+                                router.refresh();
+                                setActiveTab('sales');
+                                toast({ type: 'success', message: "Nota de Venta lista. Redirigiendo..." });
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+
             {displayProject.status === 'FINALIZADO' && (
                 <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-4">
                     <div className="flex items-center gap-4">
@@ -571,6 +603,24 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                                     {project.quoteSentDate && <li>Cotización enviada el <strong>{format(new Date(project.quoteSentDate), "d 'de' MMMM", { locale: es })}</strong>.</li>}
                                                 </ul>
                                             )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Sale Note CTA for Accepted Projects */}
+                                {project.status === 'EN_CURSO' && !project.saleNote && (
+                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4">
+                                        <div className="space-y-1">
+                                            <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
+                                                <span className="bg-emerald-100 dark:bg-emerald-800 p-1.5 rounded-full">✓</span>
+                                                Proyecto Aceptado: Siguiente Paso
+                                            </h3>
+                                            <p className="text-emerald-700 dark:text-emerald-500 max-w-xl">
+                                                La cotización ha sido aprobada. Genera la Nota de Venta para formalizar el cierre comercial y habilitar la facturación.
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
                                         </div>
                                     </div>
                                 )}
@@ -875,7 +925,14 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                 <p className="text-lg font-medium">No se ha generado Nota de Venta para este proyecto.</p>
                                 <p className="text-sm">Para crear el documento oficial con correlativo y datos fiscales, presiona el botón de abajo.</p>
                                 <div className="pt-4">
-                                    <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
+                                    <SaleNoteButton
+                                        projectId={project.id}
+                                        onNoteGenerated={() => {
+                                            router.refresh();
+                                            setActiveTab('sales');
+                                            toast({ type: 'success', message: "Nota de Venta lista. Redirigiendo..." });
+                                        }}
+                                    />
                                 </div>
                             </div>
                         )}

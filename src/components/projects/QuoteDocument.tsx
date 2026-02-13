@@ -189,17 +189,17 @@ export function QuoteDocument({ project, settings }: Props) {
 
                 {/* Totals Box */}
                 <div className="w-full md:w-64">
-                    <div className="flex justify-between items-center py-1 border-b border-slate-200 text-xs">
-                        <span className="font-medium text-slate-600">Neto:</span>
-                        <span className="font-mono font-medium">{fmt(totalNet)}</span>
+                    <div className="flex justify-between items-center py-2 border-b border-slate-200 text-xs">
+                        <span className="font-medium text-slate-600 uppercase tracking-wider">Subtotal Neto</span>
+                        <span className="font-mono font-medium text-slate-700">{fmt(totalNet)}</span>
                     </div>
-                    <div className="flex justify-between items-center py-1 border-b border-slate-200 text-xs">
-                        <span className="font-medium text-slate-600">IVA ({(vatRate * 100).toFixed(0)}%):</span>
-                        <span className="font-mono font-medium">{fmt(vatAmount)}</span>
+                    <div className="flex justify-between items-center py-2 border-b border-slate-200 text-xs">
+                        <span className="font-medium text-slate-600 uppercase tracking-wider">IVA ({(vatRate * 100).toFixed(0)}%)</span>
+                        <span className="font-mono font-medium text-slate-700">{fmt(vatAmount)}</span>
                     </div>
-                    <div className="flex justify-between items-center py-2 mt-1 bg-slate-100 rounded px-2">
-                        <span className="font-bold text-slate-900 uppercase text-xs">Total:</span>
-                        <span className="font-mono font-bold text-sm">{fmt(totalGross)}</span>
+                    <div className="flex justify-between items-center py-3 mt-2 bg-slate-900 text-white rounded-lg px-3 shadow-sm print:bg-transparent print:text-slate-900 print:shadow-none print:border-t-2 print:border-slate-900 print:rounded-none">
+                        <span className="font-bold uppercase text-xs tracking-widest">Total</span>
+                        <span className="font-mono font-extrabold text-xl">{fmt(totalGross)}</span>
                     </div>
                 </div>
             </div>

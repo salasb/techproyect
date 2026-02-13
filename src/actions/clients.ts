@@ -86,3 +86,25 @@ export async function deleteClientAction(clientId: string) {
     if (error) throw new Error(error.message);
     revalidatePath('/clients');
 }
+
+export async function createQuickClient(formData: FormData) {
+    const supabase = await createClient();
+
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const phone = formData.get('phone') as string;
+
+    const { data, error } = await supabase.from('Client').insert({
+        name,
+        email,
+        phone,
+        status: 'PROSPECT', // Default for quick creation
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+    }).select().single();
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/clients');
+    return { success: true, client: data };
+}

@@ -77,40 +77,57 @@ export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?:
 
 function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color }: any) {
     const colors: any = {
-        blue: "text-blue-600 bg-blue-100/50 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
-        emerald: "text-emerald-600 bg-emerald-100/50 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
-        purple: "text-purple-600 bg-purple-100/50 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800",
+        blue: {
+            bg: "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/40",
+            border: "border-blue-200 dark:border-blue-800",
+            icon: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50",
+            text: "text-blue-700 dark:text-blue-300"
+        },
+        emerald: {
+            bg: "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/40 dark:to-emerald-900/40",
+            border: "border-emerald-200 dark:border-emerald-800",
+            icon: "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50",
+            text: "text-emerald-700 dark:text-emerald-300"
+        },
+        purple: {
+            bg: "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/40 dark:to-purple-900/40",
+            border: "border-purple-200 dark:border-purple-800",
+            icon: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/50",
+            text: "text-purple-700 dark:text-purple-300"
+        },
     }
 
+    const theme = colors[color] || colors.blue;
     const isPositive = trend >= 0;
 
     return (
-        <div className="group relative overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-950/50">
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-zinc-50/50 opacity-0 transition-opacity group-hover:opacity-100 dark:to-zinc-900/50" />
+        <div className={`group relative overflow-hidden rounded-xl border ${theme.border} ${theme.bg} p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg h-full`}>
 
-            <div className="relative z-10 flex items-center justify-between">
-                <p className="text-sm font-medium text-muted-foreground">{title}</p>
-                <div className={`rounded-lg border p-2 shadow-sm ${colors[color]}`}>
-                    <Icon className="h-4 w-4" />
+            <div className="relative z-10 flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+                <div className={`rounded-xl p-2.5 shadow-sm ${theme.icon} transition-transform group-hover:scale-110 duration-300`}>
+                    <Icon className="h-5 w-5" />
                 </div>
             </div>
 
-            <div className="relative z-10 mt-4">
-                <h3 className="text-2xl font-bold tracking-tight text-foreground">{value}</h3>
+            <div className="relative z-10">
+                <h3 className="text-4xl font-extrabold tracking-tight text-foreground mb-1">{value}</h3>
 
-                {trend !== undefined && (
-                    <div className="mt-1 flex items-center gap-2">
-                        <span className={`flex items-center text-xs font-medium ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {isPositive ? <ArrowUpRight className="mr-1 h-3 w-3" /> : <ArrowDownRight className="mr-1 h-3 w-3" />}
-                            {Math.abs(trend).toFixed(1)}%
-                        </span>
-                        <span className="text-xs text-muted-foreground">{trendText}</span>
-                    </div>
-                )}
+                <div className="flex items-center justify-between mt-2">
+                    {trend !== undefined && (
+                        <div className="flex items-center gap-2 bg-white/50 dark:bg-black/20 rounded-full px-2 py-0.5 backdrop-blur-sm self-start">
+                            <span className={`flex items-center text-xs font-bold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {isPositive ? <ArrowUpRight className="mr-1 h-3 w-3" /> : <ArrowDownRight className="mr-1 h-3 w-3" />}
+                                {Math.abs(trend).toFixed(1)}%
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-medium uppercase">{trendText}</span>
+                        </div>
+                    )}
 
-                {subtext && (
-                    <p className="mt-1 text-xs text-muted-foreground">{subtext}</p>
-                )}
+                    {subtext && (
+                        <p className="text-xs font-medium text-muted-foreground ml-auto">{subtext}</p>
+                    )}
+                </div>
             </div>
         </div>
     );
