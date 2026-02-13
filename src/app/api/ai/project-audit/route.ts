@@ -120,8 +120,12 @@ export async function POST(req: Request) {
 
         return Response.json(object);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("AI Audit Error", error);
-        return Response.json({ error: 'AI Analysis failed' }, { status: 500 });
+        return Response.json({
+            error: 'AI Analysis failed',
+            details: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        }, { status: 500 });
     }
 }
