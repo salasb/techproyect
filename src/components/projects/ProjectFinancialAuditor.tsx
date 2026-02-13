@@ -30,13 +30,20 @@ export default function ProjectFinancialAuditor({ projectId }: { projectId: stri
                 body: JSON.stringify({ projectId })
             });
 
-            if (!res.ok) throw new Error("Audit failed");
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.details || errorData.error || "Error desconocido al realizar la auditoría IA");
+            }
 
             const data = await res.json();
             setAudit(data);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ type: 'error', message: "Error al realizar la auditoría IA" });
+            toast({
+                type: 'error',
+                message: error.message || "Error al realizar la auditoría IA",
+                duration: 5000
+            });
         } finally {
             setIsLoading(false);
         }
