@@ -11,6 +11,7 @@ import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { TasksWidget } from "@/components/dashboard/widgets/TasksWidget";
 import { BillingAlertsWidget } from "@/components/dashboard/widgets/BillingAlertsWidget";
 import { ClientRankingWidget } from "@/components/dashboard/widgets/ClientRankingWidget";
+import { ProjectGantt } from "@/components/dashboard/ProjectGantt";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
@@ -117,5 +118,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 </div>
             </div>
         </div>
+
+            {/* 3. Gantt Chart Section */ }
+    <div className="mt-6">
+        <ProjectGantt projects={projects as any} />
+    </div>
+        </div >
     );
 }

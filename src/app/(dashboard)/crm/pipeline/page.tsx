@@ -1,5 +1,5 @@
 import { getOpportunities } from "@/actions/opportunities";
-import { OpportunitiesBoard } from "@/components/crm/OpportunitiesBoard";
+import { KanbanBoard } from "@/components/opportunities/KanbanBoard";
 import { KanbanSquare, Plus } from "lucide-react";
 import Link from "next/link";
 
@@ -29,7 +29,7 @@ export default async function PipelinePage() {
 
             <div className="flex-1 overflow-hidden">
                 <div className="h-full p-6">
-                    <OpportunitiesBoard opportunities={opportunities} />
+                    <KanbanBoard opportunities={opportunities} />
                 </div>
             </div>
         </div>
