@@ -12,7 +12,7 @@ import { TasksWidget } from "@/components/dashboard/widgets/TasksWidget";
 import { BillingAlertsWidget } from "@/components/dashboard/widgets/BillingAlertsWidget";
 import { ClientRankingWidget } from "@/components/dashboard/widgets/ClientRankingWidget";
 import { ProjectGantt } from "@/components/dashboard/ProjectGantt";
-import { AiAssistantBanner } from "@/components/dashboard/AiAssistantBanner";
+
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
@@ -85,7 +85,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
             {/* AI Banner - New Feature Visibility */}
             <div className="animate-in slide-in-from-top-4 fade-in duration-700">
-                <AiAssistantBanner />
+
             </div>
 
             {/* 1. KPIs Section */}

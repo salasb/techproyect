@@ -863,9 +863,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     <div className="p-6 border-b border-border">
                         <h3 className="text-lg font-medium leading-6 text-foreground flex items-center justify-between">
                             Documentos de Venta
-                            {!project.saleNote && (
-                                <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
-                            )}
+
                         </h3>
                     </div>
                     <div className="p-6">

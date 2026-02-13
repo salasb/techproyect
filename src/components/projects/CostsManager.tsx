@@ -5,7 +5,7 @@ import { Database } from "@/types/supabase";
 import { addCost, deleteCost, updateCost } from "@/app/actions/costs";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2, Edit2, Save, X, Info, Wand2 } from "lucide-react";
+import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2, Edit2, Save, X, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
@@ -42,36 +42,7 @@ export function CostsManager({
     const [isAdding, setIsAdding] = useState(false);
     const [editingCost, setEditingCost] = useState<CostEntry | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [isAiLoading, setIsAiLoading] = useState(false);
 
-    // AI Categorization Logic
-    const handleAiCategorize = async (description: string) => {
-        if (!description || description.length < 3) return;
-
-        setIsAiLoading(true);
-        try {
-            const res = await fetch('/api/ai/categorize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ description })
-            });
-
-            if (!res.ok) throw new Error('AI Error');
-
-            const data = await res.json();
-
-            // Set category programmatically
-            const categorySelect = document.querySelector('select[name="category"]') as HTMLSelectElement;
-            if (categorySelect && data.category) {
-                categorySelect.value = data.category;
-                toast({ type: 'success', message: `Categorizado como: ${CATEGORIES.find(c => c.value === data.category)?.label}` });
-            }
-        } catch (error) {
-            console.error("AI Categorization failed", error);
-        } finally {
-            setIsAiLoading(false);
-        }
-    };
 
     // Helper for currency conversion and formatting
     const formatMoney = (amount: number) => {
@@ -327,27 +298,11 @@ export function CostsManager({
                                         name="description"
                                         type="text"
                                         required
-                                        onBlur={(e) => handleAiCategorize(e.target.value)}
+                                        onBlur={(e) => { }}
                                         defaultValue={editingCost?.description || ''}
                                         placeholder="Ej: Honorarios Developer Senior"
-                                        className="w-full pl-4 pr-10 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full pl-4 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                     />
-                                    <div className="absolute right-3 top-2.5 text-zinc-400">
-                                        {isAiLoading ? (
-                                            <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
-                                        ) : (
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Wand2 className="w-4 h-4 text-indigo-400 hover:text-indigo-600 transition-colors cursor-help" />
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>Auto-categorización con IA</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
-                                        )}
-                                    </div>
                                 </div>
                             </div>
 
