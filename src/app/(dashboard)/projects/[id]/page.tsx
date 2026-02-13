@@ -22,10 +22,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             costEntries:CostEntry(*),
             invoices:Invoice(*),
             quoteItems:QuoteItem(*),
-            saleNote:SaleNote(*)
+            SaleNote(*)
         `)
         .eq('id', id)
         .single();
+
+    // Normalizing for frontend compatibility if needed
+    if (project && (project as any).SaleNote) {
+        (project as any).saleNote = (project as any).SaleNote;
+    }
 
     // Fetch audit logs
     const { data: auditLogs } = await supabase
