@@ -83,10 +83,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 </div>
             </div>
 
-            {/* AI Banner - New Feature Visibility */}
-            <div className="animate-in slide-in-from-top-4 fade-in duration-700">
 
-            </div>
 
             {/* 1. KPIs Section */}
             <DashboardKPIs data={kpis} />

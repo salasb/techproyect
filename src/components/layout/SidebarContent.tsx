@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users } from "lucide-react";
+import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt } from "lucide-react";
 import { LogoutButton } from "./LogoutButton";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 
@@ -7,6 +7,8 @@ const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Proyectos', href: '/projects', icon: FolderOpen },
     { name: 'Cotizaciones', href: '/quotes', icon: FileText },
+    { name: 'Facturación', href: '/invoices', icon: Receipt },
+    { name: 'Catálogo', href: '/catalog', icon: Package },
     { name: 'Clientes', href: '/clients', icon: Users },
     { name: 'Reportes', href: '/reports', icon: BarChart },
     { name: 'Configuración', href: '/settings', icon: Settings },
