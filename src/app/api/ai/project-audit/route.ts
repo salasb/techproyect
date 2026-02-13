@@ -1,10 +1,24 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
 export async function POST(req: Request) {
+    // Debug ENV presence
+    console.log("AI Audit - API Key present:", !!process.env.OPENAI_API_KEY);
+
+    if (!process.env.OPENAI_API_KEY) {
+        return Response.json({
+            error: 'OpenAI API Key Missing',
+            details: 'La variable de entorno OPENAI_API_KEY no está configurada en el servidor.'
+        }, { status: 500 });
+    }
+
+    const openai = createOpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const { projectId } = await req.json();
 
     if (!projectId) {

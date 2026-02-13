@@ -469,6 +469,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         { id: 'overview', label: 'Visión General', icon: LayoutDashboard },
                         { id: 'items', label: 'Ítems', icon: FileText },
                         { id: 'financials', label: 'Finanzas', icon: DollarSign },
+                        { id: 'sales', label: 'Ventas', icon: FileText },
                         { id: 'logs', label: 'Bitácora', icon: History },
                         { id: 'settings', label: 'Configuración', icon: Settings },
                     ].map((tab) => (
