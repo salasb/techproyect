@@ -296,6 +296,37 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+            {displayProject.status === 'FINALIZADO' && (
+                <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 rounded-full text-emerald-600 dark:text-emerald-400">
+                            <Sparkles className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-emerald-800 dark:text-emerald-300">¡Proyecto Finalizado Exitosamente!</h3>
+                            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
+                                Este proyecto ha sido completado y pagado en su totalidad.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-6 bg-white dark:bg-zinc-900/50 px-6 py-3 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+                        <div>
+                            <span className="block text-xs uppercase text-emerald-600/70 font-bold tracking-wider">Total Facturado</span>
+                            <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                                {formatMoney(financials.totalInvoicedGross)}
+                            </span>
+                        </div>
+                        <div className="h-8 w-px bg-emerald-200 dark:bg-emerald-800" />
+                        <div>
+                            <span className="block text-xs uppercase text-emerald-600/70 font-bold tracking-wider">Margen Final</span>
+                            <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                                {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(0) : 0}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Project Header */}
             <div>
                 <h1 className="text-3xl font-bold text-foreground tracking-tight flex items-center gap-3">

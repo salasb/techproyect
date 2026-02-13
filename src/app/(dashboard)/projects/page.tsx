@@ -13,13 +13,15 @@ import { RiskBadge } from "@/components/projects/RiskBadge";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
-export default async function ProjectsPage({ searchParams }: { searchParams: { page?: string } }) {
+export default async function ProjectsPage({ searchParams }: { searchParams: { page?: string, tab?: string } }) {
     const supabase = await createClient();
 
     const page = Number(searchParams?.page) || 1;
     const itemsPerPage = 10;
     const start = (page - 1) * itemsPerPage;
     const end = start + itemsPerPage - 1;
+
+    const tab = searchParams?.tab || 'active';
 
     // 1. Fetch settings for VAT and thresholds
     let { data: settings } = await supabase.from('Settings').select('*').single();
@@ -28,8 +30,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
         settings = { vatRate: DEFAULT_VAT_RATE } as Settings;
     }
 
-    // 2. Fetch projects with all relations needed for calculation
-    const { data: projectsData, error, count } = await supabase
+    // 2. Fetch projects with filtering based on tab
+    let query = supabase
         .from('Project')
         .select(`
             *,
@@ -37,7 +39,15 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
             costEntries:CostEntry(*),
             invoices:Invoice(*),
             quoteItems:QuoteItem(*)
-        `, { count: 'exact' })
+        `, { count: 'exact' });
+
+    if (tab === 'active') {
+        query = query.in('status', ['EN_ESPERA', 'EN_CURSO', 'BLOQUEADO']);
+    } else if (tab === 'history') {
+        query = query.in('status', ['FINALIZADO', 'CANCELADO']);
+    }
+
+    const { data: projectsData, error, count } = await query
         .order('createdAt', { ascending: false })
         .range(start, end);
 
@@ -53,17 +63,34 @@ export default async function ProjectsPage({ searchParams }: { searchParams: { p
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Proyectos</h2>
-                    <p className="text-muted-foreground mt-1">Gestiona tus cotizaciones y proyectos en curso.</p>
+                    <p className="text-muted-foreground mt-1">Gestiona tus cotizaciones y proyectos.</p>
                 </div>
-                <Link href="/projects/new">
-                    <button className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Nuevo Proyecto
-                    </button>
-                </Link>
+                <div className="flex items-center gap-3">
+                    <div className="bg-muted p-1 rounded-lg flex text-sm font-medium">
+                        <Link
+                            href="/projects?tab=active"
+                            className={`px-3 py-1.5 rounded-md transition-all ${tab === 'active' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            En Curso
+                        </Link>
+                        <Link
+                            href="/projects?tab=history"
+                            className={`px-3 py-1.5 rounded-md transition-all ${tab === 'history' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Historial
+                        </Link>
+                    </div>
+                    <Link href="/projects/new">
+                        <button className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20">
+                            <Plus className="w-4 h-4 mr-2" />
+                            <span className="hidden md:inline">Nuevo Proyecto</span>
+                            <span className="md:hidden">Nuevo</span>
+                        </button>
+                    </Link>
+                </div>
             </div>
 
             <div className="bg-transparent md:bg-card md:rounded-xl md:border md:border-border md:shadow-sm overflow-hidden">

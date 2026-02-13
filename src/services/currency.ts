@@ -11,7 +11,7 @@ export interface ExchangeRate {
 export async function getDollarRate(): Promise<ExchangeRate> {
     try {
         const res = await fetch('https://mindicador.cl/api', {
-            next: { revalidate: 86400 } // Cache for 24 hours
+            next: { revalidate: 0 } // No cache, always fresh
         });
 
         if (!res.ok) {
