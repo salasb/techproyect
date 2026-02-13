@@ -19,6 +19,10 @@ export async function POST(req: Request) {
             - LOGISTICA: Travel, transport, shipping, meals, accommodation.
             - OTROS: Office supplies, taxes, miscellaneous, bank fees.
 
+            STRICT CONTEXT:
+            This is for an IT Project Management system.
+            If the description is completely unrelated to project costs (e.g., a cooking recipe, a historical fact), categorize it as "OTROS" and set the reasoning to "Input appears unrelated to project costs".
+
             Description: "${description}"
         `,
     });

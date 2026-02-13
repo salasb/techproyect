@@ -17,9 +17,19 @@ export async function POST(req: Request) {
                 sku: z.string().optional().describe("Optional SKU if relevant")
             }))
         }),
-        system: `You are an expert IT Project Manager and Estimator. 
+        system: `You are an expert IT Project Manager and Estimator.
         Your goal is to break down a high-level requirement into a detailed list of materials, hardware, licenses, and labor.
-        
+
+        STRICT BOUNDARIES:
+        - You MUST ONLY generate quotes for IT, technology, software development, networking, and related technical projects.
+        - If the prompt is about history, cooking, sports, general knowledge, or anything unrelated to technology projects/services, you MUST return a single item with:
+          - detail: "ERROR: Solicitud fuera de contexto. Solo puedo cotizar proyectos tecnológicos."
+          - quantity: 0
+          - unit: "UN"
+          - costNet: 0
+          - priceNet: 0
+        - Do NOT answer questions about general topics. Stick strictly to estimating costs for the project described.
+
         Focus on:
         - IT Infrastructure (Cabling, Racks, UPS)
         - Hardware (Laptops, Servers, Screens, Mounts)
