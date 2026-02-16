@@ -27,7 +27,7 @@ export async function createProduct(data: FormData) {
     const orgId = await getOrganizationId();
     const supabase = await createClient();
 
-    const sku = data.get('sku') as string;
+    const sku = (data.get('sku') as string) || null; // Fix: Allow null SKU
     const name = data.get('name') as string;
     const description = data.get('description') as string;
     const unit = data.get('unit') as string;
@@ -81,7 +81,7 @@ export async function createProduct(data: FormData) {
 export async function updateProduct(id: string, data: FormData) {
     const supabase = await createClient();
 
-    const sku = data.get('sku') as string;
+    const sku = (data.get('sku') as string) || null; // Fix: Allow null SKU
     const name = data.get('name') as string;
     const description = data.get('description') as string;
     const unit = data.get('unit') as string;

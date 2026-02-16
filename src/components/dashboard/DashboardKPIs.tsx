@@ -106,9 +106,15 @@ function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color, h
     const theme = colors[color] || colors.blue;
     const isPositive = trend >= 0;
 
-    // Dynamic font size logic
-    const valueLength = value?.toString().length || 0;
-    const valueSizeClass = valueLength > 15 ? 'text-2xl' : valueLength > 12 ? 'text-3xl' : 'text-4xl';
+    // Dynamic font size logic (more aggressive scaling)
+    const valueStr = value?.toString() || '';
+    const valueLength = valueStr.length;
+    let valueSizeClass = 'text-4xl';
+
+    if (valueLength > 18) valueSizeClass = 'text-lg';
+    else if (valueLength > 15) valueSizeClass = 'text-xl';
+    else if (valueLength > 12) valueSizeClass = 'text-2xl';
+    else if (valueLength > 9) valueSizeClass = 'text-3xl';
 
     const Content = (
         <div className={`peer group relative overflow-hidden rounded-xl border ${theme.border} ${theme.bg} p-6 shadow-sm transition-all duration-300 hover:shadow-md h-full flex flex-col justify-between`}>
@@ -123,9 +129,10 @@ function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color, h
             </div>
 
             <div className="relative z-10">
-                <h3 className={`${valueSizeClass} font-black tracking-tight text-foreground/90 truncate`} title={value}>
+                <h3 className={`${valueSizeClass} font-black tracking-tight text-foreground/90 break-words leading-none`} title={value}>
                     {value}
                 </h3>
+
 
                 <div className="flex items-end justify-between mt-3 min-h-[24px]">
                     {trend !== undefined && (

@@ -202,8 +202,8 @@ export default function CatalogPage() {
                         <form action={handleSubmit} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">SKU</label>
-                                    <input name="sku" defaultValue={editingProduct?.sku} required className="w-full p-2 border rounded-lg text-sm uppercase" placeholder="EJ: SERV-01" />
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">SKU (Opcional)</label>
+                                    <input name="sku" defaultValue={editingProduct?.sku || ''} className="w-full p-2 border rounded-lg text-sm uppercase" placeholder="EJ: SERV-01" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
@@ -219,26 +219,7 @@ export default function CatalogPage() {
                                 <input name="name" defaultValue={editingProduct?.name} required className="w-full p-2 border rounded-lg text-sm" placeholder="Nombre del servicio o producto" />
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Unidad</label>
-                                    <select name="unit" defaultValue={editingProduct?.unit || 'UN'} className="w-full p-2 border rounded-lg text-sm">
-                                        <option value="UN">UN</option>
-                                        <option value="GL">GL</option>
-                                        <option value="HR">HR</option>
-                                        <option value="MT">MT</option>
-                                        <option value="KG">KG</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Precio (Neto)</label>
-                                    <input name="priceNet" type="number" step="0.01" defaultValue={editingProduct?.priceNet} required className="w-full p-2 border rounded-lg text-sm font-mono" placeholder="0" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Costo (Neto)</label>
-                                    <input name="costNet" type="number" step="0.01" defaultValue={editingProduct?.costNet} required className="w-full p-2 border rounded-lg text-sm font-mono" placeholder="0" />
-                                </div>
-                            </div>
+                            <CalculationFields editingProduct={editingProduct} />
 
                             {!editingProduct ? (
                                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
@@ -299,6 +280,93 @@ export default function CatalogPage() {
                     />
                 </>
             )}
+        </div>
+    );
+}
+
+function CalculationFields({ editingProduct }: { editingProduct: Product | null }) {
+    const [cost, setCost] = useState(editingProduct?.costNet || 0);
+    const [margin, setMargin] = useState(0); // Margin %
+    const [price, setPrice] = useState(editingProduct?.priceNet || 0);
+    const [useMargin, setUseMargin] = useState(false);
+
+    // Initial calculation of margin if cost & price exist: Margin = (Price - Cost) / Price
+    useEffect(() => {
+        if (editingProduct && editingProduct.costNet > 0 && editingProduct.priceNet > 0) {
+            const calculatedMargin = ((editingProduct.priceNet - editingProduct.costNet) / editingProduct.priceNet) * 100;
+            setMargin(parseFloat(calculatedMargin.toFixed(1)));
+        }
+    }, [editingProduct]);
+
+    // Recalculate Price when Cost or Margin changes
+    useEffect(() => {
+        if (useMargin) {
+            if (cost > 0 && margin < 100) {
+                // Gross Margin Formula: Price = Cost / (1 - Margin%)
+                const newPrice = cost / (1 - (margin / 100));
+                setPrice(parseFloat(newPrice.toFixed(2)));
+            }
+        }
+    }, [cost, margin, useMargin]);
+
+    return (
+        <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
+            <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Unidad</label>
+                <select name="unit" defaultValue={editingProduct?.unit || 'UN'} className="w-full p-2 border rounded-lg text-sm">
+                    <option value="UN">UN</option>
+                    <option value="GL">GL</option>
+                    <option value="HR">HR</option>
+                    <option value="MT">MT</option>
+                    <option value="KG">KG</option>
+                </select>
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Costo (Neto)</label>
+                <input
+                    name="costNet"
+                    type="number"
+                    step="0.01"
+                    value={cost}
+                    onChange={(e) => setCost(parseFloat(e.target.value) || 0)}
+                    required
+                    className="w-full p-2 border rounded-lg text-sm font-mono"
+                    placeholder="0"
+                />
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-blue-600 mb-1">Margen %</label>
+                <div className="relative">
+                    <input
+                        type="number"
+                        step="0.1"
+                        value={margin}
+                        onChange={(e) => {
+                            setMargin(parseFloat(e.target.value) || 0);
+                            setUseMargin(true);
+                        }}
+                        className="w-full p-2 border border-blue-200 rounded-lg text-sm font-mono text-blue-700"
+                        placeholder="30"
+                    />
+                    <div className="absolute right-2 top-2 text-xs text-blue-400 font-bold">%</div>
+                </div>
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-emerald-600 mb-1">Precio (Auto)</label>
+                <input
+                    name="priceNet"
+                    type="number"
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => {
+                        setPrice(parseFloat(e.target.value) || 0);
+                        setUseMargin(false); // Manual override disables auto-calc
+                    }}
+                    required
+                    className="w-full p-2 border border-emerald-200 rounded-lg text-sm font-mono font-bold text-emerald-700"
+                    placeholder="0"
+                />
+            </div>
         </div>
     );
 }
