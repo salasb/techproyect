@@ -12,6 +12,13 @@ interface ClientOption {
     name: string;
 }
 
+interface ContactInput {
+    name: string;
+    role: string;
+    email: string;
+    phone: string;
+}
+
 interface Props {
     clients: ClientOption[];
 }
@@ -28,6 +35,7 @@ export function CreateOpportunityForm({ clients }: Props) {
     const [leadName, setLeadName] = useState('');
     const [leadEmail, setLeadEmail] = useState('');
     const [leadPhone, setLeadPhone] = useState('');
+    const [contacts, setContacts] = useState<ContactInput[]>([]);
 
     async function handleSubmit(formData: FormData) {
         // Validation
@@ -47,6 +55,7 @@ export function CreateOpportunityForm({ clients }: Props) {
         formData.set('leadName', leadName);
         formData.set('leadEmail', leadEmail);
         formData.set('leadPhone', leadPhone);
+        formData.set('contactsList', JSON.stringify(contacts));
 
         startTransition(async () => {
             try {
@@ -64,6 +73,7 @@ export function CreateOpportunityForm({ clients }: Props) {
             <div>
                 <h2 className="text-xl font-bold text-foreground mb-1">Nueva Oportunidad</h2>
                 <p className="text-sm text-muted-foreground">Registra un posible negocio para iniciar el seguimiento.</p>
+                <p className="text-[11px] text-red-500 mt-2">* Campos obligatorios</p>
             </div>
 
             <div className="space-y-5">
@@ -85,18 +95,24 @@ export function CreateOpportunityForm({ clients }: Props) {
                 </div>
 
                 {/* Integration Toggle */}
-                <div className="flex p-1 bg-muted rounded-lg w-full">
+                <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-full border border-border/50">
                     <button
                         type="button"
                         onClick={() => setIsNewLead(false)}
-                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${!isNewLead ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${!isNewLead
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50'
+                            }`}
                     >
                         Cliente Existente
                     </button>
                     <button
                         type="button"
                         onClick={() => setIsNewLead(true)}
-                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${isNewLead ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${isNewLead
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50'
+                            }`}
                     >
                         Nuevo Prospecto
                     </button>
@@ -142,6 +158,75 @@ export function CreateOpportunityForm({ clients }: Props) {
                                 />
                             </div>
                         </div>
+
+                        <div className="pt-2 border-t border-border/30">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center">
+                                    Contactos Adicionales
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setContacts([...contacts, { name: '', role: '', email: '', phone: '' }])}
+                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded"
+                                >
+                                    + Añadir
+                                </button>
+                            </div>
+                            <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
+                                {contacts.map((contact, index) => (
+                                    <div key={index} className="grid grid-cols-2 gap-2 p-2 bg-background rounded border border-border/50 relative group">
+                                        <button
+                                            type="button"
+                                            onClick={() => setContacts(contacts.filter((_, i) => i !== index))}
+                                            className="absolute -right-1.5 -top-1.5 p-0.5 bg-red-100 text-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <Loader2 className="w-2.5 h-2.5 rotate-45" /> {/* Using Loader2 as a cross replacement for simplicity or just use text 'x' if preferred */}
+                                        </button>
+                                        <input
+                                            placeholder="Nombre"
+                                            value={contact.name}
+                                            onChange={(e) => {
+                                                const newContacts = [...contacts];
+                                                newContacts[index].name = e.target.value;
+                                                setContacts(newContacts);
+                                            }}
+                                            className="text-[10px] p-1 rounded border border-input bg-muted/20"
+                                        />
+                                        <input
+                                            placeholder="Cargo"
+                                            value={contact.role}
+                                            onChange={(e) => {
+                                                const newContacts = [...contacts];
+                                                newContacts[index].role = e.target.value;
+                                                setContacts(newContacts);
+                                            }}
+                                            className="text-[10px] p-1 rounded border border-input bg-muted/20"
+                                        />
+                                        <input
+                                            placeholder="Email"
+                                            value={contact.email}
+                                            onChange={(e) => {
+                                                const newContacts = [...contacts];
+                                                newContacts[index].email = e.target.value;
+                                                setContacts(newContacts);
+                                            }}
+                                            className="text-[10px] p-1 rounded border border-input bg-muted/20"
+                                        />
+                                        <input
+                                            placeholder="Teléfono"
+                                            value={contact.phone}
+                                            onChange={(e) => {
+                                                const newContacts = [...contacts];
+                                                newContacts[index].phone = e.target.value;
+                                                setContacts(newContacts);
+                                            }}
+                                            className="text-[10px] p-1 rounded border border-input bg-muted/20"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
                         <p className="text-[10px] text-muted-foreground italic">Se creará automáticamente un registro de cliente como "Prospecto".</p>
                     </div>
                 ) : (

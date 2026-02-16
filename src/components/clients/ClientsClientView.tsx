@@ -10,6 +10,14 @@ import { useToast } from "@/components/ui/Toast";
 import { PipelineBoard } from "@/components/crm/PipelineBoard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
+interface ContactData {
+    id?: string;
+    name: string;
+    role?: string;
+    email?: string;
+    phone?: string;
+}
+
 interface ClientData {
     id: string;
     name: string;
@@ -19,6 +27,7 @@ interface ClientData {
     taxId?: string | null;
     contactName?: string | null;
     status?: string | null;
+    Contact?: ContactData[];
 }
 
 export function ClientsClientView({ initialClients }: { initialClients: ClientData[] }) {
@@ -36,6 +45,7 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
     const [taxIdError, setTaxIdError] = useState<string | null>(null);
     const [phoneType, setPhoneType] = useState<'mobile' | 'landline'>('mobile');
     const [rawPhone, setRawPhone] = useState('');
+    const [contacts, setContacts] = useState<ContactData[]>([]);
 
     const filteredClients = initialClients.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -51,6 +61,9 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
             setTaxIdError("RUT inválido. Formato esperado: 12.345.678-9");
             return;
         }
+
+        // Add contacts to formData as JSON
+        formData.append('contactsList', JSON.stringify(contacts));
 
         startTransition(async () => {
             try {
@@ -94,6 +107,7 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
         setEditingClient(client || null);
         setIsAdding(true);
         setTaxIdError(null);
+        setContacts(client?.Contact || []);
 
         // Parse Phone Logic
         if (client?.phone) {
@@ -112,6 +126,20 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
             setPhoneType('mobile');
             setRawPhone('');
         }
+    };
+
+    const addContactRow = () => {
+        setContacts([...contacts, { name: '', role: '', email: '', phone: '' }]);
+    };
+
+    const removeContactRow = (index: number) => {
+        setContacts(contacts.filter((_, i) => i !== index));
+    };
+
+    const updateContactRow = (index: number, field: keyof ContactData, value: string) => {
+        const newContacts = [...contacts];
+        newContacts[index] = { ...newContacts[index], [field]: value };
+        setContacts(newContacts);
     };
 
     return (
@@ -305,8 +333,68 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
                                 <input name="address" defaultValue={editingClient?.address || ''} className="w-full p-2 rounded-lg border border-input bg-background" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Nombre Contacto</label>
+                                <label className="block text-sm font-medium mb-1">Nombre Contacto Principal</label>
                                 <input name="contactName" defaultValue={editingClient?.contactName || ''} className="w-full p-2 rounded-lg border border-input bg-background" />
+                            </div>
+
+                            <div className="pt-4 border-t border-border">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h4 className="text-sm font-bold flex items-center">
+                                        <User className="w-4 h-4 mr-2" />
+                                        Otros Contactos
+                                    </h4>
+                                    <button
+                                        type="button"
+                                        onClick={addContactRow}
+                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center"
+                                    >
+                                        <Plus className="w-3 h-3 mr-1" />
+                                        Agregar Contacto
+                                    </button>
+                                </div>
+                                <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
+                                    {contacts.map((contact, index) => (
+                                        <div key={index} className="p-3 bg-muted/50 rounded-lg border border-border/50 relative group">
+                                            <button
+                                                type="button"
+                                                onClick={() => removeContactRow(index)}
+                                                className="absolute -right-2 -top-2 p-1 bg-red-100 text-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <input
+                                                    placeholder="Nombre"
+                                                    value={contact.name}
+                                                    onChange={(e) => updateContactRow(index, 'name', e.target.value)}
+                                                    className="text-xs p-1.5 rounded border border-input bg-background"
+                                                />
+                                                <input
+                                                    placeholder="Cargo"
+                                                    value={contact.role}
+                                                    onChange={(e) => updateContactRow(index, 'role', e.target.value)}
+                                                    className="text-xs p-1.5 rounded border border-input bg-background"
+                                                />
+                                                <input
+                                                    placeholder="Email"
+                                                    type="email"
+                                                    value={contact.email}
+                                                    onChange={(e) => updateContactRow(index, 'email', e.target.value)}
+                                                    className="text-xs p-1.5 rounded border border-input bg-background"
+                                                />
+                                                <input
+                                                    placeholder="Teléfono"
+                                                    value={contact.phone}
+                                                    onChange={(e) => updateContactRow(index, 'phone', e.target.value)}
+                                                    className="text-xs p-1.5 rounded border border-input bg-background"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {contacts.length === 0 && (
+                                        <p className="text-[10px] text-zinc-400 italic text-center py-2">No hay contactos secundarios registrados.</p>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="pt-4 flex justify-end gap-3">

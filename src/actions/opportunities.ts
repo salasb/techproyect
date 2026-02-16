@@ -69,6 +69,8 @@ export async function createOpportunity(formData: FormData) {
 
     // Handle Quick Lead Creation
     const isNewLead = formData.get('isNewLead') === 'true';
+    const contactsJson = formData.get('contactsList') as string;
+
     if (isNewLead) {
         const leadName = formData.get('leadName') as string;
         const leadEmail = formData.get('leadEmail') as string;
@@ -80,6 +82,9 @@ export async function createOpportunity(formData: FormData) {
         quickClientFormData.append('name', leadName);
         quickClientFormData.append('email', leadEmail || '');
         quickClientFormData.append('phone', leadPhone || '');
+        if (contactsJson) {
+            quickClientFormData.append('contactsList', contactsJson);
+        }
 
         const quickResult = await createQuickClient(quickClientFormData);
         if (!quickResult.success || !quickResult.client) {
