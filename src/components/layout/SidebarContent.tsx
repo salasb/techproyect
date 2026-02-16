@@ -6,12 +6,12 @@ import { isAdmin } from "@/lib/permissions";
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Proyectos', href: '/projects', icon: FolderOpen },
-    { name: 'Cotizaciones', href: '/quotes', icon: FileText },
-    { name: 'Facturación', href: '/invoices', icon: Receipt },
+    { name: 'Proyectos', href: '/projects', icon: FolderOpen, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
+    { name: 'Cotizaciones', href: '/quotes', icon: FileText, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
+    { name: 'Facturación', href: '/invoices', icon: Receipt, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Inventario', href: '/catalog', icon: Package },
-    { name: 'Clientes', href: '/clients', icon: Users },
-    { name: 'Reportes', href: '/reports', icon: BarChart },
+    { name: 'Clientes', href: '/clients', icon: Users, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
+    { name: 'Reportes', href: '/reports', icon: BarChart, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Configuración', href: '/settings', icon: Settings, adminOnly: true },
 ];
 
@@ -30,7 +30,21 @@ export function SidebarContent({ onLinkClick, badges = {}, profile }: SidebarCon
     };
 
     const userRole = profile?.role;
-    const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin(userRole));
+    const orgPlan = profile?.organization?.plan || 'FREE'; // Default to FREE if undefined
+
+    const filteredNavigation = navigation.filter(item => {
+        // 1. Role Check
+        if (item.adminOnly && !isAdmin(userRole)) return false;
+
+        // 2. Plan Check
+        // If restrictedToPlans is defined, check if current plan is included
+        // If restrictedToPlans is undefined, it's available to ALL plans (including INVENTORY_ONLY)
+        if ((item as any).restrictedToPlans) {
+            return (item as any).restrictedToPlans.includes(orgPlan);
+        }
+
+        return true;
+    });
 
     return (
         <div className="flex flex-col h-full bg-card text-foreground">

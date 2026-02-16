@@ -56,9 +56,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const projects = projectsRes.data || [];
     const opportunities = opportunitiesRes.data || [];
 
-    // Sentinel Agent Insights
-    const orgId = await getOrganizationId();
-    const sentinelInsights = await SentinelService.getInsights(orgId);
+    // Sentinel Agent Insights moved to Admin Portal
+    // const orgId = await getOrganizationId();
+    // const sentinelInsights = await SentinelService.getInsights(orgId);
 
     // 2. Calculate Dashboard Data
     const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
@@ -120,10 +120,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
                 {/* Right Column: Widgets Stack */}
                 <div className="space-y-6 flex flex-col">
-                    {/* Sentinel Proactive Agent */}
-                    <div className="flex-shrink-0">
+                    {/* Sentinel Proactive Agent moved to Admin Portal */}
+                    {/* <div className="flex-shrink-0">
                         <SentinelWidget insights={sentinelInsights} />
-                    </div>
+                    </div> */}
 
                     {/* Inventory Alerts (Fallback/Detailed) */}
                     <div className="flex-shrink-0">

@@ -13,7 +13,7 @@ export default async function DashboardLayout({
 
     let profile = null;
     if (user) {
-        const { data } = await supabase.from('Profile').select('*').eq('id', user.id).single();
+        const { data } = await supabase.from('Profile').select('*, organization:Organization(plan)').eq('id', user.id).single();
         profile = data;
     }
 

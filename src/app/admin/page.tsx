@@ -4,14 +4,21 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+import { SentinelService } from "@/services/sentinel";
+import { SentinelWidget } from "@/components/dashboard/SentinelWidget";
+
 export default async function AdminDashboard() {
     const supabase = await createClient();
 
+    // Global Sentinel Insights
+    const globalInsights = await SentinelService.getGlobalSystemHealth();
+
     // Stats fetching
     const { count: totalOrgs } = await supabase.from("Organization").select("*", { count: 'exact', head: true });
+    const { count: totalProjects } = await supabase.from("Project").select("*", { count: 'exact', head: true });
+    // Optimize: Single query or parallel
     const { count: pendingOrgs } = await supabase.from("Organization").select("*", { count: 'exact', head: true }).eq('status', 'PENDING');
     const { count: totalUsers } = await supabase.from("Profile").select("*", { count: 'exact', head: true });
-    const { count: totalProjects } = await supabase.from("Project").select("*", { count: 'exact', head: true });
 
     const stats = [
         {
@@ -55,13 +62,12 @@ export default async function AdminDashboard() {
                     <p className="text-slate-500 font-medium">Panel de control global para Administradores de TechWise</p>
                 </div>
                 <div className="flex gap-2">
-                    {pendingOrgs && pendingOrgs > 0 ? (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-sm font-bold animate-bounce">
-                            <ShieldAlert className="w-4 h-4" />
-                            {pendingOrgs} Solicitudes Pendientes
-                        </div>
-                    ) : null}
+                    {/* Sentinel Widget for Global Admin */}
                 </div>
+            </div>
+
+            <div className="mb-8">
+                <SentinelWidget insights={globalInsights} />
             </div>
 
             {/* Stats Grid */}

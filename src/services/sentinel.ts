@@ -115,4 +115,51 @@ export class SentinelService {
 
         return insights;
     }
+
+    /**
+     * GLobal System Health for Super Admins.
+     */
+    static async getGlobalSystemHealth(): Promise<SentinelInsight[]> {
+        const supabase = await createClient();
+        const insights: SentinelInsight[] = [];
+
+        // 1. Pending Organizations
+        const { count: pendingOrgs } = await supabase
+            .from("Organization")
+            .select("*", { count: 'exact', head: true })
+            .eq('status', 'PENDING');
+
+        if (pendingOrgs && pendingOrgs > 0) {
+            insights.push({
+                id: 'sys-pending-orgs',
+                type: 'INFO',
+                severity: 'medium',
+                title: 'Solicitudes de Organización Pendientes',
+                message: `Hay ${pendingOrgs} organizaciones esperando activación.`,
+                actionLabel: "Revisar",
+                actionHref: "/admin"
+            });
+        }
+
+        // 2. System Errors (Audit Log)
+        const { count: errors } = await supabase
+            .from("AuditLog")
+            .select("*", { count: 'exact', head: true })
+            .eq('action', 'ERROR') // Assuming we log errors here, or check recent failures
+            .gt('createdAt', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+        if (errors && errors > 0) {
+            insights.push({
+                id: 'sys-errors',
+                type: 'INFO',
+                severity: 'high',
+                title: 'Errores del Sistema (24h)',
+                message: `Se han registrado ${errors} errores críticos en las últimas 24 horas.`,
+                actionLabel: "Ver Logs",
+                actionHref: "/admin/logs"
+            });
+        }
+
+        return insights;
+    }
 }
