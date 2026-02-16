@@ -60,7 +60,8 @@ export async function createProduct(data: FormData) {
     });
 
     if (error) {
-        throw new Error(`Error creating product: ${error.message}`);
+        console.error("Supabase Error creating product:", error);
+        throw new Error(`Error al crear producto: ${error.message} (${error.code})`);
     }
 
     // 2. If Initial Stock > 0 and Type is PRODUCT, Adjust Inventory

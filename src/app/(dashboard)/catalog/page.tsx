@@ -63,6 +63,38 @@ export default function CatalogPage() {
         loadProducts();
     }
 
+    const handleExport = () => {
+        if (products.length === 0) return;
+
+        const headers = ["SKU", "Nombre", "Tipo", "Unidad", "Costo", "Precio", "Stock", "Stock Minimo", "Descripción"];
+        const rows = products.map(p => [
+            p.sku || "",
+            p.name,
+            p.type,
+            p.unit,
+            p.costNet,
+            p.priceNet,
+            p.stock,
+            p.min_stock,
+            p.description || ""
+        ]);
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(r => r.map(cell => `"${cell}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `inventario_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
@@ -70,13 +102,22 @@ export default function CatalogPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Inventario</h1>
                     <p className="text-slate-500 mt-2">Gestiona tus servicios y productos recurrentes</p>
                 </div>
-                <button
-                    onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm font-medium"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Nuevo Producto
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-lg transition-colors shadow-sm font-medium"
+                    >
+                        <History className="w-5 h-5 mr-2" />
+                        Exportar
+                    </button>
+                    <button
+                        onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+                        className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm font-medium"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        Nuevo Producto
+                    </button>
+                </div>
             </div>
 
             {/* Search & Filter */}

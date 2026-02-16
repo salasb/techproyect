@@ -14,7 +14,8 @@ const routeLabels: Record<string, string> = {
     'new': 'Nuevo',
     'edit': 'Editar',
     'invoices': 'Facturas',
-    'quotes': 'Presupuestos'
+    'quotes': 'Presupuestos',
+    'catalog': 'Inventario'
 };
 
 export function Breadcrumbs() {
