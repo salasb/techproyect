@@ -2,146 +2,78 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-
 import { getOrganizationId } from "@/lib/current-org";
-import { validateInvoice } from "@/lib/validators";
-import { addLog } from "@/actions/project-logs";
+import { AuditService } from "@/services/auditService";
 
-export async function createInvoice(projectId: string, formData: FormData) {
-    const amountInvoicedGross = parseFloat(formData.get("amount") as string);
-    const dueDateStr = formData.get("dueDate") as string;
-    const paymentTerms = parseInt(formData.get("paymentTerms") as string) || 30;
-
-    const validation = validateInvoice({ amount: amountInvoicedGross, dueDate: dueDateStr });
-    if (!validation.success) {
-        throw new Error(validation.errors.join(", "));
-    }
-
-    try {
-        const orgId = await getOrganizationId();
-        const supabase = await createClient();
-
-        // Validate date
-        let finalDueDate = null;
-        if (dueDateStr) {
-            const dateObj = new Date(dueDateStr);
-            if (!isNaN(dateObj.getTime())) {
-                finalDueDate = dateObj.toISOString();
-            }
-        }
-
-        const { error } = await supabase
-            .from('Invoice')
-            .insert({
-                id: crypto.randomUUID(),
-                organizationId: orgId,
-                projectId,
-                amountInvoicedGross,
-                amountPaidGross: 0,
-                sent: false,
-                sentDate: null,
-                dueDate: finalDueDate,
-                paymentTermsDays: paymentTerms,
-                updatedAt: new Date().toISOString()
-            });
-
-        if (error) {
-            console.error("Supabase Error creating invoice:", error);
-            throw new Error(`Error creando factura: ${error.message}`);
-        }
-
-        // Automation: Log creation
-        await addLog(projectId, `Factura creada por $${amountInvoicedGross.toLocaleString('es-CL')}`, "INFO");
-
-        revalidatePath(`/projects/${projectId}`);
-        revalidatePath('/');
-        revalidatePath('/projects');
-    } catch (e: any) {
-        console.error("Server Action Error (createInvoice):", e);
-        throw new Error(e.message || "Error interno al crear factura");
-    }
-}
-
-export async function markInvoiceSent(projectId: string, invoiceId: string, date?: string) {
+/**
+ * Creates an invoice based on the accepted quote of a project.
+ */
+export async function createInvoiceFromProject(projectId: string) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
-    // Use provided date or default to today
-    const sentDate = date ? new Date(date) : new Date();
+    // 1. Fetch Project and Quote Items to calculate total
+    const { data: project } = await supabase
+        .from('Project')
+        .select(`
+            *,
+            quoteItems:QuoteItem(*)
+        `)
+        .eq('id', projectId)
+        .single();
 
-    // We ideally need to recalculate due date based on terms if not set, 
-    // but for now we set sent/sentDate.
-    const { error } = await supabase
-        .from('Invoice')
-        .update({
-            sent: true,
-            sentDate: sentDate.toISOString()
-        })
-        .eq('id', invoiceId);
+    if (!project) throw new Error("Proyecto no encontrado");
 
-    if (error) throw new Error(error.message);
+    // 2. Validate Status
+    if (project.status === 'EN_ESPERA' || project.stage === 'LEVANTAMIENTO') {
+        throw new Error("El proyecto debe estar En Curso/Aceptado para facturar.");
+    }
 
-    // Automation: Trigger Follow-up Task
-    const followUpDate = new Date(sentDate);
-    followUpDate.setDate(followUpDate.getDate() + 5); // Follow up in 5 days
+    // 3. Calculate Totals
+    // Filter selected items only if logic requires, usually accepted quote includes all active items
+    const selectedItems = project.quoteItems?.filter((i: any) => i.isSelected !== false) || [];
 
-    await supabase.from('Project').update({
-        nextAction: 'Seguimiento Pago Factura',
-        nextActionDate: followUpDate.toISOString(),
+    if (selectedItems.length === 0) {
+        throw new Error("No hay ítems en la cotización para facturar.");
+    }
+
+    // Calculate Net
+    const totalNet = selectedItems.reduce((acc: number, item: any) => acc + (item.priceNet * item.quantity), 0);
+
+    // Get Settings for VAT
+    const { data: settings } = await supabase.from('Settings').select('vatRate').single();
+    const vatRate = settings?.vatRate || 0.19;
+
+    // Calculate Gross
+    const totalGross = totalNet * (1 + vatRate);
+
+    // 4. Create Invoice
+    const invoiceId = crypto.randomUUID();
+    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`; // Simple logic
+
+    const { error } = await supabase.from('Invoice').insert({
+        id: invoiceId,
+        projectId: projectId,
+        organizationId: orgId,
+        amountInvoicedGross: totalGross,
+        amountPaidGross: 0,
+        sent: false,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // +30 days default
         updatedAt: new Date().toISOString()
+    });
+
+    if (error) throw new Error(`Error creando factura: ${error.message}`);
+
+    // 5. Log Action
+    await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura ${invoiceNumber} generada automáticamente desde cotización por $${totalGross.toLocaleString()}`);
+
+    // 6. Update Project Next Action if needed
+    await supabase.from('Project').update({
+        nextAction: 'Enviar Factura',
+        nextActionDate: new Date().toISOString()
     }).eq('id', projectId);
 
-    // Automation: Log Milestone
-    await addLog(projectId, "Factura enviada a cliente", "MILESTONE");
-
     revalidatePath(`/projects/${projectId}`);
-    revalidatePath('/');
-    revalidatePath('/projects');
-}
-
-export async function registerPayment(projectId: string, invoiceId: string, amount: number) {
-    const supabase = await createClient();
-
-    const { error } = await supabase
-        .from('Invoice')
-        .update({
-            amountPaidGross: amount
-        })
-        .eq('id', invoiceId);
-
-    if (error) throw new Error(error.message);
-
-    // Automation: Log Milestone
-    await addLog(projectId, `Pago recibido: $${amount.toLocaleString('es-CL')}`, "MILESTONE");
-
-    // Check if Project is fully paid
-    // 1. Get Project Price (from Plan) - This is tricky as price is calculated dynamic. 
-    // Simplified Logic: Check if ALL Invoices are Paid.
-
-    const { data: invoices } = await supabase
-        .from('Invoice')
-        .select('amountInvoicedGross, amountPaidGross')
-        .eq('projectId', projectId);
-
-    let isFullyPaid = false;
-    if (invoices && invoices.length > 0) {
-        const totalInvoiced = invoices.reduce((acc, i) => acc + i.amountInvoicedGross, 0);
-        const totalPaid = invoices.reduce((acc, i) => acc + i.amountPaidGross, 0);
-        // Tolerance for floating point
-        isFullyPaid = totalPaid >= (totalInvoiced - 1);
-    }
-
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath('/');
-    revalidatePath('/projects');
-
-    return { success: true, isFullyPaid };
-}
-
-export async function deleteInvoice(projectId: string, invoiceId: string) {
-    const supabase = await createClient();
-    const { error } = await supabase.from('Invoice').delete().eq('id', invoiceId);
-    if (error) throw new Error(error.message);
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath('/');
-    revalidatePath('/projects');
+    revalidatePath(`/dashboard`);
+    return { success: true, invoiceId };
 }

@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Edit, Trash2, Package, ArrowRightLeft, History, AlertTriangle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, ArrowRightLeft, History, AlertTriangle, Loader2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getProducts, createProduct, updateProduct, deleteProduct } from "@/actions/products";
 import { Database } from "@/types/supabase";
 import { StockAdjustmentModal } from "@/components/inventory/StockAdjustmentModal";
 import { KardexModal } from "@/components/inventory/KardexModal";
+import { ProductLabelModal } from "@/components/inventory/ProductLabelModal";
+import { Printer } from "lucide-react";
 
 type Product = Database['public']['Tables']['Product']['Row'];
 
@@ -20,6 +23,7 @@ export default function CatalogPage() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
     const [isKardexOpen, setIsKardexOpen] = useState(false);
+    const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
     useEffect(() => {
@@ -148,25 +152,35 @@ export default function CatalogPage() {
                 </button>
             </div>
 
-            {/* List */}
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                 <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold">
                         <tr>
                             <th className="px-6 py-4">SKU / Tipo</th>
                             <th className="px-6 py-4">Nombre / Descripción</th>
                             <th className="px-6 py-4 text-center">Unidad</th>
-                            <th className="px-6 py-4 text-right">Precio Neto</th>
-                            <th className="px-6 py-4 text-right">Precio Bruto (IVA)</th>
+                            <th className="px-6 py-4 text-right">
+                                <Tooltip>
+                                    <TooltipTrigger className="cursor-help decoration-dotted underline underline-offset-2">Precio Neto</TooltipTrigger>
+                                    <TooltipContent>Sin IVA (Base imponible)</TooltipContent>
+                                </Tooltip>
+                            </th>
+                            <th className="px-6 py-4 text-right">
+                                <Tooltip>
+                                    <TooltipTrigger className="cursor-help decoration-dotted underline underline-offset-2">Precio Bruto</TooltipTrigger>
+                                    <TooltipContent>Con IVA (19%) incluido</TooltipContent>
+                                </Tooltip>
+                            </th>
                             <th className="px-6 py-4 text-center">Stock</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading ? (
-                            <tr><td colSpan={6} className="p-8 text-center text-slate-500">Cargando...</td></tr>
+                            <tr><td colSpan={7} className="p-8 text-center text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />Cargando inventario...</td></tr>
                         ) : displayedProducts.length === 0 ? (
-                            <tr><td colSpan={6} className="p-8 text-center text-slate-500">
+                            <tr><td colSpan={7} className="p-8 text-center text-slate-500">
                                 {showLowStock ? 'No hay productos con stock bajo.' : 'No hay productos encontrados.'}
                             </td></tr>
                         ) : (
@@ -182,7 +196,7 @@ export default function CatalogPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-900">{p.name}</div>
-                                        {p.description && <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>}
+                                        {p.description && <div className="text-xs text-slate-500 mt-0.5 max-w-xs truncate">{p.description}</div>}
                                     </td>
                                     <td className="px-6 py-4 text-center text-slate-500">{p.unit}</td>
                                     <td className="px-6 py-4 text-right font-medium text-slate-600">
@@ -197,7 +211,12 @@ export default function CatalogPage() {
                                                 <div className={`font-mono font-bold ${p.stock <= p.min_stock ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded' : 'text-slate-700'}`}>
                                                     {p.stock}
                                                 </div>
-                                                {p.stock <= p.min_stock && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                                                {p.stock <= p.min_stock && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger><AlertTriangle className="w-3 h-3 text-red-500" /></TooltipTrigger>
+                                                        <TooltipContent>Stock bajo mínimo ({p.min_stock})</TooltipContent>
+                                                    </Tooltip>
+                                                )}
                                             </div>
                                         ) : (
                                             <span className="text-slate-300">-</span>
@@ -207,28 +226,50 @@ export default function CatalogPage() {
                                         <div className="flex items-center justify-end gap-2">
                                             {p.type === 'PRODUCT' && (
                                                 <>
-                                                    <button
-                                                        onClick={() => { setSelectedProduct(p); setIsAdjustmentOpen(true); }}
-                                                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="Ajustar Stock"
-                                                    >
-                                                        <ArrowRightLeft className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => { setSelectedProduct(p); setIsKardexOpen(true); }}
-                                                        className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                                                        title="Ver Kardex"
-                                                    >
-                                                        <History className="w-4 h-4" />
-                                                    </button>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                onClick={() => { setSelectedProduct(p); setIsAdjustmentOpen(true); }}
+                                                                className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            >
+                                                                <ArrowRightLeft className="w-4 h-4" />
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Ajustar Stock</TooltipContent>
+                                                    </Tooltip>
+
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                onClick={() => { setSelectedProduct(p); setIsKardexOpen(true); }}
+                                                                className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                                            >
+                                                                <History className="w-4 h-4" />
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Ver Kardex</TooltipContent>
+                                                    </Tooltip>
+
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                onClick={() => { setSelectedProduct(p); setIsLabelModalOpen(true); }}
+                                                                className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                                                            >
+                                                                <Printer className="w-4 h-4" />
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Imprimir Etiqueta</TooltipContent>
+                                                    </Tooltip>
+
                                                     <div className="w-px h-4 bg-slate-200 mx-1"></div>
                                                 </>
                                             )}
 
-                                            <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                                            <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                 <Edit className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                            <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                         </div>
@@ -238,6 +279,66 @@ export default function CatalogPage() {
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-4">
+                {isLoading ? (
+                    <div className="text-center py-8 text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />Cargando...</div>
+                ) : displayedProducts.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500 bg-white rounded-xl border border-slate-200">
+                        {showLowStock ? 'No hay productos con stock bajo.' : 'No hay productos encontrados.'}
+                    </div>
+                ) : (
+                    displayedProducts.map((p) => (
+                        <div key={p.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="font-bold text-slate-900">{p.name}</div>
+                                    <div className="text-xs text-slate-500 mt-1 flex gap-2 items-center">
+                                        <span className="font-mono bg-slate-100 px-1 py-0.5 rounded">{p.sku || 'S/ SKU'}</span>
+                                        <span className={`px-1.5 py-0.5 rounded font-bold ${p.type === 'PRODUCT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                            {p.type === 'PRODUCT' ? 'PROD' : 'SERV'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="font-bold text-slate-900">${Math.round(p.priceNet * 1.19).toLocaleString()}</div>
+                                    <div className="text-xs text-slate-400">Bruto</div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-sm border-t border-slate-100 pt-3">
+                                <div>
+                                    <span className="text-slate-400 text-xs block">Precio Neto</span>
+                                    <span className="font-medium">${p.priceNet.toLocaleString()}</span>
+                                </div>
+                                {p.type === 'PRODUCT' && (
+                                    <div>
+                                        <span className="text-slate-400 text-xs block">Stock</span>
+                                        <div className={`font-medium flex items-center gap-1 ${p.stock <= p.min_stock ? 'text-red-600' : 'text-slate-700'}`}>
+                                            {p.stock} {p.unit}
+                                            {p.stock <= p.min_stock && <AlertTriangle className="w-3 h-3" />}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                                {p.type === 'PRODUCT' && (
+                                    <>
+                                        <button onClick={() => { setSelectedProduct(p); setIsAdjustmentOpen(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-lg"><ArrowRightLeft className="w-4 h-4" /></button>
+                                        <button onClick={() => { setSelectedProduct(p); setIsKardexOpen(true); }} className="p-2 bg-purple-50 text-purple-600 rounded-lg"><History className="w-4 h-4" /></button>
+                                        <button onClick={() => { setSelectedProduct(p); setIsLabelModalOpen(true); }} className="p-2 bg-slate-100 text-slate-600 rounded-lg"><Printer className="w-4 h-4" /></button>
+                                    </>
+                                )}
+                                <div className="flex-1"></div>
+                                <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Modal */}
@@ -326,6 +427,11 @@ export default function CatalogPage() {
                         productName={selectedProduct.name}
                         isOpen={isKardexOpen}
                         onClose={() => setIsKardexOpen(false)}
+                    />
+                    <ProductLabelModal
+                        isOpen={isLabelModalOpen}
+                        onClose={() => setIsLabelModalOpen(false)}
+                        product={selectedProduct}
                     />
                 </>
             )}

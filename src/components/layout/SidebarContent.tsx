@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt } from "lucide-react";
-import { LogoutButton } from "./LogoutButton";
+import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin } from "lucide-react";
+import { UserMenu } from "./UserMenu";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 import { isAdmin } from "@/lib/permissions";
 
@@ -10,6 +10,8 @@ const navigation = [
     { name: 'Cotizaciones', href: '/quotes', icon: FileText, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Facturación', href: '/invoices', icon: Receipt, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Inventario', href: '/catalog', icon: Package },
+    { name: 'Ubicaciones', href: '/inventory/locations', icon: MapPin, adminOnly: true },
+    { name: 'Escáner QR', href: '/inventory/scan', icon: Package }, // Reusing Package icon or specific QrCode icon if available
     { name: 'Clientes', href: '/clients', icon: Users, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Reportes', href: '/reports', icon: BarChart, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Configuración', href: '/settings', icon: Settings, adminOnly: true },
@@ -84,7 +86,7 @@ export function SidebarContent({ onLinkClick, badges = {}, profile }: SidebarCon
             </nav>
 
             <div className="p-4 border-t border-border mt-auto">
-                <LogoutButton />
+                <UserMenu profile={profile} />
             </div>
         </div>
     );

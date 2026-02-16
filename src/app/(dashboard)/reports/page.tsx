@@ -1,20 +1,70 @@
+// Imports updated
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials, MinimalCostEntry, MinimalInvoice, MinimalProject } from "@/services/financialCalculator";
 import { RevenueChart } from "@/components/reports/RevenueChart";
 import { ProjectMarginChart } from "@/components/reports/ProjectMarginChart";
 import { ClientRevenuePie } from "@/components/reports/ClientRevenuePie";
-import { TrendingUp, PieChart, FileText, AlertCircle } from "lucide-react";
+import { TrendingUp, PieChart, FileText, AlertCircle, Package } from "lucide-react";
 import { format } from "date-fns";
 import { DashboardService } from "@/services/dashboardService";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
+import Link from "next/link";
+import { getInventoryMetrics } from "@/app/actions/inventory-analytics";
+import { InventoryAnalytics } from "@/components/reports/InventoryAnalytics";
+import { ReportsTabs } from "@/components/reports/ReportsTabs";
+import { LocationSelector } from "@/components/reports/LocationSelector";
 
 export const dynamic = 'force-dynamic';
 
-export default async function ReportsPage({ searchParams }: { searchParams: { period?: string } }) {
+export default async function ReportsPage({ searchParams }: { searchParams: { period?: string, view?: string, locationId?: string } }) {
     const supabase = await createClient();
     const period = searchParams.period || '6m';
+    const view = searchParams.view || 'financial'; // 'financial' | 'inventory'
+    const locationId = searchParams.locationId;
 
-    // 1. Fetch Data
+    // Fetch filters if needed (Locations)
+    const { data: locations } = await supabase.from('Location').select('id, name');
+
+    const header = (
+        <div className="flex justify-between items-center flex-wrap gap-4">
+            <div>
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                    {view === 'inventory' ? 'Reportes de Inventario' : 'Reportes Financieros'}
+                </h2>
+                <p className="text-muted-foreground">
+                    {view === 'inventory'
+                        ? 'Utilización, costos y distribución de stock.'
+                        : 'Análisis detallado del rendimiento de tu negocio.'
+                    }
+                </p>
+            </div>
+            <div className="flex items-center gap-4">
+                <ReportsTabs />
+
+                {view === 'inventory' && locations && (
+                    <LocationSelector locations={locations} />
+                )}
+
+                <span className="text-xs text-muted-foreground hidden md:inline-block">
+                    Actualizado: {format(new Date(), 'dd/MM/yy HH:mm')}
+                </span>
+                <PeriodSelector />
+            </div>
+        </div>
+    );
+
+    // Inventory View Logic
+    if (view === 'inventory') {
+        const inventoryMetrics = await getInventoryMetrics(locationId);
+        return (
+            <div className="space-y-6">
+                {header}
+                <InventoryAnalytics metrics={inventoryMetrics} />
+            </div>
+        );
+    }
+
+    // Existing Financial View Logic
     const { data: projectsRaw } = await supabase
         .from('Project')
         .select(`
@@ -31,7 +81,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
 
     const projects: any[] = projectsRaw || [];
 
-    // 2. Process Financials for aggregations that need full project calculations (like Margins)
+    // 2. Process Financials
     const processedProjects = projects.map((p: any) => {
         const financials = calculateProjectFinancials(
             {
@@ -55,12 +105,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
         };
     });
 
-    // 3. Service Aggregations
     const financialTrends = DashboardService.getFinancialTrends(projects, period);
     const topClients = DashboardService.getTopClients(projects);
     const projectMargins = DashboardService.getProjectMargins(processedProjects);
 
-    // 4. KPI Calcs
     const totalRevenue = processedProjects.reduce((acc: number, p: any) => acc + p.financials.priceNet, 0);
     const totalMargin = processedProjects.reduce((acc: number, p: any) => acc + p.financials.marginAmountNet, 0);
     const avgMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
@@ -69,20 +117,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center flex-wrap gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-foreground">Reportes Financieros</h2>
-                    <p className="text-muted-foreground">Análisis detallado del rendimiento de tu negocio.</p>
-                </div>
-                <div className="flex items-center gap-4">
-                    <span className="text-xs text-muted-foreground hidden md:inline-block">
-                        Actualizado: {format(new Date(), 'dd/MM/yy HH:mm')}
-                    </span>
-                    <PeriodSelector />
-                </div>
-            </div>
+            {header}
 
-            {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { title: "Venta Neta Total", value: `$${(totalRevenue / 1000000).toFixed(1)}M`, icon: TrendingUp, color: "text-green-500", bg: "bg-green-50 dark:bg-green-900/20" },
@@ -102,7 +138,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
                 ))}
             </div>
 
-            {/* Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <RevenueChart data={financialTrends} />
@@ -112,7 +147,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
                 </div>
             </div>
 
-            {/* Charts Row 2 */}
             <div className="grid grid-cols-1 gap-6">
                 <ProjectMarginChart data={projectMargins} />
             </div>

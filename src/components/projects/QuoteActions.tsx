@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateProjectStatus } from "@/app/actions/projects";
+import { createInvoiceFromProject } from "@/app/actions/invoices";
 import { useToast } from "@/components/ui/Toast";
 import confetti from 'canvas-confetti';
 import { Send, CheckCircle2, XCircle, Loader2 } from "lucide-react";
@@ -54,8 +55,23 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
         }
     };
 
-    if (projectStatus === 'CERRADO' || projectStatus === 'CANCELADO' || projectStatus === 'EN_CURSO') {
-        return null; // Actions not available for final states or already accepted
+    const handleGenerateInvoice = async () => {
+        if (!confirm("¿Generar factura basada en la cotización actual?")) return;
+        setIsLoading(true);
+        try {
+            await createInvoiceFromProject(projectId);
+            toast({ type: 'success', message: "Factura generada exitosamente" });
+            router.refresh();
+        } catch (error: any) {
+            console.error(error);
+            toast({ type: 'error', message: error.message || "Error al generar factura" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (projectStatus === 'CERRADO' || projectStatus === 'CANCELADO') {
+        return null; // Actions not available for final states
     }
 
     return (
@@ -91,6 +107,19 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
                 {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
                 Rechazar
             </button>
+
+            {/* Invoice Generation - Available when Accepted (En Curso) */}
+            {projectStatus === 'EN_CURSO' && (
+                <button
+                    onClick={handleGenerateInvoice}
+                    disabled={isLoading}
+                    className="ml-2 bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center animate-in fade-in"
+                    title="Generar Factura desde Cotización"
+                >
+                    {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                    Generar Factura
+                </button>
+            )}
         </div>
     );
 }
