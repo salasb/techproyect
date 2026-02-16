@@ -24,13 +24,17 @@ export function LocationForm({ isOpen, onClose, locationToEdit }: LocationFormPr
         setIsLoading(true);
 
         const formData = new FormData(e.currentTarget);
+        const data = {
+            name: formData.get('name') as string,
+            address: formData.get('address') as string,
+        };
 
         try {
             if (locationToEdit) {
-                await updateLocation(locationToEdit.id, formData);
+                await updateLocation(locationToEdit.id, data);
                 toast({ type: 'success', message: "Ubicación actualizada correctamente" });
             } else {
-                await createLocation(formData);
+                await createLocation(data);
                 toast({ type: 'success', message: "Ubicación creada correctamente" });
             }
             onClose();
