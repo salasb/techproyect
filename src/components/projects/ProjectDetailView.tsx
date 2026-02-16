@@ -347,7 +347,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     const actionStatus = getNextActionStatus();
 
     // Lock Logic
-    const isLocked = displayProject.status === 'FINALIZADO' || (financials.totalInvoicedGross >= financials.priceGross && financials.priceGross > 0);
+    const isLocked = displayProject.status === 'CERRADO' || (financials.totalInvoicedGross >= financials.priceGross && financials.priceGross > 0);
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
@@ -376,7 +376,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 </div>
             )}
 
-            {displayProject.status === 'FINALIZADO' && (
+            {displayProject.status === 'CERRADO' && (
                 <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-4">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 rounded-full text-emerald-600 dark:text-emerald-400">
@@ -443,7 +443,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 )}
 
                 {/* ACTIVE STATE ACTIONS */}
-                {project.status !== 'FINALIZADO' && project.status !== 'CANCELADO' && (
+                {project.status !== 'CERRADO' && project.status !== 'CANCELADO' && (
                     <>
                         {/* Show Send Options if Quote NOT Sent and Stage is LEVANTAMIENTO (or undefined) and not Started/Cancelled */}
                         {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (

@@ -54,7 +54,7 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
         }
     };
 
-    if (projectStatus === 'FINALIZADO' || projectStatus === 'CANCELADO' || projectStatus === 'EN_CURSO') {
+    if (projectStatus === 'CERRADO' || projectStatus === 'CANCELADO' || projectStatus === 'EN_CURSO') {
         return null; // Actions not available for final states or already accepted
     }
 

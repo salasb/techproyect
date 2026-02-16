@@ -170,7 +170,7 @@ export async function closeProject(projectId: string) {
     const { error } = await supabase
         .from('Project')
         .update({
-            status: 'FINALIZADO',
+            status: 'CERRADO',
             updatedAt: new Date().toISOString()
         })
         .eq('id', projectId);
@@ -245,7 +245,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
     // [INVENTORY AUTOMATION]
     // If project is Finalized or set to Implementation, try to deduct stock
     // We import dynamically to avoid circular dependencies if any (though likely safe here)
-    if (status === 'FINALIZADO' || stage === 'IMPLEMENTACION') {
+    if (status === 'CERRADO' || stage === 'IMPLEMENTACION') {
         try {
             const { deductStockForProject } = await import("@/helpers/inventory");
             const result = await deductStockForProject(projectId);
@@ -264,7 +264,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
     const STATUS_LABELS: Record<string, string> = {
         'EN_ESPERA': 'En Espera',
         'EN_CURSO': 'En Curso',
-        'FINALIZADO': 'Finalizado',
+        'CERRADO': 'Finalizado',
         'CANCELADO': 'Cancelado',
         'BLOQUEADO': 'Bloqueado'
     };

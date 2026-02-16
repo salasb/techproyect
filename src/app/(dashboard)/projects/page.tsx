@@ -46,7 +46,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     if (tab === 'active') {
         query = query.in('status', ['EN_ESPERA', 'EN_CURSO', 'BLOQUEADO']);
     } else if (tab === 'history') {
-        query = query.in('status', ['FINALIZADO', 'CANCELADO']);
+        query = query.in('status', ['CERRADO', 'CANCELADO']);
     }
 
     const { data: projectsData, error, count } = await query

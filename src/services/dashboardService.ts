@@ -599,7 +599,7 @@ export class DashboardService {
 
             // Earned: Only projects that are effectively "Won" (En Curso, Finalizado)
             // Casting to string to avoid TS error if types are stale (FINALIZADO vs CERRADO)
-            if (p.status === 'EN_CURSO' || (p.status as string) === 'FINALIZADO') {
+            if (p.status === 'EN_CURSO' || (p.status as string) === 'CERRADO') {
                 earnedMargin += margin;
             }
         });

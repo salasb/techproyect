@@ -13,6 +13,9 @@ import { BillingAlertsWidget } from "@/components/dashboard/widgets/BillingAlert
 import { ClientRankingWidget } from "@/components/dashboard/widgets/ClientRankingWidget";
 import { ProjectGantt } from "@/components/dashboard/ProjectGantt";
 import InventoryAlertsWidget from "@/components/dashboard/InventoryAlertsWidget";
+import { SentinelService } from "@/services/sentinel";
+import { SentinelWidget } from "@/components/dashboard/SentinelWidget";
+import { getOrganizationId } from "@/lib/current-org";
 
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -52,6 +55,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const settings = settingsRes.data || { vatRate: DEFAULT_VAT_RATE } as Settings;
     const projects = projectsRes.data || [];
     const opportunities = opportunitiesRes.data || [];
+
+    // Sentinel Agent Insights
+    const orgId = await getOrganizationId();
+    const sentinelInsights = await SentinelService.getInsights(orgId);
 
     // 2. Calculate Dashboard Data
     const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
@@ -113,7 +120,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
                 {/* Right Column: Widgets Stack */}
                 <div className="space-y-6 flex flex-col">
-                    {/* Inventory Alerts */}
+                    {/* Sentinel Proactive Agent */}
+                    <div className="flex-shrink-0">
+                        <SentinelWidget insights={sentinelInsights} />
+                    </div>
+
+                    {/* Inventory Alerts (Fallback/Detailed) */}
                     <div className="flex-shrink-0">
                         <InventoryAlertsWidget />
                     </div>
