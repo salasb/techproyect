@@ -8,7 +8,7 @@ export function isAdmin(role?: string | null): boolean {
 }
 
 /**
- * Checks if a user has global system management privileges (Geocom).
+ * Checks if a user has global system management privileges (TechWise Admin).
  */
 export function isSuperAdmin(role?: string | null): boolean {
     return role === 'SUPERADMIN';

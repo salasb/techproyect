@@ -14,7 +14,7 @@ export default function PendingActivationPage() {
                 <h1 className="text-2xl font-bold text-slate-900">Cuenta en Revisión</h1>
 
                 <p className="text-slate-600">
-                    Tu organización ha sido registrada exitosamente. Un administrador de <strong>Geocom</strong> está revisando tu solicitud para habilitar el servicio.
+                    Tu organización ha sido registrada exitosamente. Un administrador de <strong>TechWise</strong> está revisando tu solicitud para habilitar el servicio.
                 </p>
 
                 <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-500 flex gap-3 items-start text-left text-pretty">
@@ -24,7 +24,7 @@ export default function PendingActivationPage() {
 
                 <div className="pt-4 flex flex-col gap-3">
                     <a
-                        href="mailto:soporte@geocom.cl"
+                        href="mailto:soporte@techwise.cl"
                         className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
                     >
                         <Mail className="w-4 h-4" />
@@ -39,7 +39,7 @@ export default function PendingActivationPage() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 flex justify-center gap-4 grayscale opacity-50">
-                    <img src="/logo-geocom.png" alt="Geocom" className="h-6 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                    <img src="/techwise logo negro.png" alt="TechWise" className="h-6 object-contain opacity-50" />
                 </div>
             </div>
         </div>

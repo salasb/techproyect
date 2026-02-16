@@ -52,7 +52,7 @@ export default async function AdminDashboard() {
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">System Overview</h1>
-                    <p className="text-slate-500 font-medium">Panel de control global para Geocom Administrador</p>
+                    <p className="text-slate-500 font-medium">Panel de control global para Administradores de TechWise</p>
                 </div>
                 <div className="flex gap-2">
                     {pendingOrgs && pendingOrgs > 0 ? (
@@ -111,7 +111,7 @@ export default async function AdminDashboard() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase ${org.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
-                                                org.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                                            org.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
                                             }`}>
                                             {org.status}
                                         </span>
