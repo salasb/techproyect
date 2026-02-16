@@ -26,7 +26,7 @@ export async function getOrganizationSubscription(orgId: string): Promise<OrgSub
 
     // Fallback to FREE if no plan defined
     // We check both 'plan' column (if added) or settings.plan
-    const plan: PlanTier = (org?.plan as PlanTier) || (org?.settings as any)?.plan || 'FREE';
+    const plan: PlanTier = (org?.plan as PlanTier) || (org?.settings as Record<string, unknown>)?.plan as PlanTier || 'FREE';
 
     // 2. Get Usage Counts
     // We utilize the 'count' option for efficiency
