@@ -7,10 +7,30 @@ export type Json =
     | Json[]
 
 export type Database = {
-    // Allows to automatically instantiate createClient with right options
-    // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-    __InternalSupabase: {
-        PostgrestVersion: "14.1"
+    graphql_public: {
+        Tables: {
+            [_ in never]: never
+        }
+        Views: {
+            [_ in never]: never
+        }
+        Functions: {
+            graphql: {
+                Args: {
+                    operationName?: string
+                    query?: string
+                    variables?: Json
+                    extensions?: Json
+                }
+                Returns: Json
+            }
+        }
+        Enums: {
+            [_ in never]: never
+        }
+        CompositeTypes: {
+            [_ in never]: never
+        }
     }
     public: {
         Tables: {
@@ -20,7 +40,8 @@ export type Database = {
                     createdAt: string | null
                     details: string | null
                     id: string
-                    projectId: string | null
+                    organizationId: string
+                    projectId: string
                     userId: string | null
                     userName: string | null
                 }
@@ -29,7 +50,8 @@ export type Database = {
                     createdAt?: string | null
                     details?: string | null
                     id?: string
-                    projectId?: string | null
+                    organizationId: string
+                    projectId: string
                     userId?: string | null
                     userName?: string | null
                 }
@@ -38,11 +60,26 @@ export type Database = {
                     createdAt?: string | null
                     details?: string | null
                     id?: string
-                    projectId?: string | null
+                    organizationId?: string
+                    projectId?: string
                     userId?: string | null
                     userName?: string | null
                 }
                 Relationships: [
+                    {
+                        foreignKeyName: "AuditLog_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "AuditLog_projectId_fkey"
+                        columns: ["projectId"]
+                        isOneToOne: false
+                        referencedRelation: "Project"
+                        referencedColumns: ["id"]
+                    },
                     {
                         foreignKeyName: "AuditLog_userId_fkey"
                         columns: ["userId"]
@@ -60,6 +97,7 @@ export type Database = {
                     email: string | null
                     id: string
                     name: string
+                    organizationId: string
                     phone: string | null
                     status: Database["public"]["Enums"]["ClientStatus"]
                     taxId: string | null
@@ -72,6 +110,7 @@ export type Database = {
                     email?: string | null
                     id?: string
                     name: string
+                    organizationId: string
                     phone?: string | null
                     status?: Database["public"]["Enums"]["ClientStatus"]
                     taxId?: string | null
@@ -84,12 +123,21 @@ export type Database = {
                     email?: string | null
                     id?: string
                     name?: string
+                    organizationId?: string
                     phone?: string | null
                     status?: Database["public"]["Enums"]["ClientStatus"]
                     taxId?: string | null
                     updatedAt?: string
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "Client_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
             Company: {
                 Row: {
@@ -98,6 +146,7 @@ export type Database = {
                     email: string | null
                     id: string
                     name: string
+                    organizationId: string
                     phone: string | null
                     taxId: string | null
                 }
@@ -107,6 +156,7 @@ export type Database = {
                     email?: string | null
                     id: string
                     name: string
+                    organizationId: string
                     phone?: string | null
                     taxId?: string | null
                 }
@@ -116,10 +166,19 @@ export type Database = {
                     email?: string | null
                     id?: string
                     name?: string
+                    organizationId?: string
                     phone?: string | null
                     taxId?: string | null
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "Company_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
             Contact: {
                 Row: {
@@ -128,6 +187,7 @@ export type Database = {
                     email: string | null
                     id: string
                     name: string
+                    organizationId: string
                     phone: string | null
                     role: string | null
                     updatedAt: string
@@ -138,6 +198,7 @@ export type Database = {
                     email?: string | null
                     id?: string
                     name: string
+                    organizationId: string
                     phone?: string | null
                     role?: string | null
                     updatedAt?: string
@@ -148,6 +209,7 @@ export type Database = {
                     email?: string | null
                     id?: string
                     name?: string
+                    organizationId?: string
                     phone?: string | null
                     role?: string | null
                     updatedAt?: string
@@ -160,6 +222,13 @@ export type Database = {
                         referencedRelation: "Client"
                         referencedColumns: ["id"]
                     },
+                    {
+                        foreignKeyName: "Contact_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
                 ]
             }
             CostEntry: {
@@ -169,6 +238,7 @@ export type Database = {
                     date: string
                     description: string
                     id: string
+                    organizationId: string
                     projectId: string
                 }
                 Insert: {
@@ -177,6 +247,7 @@ export type Database = {
                     date: string
                     description: string
                     id: string
+                    organizationId: string
                     projectId: string
                 }
                 Update: {
@@ -185,9 +256,17 @@ export type Database = {
                     date?: string
                     description?: string
                     id?: string
+                    organizationId?: string
                     projectId?: string
                 }
                 Relationships: [
+                    {
+                        foreignKeyName: "CostEntry_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
                     {
                         foreignKeyName: "CostEntry_projectId_fkey"
                         columns: ["projectId"]
@@ -204,6 +283,7 @@ export type Database = {
                     date: string
                     id: string
                     notes: string
+                    organizationId: string
                     projectId: string | null
                     type: Database["public"]["Enums"]["InteractionType"]
                 }
@@ -213,6 +293,7 @@ export type Database = {
                     date?: string
                     id?: string
                     notes: string
+                    organizationId: string
                     projectId?: string | null
                     type: Database["public"]["Enums"]["InteractionType"]
                 }
@@ -222,6 +303,7 @@ export type Database = {
                     date?: string
                     id?: string
                     notes?: string
+                    organizationId?: string
                     projectId?: string | null
                     type?: Database["public"]["Enums"]["InteractionType"]
                 }
@@ -234,10 +316,68 @@ export type Database = {
                         referencedColumns: ["id"]
                     },
                     {
+                        foreignKeyName: "Interaction_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                    {
                         foreignKeyName: "Interaction_projectId_fkey"
                         columns: ["projectId"]
                         isOneToOne: false
                         referencedRelation: "Project"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            InventoryMovement: {
+                Row: {
+                    createdAt: string | null
+                    createdBy: string | null
+                    id: string
+                    organizationId: string
+                    productId: string
+                    quantity: number
+                    reason: string | null
+                    referenceId: string | null
+                    type: string
+                }
+                Insert: {
+                    createdAt?: string | null
+                    createdBy?: string | null
+                    id?: string
+                    organizationId: string
+                    productId: string
+                    quantity: number
+                    reason?: string | null
+                    referenceId?: string | null
+                    type: string
+                }
+                Update: {
+                    createdAt?: string | null
+                    createdBy?: string | null
+                    id?: string
+                    organizationId?: string
+                    productId?: string
+                    quantity?: number
+                    reason?: string | null
+                    referenceId?: string | null
+                    type?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "InventoryMovement_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "InventoryMovement_productId_fkey"
+                        columns: ["productId"]
+                        isOneToOne: false
+                        referencedRelation: "Product"
                         referencedColumns: ["id"]
                     },
                 ]
@@ -248,6 +388,7 @@ export type Database = {
                     amountPaidGross: number
                     dueDate: string | null
                     id: string
+                    organizationId: string
                     paymentTermsDays: number | null
                     projectId: string
                     sent: boolean
@@ -259,6 +400,7 @@ export type Database = {
                     amountPaidGross?: number
                     dueDate?: string | null
                     id: string
+                    organizationId: string
                     paymentTermsDays?: number | null
                     projectId: string
                     sent?: boolean
@@ -270,6 +412,7 @@ export type Database = {
                     amountPaidGross?: number
                     dueDate?: string | null
                     id?: string
+                    organizationId?: string
                     paymentTermsDays?: number | null
                     projectId?: string
                     sent?: boolean
@@ -277,6 +420,13 @@ export type Database = {
                     updatedAt?: string
                 }
                 Relationships: [
+                    {
+                        foreignKeyName: "Invoice_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
                     {
                         foreignKeyName: "Invoice_projectId_fkey"
                         columns: ["projectId"]
@@ -288,40 +438,43 @@ export type Database = {
             }
             Opportunity: {
                 Row: {
-                    clientId: string | null
-                    createdAt: string
+                    clientId: string
+                    createdAt: string | null
                     description: string | null
                     expectedCloseDate: string | null
                     id: string
-                    probability: number
-                    stage: Database["public"]["Enums"]["OpportunityStage"]
+                    organizationId: string
+                    probability: number | null
+                    stage: string
                     title: string
-                    updatedAt: string
-                    value: number
+                    updatedAt: string | null
+                    value: number | null
                 }
                 Insert: {
-                    clientId?: string | null
-                    createdAt?: string
+                    clientId: string
+                    createdAt?: string | null
                     description?: string | null
                     expectedCloseDate?: string | null
                     id?: string
-                    probability?: number
-                    stage?: Database["public"]["Enums"]["OpportunityStage"]
+                    organizationId: string
+                    probability?: number | null
+                    stage: string
                     title: string
-                    updatedAt?: string
-                    value?: number
+                    updatedAt?: string | null
+                    value?: number | null
                 }
                 Update: {
-                    clientId?: string | null
-                    createdAt?: string
+                    clientId?: string
+                    createdAt?: string | null
                     description?: string | null
                     expectedCloseDate?: string | null
                     id?: string
-                    probability?: number
-                    stage?: Database["public"]["Enums"]["OpportunityStage"]
+                    organizationId?: string
+                    probability?: number | null
+                    stage?: string
                     title?: string
-                    updatedAt?: string
-                    value?: number
+                    updatedAt?: string | null
+                    value?: number | null
                 }
                 Relationships: [
                     {
@@ -329,6 +482,75 @@ export type Database = {
                         columns: ["clientId"]
                         isOneToOne: false
                         referencedRelation: "Client"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "Opportunity_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            Organization: {
+                Row: {
+                    createdAt: string | null
+                    id: string
+                    logoUrl: string | null
+                    name: string
+                    rut: string | null
+                    settings: Json | null
+                    updatedAt: string | null
+                }
+                Insert: {
+                    createdAt?: string | null
+                    id?: string
+                    logoUrl?: string | null
+                    name: string
+                    rut?: string | null
+                    settings?: Json | null
+                    updatedAt?: string | null
+                }
+                Update: {
+                    createdAt?: string | null
+                    id?: string
+                    logoUrl?: string | null
+                    name?: string
+                    rut?: string | null
+                    settings?: Json | null
+                    updatedAt?: string | null
+                }
+                Relationships: []
+            }
+            OrganizationMember: {
+                Row: {
+                    createdAt: string | null
+                    id: string
+                    organizationId: string | null
+                    role: string | null
+                    userId: string | null
+                }
+                Insert: {
+                    createdAt?: string | null
+                    id?: string
+                    organizationId?: string | null
+                    role?: string | null
+                    userId?: string | null
+                }
+                Update: {
+                    createdAt?: string | null
+                    id?: string
+                    organizationId?: string | null
+                    role?: string | null
+                    userId?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "OrganizationMember_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
                         referencedColumns: ["id"]
                     },
                 ]
@@ -339,9 +561,13 @@ export type Database = {
                     createdAt: string
                     description: string | null
                     id: string
+                    min_stock: number
                     name: string
+                    organizationId: string
                     priceNet: number
                     sku: string
+                    stock: number
+                    type: string
                     unit: string
                     updatedAt: string
                 }
@@ -349,25 +575,41 @@ export type Database = {
                     costNet?: number
                     createdAt?: string
                     description?: string | null
-                    id: string
+                    id?: string
+                    min_stock?: number
                     name: string
+                    organizationId: string
                     priceNet?: number
-                    sku: string
+                    sku?: string
+                    stock?: number
+                    type?: string
                     unit?: string
-                    updatedAt: string
+                    updatedAt?: string
                 }
                 Update: {
                     costNet?: number
                     createdAt?: string
                     description?: string | null
                     id?: string
+                    min_stock?: number
                     name?: string
+                    organizationId?: string
                     priceNet?: number
                     sku?: string
+                    stock?: number
+                    type?: string
                     unit?: string
                     updatedAt?: string
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "Product_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
             Profile: {
                 Row: {
@@ -376,6 +618,7 @@ export type Database = {
                     email: string
                     id: string
                     name: string
+                    organizationId: string
                     role: string
                     updatedAt: string
                 }
@@ -385,6 +628,7 @@ export type Database = {
                     email: string
                     id?: string
                     name: string
+                    organizationId: string
                     role?: string
                     updatedAt?: string
                 }
@@ -394,10 +638,19 @@ export type Database = {
                     email?: string
                     id?: string
                     name?: string
+                    organizationId?: string
                     role?: string
                     updatedAt?: string
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "Profile_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
             Project: {
                 Row: {
@@ -413,6 +666,7 @@ export type Database = {
                     name: string
                     nextAction: string | null
                     nextActionDate: string | null
+                    organizationId: string
                     paymentMethod: string
                     plannedEndDate: string
                     progress: number
@@ -437,6 +691,7 @@ export type Database = {
                     name: string
                     nextAction?: string | null
                     nextActionDate?: string | null
+                    organizationId: string
                     paymentMethod?: string
                     plannedEndDate: string
                     progress?: number
@@ -461,6 +716,7 @@ export type Database = {
                     name?: string
                     nextAction?: string | null
                     nextActionDate?: string | null
+                    organizationId?: string
                     paymentMethod?: string
                     plannedEndDate?: string
                     progress?: number
@@ -487,6 +743,13 @@ export type Database = {
                         referencedRelation: "Company"
                         referencedColumns: ["id"]
                     },
+                    {
+                        foreignKeyName: "Project_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
                 ]
             }
             ProjectLog: {
@@ -494,13 +757,15 @@ export type Database = {
                     content: string
                     createdAt: string
                     id: string
+                    organizationId: string
                     projectId: string
                     type: string
                 }
                 Insert: {
                     content: string
                     createdAt?: string
-                    id: string
+                    id?: string
+                    organizationId: string
                     projectId: string
                     type?: string
                 }
@@ -508,10 +773,18 @@ export type Database = {
                     content?: string
                     createdAt?: string
                     id?: string
+                    organizationId?: string
                     projectId?: string
                     type?: string
                 }
                 Relationships: [
+                    {
+                        foreignKeyName: "ProjectLog_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
                     {
                         foreignKeyName: "ProjectLog_projectId_fkey"
                         columns: ["projectId"]
@@ -526,6 +799,8 @@ export type Database = {
                     costNet: number
                     detail: string
                     id: string
+                    isSelected: boolean
+                    organizationId: string
                     priceNet: number
                     projectId: string
                     quantity: number
@@ -536,6 +811,8 @@ export type Database = {
                     costNet?: number
                     detail: string
                     id?: string
+                    isSelected?: boolean
+                    organizationId: string
                     priceNet?: number
                     projectId: string
                     quantity?: number
@@ -546,6 +823,8 @@ export type Database = {
                     costNet?: number
                     detail?: string
                     id?: string
+                    isSelected?: boolean
+                    organizationId?: string
                     priceNet?: number
                     projectId?: string
                     quantity?: number
@@ -554,7 +833,59 @@ export type Database = {
                 }
                 Relationships: [
                     {
+                        foreignKeyName: "QuoteItem_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                    {
                         foreignKeyName: "QuoteItem_projectId_fkey"
+                        columns: ["projectId"]
+                        isOneToOne: false
+                        referencedRelation: "Project"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            SaleNote: {
+                Row: {
+                    correlative: number
+                    generatedAt: string
+                    id: string
+                    organizationId: string
+                    pdfUrl: string | null
+                    projectId: string
+                    status: string
+                }
+                Insert: {
+                    correlative?: number
+                    generatedAt?: string
+                    id: string
+                    organizationId: string
+                    pdfUrl?: string | null
+                    projectId: string
+                    status?: string
+                }
+                Update: {
+                    correlative?: number
+                    generatedAt?: string
+                    id?: string
+                    organizationId?: string
+                    pdfUrl?: string | null
+                    projectId?: string
+                    status?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "SaleNote_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "SaleNote_projectId_fkey"
                         columns: ["projectId"]
                         isOneToOne: false
                         referencedRelation: "Project"
@@ -567,6 +898,7 @@ export type Database = {
                     currency: string
                     defaultPaymentTermsDays: number
                     id: number
+                    organizationId: string
                     vatRate: number
                     yellowThresholdDays: number
                 }
@@ -574,6 +906,7 @@ export type Database = {
                     currency?: string
                     defaultPaymentTermsDays?: number
                     id?: number
+                    organizationId: string
                     vatRate?: number
                     yellowThresholdDays?: number
                 }
@@ -581,17 +914,35 @@ export type Database = {
                     currency?: string
                     defaultPaymentTermsDays?: number
                     id?: number
+                    organizationId?: string
                     vatRate?: number
                     yellowThresholdDays?: number
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "Settings_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
         }
         Views: {
             [_ in never]: never
         }
         Functions: {
-            [_ in never]: never
+            adjust_inventory: {
+                Args: {
+                    p_product_id: string
+                    p_quantity: number
+                    p_reason?: string
+                    p_reference_id?: string
+                    p_type: string
+                }
+                Returns: undefined
+            }
         }
         Enums: {
             ClientStatus: "LEAD" | "PROSPECT" | "CLIENT" | "CHURNED"
@@ -602,13 +953,6 @@ export type Database = {
             | "LOGISTICA"
             | "OTROS"
             InteractionType: "CALL" | "EMAIL" | "MEETING" | "NOTE"
-            OpportunityStage:
-            | "LEAD"
-            | "QUALIFIED"
-            | "PROPOSAL"
-            | "NEGOTIATION"
-            | "WON"
-            | "LOST"
             ProjectStage:
             | "LEVANTAMIENTO"
             | "DISENO"
@@ -629,33 +973,27 @@ export type Database = {
     }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type PublicSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-    DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-    TableName extends DefaultSchemaTableNameOrOptions extends {
-        schema: keyof DatabaseWithoutInternals
-    }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    PublicTableNameOrOptions extends
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | { schema: keyof Database },
+    TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-}
-    ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+    ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
             Row: infer R
         }
     ? R
     : never
-    : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+    : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+        PublicSchema["Views"])
+    ? (PublicSchema["Tables"] &
+        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
             Row: infer R
         }
     ? R
@@ -663,24 +1001,20 @@ export type Tables<
     : never
 
 export type TablesInsert<
-    DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-    TableName extends DefaultSchemaTableNameOrOptions extends {
-        schema: keyof DatabaseWithoutInternals
-    }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+    TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-}
-    ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+    ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
         Insert: infer I
     }
     ? I
     : never
-    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Insert: infer I
     }
     ? I
@@ -688,24 +1022,20 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-    DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-    TableName extends DefaultSchemaTableNameOrOptions extends {
-        schema: keyof DatabaseWithoutInternals
-    }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+    TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-}
-    ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+    ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
         Update: infer U
     }
     ? U
     : never
-    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Update: infer U
     }
     ? U
@@ -713,35 +1043,29 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-    DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-    EnumName extends DefaultSchemaEnumNameOrOptions extends {
-        schema: keyof DatabaseWithoutInternals
-    }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    PublicEnumNameOrOptions extends
+    | keyof PublicSchema["Enums"]
+    | { schema: keyof Database },
+    EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-}
-    ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-    : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+    : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
     PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | keyof PublicSchema["CompositeTypes"]
+    | { schema: keyof Database },
     CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-        schema: keyof DatabaseWithoutInternals
+        schema: keyof Database
     }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-}
-    ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-    : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+    ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+    : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
+    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never

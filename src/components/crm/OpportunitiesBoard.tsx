@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Database } from '@/types/supabase';
-import { updateOpportunityStage } from '@/actions/opportunities';
+import { updateOpportunityStage, OpportunityStage } from '@/actions/opportunities';
 import { useToast } from '@/components/ui/Toast';
 import { MoreHorizontal, DollarSign, Building2, Calendar, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ interface Props {
     opportunities: Opportunity[];
 }
 
-const COLUMNS: { id: Database['public']['Enums']['OpportunityStage']; label: string; color: string }[] = [
+const COLUMNS: { id: OpportunityStage; label: string; color: string }[] = [
     { id: 'LEAD', label: 'Nuevo Lead', color: 'bg-blue-50 border-blue-200' },
     { id: 'QUALIFIED', label: 'Calificado', color: 'bg-indigo-50 border-indigo-200' },
     { id: 'PROPOSAL', label: 'Propuesta', color: 'bg-purple-50 border-purple-200' },
@@ -44,7 +44,7 @@ export function OpportunitiesBoard({ opportunities: initialOpportunities }: Prop
         e.dataTransfer.dropEffect = 'move';
     };
 
-    const handleDrop = async (e: React.DragEvent, stage: Database['public']['Enums']['OpportunityStage']) => {
+    const handleDrop = async (e: React.DragEvent, stage: OpportunityStage) => {
         e.preventDefault();
         if (!draggedOppId) return;
 
@@ -120,7 +120,7 @@ export function OpportunitiesBoard({ opportunities: initialOpportunities }: Prop
                                         </div>
                                         <div className="flex items-center text-xs text-emerald-600 font-medium bg-emerald-50 w-fit px-2 py-0.5 rounded-md border border-emerald-100">
                                             <DollarSign className="w-3 h-3 mr-1" />
-                                            <span className="font-mono">{formatMoney(opp.value)}</span>
+                                            <span className="font-mono">{formatMoney(opp.value || 0)}</span>
                                         </div>
                                     </div>
 

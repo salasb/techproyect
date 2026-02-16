@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PaginationControlProps {
@@ -16,13 +17,12 @@ export function PaginationControl({
     hasNextPage,
     hasPrevPage
 }: PaginationControlProps) {
-    const router = useRouter();
     const searchParams = useSearchParams();
 
-    function onPageChange(newPage: number) {
+    function createPageUrl(newPage: number) {
         const params = new URLSearchParams(searchParams.toString());
         params.set('page', newPage.toString());
-        router.push(`?${params.toString()}`);
+        return `?${params.toString()}`;
     }
 
     return (
@@ -31,22 +31,22 @@ export function PaginationControl({
                 Página <span className="font-medium text-foreground">{currentPage}</span> de <span className="font-medium text-foreground">{totalPages}</span>
             </div>
             <div className="flex items-center space-x-2">
-                <button
-                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3"
-                    onClick={() => onPageChange(currentPage - 1)}
-                    disabled={!hasPrevPage}
+                <Link
+                    href={createPageUrl(currentPage - 1)}
+                    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3 ${!hasPrevPage ? 'pointer-events-none opacity-50' : ''}`}
+                    aria-disabled={!hasPrevPage}
                 >
                     <ChevronLeft className="h-4 w-4 mr-2" />
                     Anterior
-                </button>
-                <button
-                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3"
-                    onClick={() => onPageChange(currentPage + 1)}
-                    disabled={!hasNextPage}
+                </Link>
+                <Link
+                    href={createPageUrl(currentPage + 1)}
+                    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3 ${!hasNextPage ? 'pointer-events-none opacity-50' : ''}`}
+                    aria-disabled={!hasNextPage}
                 >
                     Siguiente
                     <ChevronRight className="h-4 w-4 ml-2" />
-                </button>
+                </Link>
             </div>
         </div>
     );

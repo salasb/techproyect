@@ -21,5 +21,5 @@ export async function getProjectFinancials(projectId: string): Promise<Financial
         throw new Error("Settings not initialized")
     }
 
-    return calculateProjectFinancials(project, costs, invoices, settings)
+    return calculateProjectFinancials(project, costs, invoices, { ...settings, organizationId: 'legacy' })
 }

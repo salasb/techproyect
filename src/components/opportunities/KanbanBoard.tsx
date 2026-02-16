@@ -14,7 +14,7 @@ import {
     closestCorners
 } from '@dnd-kit/core';
 import { Database } from '@/types/supabase';
-import { updateOpportunityStage } from '@/actions/opportunities';
+import { updateOpportunityStage, OpportunityStage } from '@/actions/opportunities';
 import { useToast } from '@/components/ui/Toast';
 import { KanbanCard } from './KanbanCard';
 
@@ -28,7 +28,7 @@ interface Props {
     opportunities: Opportunity[];
 }
 
-const COLUMNS: { id: Database['public']['Enums']['OpportunityStage']; label: string; color: string }[] = [
+const COLUMNS: { id: OpportunityStage; label: string; color: string }[] = [
     { id: 'LEAD', label: 'Nuevo Lead', color: 'bg-blue-50 border-blue-200' },
     { id: 'QUALIFIED', label: 'Calificado', color: 'bg-indigo-50 border-indigo-200' },
     { id: 'PROPOSAL', label: 'Propuesta', color: 'bg-purple-50 border-purple-200' },
@@ -101,7 +101,7 @@ export function KanbanBoard({ opportunities: initialOpportunities }: Props) {
         const activeOpp = opportunities.find(opt => opt.id === activeId);
 
         if (activeOpp && activeOpp.stage !== overId) {
-            const newStage = overId as Database['public']['Enums']['OpportunityStage'];
+            const newStage = overId as OpportunityStage;
 
             // Optimistic Update
             const oldOpportunities = [...opportunities];

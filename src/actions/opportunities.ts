@@ -7,7 +7,7 @@ import { Database } from "@/types/supabase";
 
 type Opportunity = Database['public']['Tables']['Opportunity']['Row'];
 type OpportunityInsert = Database['public']['Tables']['Opportunity']['Insert'];
-type OpportunityStage = Database['public']['Enums']['OpportunityStage'];
+export type OpportunityStage = 'LEAD' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'WON' | 'LOST';
 
 export async function getOpportunities() {
     const supabase = await createClient();
@@ -53,7 +53,10 @@ export async function getOpportunitiesByClient(clientId: string) {
     return data;
 }
 
+import { getOrganizationId } from "@/lib/current-org";
+
 export async function createOpportunity(formData: FormData) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const title = formData.get('title') as string;
@@ -67,6 +70,8 @@ export async function createOpportunity(formData: FormData) {
     }
 
     const newOpp: OpportunityInsert = {
+        id: crypto.randomUUID(),
+        organizationId: orgId,
         title,
         clientId,
         value,

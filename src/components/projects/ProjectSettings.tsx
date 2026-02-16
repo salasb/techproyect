@@ -485,8 +485,15 @@ function DeleteProjectButton({ projectId }: { projectId: string }) {
 
         setIsDeleting(true);
         try {
-            await deleteProject(projectId);
-            // Redirect happens in server action
+            const result = await deleteProject(projectId);
+            if (result.success) {
+                toast({ type: 'success', message: "Proyecto eliminado exitosamente" });
+                // Redirect client-side to avoid server component errors
+                window.location.href = "/projects";
+            } else {
+                toast({ type: 'error', message: result.error || "Error al eliminar" });
+                setIsDeleting(false);
+            }
         } catch (error: any) {
             toast({ type: 'error', message: error.message || "Error al eliminar" });
             setIsDeleting(false);

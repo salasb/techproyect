@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+import { getOrganizationId } from "@/lib/current-org";
 import { validateInvoice } from "@/lib/validators";
 import { addLog } from "@/actions/project-logs";
 
@@ -17,7 +18,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
     }
 
     try {
-
+        const orgId = await getOrganizationId();
         const supabase = await createClient();
 
         // Validate date
@@ -33,6 +34,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
             .from('Invoice')
             .insert({
                 id: crypto.randomUUID(),
+                organizationId: orgId,
                 projectId,
                 amountInvoicedGross,
                 amountPaidGross: 0,

@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, ArrowRightLeft, History, AlertTriangle } from "lucide-react";
 import { getProducts, createProduct, updateProduct, deleteProduct } from "@/actions/products";
 import { Database } from "@/types/supabase";
+import { StockAdjustmentModal } from "@/components/inventory/StockAdjustmentModal";
+import { KardexModal } from "@/components/inventory/KardexModal";
 
 type Product = Database['public']['Tables']['Product']['Row'];
 
@@ -12,11 +14,17 @@ export default function CatalogPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showLowStock, setShowLowStock] = useState(false); // [NEW]
+
+    // Restoration of missing state
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
+    const [isKardexOpen, setIsKardexOpen] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
     useEffect(() => {
         loadProducts();
-    }, [search]);
+    }, [search]); // Reload when search changes. Low stock toggle filters client-side for now.
 
     async function loadProducts() {
         setIsLoading(true);
@@ -28,7 +36,13 @@ export default function CatalogPage() {
         }
     }
 
+    // [NEW] Filter logic
+    const displayedProducts = showLowStock
+        ? products.filter(p => p.type === 'PRODUCT' && p.stock <= p.min_stock)
+        : products;
+
     async function handleSubmit(formData: FormData) {
+        // ... existing logic ...
         try {
             if (editingProduct) {
                 await updateProduct(editingProduct.id, formData);
@@ -50,7 +64,7 @@ export default function CatalogPage() {
     }
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8">
+        <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Catálogo de Productos</h1>
@@ -65,16 +79,28 @@ export default function CatalogPage() {
                 </button>
             </div>
 
-            {/* Search */}
-            <div className="relative">
-                <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-                <input
-                    type="text"
-                    placeholder="Buscar por nombre o SKU..."
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-sm"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
+            {/* Search & Filter */}
+            <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por nombre o SKU..."
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-sm"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+                <button
+                    onClick={() => setShowLowStock(!showLowStock)}
+                    className={`flex items-center px-4 py-2 rounded-xl border font-medium transition-all ${showLowStock
+                        ? 'bg-amber-50 border-amber-200 text-amber-700 shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                >
+                    <AlertTriangle className={`w-4 h-4 mr-2 ${showLowStock ? 'text-amber-600' : 'text-slate-400'}`} />
+                    {showLowStock ? 'Mostrando Stock Bajo' : 'Filtrar Stock Bajo'}
+                </button>
             </div>
 
             {/* List */}
@@ -82,23 +108,32 @@ export default function CatalogPage() {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold">
                         <tr>
-                            <th className="px-6 py-4">SKU</th>
+                            <th className="px-6 py-4">SKU / Tipo</th>
                             <th className="px-6 py-4">Nombre / Descripción</th>
                             <th className="px-6 py-4 text-center">Unidad</th>
                             <th className="px-6 py-4 text-right">Precio Lista</th>
-                            <th className="px-6 py-4 text-right">Costo Est.</th>
+                            <th className="px-6 py-4 text-center">Stock</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading ? (
                             <tr><td colSpan={6} className="p-8 text-center text-slate-500">Cargando...</td></tr>
-                        ) : products.length === 0 ? (
-                            <tr><td colSpan={6} className="p-8 text-center text-slate-500">No hay productos encontrados.</td></tr>
+                        ) : displayedProducts.length === 0 ? (
+                            <tr><td colSpan={6} className="p-8 text-center text-slate-500">
+                                {showLowStock ? 'No hay productos con stock bajo.' : 'No hay productos encontrados.'}
+                            </td></tr>
                         ) : (
-                            products.map((p) => (
+                            displayedProducts.map((p) => (
                                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="px-6 py-4 font-mono text-xs text-slate-500">{p.sku}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-col">
+                                            <span className="font-mono text-xs text-slate-500">{p.sku || '-'}</span>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-fit mt-1 ${p.type === 'PRODUCT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                {p.type === 'PRODUCT' ? 'PROD' : 'SERV'}
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-900">{p.name}</div>
                                         {p.description && <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>}
@@ -107,16 +142,47 @@ export default function CatalogPage() {
                                     <td className="px-6 py-4 text-right font-medium text-slate-700">
                                         ${p.priceNet.toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right text-slate-500">
-                                        ${p.costNet.toLocaleString()}
+                                    <td className="px-6 py-4 text-center">
+                                        {p.type === 'PRODUCT' ? (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className={`font-mono font-bold ${p.stock <= p.min_stock ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded' : 'text-slate-700'}`}>
+                                                    {p.stock}
+                                                </div>
+                                                {p.stock <= p.min_stock && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-300">-</span>
+                                        )}
                                     </td>
-                                    <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
-                                            <Edit className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700" title="Eliminar">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            {p.type === 'PRODUCT' && (
+                                                <>
+                                                    <button
+                                                        onClick={() => { setSelectedProduct(p); setIsAdjustmentOpen(true); }}
+                                                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Ajustar Stock"
+                                                    >
+                                                        <ArrowRightLeft className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setSelectedProduct(p); setIsKardexOpen(true); }}
+                                                        className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                                        title="Ver Kardex"
+                                                    >
+                                                        <History className="w-4 h-4" />
+                                                    </button>
+                                                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                                                </>
+                                            )}
+
+                                            <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -137,36 +203,75 @@ export default function CatalogPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">SKU</label>
-                                    <input name="sku" defaultValue={editingProduct?.sku} required className="w-full p-2 border rounded-lg text-sm" placeholder="EJ: SERV-01" />
+                                    <input name="sku" defaultValue={editingProduct?.sku} required className="w-full p-2 border rounded-lg text-sm uppercase" placeholder="EJ: SERV-01" />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
+                                    <select name="type" defaultValue={editingProduct?.type || 'SERVICE'} className="w-full p-2 border rounded-lg text-sm bg-slate-50">
+                                        <option value="SERVICE">Servicio (Intangible)</option>
+                                        <option value="PRODUCT">Producto (Físico, Control Stock)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Nombre</label>
+                                <input name="name" defaultValue={editingProduct?.name} required className="w-full p-2 border rounded-lg text-sm" placeholder="Nombre del servicio o producto" />
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Unidad</label>
                                     <select name="unit" defaultValue={editingProduct?.unit || 'UN'} className="w-full p-2 border rounded-lg text-sm">
                                         <option value="UN">UN</option>
                                         <option value="GL">GL</option>
                                         <option value="HR">HR</option>
+                                        <option value="MT">MT</option>
+                                        <option value="KG">KG</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Nombre</label>
-                                <input name="name" defaultValue={editingProduct?.name} required className="w-full p-2 border rounded-lg text-sm" placeholder="Nombre del servicio o producto" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Descripción (Opcional)</label>
-                                <textarea name="description" defaultValue={editingProduct?.description || ''} className="w-full p-2 border rounded-lg text-sm h-20 resize-none" placeholder="Detalles adicionales..." />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Precio Lista (Neto)</label>
-                                    <input name="priceNet" type="number" defaultValue={editingProduct?.priceNet} required className="w-full p-2 border rounded-lg text-sm font-mono" placeholder="0" />
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Precio (Neto)</label>
+                                    <input name="priceNet" type="number" step="0.01" defaultValue={editingProduct?.priceNet} required className="w-full p-2 border rounded-lg text-sm font-mono" placeholder="0" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Costo Est. (Neto)</label>
-                                    <input name="costNet" type="number" defaultValue={editingProduct?.costNet} required className="w-full p-2 border rounded-lg text-sm font-mono" placeholder="0" />
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Costo (Neto)</label>
+                                    <input name="costNet" type="number" step="0.01" defaultValue={editingProduct?.costNet} required className="w-full p-2 border rounded-lg text-sm font-mono" placeholder="0" />
                                 </div>
                             </div>
-                            <div className="pt-4 flex justify-end gap-3">
+
+                            {!editingProduct ? (
+                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                    <h4 className="text-xs font-semibold text-blue-800 mb-2">Inventario Inicial (Solo Productos)</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-blue-600 mb-1">Stock Inicial</label>
+                                            <input name="initialStock" type="number" min="0" defaultValue={0} className="w-full p-2 border border-blue-200 rounded-lg text-sm font-mono" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-blue-600 mb-1">Stock Mínimo (Alerta)</label>
+                                            <input name="minStock" type="number" min="0" defaultValue={0} className="w-full p-2 border border-blue-200 rounded-lg text-sm font-mono" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Stock Mínimo</label>
+                                        <input name="minStock" type="number" min="0" defaultValue={editingProduct?.min_stock} className="w-full p-2 border rounded-lg text-sm font-mono" />
+                                    </div>
+                                    <div className="flex items-end justify-center pb-2">
+                                        <span className="text-xs text-slate-400">El stock real se ajusta con el botón <ArrowRightLeft className="w-3 h-3 inline" /> en la lista.</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Descripción</label>
+                                <textarea name="description" defaultValue={editingProduct?.description || ''} className="w-full p-2 border rounded-lg text-sm h-16 resize-none" placeholder="Detalles adicionales..." />
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-2">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800">Cancelar</button>
                                 <button type="submit" className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700">Guardar</button>
                             </div>
@@ -174,6 +279,27 @@ export default function CatalogPage() {
                     </div>
                 </div>
             )}
+
+            {/* Inventory Modals */}
+            {selectedProduct && (
+                <>
+                    <StockAdjustmentModal
+                        productId={selectedProduct.id}
+                        productName={selectedProduct.name}
+                        currentStock={selectedProduct.stock}
+                        isOpen={isAdjustmentOpen}
+                        onClose={() => setIsAdjustmentOpen(false)}
+                        onSuccess={() => loadProducts()}
+                    />
+                    <KardexModal
+                        productId={selectedProduct.id}
+                        productName={selectedProduct.name}
+                        isOpen={isKardexOpen}
+                        onClose={() => setIsKardexOpen(false)}
+                    />
+                </>
+            )}
         </div>
     );
 }
+

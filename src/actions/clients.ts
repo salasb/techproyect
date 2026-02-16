@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRut, cleanRut, formatRut } from "@/lib/rut";
+import { getOrganizationId } from "@/lib/current-org";
 
 export async function getClients() {
     const supabase = await createClient();
@@ -13,6 +14,7 @@ export async function getClients() {
 }
 
 export async function createClientAction(formData: FormData) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -33,6 +35,8 @@ export async function createClientAction(formData: FormData) {
     }
 
     const { error } = await supabase.from('Client').insert({
+        id: crypto.randomUUID(),
+        organizationId: orgId,
         name,
         email,
         phone,
@@ -88,6 +92,7 @@ export async function deleteClientAction(clientId: string) {
 }
 
 export async function createQuickClient(formData: FormData) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -95,6 +100,8 @@ export async function createQuickClient(formData: FormData) {
     const phone = formData.get('phone') as string;
 
     const { data, error } = await supabase.from('Client').insert({
+        id: crypto.randomUUID(),
+        organizationId: orgId,
         name,
         email,
         phone,

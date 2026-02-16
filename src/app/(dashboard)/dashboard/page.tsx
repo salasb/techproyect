@@ -12,6 +12,7 @@ import { TasksWidget } from "@/components/dashboard/widgets/TasksWidget";
 import { BillingAlertsWidget } from "@/components/dashboard/widgets/BillingAlertsWidget";
 import { ClientRankingWidget } from "@/components/dashboard/widgets/ClientRankingWidget";
 import { ProjectGantt } from "@/components/dashboard/ProjectGantt";
+import InventoryAlertsWidget from "@/components/dashboard/InventoryAlertsWidget";
 
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -111,6 +112,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
                 {/* Right Column: Widgets Stack */}
                 <div className="space-y-6 flex flex-col">
+                    {/* Inventory Alerts */}
+                    <div className="flex-shrink-0">
+                        <InventoryAlertsWidget />
+                    </div>
+
                     {/* Billing Alerts */}
                     <div className="flex-1">
                         <BillingAlertsWidget alerts={billingAlerts} />

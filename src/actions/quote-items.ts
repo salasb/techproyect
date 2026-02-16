@@ -3,8 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+import { getOrganizationId } from "@/lib/current-org";
+
 export async function addQuoteItem(projectId: string, data: FormData) {
     try {
+        const orgId = await getOrganizationId();
         const supabase = await createClient();
 
         const sku = data.get('sku') as string;
@@ -15,6 +18,8 @@ export async function addQuoteItem(projectId: string, data: FormData) {
         const costNet = parseFloat(data.get('costNet') as string) || 0;
 
         const { error } = await supabase.from('QuoteItem').insert({
+            id: crypto.randomUUID(),
+            organizationId: orgId,
             projectId,
             sku,
             detail,
@@ -143,11 +148,13 @@ export async function toggleAllQuoteItems(projectId: string, isSelected: boolean
 
 export async function addQuoteItemsBulk(projectId: string, items: any[]) {
     try {
+        const orgId = await getOrganizationId();
         const supabase = await createClient();
 
         // Map items to match DB schema
         const itemsToInsert = items.map(item => ({
             id: crypto.randomUUID(),
+            organizationId: orgId,
             projectId,
             sku: item.sku || '',
             detail: item.detail,

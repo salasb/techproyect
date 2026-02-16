@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { validateProject } from "@/lib/validators";
 import { AuditService } from "@/services/auditService";
+import { getOrganizationId } from "@/lib/current-org";
 
 export async function createProject(formData: FormData) {
     const name = formData.get("name") as string;
@@ -19,6 +20,7 @@ export async function createProject(formData: FormData) {
         throw new Error(validation.errors.join(", "));
     }
 
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     let finalCompanyId = companyId;
@@ -44,7 +46,8 @@ export async function createProject(formData: FormData) {
                     .from('Company')
                     .insert({
                         id: crypto.randomUUID(),
-                        name: clientName
+                        name: clientName,
+                        organizationId: orgId
                     })
                     .select()
                     .single();
@@ -66,6 +69,7 @@ export async function createProject(formData: FormData) {
             .insert({
                 id: crypto.randomUUID(),
                 name: newCompanyName,
+                organizationId: orgId
                 // createdAt/updatedAt removed as they don't exist in Company model
             })
             .select()
@@ -87,6 +91,7 @@ export async function createProject(formData: FormData) {
         .from('Project')
         .insert({
             id: projectId,
+            organizationId: orgId,
             name,
             companyId: finalCompanyId,
             clientId: finalClientId,
@@ -120,26 +125,44 @@ export async function createProject(formData: FormData) {
 export async function deleteProject(projectId: string) {
     const supabase = await createClient();
 
-    // Delete project (cascade should handle related tables if configured in DB, 
-    // ensuring we don't leave orphans. If not, we might need manual deletions.
-    // Assuming Supabase FKs are set to CASCADE for simplicity in this MVP style app)
-    const { error } = await supabase
-        .from('Project')
-        .delete()
-        .eq('id', projectId);
+    try {
+        // manually cascade delete related records to prevent FK constraints issues
+        // (If DB has cascade, this is redundant but safe)
 
-    if (error) {
-        throw new Error(`Error deleting project: ${error.message}`);
+        // 1. Delete associated Logs
+        await supabase.from('ProjectLog').delete().eq('projectId', projectId);
+        await supabase.from('AuditLog').delete().eq('projectId', projectId); // If AuditLog has tight FK
+
+        // 2. Delete Financials / Items
+        await supabase.from('CostEntry').delete().eq('projectId', projectId);
+        await supabase.from('Invoice').delete().eq('projectId', projectId);
+        await supabase.from('QuoteItem').delete().eq('projectId', projectId);
+
+        // 3. Delete Project
+        const { error } = await supabase
+            .from('Project')
+            .delete()
+            .eq('id', projectId);
+
+        if (error) {
+            console.error("Error deleting project:", error);
+            return { success: false, error: error.message };
+        }
+
+        // Log action (using null project ID as it's gone)
+        await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto ID: ${projectId} eliminado permanentemente.`);
+
+        revalidatePath("/projects");
+        return { success: true };
+
+    } catch (error) {
+        console.error("Server Error deleting project:", error);
+        return { success: false, error: "Error interno al eliminar proyecto" };
     }
-
-    // Log the deletion (global scope since project is gone)
-    await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto ID: ${projectId} eliminado permanentemente.`);
-
-    revalidatePath("/projects");
-    redirect("/projects");
 }
 
 export async function closeProject(projectId: string) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     // 1. Update Project Status
@@ -159,6 +182,7 @@ export async function closeProject(projectId: string) {
     await supabase.from('ProjectLog').insert({
         id: crypto.randomUUID(),
         projectId,
+        organizationId: orgId,
         type: 'STATUS_CHANGE',
         content: 'El proyecto ha sido cerrado automáticamente tras el pago total.',
         createdAt: new Date().toISOString()
@@ -170,6 +194,7 @@ export async function closeProject(projectId: string) {
 }
 
 export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const updateData: any = {
@@ -211,9 +236,28 @@ export async function updateProjectStatus(projectId: string, status: string, sta
         .update(updateData)
         .eq('id', projectId);
 
+
     if (error) {
         throw new Error(`Error updating project status: ${error.message}`);
     }
+
+    // [INVENTORY AUTOMATION]
+    // If project is Finalized or set to Implementation, try to deduct stock
+    // We import dynamically to avoid circular dependencies if any (though likely safe here)
+    if (status === 'FINALIZADO' || stage === 'IMPLEMENTACION') {
+        try {
+            const { deductStockForProject } = await import("@/helpers/inventory");
+            const result = await deductStockForProject(projectId);
+            if (!result.success && result.error) {
+                console.error("Inventory deduction failed:", result.error);
+                // We don't throw here to avoid rolling back the status change, 
+                // but we should probably alert/log.
+            }
+        } catch (invError) {
+            console.error("Error triggering inventory deduction:", invError);
+        }
+    }
+
 
     // Human Interface Mapping
     const STATUS_LABELS: Record<string, string> = {
@@ -241,6 +285,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
     await supabase.from('ProjectLog').insert({
         id: crypto.randomUUID(),
         projectId,
+        organizationId: orgId,
         type: 'STATUS_CHANGE',
         content: `Estado actualizado a ${readableStatus} ${readableStage ? `(${readableStage})` : ''}`,
         createdAt: new Date().toISOString()

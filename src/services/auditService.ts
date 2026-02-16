@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrganizationId } from "@/lib/current-org";
 
 export class AuditService {
     static async logAction(projectId: string | null, action: string, details?: string) {
         try {
+            const orgId = await getOrganizationId();
             const supabase = await createClient();
 
             // 1. Get Current User info
@@ -18,6 +20,8 @@ export class AuditService {
 
             // 2. Insert Log
             const { error } = await supabase.from('AuditLog').insert({
+                id: crypto.randomUUID(),
+                organizationId: orgId,
                 projectId: projectId as any, // Can be null for system-wide actions if DB allows, otherwise map to a dummy system ID
                 action,
                 details: details || null,

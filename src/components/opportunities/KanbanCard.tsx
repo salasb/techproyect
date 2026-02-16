@@ -69,7 +69,7 @@ export function KanbanCard({ opportunity }: Props) {
                 </div>
                 <div className="flex items-center text-xs text-emerald-600 font-medium bg-emerald-50 w-fit px-2 py-0.5 rounded-md border border-emerald-100">
                     <DollarSign className="w-3 h-3 mr-1" />
-                    <span className="font-mono">{formatMoney(opportunity.value)}</span>
+                    <span className="font-mono">{formatMoney(opportunity.value || 0)}</span>
                 </div>
             </div>
 

@@ -56,7 +56,7 @@ export function ClientOpportunities({ opportunities, clientId }: Props) {
                                 <div className="flex items-center gap-3 text-xs text-zinc-500">
                                     <span className="flex items-center">
                                         <DollarSign className="w-3 h-3 mr-0.5" />
-                                        {formatMoney(opp.value)}
+                                        {formatMoney(opp.value || 0)}
                                     </span>
                                     {opp.expectedCloseDate && (
                                         <span className="flex items-center">

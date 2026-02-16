@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+import { getOrganizationId } from "@/lib/current-org";
+
 export async function createUser(formData: FormData) {
+    const orgId = await getOrganizationId();
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
     const role = formData.get("role") as string || 'USER';
@@ -17,6 +20,8 @@ export async function createUser(formData: FormData) {
     const { error } = await supabase
         .from('Profile')
         .insert({
+            id: crypto.randomUUID(), // Assuming we generate ID if not Auth managed yet
+            organizationId: orgId,
             name,
             email,
             role,

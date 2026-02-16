@@ -49,32 +49,35 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // 2. RBAC Guard (Admin/Settings)
-    // TEMPORARY: Allow all authenticated users to access settings to fix redirect issue.
-    // User reported: "El módulo configuración, no funciona, me lleva al Dashboard principal."
-    /*
-    if (user && (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/settings'))) {
-        try {
-            // Fetch profile to check role
-            const { data: profile } = await supabase
-                .from('Profile')
-                .select('role')
-                .eq('id', user.id)
-                .single();
+    // 2. Org Context Management
+    if (user && !request.nextUrl.pathname.startsWith('/login')) {
+        const orgId = request.cookies.get('app-org-id')?.value
 
-            // Check if user is admin. Adjust role string if needed (e.g., 'ADMIN').
-            if (profile?.role !== 'ADMIN' && profile?.role !== 'admin') {
-                console.warn(`Unauthorized access attempt to ${request.nextUrl.pathname} by user ${user.id}`);
-                // Redirect to dashboard with a clear error message
-                return NextResponse.redirect(new URL('/dashboard?error=unauthorized', request.url));
+        if (!orgId) {
+            // User authenticated but no Org Context. Fetch default.
+            try {
+                const { data: member } = await supabase
+                    .from('OrganizationMember')
+                    .select('organizationId')
+                    .eq('userId', user.id)
+                    .limit(1)
+                    .single()
+
+                if (member?.organizationId) {
+                    // Set cookie for subsequent requests
+                    response.cookies.set('app-org-id', member.organizationId, {
+                        httpOnly: false, // Allow client access if needed
+                        sameSite: 'lax',
+                        secure: process.env.NODE_ENV === 'production',
+                        maxAge: 60 * 60 * 24 * 7 // 1 week
+                    })
+                }
+            } catch (e) {
+                console.error("Failed to fetch organization context:", e)
             }
-        } catch (error) {
-            console.error("Error checking role in middleware:", error);
-            // On error (e.g. DB connection fail), fail safe to dashboard to prevent unauthorized access
-            return NextResponse.redirect(new URL('/dashboard', request.url));
-            }
+        }
     }
-    */
+
     return response
 }
 

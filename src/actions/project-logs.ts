@@ -2,12 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getOrganizationId } from "@/lib/current-org";
 
 export async function addLog(projectId: string, content: string, type: 'INFO' | 'BLOCKER' | 'MILESTONE' | 'STATUS_CHANGE' = 'INFO') {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const { error } = await supabase.from('ProjectLog').insert({
         id: crypto.randomUUID(),
+        organizationId: orgId,
         projectId,
         content,
         type

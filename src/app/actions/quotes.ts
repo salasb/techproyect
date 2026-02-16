@@ -3,8 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { AuditService } from "@/services/auditService";
+import { getOrganizationId } from "@/lib/current-org";
 
 export async function toggleQuoteAcceptance(projectId: string, isAccepted: boolean) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
     const acceptedAt = isAccepted ? new Date().toISOString() : null;
 
@@ -27,6 +29,7 @@ export async function toggleQuoteAcceptance(projectId: string, isAccepted: boole
         .from('ProjectLog')
         .insert({
             projectId,
+            organizationId: orgId,
             content: logContent,
             type: 'MILESTONE'
         });

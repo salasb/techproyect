@@ -9,6 +9,8 @@ type CostCategory = Database['public']['Enums']['CostCategory'];
 
 import { validateCost } from "@/lib/validators";
 
+import { getOrganizationId } from "@/lib/current-org";
+
 export async function addCost(projectId: string, formData: FormData) {
     const description = formData.get("description") as string;
     const amount = parseFloat(formData.get("amount") as string);
@@ -20,12 +22,14 @@ export async function addCost(projectId: string, formData: FormData) {
         throw new Error(validation.errors.join(", "));
     }
 
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const { error } = await supabase
         .from('CostEntry')
         .insert({
             id: crypto.randomUUID(),
+            organizationId: orgId,
             projectId,
             description,
             amountNet: amount,

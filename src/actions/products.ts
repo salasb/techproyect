@@ -21,7 +21,10 @@ export async function getProducts(query?: string) {
     return data;
 }
 
+import { getOrganizationId } from "@/lib/current-org";
+
 export async function createProduct(data: FormData) {
+    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const sku = data.get('sku') as string;
@@ -30,18 +33,46 @@ export async function createProduct(data: FormData) {
     const unit = data.get('unit') as string;
     const priceNet = parseFloat(data.get('priceNet') as string) || 0;
     const costNet = parseFloat(data.get('costNet') as string) || 0;
+    const type = (data.get('type') as string) || 'SERVICE';
+    const minStock = parseInt(data.get('minStock') as string) || 0;
+    const initialStock = parseInt(data.get('initialStock') as string) || 0;
 
+    const productId = crypto.randomUUID();
+
+    // 1. Create Product (Stock 0 initially)
     const { error } = await supabase.from('Product').insert({
+        id: productId,
+        organizationId: orgId,
         sku,
         name,
         description,
         unit,
         priceNet,
-        costNet
+        costNet,
+        type,
+        min_stock: minStock,
+        stock: 0 // Always 0, adjusted via RPC below
     });
 
     if (error) {
         throw new Error(`Error creating product: ${error.message}`);
+    }
+
+    // 2. If Initial Stock > 0 and Type is PRODUCT, Adjust Inventory
+    if (type === 'PRODUCT' && initialStock > 0) {
+        const { error: adjError } = await supabase.rpc('adjust_inventory', {
+            p_product_id: productId,
+            p_quantity: initialStock,
+            p_type: 'ADJUSTMENT',
+            p_reason: 'Inv. Inicial',
+            p_reference_id: null
+        });
+
+        if (adjError) {
+            console.error("Error setting initial stock:", adjError);
+            // We don't fail the whole creation, but log it. 
+            // Ideally we should rollback, but RPC is separate tx here if not using exact same client connection string in raw sql.
+        }
     }
 
     revalidatePath('/catalog');
@@ -56,6 +87,9 @@ export async function updateProduct(id: string, data: FormData) {
     const unit = data.get('unit') as string;
     const priceNet = parseFloat(data.get('priceNet') as string) || 0;
     const costNet = parseFloat(data.get('costNet') as string) || 0;
+    const type = (data.get('type') as string) || 'SERVICE';
+    const minStock = parseInt(data.get('minStock') as string) || 0;
+    // Stock is NOT updated here directly.
 
     const { error } = await supabase.from('Product').update({
         sku,
@@ -64,6 +98,8 @@ export async function updateProduct(id: string, data: FormData) {
         unit,
         priceNet,
         costNet,
+        type,
+        min_stock: minStock,
         updatedAt: new Date().toISOString()
     }).eq('id', id);
 
