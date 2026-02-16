@@ -6,9 +6,10 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 
-export default async function InvoicesPage({ searchParams }: { searchParams: { page?: string } }) {
+export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
     const supabase = await createClient();
-    const page = Number(searchParams?.page) || 1;
+    const params = await searchParams;
+    const page = Number(params?.page) || 1;
     const itemsPerPage = 10;
     const start = (page - 1) * itemsPerPage;
     const end = start + itemsPerPage - 1;

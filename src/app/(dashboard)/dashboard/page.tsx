@@ -27,8 +27,9 @@ const periodLabels: Record<string, string> = {
     'all': 'Histórico Completo'
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: { period?: string } }) {
-    const period = searchParams?.period || '30d';
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+    const params = await searchParams;
+    const period = params?.period || '30d';
     const supabase = await createClient();
 
     // 1. Fetch Data (Server Side)

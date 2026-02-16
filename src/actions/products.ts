@@ -24,115 +24,132 @@ export async function getProducts(query?: string) {
 import { getOrganizationId } from "@/lib/current-org";
 
 export async function createProduct(data: FormData) {
-    const orgId = await getOrganizationId();
-    const supabase = await createClient();
-
-    let sku = (data.get('sku') as string)?.trim();
-    if (!sku) {
-        // Auto-generate SKU if missing to satisfy DB constraints (assuming NOT NULL UNIQUE)
-        sku = `GEN-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
-    }
-
-    const name = data.get('name') as string;
-    const description = data.get('description') as string;
-    const unit = data.get('unit') as string;
-    const priceNet = parseFloat(data.get('priceNet') as string) || 0;
-    const costNet = parseFloat(data.get('costNet') as string) || 0;
-    const type = (data.get('type') as string) || 'SERVICE';
-    const minStock = parseInt(data.get('minStock') as string) || 0;
-    const initialStock = parseInt(data.get('initialStock') as string) || 0;
-
-    // Safe UUID generation
-    let productId;
     try {
-        productId = crypto.randomUUID();
-    } catch {
-        productId = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    }
+        const orgId = await getOrganizationId();
+        const supabase = await createClient();
 
-    // 1. Create Product (Stock 0 initially)
-    const { error } = await supabase.from('Product').insert({
-        id: productId,
-        organizationId: orgId,
-        sku,
-        name,
-        description,
-        unit,
-        priceNet,
-        costNet,
-        type,
-        min_stock: minStock,
-        stock: 0 // Always 0, adjusted via RPC below
-    });
+        let sku = (data.get('sku') as string)?.trim();
+        if (!sku) {
+            let uuid;
+            try { uuid = crypto.randomUUID(); } catch { uuid = Math.random().toString(36).substring(7); }
+            sku = `GEN-${uuid.split('-')[0].toUpperCase()}`;
+        }
 
-    if (error) {
-        console.error("Supabase Error creating product:", error);
-        throw new Error(`Error al crear producto: ${error.message} (${error.code})`);
-    }
+        const name = data.get('name') as string;
+        const description = data.get('description') as string;
+        const unit = data.get('unit') as string;
+        const priceNet = parseFloat(data.get('priceNet') as string) || 0;
+        const costNet = parseFloat(data.get('costNet') as string) || 0;
+        const type = (data.get('type') as string) || 'SERVICE';
+        const minStock = parseInt(data.get('minStock') as string) || 0;
+        const initialStock = parseInt(data.get('initialStock') as string) || 0;
 
-    // 2. If Initial Stock > 0 and Type is PRODUCT, Adjust Inventory
-    if (type === 'PRODUCT' && initialStock > 0) {
-        const { error: adjError } = await supabase.rpc('adjust_inventory', {
-            p_product_id: productId,
-            p_quantity: initialStock,
-            p_type: 'ADJUSTMENT',
-            p_reason: 'Inv. Inicial',
-            p_reference_id: null
+        // Safe UUID generation
+        let productId;
+        try {
+            productId = crypto.randomUUID();
+        } catch {
+            productId = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        }
+
+        // 1. Create Product (Stock 0 initially)
+        const { error } = await supabase.from('Product').insert({
+            id: productId,
+            organizationId: orgId,
+            sku,
+            name,
+            description,
+            unit,
+            priceNet,
+            costNet,
+            type,
+            min_stock: minStock,
+            stock: 0
         });
 
-        if (adjError) {
-            console.error("Error setting initial stock:", adjError);
-            // We don't fail the whole creation, but log it. 
-            // Ideally we should rollback, but RPC is separate tx here if not using exact same client connection string in raw sql.
+        if (error) {
+            console.error("Supabase Error creating product:", error);
+            return { success: false, error: `Error DB: ${error.message} (${error.code})` };
         }
-    }
 
-    revalidatePath('/catalog');
+        // 2. Adjust Inventory
+        if (type === 'PRODUCT' && initialStock > 0) {
+            const { error: adjError } = await supabase.rpc('adjust_inventory', {
+                p_product_id: productId,
+                p_quantity: initialStock,
+                p_type: 'ADJUSTMENT',
+                p_reason: 'Inv. Inicial',
+                p_reference_id: null
+            });
+            if (adjError) console.error("Error setting initial stock:", adjError);
+        }
+
+        revalidatePath('/catalog');
+        return { success: true };
+    } catch (err: any) {
+        console.error("createProduct Exception:", err);
+        return { success: false, error: err.message || "Error inesperado en el servidor" };
+    }
 }
 
 export async function updateProduct(id: string, data: FormData) {
-    const supabase = await createClient();
+    try {
+        const supabase = await createClient();
 
-    let sku = (data.get('sku') as string)?.trim();
-    if (!sku) {
-        sku = `GEN-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+        let sku = (data.get('sku') as string)?.trim();
+        if (!sku) {
+            let uuid;
+            try { uuid = crypto.randomUUID(); } catch { uuid = Math.random().toString(36).substring(7); }
+            sku = `GEN-${uuid.split('-')[0].toUpperCase()}`;
+        }
+
+        const name = data.get('name') as string;
+        const description = data.get('description') as string;
+        const unit = data.get('unit') as string;
+        const priceNet = parseFloat(data.get('priceNet') as string) || 0;
+        const costNet = parseFloat(data.get('costNet') as string) || 0;
+        const type = (data.get('type') as string) || 'SERVICE';
+        const minStock = parseInt(data.get('minStock') as string) || 0;
+
+        const { error } = await supabase.from('Product').update({
+            sku,
+            name,
+            description,
+            unit,
+            priceNet,
+            costNet,
+            type,
+            min_stock: minStock,
+            updatedAt: new Date().toISOString()
+        }).eq('id', id);
+
+        if (error) {
+            console.error("Supabase Error updating product:", error);
+            return { success: false, error: `Error DB: ${error.message} (${error.code})` };
+        }
+
+        revalidatePath('/catalog');
+        return { success: true };
+    } catch (err: any) {
+        console.error("updateProduct Exception:", err);
+        return { success: false, error: err.message || "Error inesperado en el servidor" };
     }
-
-    const name = data.get('name') as string;
-    const description = data.get('description') as string;
-    const unit = data.get('unit') as string;
-    const priceNet = parseFloat(data.get('priceNet') as string) || 0;
-    const costNet = parseFloat(data.get('costNet') as string) || 0;
-    const type = (data.get('type') as string) || 'SERVICE';
-    const minStock = parseInt(data.get('minStock') as string) || 0;
-    // Stock is NOT updated here directly.
-
-    const { error } = await supabase.from('Product').update({
-        sku,
-        name,
-        description,
-        unit,
-        priceNet,
-        costNet,
-        type,
-        min_stock: minStock,
-        updatedAt: new Date().toISOString()
-    }).eq('id', id);
-
-    if (error) {
-        throw new Error(`Error updating product: ${error.message}`);
-    }
-
-    revalidatePath('/catalog');
 }
 
 export async function deleteProduct(id: string) {
-    const supabase = await createClient();
-    const { error } = await supabase.from('Product').delete().eq('id', id);
+    try {
+        const supabase = await createClient();
+        const { error } = await supabase.from('Product').delete().eq('id', id);
 
-    if (error) {
-        throw new Error(`Error deleting product: ${error.message}`);
+        if (error) {
+            console.error("Supabase Error deleting product:", error);
+            return { success: false, error: `Error DB: ${error.message}` };
+        }
+
+        revalidatePath('/catalog');
+        return { success: true };
+    } catch (err: any) {
+        console.error("deleteProduct Exception:", err);
+        return { success: false, error: err.message || "Error inesperado" };
     }
-
-    revalidatePath('/catalog');
 }

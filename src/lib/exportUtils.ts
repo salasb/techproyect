@@ -57,7 +57,8 @@ export function downloadPdf(data: any[], columns: { header: string, accessor: (i
     doc.setTextColor(100);
     doc.text("TechWise SpA", 160, 14);
     doc.text("RUT: 77.966.773-1", 160, 19);
-    doc.text("contacto@techwise.cl", 160, 24);
+    doc.text("Av. Las Condes 10465, Of. 045 A", 160, 24);
+    doc.text("contacto@techwise.cl", 160, 29);
 
     // Title
     doc.setFontSize(18);

@@ -8,11 +8,12 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PaginationControl } from "@/components/ui/PaginationControl";
 import { QuoteExportButton } from "@/components/quotes/QuoteExportButton";
 
-export default async function QuotesPage({ searchParams }: { searchParams: { page?: string, q?: string, view?: string } }) {
+export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ page?: string, q?: string, view?: string }> }) {
     const supabase = await createClient();
-    const page = Number(searchParams?.page) || 1;
-    const query = searchParams?.q || "";
-    const view = searchParams?.view || "grid";
+    const params = await searchParams;
+    const page = Number(params?.page) || 1;
+    const query = params?.q || "";
+    const view = params?.view || "grid";
     const itemsPerPage = 10;
     const start = (page - 1) * itemsPerPage;
     const end = start + itemsPerPage - 1;

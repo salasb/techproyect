@@ -43,17 +43,24 @@ export default function CatalogPage() {
 
     async function handleSubmit(formData: FormData) {
         try {
+            let result;
             if (editingProduct) {
-                await updateProduct(editingProduct.id, formData);
+                result = await updateProduct(editingProduct.id, formData);
             } else {
-                await createProduct(formData);
+                result = await createProduct(formData);
             }
+
+            if (result && !result.success) {
+                alert(result.error || "Error al guardar producto");
+                return;
+            }
+
             setIsModalOpen(false);
             setEditingProduct(null);
             loadProducts();
         } catch (error: any) {
             console.error("Save Error:", error);
-            alert(error.message || "Error al guardar producto");
+            alert("Error de conexión o del servidor al guardar producto");
         }
     }
 
@@ -73,7 +80,8 @@ export default function CatalogPage() {
             { header: "Tipo", accessor: (p: Product) => p.type === 'PRODUCT' ? 'Producto' : 'Servicio' },
             { header: "Unidad", accessor: (p: Product) => p.unit },
             { header: "Costo (Neto)", accessor: (p: Product) => `$${p.costNet.toLocaleString('es-CL')}` },
-            { header: "Precio (List)", accessor: (p: Product) => `$${p.priceNet.toLocaleString('es-CL')}` },
+            { header: "Precio (Neto)", accessor: (p: Product) => `$${p.priceNet.toLocaleString('es-CL')}` },
+            { header: "Precio (Bruto)", accessor: (p: Product) => `$${Math.round(p.priceNet * 1.19).toLocaleString('es-CL')}` },
             { header: "Stock", accessor: (p: Product) => p.type === 'PRODUCT' ? p.stock.toString() : '-' },
             { header: "Stock Min", accessor: (p: Product) => p.type === 'PRODUCT' ? p.min_stock.toString() : '-' },
         ];
@@ -148,7 +156,8 @@ export default function CatalogPage() {
                             <th className="px-6 py-4">SKU / Tipo</th>
                             <th className="px-6 py-4">Nombre / Descripción</th>
                             <th className="px-6 py-4 text-center">Unidad</th>
-                            <th className="px-6 py-4 text-right">Precio Lista</th>
+                            <th className="px-6 py-4 text-right">Precio Neto</th>
+                            <th className="px-6 py-4 text-right">Precio Bruto (IVA)</th>
                             <th className="px-6 py-4 text-center">Stock</th>
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
@@ -176,8 +185,11 @@ export default function CatalogPage() {
                                         {p.description && <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>}
                                     </td>
                                     <td className="px-6 py-4 text-center text-slate-500">{p.unit}</td>
-                                    <td className="px-6 py-4 text-right font-medium text-slate-700">
+                                    <td className="px-6 py-4 text-right font-medium text-slate-600">
                                         ${p.priceNet.toLocaleString()}
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900 bg-slate-50/30">
+                                        ${Math.round(p.priceNet * 1.19).toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         {p.type === 'PRODUCT' ? (
@@ -322,9 +334,11 @@ export default function CatalogPage() {
 }
 
 function CalculationFields({ editingProduct }: { editingProduct: Product | null }) {
+    const VAT_RATE = 0.19;
     const [cost, setCost] = useState(editingProduct?.costNet || 0);
     const [margin, setMargin] = useState(0); // Margin %
-    const [price, setPrice] = useState(editingProduct?.priceNet || 0);
+    const [priceNet, setPriceNet] = useState(editingProduct?.priceNet || 0);
+    const [priceGross, setPriceGross] = useState(editingProduct ? Math.round(editingProduct.priceNet * (1 + VAT_RATE)) : 0);
     const [useMargin, setUseMargin] = useState(false);
 
     // Initial calculation of margin if cost & price exist: Margin = (Price - Cost) / Price
@@ -340,69 +354,101 @@ function CalculationFields({ editingProduct }: { editingProduct: Product | null 
         if (useMargin) {
             if (cost > 0 && margin < 100) {
                 // Gross Margin Formula: Price = Cost / (1 - Margin%)
-                const newPrice = cost / (1 - (margin / 100));
-                setPrice(parseFloat(newPrice.toFixed(2)));
+                const newPriceNet = cost / (1 - (margin / 100));
+                setPriceNet(parseFloat(newPriceNet.toFixed(2)));
+                setPriceGross(Math.round(newPriceNet * (1 + VAT_RATE)));
             }
         }
     }, [cost, margin, useMargin]);
 
+    const handlePriceNetChange = (val: number) => {
+        setPriceNet(val);
+        setPriceGross(Math.round(val * (1 + VAT_RATE)));
+        setUseMargin(false);
+    };
+
+    const handlePriceGrossChange = (val: number) => {
+        setPriceGross(val);
+        const newNet = val / (1 + VAT_RATE);
+        setPriceNet(parseFloat(newNet.toFixed(2)));
+        setUseMargin(false);
+    };
+
     return (
-        <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
-            <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Unidad</label>
-                <select name="unit" defaultValue={editingProduct?.unit || 'UN'} className="w-full p-2 border rounded-lg text-sm">
-                    <option value="UN">UN</option>
-                    <option value="GL">GL</option>
-                    <option value="HR">HR</option>
-                    <option value="MT">MT</option>
-                    <option value="KG">KG</option>
-                </select>
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Costo (Neto)</label>
-                <input
-                    name="costNet"
-                    type="number"
-                    step="0.01"
-                    value={cost}
-                    onChange={(e) => setCost(parseFloat(e.target.value) || 0)}
-                    required
-                    className="w-full p-2 border rounded-lg text-sm font-mono"
-                    placeholder="0"
-                />
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-blue-600 mb-1">Margen %</label>
-                <div className="relative">
+        <div className="space-y-4">
+            <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Unidad</label>
+                    <select name="unit" defaultValue={editingProduct?.unit || 'UN'} className="w-full p-2 border rounded-lg text-sm bg-white">
+                        <option value="UN">UN</option>
+                        <option value="GL">GL</option>
+                        <option value="HR">HR</option>
+                        <option value="MT">MT</option>
+                        <option value="KG">KG</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Costo (Neto)</label>
                     <input
+                        name="costNet"
                         type="number"
-                        step="0.1"
-                        value={margin}
-                        onChange={(e) => {
-                            setMargin(parseFloat(e.target.value) || 0);
-                            setUseMargin(true);
-                        }}
-                        className="w-full p-2 border border-blue-200 rounded-lg text-sm font-mono text-blue-700"
-                        placeholder="30"
+                        step="0.01"
+                        value={cost}
+                        onChange={(e) => setCost(parseFloat(e.target.value) || 0)}
+                        required
+                        className="w-full p-2 border rounded-lg text-sm font-mono"
+                        placeholder="0"
                     />
-                    <div className="absolute right-2 top-2 text-xs text-blue-400 font-bold">%</div>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-bold text-blue-500 uppercase mb-1">Margen %</label>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            step="0.1"
+                            value={margin}
+                            onChange={(e) => {
+                                setMargin(parseFloat(e.target.value) || 0);
+                                setUseMargin(true);
+                            }}
+                            className="w-full p-2 border border-blue-200 rounded-lg text-sm font-mono text-blue-700"
+                            placeholder="30"
+                        />
+                        <div className="absolute right-2 top-2 text-xs text-blue-400 font-bold">%</div>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Precio Neto</label>
+                    <input
+                        name="priceNet"
+                        type="number"
+                        step="0.01"
+                        value={priceNet}
+                        onChange={(e) => handlePriceNetChange(parseFloat(e.target.value) || 0)}
+                        required
+                        className="w-full p-2 border border-emerald-200 rounded-lg text-sm font-mono font-bold text-emerald-700 bg-white"
+                        placeholder="0"
+                    />
                 </div>
             </div>
-            <div>
-                <label className="block text-xs font-medium text-emerald-600 mb-1">Precio (Auto)</label>
-                <input
-                    name="priceNet"
-                    type="number"
-                    step="0.01"
-                    value={price}
-                    onChange={(e) => {
-                        setPrice(parseFloat(e.target.value) || 0);
-                        setUseMargin(false); // Manual override disables auto-calc
-                    }}
-                    required
-                    className="w-full p-2 border border-emerald-200 rounded-lg text-sm font-mono font-bold text-emerald-700"
-                    placeholder="0"
-                />
+
+            <div className="flex items-center gap-4 p-3 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                <div className="flex-1">
+                    <label className="block text-xs font-bold text-emerald-700 mb-1">Precio Final (Bruto con IVA 19%)</label>
+                    <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-emerald-600 font-bold">$</span>
+                        <input
+                            type="number"
+                            value={priceGross}
+                            onChange={(e) => handlePriceGrossChange(parseInt(e.target.value) || 0)}
+                            className="w-full pl-7 pr-4 py-2 border border-emerald-200 rounded-xl text-lg font-bold text-emerald-900 bg-white shadow-inner"
+                            placeholder="Precio final de venta"
+                        />
+                    </div>
+                    <p className="text-[10px] text-emerald-600 mt-1 italic">
+                        Calculado: Neto (${priceNet.toLocaleString()}) + IVA (${Math.round(priceNet * 0.19).toLocaleString()})
+                    </p>
+                </div>
             </div>
         </div>
     );
