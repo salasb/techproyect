@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrganizationId } from "@/lib/current-org";
 import { revalidatePath } from "next/cache";
 
-export async function createLocation(data: { name: string; address?: string }) {
+export async function createLocation(data: { name: string; address?: string; type?: string }) {
     const supabase = await createClient();
     const orgId = await getOrganizationId();
 
@@ -16,7 +16,7 @@ export async function createLocation(data: { name: string; address?: string }) {
             organizationId: orgId,
             name: data.name,
             address: data.address,
-            type: 'WAREHOUSE',
+            type: data.type || 'WAREHOUSE',
             status: 'ACTIVE'
         });
 
@@ -25,7 +25,7 @@ export async function createLocation(data: { name: string; address?: string }) {
         return { error: "Error al crear ubicación" };
     }
 
-    revalidatePath("/locations");
+    revalidatePath("/inventory/locations");
     return { success: true };
 }
 
@@ -44,7 +44,7 @@ export async function getLocations() {
     return data || [];
 }
 
-export async function updateLocation(id: string, data: { name: string; address?: string }) {
+export async function updateLocation(id: string, data: { name: string; address?: string; type?: string }) {
     const supabase = await createClient();
 
     // Security check omitted for brevity, adding basic org check recommended
@@ -52,12 +52,13 @@ export async function updateLocation(id: string, data: { name: string; address?:
         .from("Location")
         .update({
             name: data.name,
-            address: data.address
+            address: data.address,
+            type: data.type
         })
         .eq("id", id);
 
     if (error) return { error: error.message };
-    revalidatePath("/locations");
+    revalidatePath("/inventory/locations");
     return { success: true };
 }
 
@@ -70,6 +71,6 @@ export async function deleteLocation(id: string) {
         .eq("id", id);
 
     if (error) return { error: error.message };
-    revalidatePath("/locations");
+    revalidatePath("/inventory/locations");
     return { success: true };
 }

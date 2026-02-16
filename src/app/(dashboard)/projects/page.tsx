@@ -74,13 +74,17 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                     <div className="bg-muted p-1 rounded-lg flex text-sm font-medium">
                         <Link
                             href="/projects?tab=active"
-                            className={`px-3 py-1.5 rounded-md transition-all ${tab === 'active' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`px-4 py-2 rounded-lg transition-all font-semibold ${tab === 'active'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                         >
                             En Curso
                         </Link>
                         <Link
                             href="/projects?tab=history"
-                            className={`px-3 py-1.5 rounded-md transition-all ${tab === 'history' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`px-4 py-2 rounded-lg transition-all font-semibold ${tab === 'history'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                         >
                             Historial
                         </Link>

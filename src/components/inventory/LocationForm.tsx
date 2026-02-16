@@ -27,6 +27,7 @@ export function LocationForm({ isOpen, onClose, locationToEdit }: LocationFormPr
         const data = {
             name: formData.get('name') as string,
             address: formData.get('address') as string,
+            type: formData.get('type') as string,
         };
 
         try {

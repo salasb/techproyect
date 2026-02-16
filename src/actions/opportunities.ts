@@ -55,18 +55,41 @@ export async function getOpportunitiesByClient(clientId: string) {
 
 import { getOrganizationId } from "@/lib/current-org";
 
+import { createQuickClient } from "@/actions/clients";
+
 export async function createOpportunity(formData: FormData) {
     const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     const title = formData.get('title') as string;
-    const clientId = formData.get('clientId') as string;
+    let clientId = formData.get('clientId') as string;
     const value = parseFloat(formData.get('value') as string) || 0;
     const stage = formData.get('stage') as OpportunityStage || 'LEAD';
     const description = formData.get('description') as string;
 
+    // Handle Quick Lead Creation
+    const isNewLead = formData.get('isNewLead') === 'true';
+    if (isNewLead) {
+        const leadName = formData.get('leadName') as string;
+        const leadEmail = formData.get('leadEmail') as string;
+        const leadPhone = formData.get('leadPhone') as string;
+
+        if (!leadName) throw new Error("Nombre del prospecto es requerido");
+
+        const quickClientFormData = new FormData();
+        quickClientFormData.append('name', leadName);
+        quickClientFormData.append('email', leadEmail || '');
+        quickClientFormData.append('phone', leadPhone || '');
+
+        const quickResult = await createQuickClient(quickClientFormData);
+        if (!quickResult.success || !quickResult.client) {
+            throw new Error(quickResult.error || "Error al crear prospecto");
+        }
+        clientId = quickResult.client.id;
+    }
+
     if (!title || !clientId) {
-        throw new Error("Title and Client are required");
+        throw new Error("Título y Cliente/Prospecto son requeridos");
     }
 
     const newOpp: OpportunityInsert = {
@@ -77,7 +100,7 @@ export async function createOpportunity(formData: FormData) {
         value,
         stage,
         description,
-        probability: 10, // Default probability for LEAD
+        probability: 10,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
@@ -89,6 +112,7 @@ export async function createOpportunity(formData: FormData) {
         throw new Error('Failed to create opportunity');
     }
 
+    revalidatePath('/crm/pipeline');
     revalidatePath('/crm');
     return { success: true };
 }
