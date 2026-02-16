@@ -14,7 +14,6 @@ const navigation = [
     { name: 'Escáner QR', href: '/inventory/scan', icon: Package }, // Reusing Package icon or specific QrCode icon if available
     { name: 'Clientes', href: '/clients', icon: Users, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Reportes', href: '/reports', icon: BarChart, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
-    { name: 'Suscripciones', href: '/admin/subscriptions', icon: CreditCard, adminOnly: true },
     { name: 'Configuración', href: '/settings', icon: Settings, adminOnly: true },
 ];
 

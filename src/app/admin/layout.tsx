@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut } from "lucide-react";
+import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard } from "lucide-react";
 
 export default async function AdminLayout({
     children,
@@ -41,6 +41,7 @@ export default async function AdminLayout({
                 <nav className="flex-1 p-4 space-y-1">
                     <AdminNavLink href="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" />
                     <AdminNavLink href="/admin/orgs" icon={<Building2 className="w-4 h-4" />} label="Organizaciones" />
+                    <AdminNavLink href="/admin/subscriptions" icon={<CreditCard className="w-4 h-4" />} label="Suscripciones" />
                     <AdminNavLink href="/admin/users" icon={<Users className="w-4 h-4" />} label="Usuarios Globales" />
                     <div className="pt-4 pb-2 text-[10px] font-bold text-slate-500 uppercase px-3 tracking-widest">Configuración</div>
                     <AdminNavLink href="/admin/settings" icon={<Settings className="w-4 h-4" />} label="Ajustes Sistema" />
