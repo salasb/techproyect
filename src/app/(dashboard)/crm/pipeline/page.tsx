@@ -10,33 +10,35 @@ export default async function PipelinePage() {
 
     return (
         <div className="flex flex-col h-full bg-zinc-100/50 dark:bg-black/20">
-            <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sticky top-0 z-10 shadow-sm">
-                <div>
-                    <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <KanbanSquare className="w-6 h-6 text-indigo-600" />
-                        Pipeline de Oportunidades
-                    </h1>
-                    <p className="text-sm text-zinc-500">Gestión de tratos y ventas potenciales</p>
-                </div>
+            <div className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky top-0 z-10 shadow-sm">
+                <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <KanbanSquare className="w-6 h-6 text-indigo-600" />
+                            Pipeline de Oportunidades
+                        </h1>
+                        <p className="text-sm text-zinc-500">Gestión de tratos y ventas potenciales</p>
+                    </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Link href="/crm/calendar" className="w-full sm:w-auto">
-                        <button className="w-full sm:w-auto flex items-center justify-center px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-lg hover:bg-zinc-50 transition-all">
-                            <Calendar className="w-4 h-4 mr-2 text-indigo-600" />
-                            Ver Calendario
-                        </button>
-                    </Link>
-                    <Link href="/crm/opportunities/new" className="w-full sm:w-auto">
-                        <button className="w-full sm:w-auto flex items-center justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Nueva Oportunidad
-                        </button>
-                    </Link>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <Link href="/crm/calendar" className="w-full sm:w-auto">
+                            <button className="w-full sm:w-auto flex items-center justify-center px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-lg hover:bg-zinc-50 transition-all">
+                                <Calendar className="w-4 h-4 mr-2 text-indigo-600" />
+                                Ver Calendario
+                            </button>
+                        </Link>
+                        <Link href="/crm/opportunities/new" className="w-full sm:w-auto">
+                            <button className="w-full sm:w-auto flex items-center justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Nueva Oportunidad
+                            </button>
+                        </Link>
+                    </div>
                 </div>
             </div>
 
             <div className="flex-1 overflow-hidden">
-                <div className="h-full p-6">
+                <div className="h-full p-6 max-w-7xl mx-auto">
                     {opportunities.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white/50 dark:bg-zinc-900/50 rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800">
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-full mb-4">

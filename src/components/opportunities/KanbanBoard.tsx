@@ -45,7 +45,7 @@ function KanbanColumn({ id, title, count, totalValue, children, color }: { id: s
     };
 
     return (
-        <div ref={setNodeRef} className={`flex-shrink-0 w-80 flex flex-col rounded-xl border ${color} bg-opacity-50 h-full`}>
+        <div ref={setNodeRef} className={`flex-shrink-0 w-64 flex flex-col rounded-xl border ${color} bg-opacity-50 h-full`}>
             <div className="p-3 border-b border-black/5 flex flex-col gap-1 bg-white/50 rounded-t-xl backdrop-blur-sm">
                 <div className="flex justify-between items-center">
                     <h3 className="font-bold text-xs uppercase tracking-wider text-zinc-700">{title}</h3>

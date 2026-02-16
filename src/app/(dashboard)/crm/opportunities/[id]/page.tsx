@@ -10,7 +10,8 @@ import { OpportunityActions } from "@/components/opportunities/OpportunityAction
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-export default async function OpportunityDetailsPage({ params }: { params: { id: string } }) {
+export default async function OpportunityDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const supabase = await createClient();
 
     // 1. Fetch Opportunity
@@ -21,7 +22,7 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
             Client:clientId ( id, name, contactName, email, phone, address ),
             Organization:organizationId ( name )
         `)
-        .eq('id', params.id)
+        .eq('id', id)
         .single();
 
     if (!opportunity) {
@@ -32,7 +33,7 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
     const { data: interactions } = await supabase
         .from('Interaction')
         .select('*')
-        .eq('opportunityId', params.id)
+        .eq('opportunityId', id)
         .order('date', { ascending: false });
 
     // Format Currency
