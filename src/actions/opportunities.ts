@@ -67,34 +67,30 @@ export async function createOpportunity(formData: FormData) {
     const stage = formData.get('stage') as OpportunityStage || 'LEAD';
     const description = formData.get('description') as string;
 
-    // Handle Quick Lead Creation
-    const isNewLead = formData.get('isNewLead') === 'true';
+    // Handle New Prospect Creation
     const contactsJson = formData.get('contactsList') as string;
+    const leadName = formData.get('leadName') as string;
+    const leadEmail = formData.get('leadEmail') as string;
+    const leadPhone = formData.get('leadPhone') as string;
 
-    if (isNewLead) {
-        const leadName = formData.get('leadName') as string;
-        const leadEmail = formData.get('leadEmail') as string;
-        const leadPhone = formData.get('leadPhone') as string;
+    if (!leadName) throw new Error("Nombre del prospecto es requerido");
 
-        if (!leadName) throw new Error("Nombre del prospecto es requerido");
-
-        const quickClientFormData = new FormData();
-        quickClientFormData.append('name', leadName);
-        quickClientFormData.append('email', leadEmail || '');
-        quickClientFormData.append('phone', leadPhone || '');
-        if (contactsJson) {
-            quickClientFormData.append('contactsList', contactsJson);
-        }
-
-        const quickResult = await createQuickClient(quickClientFormData);
-        if (!quickResult.success || !quickResult.client) {
-            throw new Error(quickResult.error || "Error al crear prospecto");
-        }
-        clientId = quickResult.client.id;
+    const quickClientFormData = new FormData();
+    quickClientFormData.append('name', leadName);
+    quickClientFormData.append('email', leadEmail || '');
+    quickClientFormData.append('phone', leadPhone || '');
+    if (contactsJson) {
+        quickClientFormData.append('contactsList', contactsJson);
     }
 
+    const quickResult = await createQuickClient(quickClientFormData);
+    if (!quickResult.success || !quickResult.client) {
+        throw new Error(quickResult.error || "Error al crear prospecto");
+    }
+    clientId = quickResult.client.id;
+
     if (!title || !clientId) {
-        throw new Error("Título y Cliente/Prospecto son requeridos");
+        throw new Error("Título y Prospecto son requeridos");
     }
 
     const newOpp: OpportunityInsert = {
