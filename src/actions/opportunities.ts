@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Database } from "@/types/supabase";
+import { addBusinessDays } from "@/lib/date-utils";
 
 type Opportunity = Database['public']['Tables']['Opportunity']['Row'];
 type OpportunityInsert = Database['public']['Tables']['Opportunity']['Insert'];
@@ -93,6 +94,13 @@ export async function createOpportunity(formData: FormData) {
         throw new Error("Título y Prospecto son requeridos");
     }
 
+    const lastContactDateStr = formData.get('lastContactDate') as string || new Date().toISOString();
+    const lastContactType = formData.get('lastContactType') as string || 'EMAIL';
+
+    // Calculate next interaction date (8 business days from last contact)
+    const lastContactDate = new Date(lastContactDateStr);
+    const nextInteractionDate = addBusinessDays(lastContactDate, 8);
+
     const newOpp: OpportunityInsert = {
         id: crypto.randomUUID(),
         organizationId: orgId,
@@ -102,11 +110,14 @@ export async function createOpportunity(formData: FormData) {
         stage,
         description,
         probability: 10,
+        lastInteractionDate: lastContactDate.toISOString(),
+        lastContactType: lastContactType,
+        nextInteractionDate: nextInteractionDate.toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
 
-    const { error } = await supabase.from('Opportunity').insert(newOpp);
+    const { error } = await supabase.from('Opportunity').insert(newOpp as any);
 
     if (error) {
         console.error('Error creating opportunity:', error);

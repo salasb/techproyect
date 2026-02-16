@@ -62,13 +62,20 @@ export function CreateOpportunityForm({ clients }: Props) {
 
     return (
         <form action={handleSubmit} className="space-y-6 max-w-2xl mx-auto bg-card p-8 rounded-xl border border-border mt-8 shadow-sm">
-            <div>
-                <h2 className="text-xl font-bold text-foreground mb-1">Nueva Oportunidad</h2>
-                <p className="text-sm text-muted-foreground">Registra un posible negocio para iniciar el seguimiento.</p>
-                <p className="text-[11px] text-red-500 mt-2">* Campos obligatorios</p>
+            <div className="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50 flex gap-3">
+                <div className="bg-indigo-600 p-2 rounded-lg h-fit">
+                    <Save className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                    <h2 className="text-base font-bold text-indigo-900 dark:text-indigo-100">Prospección Estratégica</h2>
+                    <p className="text-xs text-indigo-800/80 dark:text-indigo-200/80 leading-relaxed">
+                        Esta sección captura tu intención de contactar a un cliente potencial. Registra tu interacción inicial para que el sistema te recuerde realizar el seguimiento oportuno.
+                    </p>
+                </div>
             </div>
 
             <div className="space-y-5">
+                <p className="text-[11px] text-red-500">* Campos obligatorios</p>
                 {/* Title */}
                 <div className="space-y-2">
                     <label htmlFor="title" className="text-sm font-medium text-foreground">
@@ -101,6 +108,34 @@ export function CreateOpportunityForm({ clients }: Props) {
                             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-input transition-all"
                         />
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label htmlFor="lastContactDate" className="text-sm font-medium text-foreground">Fecha de Contacto <span className="text-red-500">*</span></label>
+                            <input
+                                type="date"
+                                id="lastContactDate"
+                                name="lastContactDate"
+                                required
+                                defaultValue={new Date().toISOString().split('T')[0]}
+                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-input transition-all"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label htmlFor="lastContactType" className="text-sm font-medium text-foreground">Medio de Contacto <span className="text-red-500">*</span></label>
+                            <select
+                                id="lastContactType"
+                                name="lastContactType"
+                                required
+                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-input transition-all"
+                            >
+                                <option value="EMAIL">Email enviado</option>
+                                <option value="CALL">Llamada telefónica</option>
+                                <option value="MEETING">Reunión / Visita</option>
+                                <option value="WHATSAPP">WhatsApp</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label htmlFor="leadEmail" className="text-sm font-medium text-foreground">Email de Contacto</label>

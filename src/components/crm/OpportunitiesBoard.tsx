@@ -125,10 +125,18 @@ export function OpportunitiesBoard({ opportunities: initialOpportunities }: Prop
                                     </div>
 
                                     <div className="flex justify-between items-center text-[10px] text-zinc-400 border-t pt-2 mt-1">
-                                        <span className="flex items-center" title="Fecha de cierre esperada">
-                                            <Calendar className="w-3 h-3 mr-1 opacity-50" />
-                                            {opp.expectedCloseDate ? format(new Date(opp.expectedCloseDate), 'dd MMM', { locale: es }) : 'Sin fecha'}
-                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="flex items-center" title="Fecha de cierre esperada">
+                                                <Calendar className="w-3 h-3 mr-1 opacity-50" />
+                                                {opp.expectedCloseDate ? format(new Date(opp.expectedCloseDate), 'dd MMM', { locale: es }) : 'Sin cierre'}
+                                            </span>
+                                            {opp.nextInteractionDate && (
+                                                <span className={`flex items-center font-bold ${new Date(opp.nextInteractionDate) <= new Date() ? 'text-red-500' : 'text-indigo-600'}`}>
+                                                    <Loader2 className={`w-3 h-3 mr-1 ${new Date(opp.nextInteractionDate) <= new Date() ? '' : 'animate-pulse'}`} />
+                                                    {format(new Date(opp.nextInteractionDate), 'dd MMM', { locale: es })}
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className='opacity-0 group-hover:opacity-100 transition-opacity'>
                                             <Link href={`/crm/opportunities/${opp.id}`} className="hover:bg-zinc-100 p-1 rounded-md block">
                                                 <MoreHorizontal className="w-4 h-4" />
