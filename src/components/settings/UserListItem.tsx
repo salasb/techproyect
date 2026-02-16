@@ -10,6 +10,20 @@ import { useToast } from "@/components/ui/Toast";
 
 type Profile = Database['public']['Tables']['Profile']['Row'];
 
+const ROLE_LABELS: Record<string, string> = {
+    'SUPERADMIN': 'Súper Admin',
+    'ADMIN': 'Administrador',
+    'USER': 'Usuario',
+    'VIEWER': 'Visualizador'
+};
+
+const ROLE_COLORS: Record<string, string> = {
+    'SUPERADMIN': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    'ADMIN': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    'USER': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    'VIEWER': 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
+};
+
 export function UserListItem({ user }: { user: Profile }) {
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -22,6 +36,10 @@ export function UserListItem({ user }: { user: Profile }) {
     // Reset when user changes
     if (!isEditing && editedName !== user.name) {
         setEditedName(user.name);
+    }
+    // Sync role if props change and not editing
+    if (!isEditing && user.role && editedRole !== user.role) {
+        setEditedRole(user.role);
     }
 
     async function handleSave() {
@@ -38,8 +56,7 @@ export function UserListItem({ user }: { user: Profile }) {
             });
             toast({ type: "success", message: "Usuario actualizado" });
             setIsEditing(false);
-            router.refresh(); // Refresh to show changes immediately
-            // Dispatch event to update Header
+            router.refresh();
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new Event('user-profile-updated'));
             }
@@ -73,7 +90,8 @@ export function UserListItem({ user }: { user: Profile }) {
                             className="text-xs px-2 py-1 border border-input rounded bg-background"
                         >
                             <option value="USER">Usuario</option>
-                            <option value="ADMIN">Admin</option>
+                            <option value="ADMIN">Administrador</option>
+                            <option value="VIEWER">Visualizador</option>
                         </select>
                     </div>
                 ) : (
@@ -86,11 +104,8 @@ export function UserListItem({ user }: { user: Profile }) {
 
             <div className="flex items-center space-x-2 pl-4">
                 {!isEditing && (
-                    <span className={`text-[10px] font-semibold px-2 py-1 rounded-full uppercase ${user.role === 'ADMIN'
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                        : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
-                        }`}>
-                        {user.role}
+                    <span className={`text-[10px] font-semibold px-2 py-1 rounded-full uppercase ${ROLE_COLORS[user.role || 'USER'] || ROLE_COLORS['USER']}`}>
+                        {ROLE_LABELS[user.role || 'USER'] || user.role}
                     </span>
                 )}
 

@@ -20,16 +20,40 @@ export async function getOrganizationSubscription(orgId: string): Promise<OrgSub
     // 1. Get Org Plan
     const { data: org } = await supabase
         .from('Organization')
-        .select('settings, plan') // Assuming 'plan' might be in settings or root based on previous exploration
+        .select('settings, plan')
         .eq('id', orgId)
         .single();
 
-    // Fallback to FREE if no plan defined
-    // We check both 'plan' column (if added) or settings.plan
-    const plan: PlanTier = (org?.plan as PlanTier) || (org?.settings as Record<string, unknown>)?.plan as PlanTier || 'FREE';
+    // Determine current plan tier ID
+    const planId = (org?.plan as string) || (org?.settings as any)?.plan || 'FREE';
 
-    // 2. Get Usage Counts
-    // We utilize the 'count' option for efficiency
+    // 2. Fetch Plan Details from DB (Dynamic!)
+    const { data: planData } = await supabase
+        .from('Plan')
+        .select('*')
+        .eq('id', planId)
+        .single();
+
+    // Fallback to hardcoded FREE if DB fails or plan missing
+    // We construct the "limits" object which currently holds both limits and features in the codebase types
+    let currentPlanFeatures = SUBSCRIPTION_PLANS['FREE'];
+
+    if (planData) {
+        // Merge DB limits and features to match the legacy PlanFeatures interface
+        // This allows us to switch backend without breaking frontend immediately
+        const dbLimits = planData.limits as any;
+        const dbFeatures = planData.features as any;
+
+        currentPlanFeatures = {
+            ...dbLimits,
+            ...dbFeatures
+        };
+    } else {
+        // Optionally fetch 'FREE' from DB if user has a plan that was deleted? 
+        // For now, hardcoded fallback is safe for system stability.
+    }
+
+    // 3. Get Usage Counts
     const { count: userCount } = await supabase
         .from('OrganizationMember')
         .select('*', { count: 'exact', head: true })
@@ -40,17 +64,14 @@ export async function getOrganizationSubscription(orgId: string): Promise<OrgSub
         .select('*', { count: 'exact', head: true })
         .eq('organizationId', orgId);
 
-    // Storage is harder to calc, hardcode 0 or implement later
-    const storageUsed = 0;
-
     return {
-        plan,
+        plan: planId as PlanTier,
         usage: {
             users: userCount || 0,
             projects: projectCount || 0,
-            storage: storageUsed
+            storage: 0
         },
-        limits: SUBSCRIPTION_PLANS[plan] || SUBSCRIPTION_PLANS['FREE']
+        limits: currentPlanFeatures
     };
 }
 

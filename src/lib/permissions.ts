@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'USER' | 'SUPERADMIN';
+export type UserRole = 'ADMIN' | 'USER' | 'SUPERADMIN' | 'VIEWER';
 
 /**
  * Checks if a user has administrative privileges within their organization.
@@ -22,8 +22,22 @@ export function canManageOrganization(role?: string | null): boolean {
 }
 
 /**
- * Permission check for operational access.
+ * Checks if a user has read-only access.
+ */
+export function isViewer(role?: string | null): boolean {
+    return role === 'VIEWER';
+}
+
+/**
+ * Permission check for operational access (includes Viewer).
  */
 export function canUseApp(role?: string | null): boolean {
     return !!role;
+}
+
+/**
+ * Checks if a user has write access (excludes Viewer).
+ */
+export function canEdit(role?: string | null): boolean {
+    return role === 'ADMIN' || role === 'SUPERADMIN' || role === 'USER';
 }

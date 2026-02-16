@@ -2,7 +2,7 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { Database } from '@/types/supabase';
-import { Building2, Calendar, DollarSign, MoreHorizontal } from 'lucide-react';
+import { Building2, Calendar, DollarSign, MoreHorizontal, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -74,10 +74,23 @@ export function KanbanCard({ opportunity }: Props) {
             </div>
 
             <div className="flex justify-between items-center text-[10px] text-zinc-400 border-t pt-2 mt-1">
-                <span className="flex items-center" title="Fecha de cierre esperada">
-                    <Calendar className="w-3 h-3 mr-1 opacity-50" />
-                    {opportunity.expectedCloseDate ? format(new Date(opportunity.expectedCloseDate), 'dd MMM', { locale: es }) : 'Sin fecha'}
-                </span>
+                <div className="flex flex-col gap-1">
+                    <span className="flex items-center" title="Fecha de cierre esperada">
+                        <Calendar className="w-3 h-3 mr-1 opacity-50" />
+                        {opportunity.expectedCloseDate ? format(new Date(opportunity.expectedCloseDate), 'dd MMM', { locale: es }) : 'Sin fecha'}
+                    </span>
+
+                    {opportunity.nextInteractionDate && (
+                        <span className={`flex items-center font-medium ${new Date(opportunity.nextInteractionDate) < new Date()
+                            ? 'text-red-600'
+                            : 'text-zinc-500'
+                            }`} title="Próximo contacto">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {format(new Date(opportunity.nextInteractionDate), 'dd MMM HH:mm', { locale: es })}
+                        </span>
+                    )}
+                </div>
+
                 <div className='opacity-0 group-hover:opacity-100 transition-opacity'>
                     <Link href={`/crm/opportunities/${opportunity.id}`} className="hover:bg-zinc-100 p-1 rounded-md block">
                         <MoreHorizontal className="w-4 h-4" />

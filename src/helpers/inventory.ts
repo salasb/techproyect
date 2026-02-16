@@ -44,7 +44,7 @@ export async function deductStockForProject(projectId: string) {
         // Find the Product by SKU (Scoped to Organization? Yes, implicit in RLS but strict check good)
         const { data: product } = await supabase
             .from('Product')
-            .select('id, type, name')
+            .select('id, type, name, organizationId')
             .eq('sku', item.sku)
             .single();
 
@@ -59,10 +59,28 @@ export async function deductStockForProject(projectId: string) {
 
         // 4. Deduct Stock
         // We use negative quantity for OUT
+
+        // Find Default Location if not specified (Logic: Organization Default Warehouse)
+        const { data: defaultLoc } = await supabase
+            .from('Location')
+            .select('id')
+            .eq('organizationId', product.organizationId || (await import("@/lib/current-org").then(m => m.getOrganizationId())))
+            .eq('isDefault', true)
+            .single();
+
+        const locationId = defaultLoc?.id;
+
+        if (!locationId) {
+            errors.push(`No default warehouse found for deduction of ${item.sku}.`);
+            continue;
+        }
+
         const result = await adjustStock(
             product.id,
-            -item.quantity,
+            item.quantity,
             'SALE',
+            locationId,
+            undefined,
             `Proyecto: ${projectId} (Item: ${item.detail})`,
             projectId
         );

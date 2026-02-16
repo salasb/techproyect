@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard } from "lucide-react";
+import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard, TrendingUp } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export default async function AdminLayout({
     children,
@@ -41,7 +42,8 @@ export default async function AdminLayout({
                 <nav className="flex-1 p-4 space-y-1">
                     <AdminNavLink href="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" />
                     <AdminNavLink href="/admin/orgs" icon={<Building2 className="w-4 h-4" />} label="Organizaciones" />
-                    <AdminNavLink href="/admin/subscriptions" icon={<CreditCard className="w-4 h-4" />} label="Suscripciones" />
+                    <AdminNavLink href="/admin/plans" icon={<CreditCard className="w-4 h-4" />} label="Planes y Precios" />
+                    <AdminNavLink href="/admin/subscriptions" icon={<TrendingUp className="w-4 h-4" />} label="Métricas" />
                     <AdminNavLink href="/admin/users" icon={<Users className="w-4 h-4" />} label="Usuarios Globales" />
                     <div className="pt-4 pb-2 text-[10px] font-bold text-slate-500 uppercase px-3 tracking-widest">Configuración</div>
                     <AdminNavLink href="/admin/settings" icon={<Settings className="w-4 h-4" />} label="Ajustes Sistema" />
@@ -60,6 +62,7 @@ export default async function AdminLayout({
                 <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
                     <h2 className="text-slate-500 font-medium">Panel de Control Global</h2>
                     <div className="flex items-center gap-4">
+                        <ThemeToggle />
                         <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded font-bold uppercase">SuperAdmin</span>
                         <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden border border-slate-300 dark:border-slate-700">
                             {/* Avatar placeholder */}

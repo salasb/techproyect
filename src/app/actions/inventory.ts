@@ -16,6 +16,21 @@ export async function adjustStock(
 ) {
     const supabase = await createClient();
 
+    // Validate Stock for Outgoing Movements
+    if (['OUT', 'SALE', 'TRANSFER'].includes(type) && fromLocationId) {
+        const { data: stockInfo } = await supabase
+            .from('ProductStock')
+            .select('quantity')
+            .eq('productId', productId)
+            .eq('locationId', fromLocationId)
+            .single();
+
+        const currentQty = stockInfo?.quantity || 0;
+        if (currentQty < quantity) {
+            return { error: `Stock insuficiente en origen. Disponible: ${currentQty}, Solicitado: ${quantity}` };
+        }
+    }
+
     try {
         const { error } = await supabase.rpc('register_inventory_movement', {
             p_product_id: productId,

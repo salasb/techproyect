@@ -285,6 +285,7 @@ export type Database = {
                     notes: string
                     organizationId: string
                     projectId: string | null
+                    opportunityId: string | null
                     type: Database["public"]["Enums"]["InteractionType"]
                 }
                 Insert: {
@@ -295,6 +296,7 @@ export type Database = {
                     notes: string
                     organizationId: string
                     projectId?: string | null
+                    opportunityId?: string | null
                     type: Database["public"]["Enums"]["InteractionType"]
                 }
                 Update: {
@@ -305,6 +307,7 @@ export type Database = {
                     notes?: string
                     organizationId?: string
                     projectId?: string | null
+                    opportunityId?: string | null
                     type?: Database["public"]["Enums"]["InteractionType"]
                 }
                 Relationships: [
@@ -442,6 +445,8 @@ export type Database = {
                     createdAt: string | null
                     description: string | null
                     expectedCloseDate: string | null
+                    lastInteractionDate: string | null
+                    nextInteractionDate: string | null
                     id: string
                     organizationId: string
                     probability: number | null
@@ -455,6 +460,8 @@ export type Database = {
                     createdAt?: string | null
                     description?: string | null
                     expectedCloseDate?: string | null
+                    lastInteractionDate?: string | null
+                    nextInteractionDate?: string | null
                     id?: string
                     organizationId: string
                     probability?: number | null
@@ -468,6 +475,8 @@ export type Database = {
                     createdAt?: string | null
                     description?: string | null
                     expectedCloseDate?: string | null
+                    lastInteractionDate?: string | null
+                    nextInteractionDate?: string | null
                     id?: string
                     organizationId?: string
                     probability?: number | null
