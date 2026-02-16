@@ -64,6 +64,17 @@ export async function updateSession(request: NextRequest) {
                     .single()
 
                 if (member?.organizationId) {
+                    // Check if organization is ACTIVE
+                    const { data: org } = await supabase
+                        .from('Organization')
+                        .select('status')
+                        .eq('id', member.organizationId)
+                        .single();
+
+                    if (org && org.status !== 'ACTIVE' && !request.nextUrl.pathname.startsWith('/pending-activation')) {
+                        return NextResponse.redirect(new URL('/pending-activation', request.url))
+                    }
+
                     // Set cookie for subsequent requests
                     response.cookies.set('app-org-id', member.organizationId, {
                         httpOnly: false, // Allow client access if needed
