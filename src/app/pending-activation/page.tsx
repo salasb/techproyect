@@ -1,3 +1,5 @@
+'use client';
+
 import { Building2, Clock, Mail } from "lucide-react";
 import Link from "next/link";
 

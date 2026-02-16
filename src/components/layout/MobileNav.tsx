@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { SidebarContent } from "./SidebarContent";
 
-export function MobileNav() {
+export function MobileNav({ profile }: { profile?: any }) {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -43,7 +43,8 @@ export function MobileNav() {
                         <div className="h-full overflow-hidden pt-2">
                             <SidebarContent
                                 onLinkClick={() => setIsOpen(false)}
-                                badges={{ projects: 3, quotes: 1 }} // TODO: Replace with real data from context/store
+                                profile={profile}
+                                badges={{ projects: 0, quotes: 0 }} // Simplified temporarily
                             />
                         </div>
                     </div>

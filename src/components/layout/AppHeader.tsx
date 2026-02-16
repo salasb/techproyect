@@ -7,14 +7,14 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 
-export function AppHeader() {
+export function AppHeader({ profile }: { profile?: any }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [showResults, setShowResults] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
-    const [userProfile, setUserProfile] = useState<any>(null);
+    const [userProfile, setUserProfile] = useState<any>(profile);
 
     useEffect(() => {
         async function getUser() {
@@ -23,22 +23,26 @@ export function AppHeader() {
             setUser(user);
 
             if (user) {
-                const { data: profile } = await supabase
+                const { data: profileData } = await supabase
                     .from('Profile')
                     .select('*')
                     .eq('id', user.id)
                     .single();
-                setUserProfile(profile);
+                setUserProfile(profileData);
             }
         }
-        getUser();
+
+        // Sync if profile changes externally or not provided
+        if (!profile) {
+            getUser();
+        }
 
         // Listen for profile updates
         const handleProfileUpdate = () => getUser();
         window.addEventListener('user-profile-updated', handleProfileUpdate);
 
         return () => window.removeEventListener('user-profile-updated', handleProfileUpdate);
-    }, []);
+    }, [profile]);
 
     // Close search results when clicking outside
     useEffect(() => {
@@ -178,12 +182,16 @@ export function AppHeader() {
                 </div>
 
                 <div className="flex items-center space-x-3 pl-4 border-l border-zinc-200 dark:border-zinc-800">
-                    <div className="flex flex-col text-right hidden sm:block">
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <div className="flex flex-col text-right hidden sm:block leading-tight">
+                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">
                             {sanitizedName}
                         </span>
+                        <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-tighter">
+                            {userProfile?.role === 'SUPERADMIN' ? 'SuperAdmin' :
+                                userProfile?.role === 'ADMIN' ? 'Administrador' : 'Colaborador'}
+                        </span>
                     </div>
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white dark:ring-zinc-900">
                         <User className="w-5 h-5" />
                     </div>
                 </div>

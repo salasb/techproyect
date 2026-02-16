@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt } from "lucide-react";
 import { LogoutButton } from "./LogoutButton";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
+import { isAdmin } from "@/lib/permissions";
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -11,21 +12,26 @@ const navigation = [
     { name: 'Inventario', href: '/catalog', icon: Package },
     { name: 'Clientes', href: '/clients', icon: Users },
     { name: 'Reportes', href: '/reports', icon: BarChart },
-    { name: 'Configuración', href: '/settings', icon: Settings },
+    { name: 'Configuración', href: '/settings', icon: Settings, adminOnly: true },
 ];
 
 interface SidebarContentProps {
     onLinkClick?: () => void;
     badges?: Record<string, number>;
+    profile?: any;
 }
 
-export function SidebarContent({ onLinkClick, badges = {} }: SidebarContentProps) {
+export function SidebarContent({ onLinkClick, badges = {}, profile }: SidebarContentProps) {
     // Map href to badge key for simpler lookup if needed, or just use hardcoded check
     const getBadgeCount = (href: string) => {
         if (href === '/projects') return badges.projects || 0;
         if (href === '/quotes') return badges.quotes || 0;
         return 0;
     };
+
+    const userRole = profile?.role;
+    const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin(userRole));
+
     return (
         <div className="flex flex-col h-full bg-card text-foreground">
             <div className="p-6">
@@ -39,7 +45,7 @@ export function SidebarContent({ onLinkClick, badges = {} }: SidebarContentProps
             </div>
 
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-                {navigation.map((item) => {
+                {filteredNavigation.map((item) => {
                     const count = getBadgeCount(item.href);
                     return (
                         <Link

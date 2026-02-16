@@ -64,23 +64,45 @@ export async function updateSession(request: NextRequest) {
                     .single()
 
                 if (member?.organizationId) {
-                    // Check if organization is ACTIVE
-                    const { data: org } = await supabase
-                        .from('Organization')
-                        .select('status')
-                        .eq('id', member.organizationId)
+                    // Check if organization is ACTIVE and get user role
+                    const { data: memberData } = await supabase
+                        .from('OrganizationMember')
+                        .select('role, organization:Organization(status)')
+                        .eq('organizationId', member.organizationId)
+                        .eq('userId', user.id)
                         .single();
 
-                    if (org && org.status !== 'ACTIVE' && !request.nextUrl.pathname.startsWith('/pending-activation')) {
+                    const orgStatus = (memberData?.organization as any)?.status;
+                    const userRole = memberData?.role;
+
+                    if (orgStatus && orgStatus !== 'ACTIVE' && !request.nextUrl.pathname.startsWith('/pending-activation')) {
                         return NextResponse.redirect(new URL('/pending-activation', request.url))
+                    }
+
+                    // 3. Role-Based Route Protection (RBAC)
+                    const restrictedPaths = ['/settings/users', '/settings/organization', '/admin'];
+                    const isRestrictedPath = restrictedPaths.some(path => request.nextUrl.pathname.startsWith(path));
+
+                    if (isRestrictedPath) {
+                        const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
+                        const role = profile?.role;
+
+                        if (request.nextUrl.pathname.startsWith('/admin') && role !== 'SUPERADMIN') {
+                            return NextResponse.redirect(new URL('/dashboard', request.url));
+                        }
+
+                        // For other restricted paths, must be ADMIN or SUPERADMIN
+                        if (!request.nextUrl.pathname.startsWith('/admin') && role !== 'ADMIN' && role !== 'SUPERADMIN') {
+                            return NextResponse.redirect(new URL('/dashboard', request.url));
+                        }
                     }
 
                     // Set cookie for subsequent requests
                     response.cookies.set('app-org-id', member.organizationId, {
-                        httpOnly: false, // Allow client access if needed
+                        httpOnly: false,
                         sameSite: 'lax',
                         secure: process.env.NODE_ENV === 'production',
-                        maxAge: 60 * 60 * 24 * 7 // 1 week
+                        maxAge: 60 * 60 * 24 * 7
                     })
                 }
             } catch (e) {
