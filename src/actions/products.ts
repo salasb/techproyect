@@ -42,7 +42,13 @@ export async function createProduct(data: FormData) {
     const minStock = parseInt(data.get('minStock') as string) || 0;
     const initialStock = parseInt(data.get('initialStock') as string) || 0;
 
-    const productId = crypto.randomUUID();
+    // Safe UUID generation
+    let productId;
+    try {
+        productId = crypto.randomUUID();
+    } catch {
+        productId = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    }
 
     // 1. Create Product (Stock 0 initially)
     const { error } = await supabase.from('Product').insert({

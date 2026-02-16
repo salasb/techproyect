@@ -42,7 +42,6 @@ export default function CatalogPage() {
         : products;
 
     async function handleSubmit(formData: FormData) {
-        // ... existing logic ...
         try {
             if (editingProduct) {
                 await updateProduct(editingProduct.id, formData);
@@ -52,8 +51,9 @@ export default function CatalogPage() {
             setIsModalOpen(false);
             setEditingProduct(null);
             loadProducts();
-        } catch (error) {
-            alert("Error al guardar producto");
+        } catch (error: any) {
+            console.error("Save Error:", error);
+            alert(error.message || "Error al guardar producto");
         }
     }
 
@@ -66,33 +66,29 @@ export default function CatalogPage() {
     const handleExport = () => {
         if (products.length === 0) return;
 
-        const headers = ["SKU", "Nombre", "Tipo", "Unidad", "Costo", "Precio", "Stock", "Stock Minimo", "Descripción"];
-        const rows = products.map(p => [
-            p.sku || "",
-            p.name,
-            p.type,
-            p.unit,
-            p.costNet,
-            p.priceNet,
-            p.stock,
-            p.min_stock,
-            p.description || ""
-        ]);
+        // Use the centralized PDF download utility
+        const columns = [
+            { header: "SKU", accessor: (p: Product) => p.sku || "" },
+            { header: "Nombre", accessor: (p: Product) => p.name },
+            { header: "Tipo", accessor: (p: Product) => p.type === 'PRODUCT' ? 'Producto' : 'Servicio' },
+            { header: "Unidad", accessor: (p: Product) => p.unit },
+            { header: "Costo (Neto)", accessor: (p: Product) => `$${p.costNet.toLocaleString('es-CL')}` },
+            { header: "Precio (List)", accessor: (p: Product) => `$${p.priceNet.toLocaleString('es-CL')}` },
+            { header: "Stock", accessor: (p: Product) => p.type === 'PRODUCT' ? p.stock.toString() : '-' },
+            { header: "Stock Min", accessor: (p: Product) => p.type === 'PRODUCT' ? p.min_stock.toString() : '-' },
+        ];
 
-        const csvContent = [
-            headers.join(","),
-            ...rows.map(r => r.map(cell => `"${cell}"`).join(","))
-        ].join("\n");
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `inventario_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        import("@/lib/exportUtils").then(({ downloadPdf }) => {
+            downloadPdf(
+                products,
+                columns,
+                `inventario_${new Date().toISOString().split('T')[0]}.pdf`,
+                'REPORTE DE INVENTARIO'
+            );
+        }).catch(err => {
+            console.error("Error loading export utils:", err);
+            alert("Error al generar PDF");
+        });
     };
 
     return (

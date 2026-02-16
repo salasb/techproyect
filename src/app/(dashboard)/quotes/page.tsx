@@ -34,20 +34,12 @@ export default async function QuotesPage({ searchParams }: { searchParams: { pag
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
 
-    // Grouping Logic for List View
-    const groupedQuotes: Record<string, any[]> = {
-        'DRAFT': [],
-        'SENT': [],
-        'ACCEPTED': [],
-        'REJECTED': [],
-        'EXPIRED': [],
-        // Catch-all for others
-    };
+    // Grouping Logic for List View (Dynamic)
+    const groupedQuotes: Record<string, any[]> = {};
 
     if (quotes) {
         quotes.forEach(q => {
-            // Map status if needed, or just use raw status
-            const status = q.status || 'DRAFT';
+            const status = q.status || 'OTRO';
             if (!groupedQuotes[status]) groupedQuotes[status] = [];
             groupedQuotes[status].push(q);
         });

@@ -50,11 +50,21 @@ import autoTable from 'jspdf-autotable';
 export function downloadPdf(data: any[], columns: { header: string, accessor: (item: any) => string | number | null | undefined }[], filename: string, title: string = 'Reporte') {
     const doc = new jsPDF();
 
+    // TechWise Header (Formal)
+    doc.addImage("/techwise logo negro.png", "PNG", 14, 10, 30, 10);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("TechWise SpA", 160, 14);
+    doc.text("RUT: 77.966.773-1", 160, 19);
+    doc.text("contacto@techwise.cl", 160, 24);
+
     // Title
     doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    doc.setFontSize(11);
-    doc.text(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 30);
+    doc.setTextColor(0);
+    doc.text(title, 14, 35);
+    doc.setFontSize(9);
+    doc.text(`Fecha de Emisión: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 42);
 
     // Prepare table data
     const tableColumn = columns.map(col => col.header);
@@ -69,10 +79,10 @@ export function downloadPdf(data: any[], columns: { header: string, accessor: (i
     autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: 35,
+        startY: 50,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [66, 66, 66] }
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] }
     });
 
     doc.save(filename);
