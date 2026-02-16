@@ -117,7 +117,7 @@ export async function createOpportunity(formData: FormData) {
         updatedAt: new Date().toISOString()
     };
 
-    const { error } = await supabase.from('Opportunity').insert(newOpp as any);
+    const { error } = await supabase.from('Opportunity').insert(newOpp);
 
     if (error) {
         console.error('Error creating opportunity:', error);
