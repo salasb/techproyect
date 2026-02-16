@@ -8,7 +8,7 @@ const navigation = [
     { name: 'Proyectos', href: '/projects', icon: FolderOpen },
     { name: 'Cotizaciones', href: '/quotes', icon: FileText },
     { name: 'Facturación', href: '/invoices', icon: Receipt },
-    { name: 'Catálogo', href: '/catalog', icon: Package },
+    { name: 'Inventario', href: '/catalog', icon: Package },
     { name: 'Clientes', href: '/clients', icon: Users },
     { name: 'Reportes', href: '/reports', icon: BarChart },
     { name: 'Configuración', href: '/settings', icon: Settings },

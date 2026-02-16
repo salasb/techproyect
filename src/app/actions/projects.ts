@@ -137,6 +137,7 @@ export async function deleteProject(projectId: string) {
         await supabase.from('CostEntry').delete().eq('projectId', projectId);
         await supabase.from('Invoice').delete().eq('projectId', projectId);
         await supabase.from('QuoteItem').delete().eq('projectId', projectId);
+        await supabase.from('SaleNote').delete().eq('projectId', projectId); // Fixed: Add SaleNote deletion
 
         // 3. Delete Project
         const { error } = await supabase

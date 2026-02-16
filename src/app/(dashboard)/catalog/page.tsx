@@ -67,7 +67,7 @@ export default function CatalogPage() {
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Catálogo de Productos</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Inventario</h1>
                     <p className="text-slate-500 mt-2">Gestiona tus servicios y productos recurrentes</p>
                 </div>
                 <button

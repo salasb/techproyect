@@ -43,6 +43,7 @@ export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?:
                 trendText="vs periodo anterior"
                 icon={DollarSign}
                 color="blue"
+                href="/invoices"
             />
 
             {/* 2. Margen Ganado (Real) - NEW */}
@@ -52,6 +53,7 @@ export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?:
                 subtext="Proyectos En Curso / Finalizados"
                 icon={Wallet}
                 color="emerald"
+                href="/projects"
             />
 
             {/* 3. Margen Proyectado (Potencial) - NEW */}
@@ -59,8 +61,9 @@ export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?:
                 title="Margen Proyectado"
                 value={formatCurrency(data.projectedMargin || 0)}
                 subtext="Incluye En Espera"
-                icon={TrendingUp} // Changed icon to distinguish
+                icon={TrendingUp}
                 color="blue"
+                href="/projects"
             />
 
             {/* 3. Oportunidades (Pipeline) */}
@@ -70,27 +73,30 @@ export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?:
                 subtext={`${data.pipeline.count} oportunidades activas`}
                 icon={TrendingUp}
                 color="purple"
+                href="/crm/pipeline"
             />
         </div>
     );
 }
 
-function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color }: any) {
+import Link from "next/link";
+
+function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color, href }: any) {
     const colors: any = {
         blue: {
-            bg: "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/40",
+            bg: "bg-blue-50 dark:bg-blue-950/40",
             border: "border-blue-200 dark:border-blue-800",
             icon: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50",
             text: "text-blue-700 dark:text-blue-300"
         },
         emerald: {
-            bg: "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/40 dark:to-emerald-900/40",
+            bg: "bg-emerald-50 dark:bg-emerald-950/40",
             border: "border-emerald-200 dark:border-emerald-800",
             icon: "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50",
             text: "text-emerald-700 dark:text-emerald-300"
         },
         purple: {
-            bg: "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/40 dark:to-purple-900/40",
+            bg: "bg-purple-50 dark:bg-purple-950/40",
             border: "border-purple-200 dark:border-purple-800",
             icon: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/50",
             text: "text-purple-700 dark:text-purple-300"
@@ -100,35 +106,53 @@ function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color }:
     const theme = colors[color] || colors.blue;
     const isPositive = trend >= 0;
 
-    return (
-        <div className={`group relative overflow-hidden rounded-xl border ${theme.border} ${theme.bg} p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg h-full`}>
+    // Dynamic font size logic
+    const valueLength = value?.toString().length || 0;
+    const valueSizeClass = valueLength > 15 ? 'text-2xl' : valueLength > 12 ? 'text-3xl' : 'text-4xl';
+
+    const Content = (
+        <div className={`peer group relative overflow-hidden rounded-xl border ${theme.border} ${theme.bg} p-6 shadow-sm transition-all duration-300 hover:shadow-md h-full flex flex-col justify-between`}>
+            {/* Background decoration */}
+            <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/40 dark:bg-white/5 blur-2xl transition-all group-hover:scale-150 group-hover:bg-white/60 dark:group-hover:bg-white/10" />
 
             <div className="relative z-10 flex items-center justify-between mb-4">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
-                <div className={`rounded-xl p-2.5 shadow-sm ${theme.icon} transition-transform group-hover:scale-110 duration-300`}>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{title}</p>
+                <div className={`rounded-xl p-2 shadow-sm ${theme.icon} transition-transform group-hover:scale-110 duration-300`}>
                     <Icon className="h-5 w-5" />
                 </div>
             </div>
 
             <div className="relative z-10">
-                <h3 className="text-4xl font-extrabold tracking-tight text-foreground mb-1">{value}</h3>
+                <h3 className={`${valueSizeClass} font-black tracking-tight text-foreground/90 truncate`} title={value}>
+                    {value}
+                </h3>
 
-                <div className="flex items-center justify-between mt-2">
+                <div className="flex items-end justify-between mt-3 min-h-[24px]">
                     {trend !== undefined && (
-                        <div className="flex items-center gap-2 bg-white/50 dark:bg-black/20 rounded-full px-2 py-0.5 backdrop-blur-sm self-start">
-                            <span className={`flex items-center text-xs font-bold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {isPositive ? <ArrowUpRight className="mr-1 h-3 w-3" /> : <ArrowDownRight className="mr-1 h-3 w-3" />}
-                                {Math.abs(trend).toFixed(1)}%
-                            </span>
-                            <span className="text-[10px] text-muted-foreground font-medium uppercase">{trendText}</span>
+                        <div className={`flex items-center gap-1.5 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} font-bold text-sm bg-white/60 dark:bg-black/20 px-2 py-0.5 rounded-lg backdrop-blur-sm shadow-sm`}>
+                            {isPositive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                            {Math.abs(trend).toFixed(1)}%
+                            <span className="text-[10px] text-muted-foreground font-medium uppercase ml-1 opacity-70 hidden xl:inline">{trendText}</span>
                         </div>
                     )}
 
                     {subtext && (
-                        <p className="text-xs font-medium text-muted-foreground ml-auto">{subtext}</p>
+                        <p className="text-[11px] font-medium text-muted-foreground/80 leading-tight ml-auto text-right max-w-[60%]">
+                            {subtext}
+                        </p>
                     )}
                 </div>
             </div>
         </div>
     );
+
+    if (href) {
+        return (
+            <Link href={href} className="block h-full hover:scale-[1.02] transition-transform duration-300 active:scale-[0.98]">
+                {Content}
+            </Link>
+        );
+    }
+
+    return Content;
 }

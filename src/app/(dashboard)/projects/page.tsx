@@ -14,15 +14,16 @@ import { ProjectTable } from "@/components/projects/ProjectTable";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
-export default async function ProjectsPage({ searchParams }: { searchParams: { page?: string, tab?: string } }) {
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ page?: string, tab?: string }> }) {
     const supabase = await createClient();
+    const resolvedParams = await searchParams;
 
-    const page = Number(searchParams?.page) || 1;
+    const page = Number(resolvedParams?.page) || 1;
     const itemsPerPage = 10;
     const start = (page - 1) * itemsPerPage;
     const end = start + itemsPerPage - 1;
 
-    const tab = searchParams?.tab || 'active';
+    const tab = resolvedParams?.tab || 'active';
 
     // 1. Fetch settings for VAT and thresholds
     let { data: settings } = await supabase.from('Settings').select('*').single();
