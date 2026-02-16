@@ -161,6 +161,38 @@ export async function updateOpportunityStage(id: string, stage: OpportunityStage
     return { success: true };
 }
 
+export async function updateOpportunity(id: string, formData: FormData) {
+    const supabase = await createClient();
+
+    const title = formData.get('title') as string;
+    const value = parseFloat(formData.get('value') as string) || 0;
+    const description = formData.get('description') as string;
+    const expectedCloseDate = formData.get('expectedCloseDate') as string;
+    const nextInteractionDate = formData.get('nextInteractionDate') as string;
+
+    const { error } = await supabase
+        .from('Opportunity')
+        .update({
+            title,
+            value,
+            description,
+            expectedCloseDate: expectedCloseDate || null,
+            nextInteractionDate: nextInteractionDate || null,
+            updatedAt: new Date().toISOString()
+        })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error updating opportunity:', error);
+        throw new Error('Failed to update opportunity');
+    }
+
+    revalidatePath('/crm/pipeline');
+    revalidatePath(`/crm/opportunities/${id}`);
+    revalidatePath('/crm');
+    return { success: true };
+}
+
 export async function deleteOpportunity(id: string) {
     const supabase = await createClient();
 
@@ -171,6 +203,7 @@ export async function deleteOpportunity(id: string) {
         throw new Error('Failed to delete opportunity');
     }
 
+    revalidatePath('/crm/pipeline');
     revalidatePath('/crm');
     return { success: true };
 }

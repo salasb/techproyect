@@ -1,6 +1,6 @@
 import { getOpportunities } from "@/actions/opportunities";
 import { KanbanBoard } from "@/components/opportunities/KanbanBoard";
-import { KanbanSquare, Plus } from "lucide-react";
+import { KanbanSquare, Plus, Calendar } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
@@ -19,12 +19,20 @@ export default async function PipelinePage() {
                     <p className="text-sm text-zinc-500">Gestión de tratos y ventas potenciales</p>
                 </div>
 
-                <Link href="/crm/opportunities/new" className="w-full sm:w-auto">
-                    <button className="w-full sm:w-auto flex items-center justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Nueva Oportunidad
-                    </button>
-                </Link>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Link href="/crm/calendar" className="w-full sm:w-auto">
+                        <button className="w-full sm:w-auto flex items-center justify-center px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-lg hover:bg-zinc-50 transition-all">
+                            <Calendar className="w-4 h-4 mr-2 text-indigo-600" />
+                            Ver Calendario
+                        </button>
+                    </Link>
+                    <Link href="/crm/opportunities/new" className="w-full sm:w-auto">
+                        <button className="w-full sm:w-auto flex items-center justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Nueva Oportunidad
+                        </button>
+                    </Link>
+                </div>
             </div>
 
             <div className="flex-1 overflow-hidden">

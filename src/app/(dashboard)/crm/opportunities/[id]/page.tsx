@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActivityTimeline } from "@/components/crm/ActivityTimeline";
 import { LogActivityWidget } from "@/components/crm/LogActivityWidget";
+import { OpportunityActions } from "@/components/opportunities/OpportunityActions";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -87,13 +88,7 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <Button variant="outline">Editar</Button>
-                            {/* Change Stage Button could go here */}
-                            {opportunity.stage !== 'WON' && opportunity.stage !== 'LOST' && (
-                                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                                    Marcar Ganada
-                                </Button>
-                            )}
+                            <OpportunityActions opportunity={opportunity} />
                         </div>
                     </div>
                 </div>

@@ -37,25 +37,38 @@ export function CreateOpportunityForm({ clients }: Props) {
 
     async function handleSubmit(formData: FormData) {
         // Validation
-        if (!leadName) {
+        if (!title.trim()) {
+            toast({ type: 'error', message: 'El título del trato es requerido' });
+            return;
+        }
+        if (!leadName.trim()) {
             toast({ type: 'error', message: 'El nombre del prospecto es requerido' });
             return;
         }
 
+        // Explicitly set values to ensure they are captured
+        formData.set('title', title);
         formData.set('value', value.toString());
         formData.set('isNewLead', 'true');
         formData.set('leadName', leadName);
         formData.set('leadEmail', leadEmail);
         formData.set('leadPhone', leadPhone);
+        formData.set('description', description);
         formData.set('contactsList', JSON.stringify(contacts));
 
         startTransition(async () => {
             try {
-                await createOpportunity(formData);
-                toast({ type: 'success', message: 'Oportunidad creada exitosamente' });
-                router.push('/crm/pipeline');
-            } catch (error) {
-                toast({ type: 'error', message: 'Error al crear la oportunidad' });
+                const result = await createOpportunity(formData);
+                if (result.success) {
+                    toast({ type: 'success', message: 'Oportunidad creada exitosamente' });
+                    router.push('/crm/pipeline');
+                }
+            } catch (error: any) {
+                console.error("Creation error:", error);
+                toast({
+                    type: 'error',
+                    message: error.message || 'Error al crear la oportunidad'
+                });
             }
         });
     }
