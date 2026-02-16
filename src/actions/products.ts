@@ -64,7 +64,8 @@ export async function createProduct(data: FormData) {
             costNet,
             type,
             min_stock: minStock,
-            stock: 0
+            stock: 0,
+            updatedAt: new Date().toISOString()
         });
 
         if (error) {

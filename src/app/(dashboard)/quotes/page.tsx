@@ -7,13 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PaginationControl } from "@/components/ui/PaginationControl";
 import { QuoteExportButton } from "@/components/quotes/QuoteExportButton";
+import { QuoteViewToggle } from "@/components/quotes/QuoteViewToggle";
+import { cookies } from "next/headers";
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ page?: string, q?: string, view?: string }> }) {
     const supabase = await createClient();
     const params = await searchParams;
+    const cookieStore = await cookies();
+
+    // Preference: URL Param > Cookie > Default (grid)
+    const view = params?.view || cookieStore.get('app-quotes-view')?.value || "grid";
+
     const page = Number(params?.page) || 1;
     const query = params?.q || "";
-    const view = params?.view || "grid";
     const itemsPerPage = 10;
     const start = (page - 1) * itemsPerPage;
     const end = start + itemsPerPage - 1;
@@ -58,22 +64,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
 
             {/* View Toggle */}
             <div className="flex justify-end mb-4">
-                <div className="flex items-center bg-muted/50 p-1 rounded-lg border border-border">
-                    <Link
-                        href={`/quotes?q=${query}&view=grid`}
-                        className={`p-2 rounded-md transition-all ${(!view || view === 'grid') ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        title="Vista Cuadrícula"
-                    >
-                        <LayoutGrid className="w-4 h-4" />
-                    </Link>
-                    <Link
-                        href={`/quotes?q=${query}&view=list`}
-                        className={`p-2 rounded-md transition-all ${view === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        title="Vista Lista"
-                    >
-                        <List className="w-4 h-4" />
-                    </Link>
-                </div>
+                <QuoteViewToggle currentView={view} />
             </div>
 
             {/* Content */}
