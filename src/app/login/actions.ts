@@ -47,8 +47,26 @@ export async function login(formData: FormData) {
         return { error: error.message }
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+        const { data: profile } = await supabase
+            .from('Profile')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        revalidatePath('/', 'layout')
+
+        if (profile?.role === 'SUPERADMIN') {
+            redirect('/admin')
+        } else {
+            redirect('/dashboard') // Explicitly go to dashboard for tenants
+        }
+    }
+
     revalidatePath('/', 'layout')
-    redirect('/')
+    redirect('/dashboard')
 }
 
 export async function signup(formData: FormData) {

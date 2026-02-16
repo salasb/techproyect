@@ -10,7 +10,7 @@ const navigation = [
     { name: 'Cotizaciones', href: '/quotes', icon: FileText, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Facturación', href: '/invoices', icon: Receipt, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Inventario', href: '/catalog', icon: Package },
-    { name: 'Ubicaciones', href: '/inventory/locations', icon: MapPin, adminOnly: true },
+    { name: 'Ubicaciones', href: '/locations', icon: MapPin, adminOnly: true },
     { name: 'Escáner QR', href: '/inventory/scan', icon: Package }, // Reusing Package icon or specific QrCode icon if available
     { name: 'Clientes', href: '/clients', icon: Users, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Reportes', href: '/reports', icon: BarChart, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },

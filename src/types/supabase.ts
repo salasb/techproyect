@@ -928,6 +928,92 @@ export type Database = {
                     },
                 ]
             }
+            Location: {
+                Row: {
+                    address: string | null
+                    createdAt: string
+                    id: string
+                    isDefault: boolean
+                    name: string
+                    organizationId: string
+                    status: string | null
+                    type: string | null
+                    updatedAt: string
+                }
+                Insert: {
+                    address?: string | null
+                    createdAt?: string
+                    id?: string
+                    isDefault?: boolean
+                    name: string
+                    organizationId: string
+                    status?: string | null
+                    type?: string | null
+                    updatedAt?: string
+                }
+                Update: {
+                    address?: string | null
+                    createdAt?: string
+                    id?: string
+                    isDefault?: boolean
+                    name?: string
+                    organizationId?: string
+                    status?: string | null
+                    type?: string | null
+                    updatedAt?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "Location_organizationId_fkey"
+                        columns: ["organizationId"]
+                        isOneToOne: false
+                        referencedRelation: "Organization"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            ProductStock: {
+                Row: {
+                    id: string
+                    locationId: string
+                    minStock: number
+                    productId: string
+                    quantity: number
+                    updatedAt: string
+                }
+                Insert: {
+                    id?: string
+                    locationId: string
+                    minStock?: number
+                    productId: string
+                    quantity?: number
+                    updatedAt?: string
+                }
+                Update: {
+                    id?: string
+                    locationId?: string
+                    minStock?: number
+                    productId?: string
+                    quantity?: number
+                    updatedAt?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "ProductStock_locationId_fkey"
+                        columns: ["locationId"]
+                        isOneToOne: false
+                        referencedRelation: "Location"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "ProductStock_productId_fkey"
+                        columns: ["productId"]
+                        isOneToOne: false
+                        referencedRelation: "Product"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
         }
         Views: {
             [_ in never]: never
@@ -940,6 +1026,7 @@ export type Database = {
                     p_reason?: string
                     p_reference_id?: string
                     p_type: string
+                    p_location_id?: string
                 }
                 Returns: undefined
             }

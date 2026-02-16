@@ -73,16 +73,29 @@ export async function createProduct(data: FormData) {
             return { success: false, error: `Error DB: ${error.message} (${error.code})` };
         }
 
-        // 2. Adjust Inventory
+        // 2. Adjust Inventory (Assign to Default Warehouse)
         if (type === 'PRODUCT' && initialStock > 0) {
-            const { error: adjError } = await supabase.rpc('adjust_inventory', {
-                p_product_id: productId,
-                p_quantity: initialStock,
-                p_type: 'ADJUSTMENT',
-                p_reason: 'Inv. Inicial',
-                p_reference_id: null
-            });
-            if (adjError) console.error("Error setting initial stock:", adjError);
+            // Get Default Location
+            const { data: defaultLoc } = await supabase
+                .from("Location")
+                .select("id")
+                .eq("organizationId", orgId)
+                .eq("isDefault", true)
+                .single();
+
+            if (defaultLoc) {
+                const { error: adjError } = await supabase.rpc('adjust_inventory', {
+                    p_product_id: productId,
+                    p_quantity: initialStock,
+                    p_type: 'ADJUSTMENT',
+                    p_reason: 'Inv. Inicial',
+                    p_reference_id: null,
+                    p_location_id: defaultLoc.id
+                });
+                if (adjError) console.error("Error setting initial stock:", adjError);
+            } else {
+                console.error("No default location found for initial stock");
+            }
         }
 
         revalidatePath('/catalog');

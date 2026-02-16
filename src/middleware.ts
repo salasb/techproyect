@@ -40,6 +40,11 @@ export async function updateSession(request: NextRequest) {
     // 1. Auth Guard (Login)
     if (request.nextUrl.pathname.startsWith('/login')) {
         if (user) {
+            // Check role to redirect correctly
+            const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
+            if (profile?.role === 'SUPERADMIN') {
+                return NextResponse.redirect(new URL('/admin', request.url))
+            }
             return NextResponse.redirect(new URL('/dashboard', request.url))
         }
         return response
@@ -47,6 +52,17 @@ export async function updateSession(request: NextRequest) {
 
     if (!user && !request.nextUrl.pathname.startsWith('/login')) {
         return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // Root Redirect
+    if (request.nextUrl.pathname === '/') {
+        if (user) {
+            const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
+            if (profile?.role === 'SUPERADMIN') {
+                return NextResponse.redirect(new URL('/admin', request.url))
+            }
+            return NextResponse.redirect(new URL('/dashboard', request.url))
+        }
     }
 
     // 2. Org Context Management
