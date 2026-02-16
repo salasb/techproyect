@@ -8,6 +8,14 @@ import { isAdmin } from "@/lib/permissions";
 
 export async function createUser(formData: FormData) {
     const orgId = await getOrganizationId();
+
+    // 0. Check Subscription Limits
+    const { checkSubscriptionLimit } = await import("@/lib/subscriptions");
+    const limitCheck = await checkSubscriptionLimit(orgId, 'users');
+    if (!limitCheck.allowed) {
+        throw new Error(limitCheck.message);
+    }
+
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
     const role = formData.get("role") as string || 'USER';

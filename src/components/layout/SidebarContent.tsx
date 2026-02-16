@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin } from "lucide-react";
+import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin, CreditCard } from "lucide-react";
 import { UserMenu } from "./UserMenu";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 import { isAdmin } from "@/lib/permissions";
@@ -14,6 +14,7 @@ const navigation = [
     { name: 'Escáner QR', href: '/inventory/scan', icon: Package }, // Reusing Package icon or specific QrCode icon if available
     { name: 'Clientes', href: '/clients', icon: Users, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Reportes', href: '/reports', icon: BarChart, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
+    { name: 'Suscripciones', href: '/admin/subscriptions', icon: CreditCard, adminOnly: true },
     { name: 'Configuración', href: '/settings', icon: Settings, adminOnly: true },
 ];
 

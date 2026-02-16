@@ -8,7 +8,16 @@ import { validateProject } from "@/lib/validators";
 import { AuditService } from "@/services/auditService";
 import { getOrganizationId } from "@/lib/current-org";
 
+import { checkSubscriptionLimit } from "@/lib/subscriptions";
+
 export async function createProject(formData: FormData) {
+    // 0. Check Subscription Limits
+    const orgId = await getOrganizationId();
+    const limitCheck = await checkSubscriptionLimit(orgId, 'projects');
+    if (!limitCheck.allowed) {
+        throw new Error(limitCheck.message);
+    }
+
     const name = formData.get("name") as string;
     const companyId = formData.get("companyId") as string;
     const newCompanyName = formData.get("newCompanyName") as string;
@@ -20,7 +29,6 @@ export async function createProject(formData: FormData) {
         throw new Error(validation.errors.join(", "));
     }
 
-    const orgId = await getOrganizationId();
     const supabase = await createClient();
 
     let finalCompanyId = companyId;

@@ -6,6 +6,14 @@ import { getOrganizationId } from "@/lib/current-org";
 
 export async function inviteUser(formData: FormData) {
     const orgId = await getOrganizationId();
+
+    // 0. Check Subscription Limits
+    const { checkSubscriptionLimit } = await import("@/lib/subscriptions");
+    const limitCheck = await checkSubscriptionLimit(orgId, 'users');
+    if (!limitCheck.allowed) {
+        throw new Error(limitCheck.message);
+    }
+
     const email = formData.get("email") as string;
     const role = formData.get("role") as string || 'USER';
 
