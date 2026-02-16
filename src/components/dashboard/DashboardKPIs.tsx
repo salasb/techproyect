@@ -111,10 +111,11 @@ function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color, h
     const valueLength = valueStr.length;
     let valueSizeClass = 'text-4xl';
 
-    if (valueLength > 18) valueSizeClass = 'text-lg';
-    else if (valueLength > 15) valueSizeClass = 'text-xl';
-    else if (valueLength > 12) valueSizeClass = 'text-2xl';
-    else if (valueLength > 9) valueSizeClass = 'text-3xl';
+    // Scale down significantly for long numbers
+    if (valueLength > 15) valueSizeClass = 'text-lg';
+    else if (valueLength > 12) valueSizeClass = 'text-xl';
+    else if (valueLength > 10) valueSizeClass = 'text-2xl';
+    else if (valueLength > 8) valueSizeClass = 'text-3xl';
 
     const Content = (
         <div className={`peer group relative overflow-hidden rounded-xl border ${theme.border} ${theme.bg} p-6 shadow-sm transition-all duration-300 hover:shadow-md h-full flex flex-col justify-between`}>
@@ -129,7 +130,7 @@ function KPICard({ title, value, trend, trendText, subtext, icon: Icon, color, h
             </div>
 
             <div className="relative z-10">
-                <h3 className={`${valueSizeClass} font-black tracking-tight text-foreground/90 break-words leading-none`} title={value}>
+                <h3 className={`${valueSizeClass} font-black tracking-tight text-foreground/90 whitespace-nowrap leading-none`} title={value}>
                     {value}
                 </h3>
 

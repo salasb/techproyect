@@ -43,93 +43,70 @@ export default async function QuotesPage({ searchParams }: { searchParams: { pag
                 <QuoteExportButton query={query} />
             </div>
 
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                <div className="p-4 border-b border-border flex gap-4">
-                    <form className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-                        <input
-                            name="q"
-                            defaultValue={query}
-                            placeholder="Buscar cotización..."
-                            className="pl-9 w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                        />
-                    </form>
+            {/* Quotes Grid */}
+            {!quotes || quotes.length === 0 ? (
+                <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
+                    <p>No se encontraron cotizaciones.</p>
                 </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {quotes.map((quote) => {
+                        // Calculate Total Value dynamically
+                        const totalValue = quote.quoteItems?.reduce((acc: number, item: any) => {
+                            return acc + (item.priceNet * item.quantity);
+                        }, 0) || 0;
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-medium border-b border-zinc-200 dark:border-zinc-700 shadow-sm">
-                            <tr>
-                                <th className="px-6 py-3">Proyecto / Cliente</th>
-                                <th className="px-6 py-3">Fecha</th>
-                                <th className="px-6 py-3">Estado</th>
-                                <th className="px-6 py-3 text-right">Valor Total</th>
-                                <th className="px-6 py-3 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {!quotes || quotes.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                                        No se encontraron cotizaciones.
-                                    </td>
-                                </tr>
-                            ) : (
-                                quotes.map((quote) => {
-                                    // Calculate Total Value dynamically
-                                    const totalValue = quote.quoteItems?.reduce((acc: number, item: any) => {
-                                        return acc + (item.priceNet * item.quantity);
-                                    }, 0) || 0;
+                        // Determine Currency
+                        const currency = quote.currency || 'CLP';
+                        const formattedTotal = currency === 'CLP'
+                            ? `CLP $${totalValue.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
+                            : currency === 'USD'
+                                ? `USD $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : `UF ${totalValue.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-                                    // Determine Currency
-                                    const currency = quote.currency || 'CLP';
-                                    const formattedTotal = currency === 'CLP'
-                                        ? `CLP $${totalValue.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
-                                        : currency === 'USD'
-                                            ? `USD $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                            : `UF ${totalValue.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        return (
+                            <Link
+                                key={quote.id}
+                                href={`/projects/${quote.id}/quote`}
+                                className="group bg-card hover:bg-slate-50 dark:hover:bg-slate-900 border border-border hover:border-blue-200 dark:hover:border-blue-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full"
+                            >
+                                <div>
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-lg text-foreground group-hover:text-blue-600 transition-colors line-clamp-1" title={quote.name}>
+                                                {quote.name}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground line-clamp-1">
+                                                {quote.client?.name || quote.company?.name || 'Cliente sin asignar'}
+                                            </p>
+                                        </div>
+                                        <StatusBadge status={quote.status} type="QUOTE" />
+                                    </div>
 
-                                    return (
-                                        <tr key={quote.id} className="hover:bg-muted/50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-foreground">{quote.name}</div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {quote.client?.name || quote.company?.name || 'Cliente sin asignar'}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <span>{quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}</span>
-                                                    {quote.quoteSentDate && (
-                                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full w-fit flex items-center gap-1">
-                                                            <CheckCircle2 className="w-3 h-3" />
-                                                            Enviada: {format(new Date(quote.quoteSentDate), 'dd MMM', { locale: es })}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <StatusBadge status={quote.status} type="QUOTE" />
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-mono font-medium text-foreground whitespace-nowrap">
-                                                {formattedTotal}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <Link
-                                                    href={`/projects/${quote.id}/quote`}
-                                                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-xs hover:underline"
-                                                >
-                                                    Ver Detalle
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+                                        <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                                            {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}
+                                        </span>
+                                        {quote.quoteSentDate && (
+                                            <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                                <CheckCircle2 className="w-3 h-3" />
+                                                Enviada
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-border pt-4 flex justify-between items-end">
+                                    <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Valor Total</div>
+                                    <div className="font-mono font-bold text-xl text-foreground">
+                                        {formattedTotal}
+                                    </div>
+                                </div>
+                            </Link>
+                        );
+                    })}
                 </div>
-            </div>
+            )}
 
             <PaginationControl
                 currentPage={page}

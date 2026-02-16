@@ -27,7 +27,12 @@ export async function createProduct(data: FormData) {
     const orgId = await getOrganizationId();
     const supabase = await createClient();
 
-    const sku = (data.get('sku') as string) || null; // Fix: Allow null SKU
+    let sku = (data.get('sku') as string)?.trim();
+    if (!sku) {
+        // Auto-generate SKU if missing to satisfy DB constraints (assuming NOT NULL UNIQUE)
+        sku = `GEN-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+    }
+
     const name = data.get('name') as string;
     const description = data.get('description') as string;
     const unit = data.get('unit') as string;
@@ -81,7 +86,11 @@ export async function createProduct(data: FormData) {
 export async function updateProduct(id: string, data: FormData) {
     const supabase = await createClient();
 
-    const sku = (data.get('sku') as string) || null; // Fix: Allow null SKU
+    let sku = (data.get('sku') as string)?.trim();
+    if (!sku) {
+        sku = `GEN-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+    }
+
     const name = data.get('name') as string;
     const description = data.get('description') as string;
     const unit = data.get('unit') as string;
