@@ -44,6 +44,10 @@ export async function createProduct(data: FormData) {
         const minStock = parseInt(data.get('minStock') as string) || 0;
         const initialStock = parseInt(data.get('initialStock') as string) || 0;
 
+        if (priceNet < 0 || costNet < 0) {
+            return { success: false, error: "El precio y el costo no pueden ser negativos" };
+        }
+
         // Safe UUID generation
         let productId;
         try {
@@ -124,6 +128,10 @@ export async function updateProduct(id: string, data: FormData) {
         const costNet = parseFloat(data.get('costNet') as string) || 0;
         const type = (data.get('type') as string) || 'SERVICE';
         const minStock = parseInt(data.get('minStock') as string) || 0;
+
+        if (priceNet < 0 || costNet < 0) {
+            return { success: false, error: "El precio y el costo no pueden ser negativos" };
+        }
 
         const { error } = await supabase.from('Product').update({
             sku,

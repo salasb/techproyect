@@ -9,6 +9,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ItemDetailRenderer } from "./ItemDetailRenderer";
+import { Camera } from "lucide-react";
+import { CameraScanner } from "@/components/ui/CameraScanner";
+import { createClient } from "@/lib/supabase/client";
 
 type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'] & { isSelected?: boolean };
 
@@ -37,6 +40,8 @@ export function QuoteItemsManager({
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const supabase = createClient();
 
 
 
@@ -245,6 +250,41 @@ export function QuoteItemsManager({
         } catch (error) {
             console.error("error in handleToggleAll", error);
             toast({ type: 'error', message: "Error al actualizar selección global" });
+        }
+    }
+
+    async function handleScanProduct(value: string) {
+        setIsLoading(true);
+        try {
+            // Search by SKU or Barcode
+            const { data: product, error } = await supabase
+                .from('Product')
+                .select('*')
+                .or(`sku.eq."${value}",barcode.eq."${value}"`)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (product) {
+                // Prepare form data for adding
+                const formData = new FormData();
+                formData.append('detail', product.name);
+                formData.append('quantity', '1');
+                formData.append('unit', 'UN');
+                formData.append('costNet', product.costNet?.toString() || '0');
+                formData.append('priceNet', product.priceNet?.toString() || '0');
+                formData.append('sku', product.sku || '');
+
+                await addQuoteItem(projectId, formData);
+                toast({ type: 'success', message: `${product.name} agregado a la cotización` });
+            } else {
+                toast({ type: 'error', message: `Producto no encontrado: ${value}` });
+            }
+        } catch (error) {
+            console.error("Error scanning product for quote:", error);
+            toast({ type: 'error', message: "Error al buscar producto" });
+        } finally {
+            setIsLoading(false);
         }
     }
 
@@ -599,12 +639,24 @@ export function QuoteItemsManager({
                                 Agregar Ítem
                             </button>
 
-
-
+                            <button
+                                onClick={() => setIsScannerOpen(true)}
+                                className="flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
+                            >
+                                <Camera className="w-4 h-4 mr-2" />
+                                Escanear Producto
+                            </button>
                         </div>
                     )
                 )
             }
+
+            <CameraScanner
+                isOpen={isScannerOpen}
+                onClose={() => setIsScannerOpen(false)}
+                onScan={handleScanProduct}
+                title="Escanear Producto para Cotización"
+            />
 
             <ConfirmDialog
                 isOpen={!!itemToDelete}

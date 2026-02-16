@@ -8,7 +8,8 @@ import { Database } from "@/types/supabase";
 import { StockAdjustmentModal } from "@/components/inventory/StockAdjustmentModal";
 import { KardexModal } from "@/components/inventory/KardexModal";
 import { ProductLabelModal } from "@/components/inventory/ProductLabelModal";
-import { Printer } from "lucide-react";
+import { Printer, Camera } from "lucide-react";
+import { CameraScanner } from "@/components/ui/CameraScanner";
 
 type Product = Database['public']['Tables']['Product']['Row'];
 
@@ -25,6 +26,8 @@ export default function CatalogPage() {
     const [isKardexOpen, setIsKardexOpen] = useState(false);
     const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [isGlobalScannerOpen, setIsGlobalScannerOpen] = useState(false);
 
     useEffect(() => {
         loadProducts();
@@ -135,10 +138,17 @@ export default function CatalogPage() {
                     <input
                         type="text"
                         placeholder="Buscar por nombre o SKU..."
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-sm"
+                        className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-sm"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
+                    <button
+                        onClick={() => setIsGlobalScannerOpen(true)}
+                        className="absolute right-3 top-2.5 p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Buscar escaneando código"
+                    >
+                        <Camera className="w-5 h-5" />
+                    </button>
                 </div>
                 <button
                     onClick={() => setShowLowStock(!showLowStock)}
@@ -353,7 +363,23 @@ export default function CatalogPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">SKU (Opcional)</label>
-                                    <input name="sku" defaultValue={editingProduct?.sku || ''} className="w-full p-2 border rounded-lg text-sm uppercase" placeholder="EJ: SERV-01" />
+                                    <div className="relative">
+                                        <input
+                                            name="sku"
+                                            id="product-sku-input"
+                                            defaultValue={editingProduct?.sku || ''}
+                                            className="w-full p-2 pr-10 border rounded-lg text-sm uppercase font-mono"
+                                            placeholder="EJ: SERV-01"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsScannerOpen(true)}
+                                            className="absolute right-2 top-1.5 p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                            title="Escanear Código"
+                                        >
+                                            <Camera className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
@@ -435,6 +461,25 @@ export default function CatalogPage() {
                     />
                 </>
             )}
+
+            <CameraScanner
+                isOpen={isScannerOpen}
+                onClose={() => setIsScannerOpen(false)}
+                onScan={(value) => {
+                    const input = document.getElementById('product-sku-input') as HTMLInputElement;
+                    if (input) input.value = value;
+                }}
+            />
+
+            <CameraScanner
+                isOpen={isGlobalScannerOpen}
+                onClose={() => setIsGlobalScannerOpen(false)}
+                onScan={(value) => {
+                    setSearch(value);
+                    // Scroll to results if needed
+                }}
+                title="Escanear para Buscar"
+            />
         </div>
     );
 }
@@ -499,10 +544,11 @@ function CalculationFields({ editingProduct }: { editingProduct: Product | null 
                         name="costNet"
                         type="number"
                         step="0.01"
+                        min="0"
                         value={cost}
-                        onChange={(e) => setCost(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setCost(Math.max(0, parseFloat(e.target.value) || 0))}
                         required
-                        className="w-full p-2 border rounded-lg text-sm font-mono"
+                        className={`w-full p-2 border rounded-lg text-sm font-mono ${cost > priceNet ? 'border-red-300 bg-red-50' : 'bg-white'}`}
                         placeholder="0"
                     />
                 </div>
@@ -529,14 +575,22 @@ function CalculationFields({ editingProduct }: { editingProduct: Product | null 
                         name="priceNet"
                         type="number"
                         step="0.01"
+                        min="0"
                         value={priceNet}
-                        onChange={(e) => handlePriceNetChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => handlePriceNetChange(Math.max(0, parseFloat(e.target.value) || 0))}
                         required
-                        className="w-full p-2 border border-emerald-200 rounded-lg text-sm font-mono font-bold text-emerald-700 bg-white"
+                        className={`w-full p-2 border rounded-lg text-sm font-mono font-bold ${priceNet < cost ? 'border-red-300 text-red-700 bg-red-50' : 'border-emerald-200 text-emerald-700 bg-white'}`}
                         placeholder="0"
                     />
                 </div>
             </div>
+
+            {priceNet < cost && (
+                <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-100 rounded-lg text-red-600 text-[11px] font-medium animate-in slide-in-from-top-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>¡Alerta! Estás vendiendo por debajo del costo (Margen Negativo)</span>
+                </div>
+            )}
 
             <div className="flex items-center gap-4 p-3 bg-emerald-50/50 rounded-lg border border-emerald-100">
                 <div className="flex-1">
@@ -545,9 +599,10 @@ function CalculationFields({ editingProduct }: { editingProduct: Product | null 
                         <span className="absolute left-3 top-2.5 text-emerald-600 font-bold">$</span>
                         <input
                             type="number"
+                            min="0"
                             value={priceGross}
-                            onChange={(e) => handlePriceGrossChange(parseInt(e.target.value) || 0)}
-                            className="w-full pl-7 pr-4 py-2 border border-emerald-200 rounded-xl text-lg font-bold text-emerald-900 bg-white shadow-inner"
+                            onChange={(e) => handlePriceGrossChange(Math.max(0, parseInt(e.target.value) || 0))}
+                            className={`w-full pl-7 pr-4 py-2 border rounded-xl text-lg font-bold shadow-inner ${priceNet < cost ? 'border-red-300 text-red-900 bg-red-50' : 'border-emerald-200 text-emerald-900 bg-white'}`}
                             placeholder="Precio final de venta"
                         />
                     </div>
