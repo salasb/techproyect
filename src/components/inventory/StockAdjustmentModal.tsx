@@ -166,6 +166,8 @@ export function StockAdjustmentModal({ productId, productName, currentStock, isO
     const isTransfer = type === 'TRANSFER';
     const isInbound = ['IN', 'PURCHASE', 'ADJUSTMENT'].includes(type);
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">

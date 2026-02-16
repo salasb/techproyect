@@ -8,14 +8,25 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import { PipelineBoard } from "@/components/crm/PipelineBoard";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
-export function ClientsClientView({ initialClients }: { initialClients: any[] }) {
-    const [clients] = useState(initialClients); // We depend on server revalidation to update the list, but initial state is useful until then.
-    // Ideally, we'd use useOptimistic here, but for now simple revalidation is fine.
+interface ClientData {
+    id: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    taxId?: string | null;
+    contactName?: string | null;
+    status?: string | null;
+}
+
+export function ClientsClientView({ initialClients }: { initialClients: ClientData[] }) {
+    const [clients] = useState(initialClients);
     const [view, setView] = useState<'list' | 'board'>('list');
 
     const [isAdding, setIsAdding] = useState(false);
-    const [editingClient, setEditingClient] = useState<any | null>(null);
+    const [editingClient, setEditingClient] = useState<ClientData | null>(null);
     const [search, setSearch] = useState("");
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
@@ -57,7 +68,6 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                 router.refresh();
             } catch (error: any) {
                 console.error(error);
-                // Extract error message if possible
                 const msg = error.message?.includes("RUT inválido")
                     ? "El RUT ingresado no es válido."
                     : "Error al guardar cliente. Inténtalo nuevamente.";
@@ -80,14 +90,14 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
         });
     }
 
-    const openModal = (client?: any) => {
+    const openModal = (client?: ClientData) => {
         setEditingClient(client || null);
         setIsAdding(true);
         setTaxIdError(null);
 
         // Parse Phone Logic
         if (client?.phone) {
-            const cleanPhone = client.phone.replace(/\s/g, ''); // Remove spaces
+            const cleanPhone = client.phone.replace(/\s/g, '');
             if (cleanPhone.startsWith('+569') || cleanPhone.startsWith('9')) {
                 setPhoneType('mobile');
                 setRawPhone(cleanPhone.replace('+569', '').replace('+56', ''));
@@ -95,7 +105,6 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                 setPhoneType('landline');
                 setRawPhone(cleanPhone.replace('+562', '').replace('+56', ''));
             } else {
-                // Fallback for non-standard numbers
                 setPhoneType('mobile');
                 setRawPhone(cleanPhone);
             }
@@ -106,13 +115,14 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" data-testid="clients-view">
             <div className="flex justify-between items-center gap-4">
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
                     <input
                         type="text"
                         placeholder="Buscar cliente..."
+                        data-testid="search-clients-input"
                         className="pl-9 pr-4 py-2 w-full rounded-lg border border-input bg-background text-sm"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -121,6 +131,7 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                 <div className="flex gap-2 bg-zinc-100 p-1 rounded-lg">
                     <button
                         onClick={() => setView('list')}
+                        data-testid="view-list-btn"
                         className={`p-2 rounded-md transition-all ${view === 'list' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
                         title="Lista"
                     >
@@ -128,6 +139,7 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                     </button>
                     <button
                         onClick={() => setView('board')}
+                        data-testid="view-board-btn"
                         className={`p-2 rounded-md transition-all ${view === 'board' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
                         title="Tablero Kanban"
                     >
@@ -136,6 +148,7 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                 </div>
                 <button
                     onClick={() => openModal()}
+                    data-testid="add-client-btn"
                     className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
                     <Plus className="w-4 h-4 mr-2" />
@@ -144,20 +157,23 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
             </div>
 
             {view === 'list' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="clients-list">
                     {filteredClients.map((client) => (
-                        <div key={client.id} className="group bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
+                        <div key={client.id} data-testid={`client-card-${client.id}`} className="group bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <Link href={`/clients/${client.id}`} className="hover:text-blue-600 transition-colors">
                                         <h3 className="font-bold text-foreground text-lg">{client.name}</h3>
                                     </Link>
-                                    {client.taxId && (
-                                        <div className="flex items-center text-xs text-muted-foreground mt-1">
-                                            <FileText className="w-3 h-3 mr-1" />
-                                            {client.taxId}
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <StatusBadge status={client.status || 'PROSPECT'} type="CLIENT" />
+                                        {client.taxId && (
+                                            <div className="flex items-center text-xs text-muted-foreground">
+                                                <FileText className="w-3 h-3 mr-1" />
+                                                {client.taxId}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex bg-muted/50 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Link href={`/clients/${client.id}`} className="p-1.5 text-zinc-500 hover:text-blue-600 rounded" title="Ver Detalles">
@@ -202,8 +218,8 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                     ))}
                 </div>
             ) : (
-                <div className="overflow-x-auto pb-4">
-                    <PipelineBoard clients={filteredClients.length > 0 ? filteredClients : clients} />
+                <div className="overflow-x-auto pb-4" data-testid="clients-board">
+                    <PipelineBoard clients={filteredClients.length > 0 ? filteredClients : (clients as any[])} />
                 </div>
             )}
 
@@ -227,7 +243,7 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                     <label className="block text-sm font-medium mb-1">RUT / Tax ID</label>
                                     <input
                                         name="taxId"
-                                        defaultValue={editingClient?.taxId}
+                                        defaultValue={editingClient?.taxId || ''}
                                         className={`w-full p-2 rounded-lg border bg-background font-mono ${taxIdError ? 'border-red-500' : 'border-input'}`}
                                         placeholder="12.345.678-9"
                                         onChange={(e) => {
@@ -236,7 +252,6 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                                 e.target.value = formatRut(val);
                                             }
                                         }}
-                                        // On blur validation is nice, but we rely on submit for hard block
                                         onBlur={(e) => {
                                             if (e.target.value && !validateRut(e.target.value)) {
                                                 setTaxIdError("RUT inválido");
@@ -268,12 +283,10 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                                                 placeholder="12345678"
                                                 value={rawPhone}
                                                 onChange={(e) => {
-                                                    // Only allow numbers
                                                     const val = e.target.value.replace(/\D/g, '');
-                                                    setRawPhone(val.slice(0, 8)); // Max 8 digits
+                                                    setRawPhone(val.slice(0, 8));
                                                 }}
                                             />
-                                            {/* Hidden input to send the full formatted value */}
                                             <input
                                                 type="hidden"
                                                 name="phone"
@@ -285,15 +298,15 @@ export function ClientsClientView({ initialClients }: { initialClients: any[] })
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Email</label>
-                                <input name="email" type="email" defaultValue={editingClient?.email} className="w-full p-2 rounded-lg border border-input bg-background" />
+                                <input name="email" type="email" defaultValue={editingClient?.email || ''} className="w-full p-2 rounded-lg border border-input bg-background" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Dirección</label>
-                                <input name="address" defaultValue={editingClient?.address} className="w-full p-2 rounded-lg border border-input bg-background" />
+                                <input name="address" defaultValue={editingClient?.address || ''} className="w-full p-2 rounded-lg border border-input bg-background" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Nombre Contacto</label>
-                                <input name="contactName" defaultValue={editingClient?.contactName} className="w-full p-2 rounded-lg border border-input bg-background" />
+                                <input name="contactName" defaultValue={editingClient?.contactName || ''} className="w-full p-2 rounded-lg border border-input bg-background" />
                             </div>
 
                             <div className="pt-4 flex justify-end gap-3">
