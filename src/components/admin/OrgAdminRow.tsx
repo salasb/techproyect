@@ -7,7 +7,7 @@ import { Building2, Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-export function OrgAdminRow({ org }: { org: any }) {
+export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans: { id: string, name: string }[] }) {
     const [status, setStatus] = useState(org.status || 'ACTIVE');
     const [plan, setPlan] = useState(org.plan || 'FREE');
     const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +42,7 @@ export function OrgAdminRow({ org }: { org: any }) {
             <td className="px-6 py-4">
                 <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${status === 'PENDING' ? 'bg-amber-100 text-amber-600' :
-                            status === 'ACTIVE' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'
+                        status === 'ACTIVE' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'
                         }`}>
                         {org.name.substring(0, 2).toUpperCase()}
                     </div>
@@ -55,7 +55,7 @@ export function OrgAdminRow({ org }: { org: any }) {
             <td className="px-6 py-4">
                 <div className="flex flex-col gap-1">
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase inline-block w-fit ${status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
-                            status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                        status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
                         }`}>
                         {status}
                     </span>
@@ -71,9 +71,14 @@ export function OrgAdminRow({ org }: { org: any }) {
                     onChange={(e) => handlePlanChange(e.target.value as any)}
                     className="text-xs font-bold bg-slate-100 dark:bg-slate-800 border-none rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
-                    <option value="FREE">Plan Free</option>
-                    <option value="PRO">Plan Pro</option>
-                    <option value="ENTERPRISE">Plan Enterprise</option>
+                    {availablePlans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                            {p.name}
+                        </option>
+                    ))}
+                    {!availablePlans.find(p => p.id === plan) && (
+                        <option value={plan} disabled>{plan} (Legacy/Inactive)</option>
+                    )}
                 </select>
             </td>
             <td className="px-6 py-4 text-center">

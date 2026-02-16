@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard, TrendingUp } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { logout } from "@/app/login/actions";
 
 export default async function AdminLayout({
     children,
@@ -49,11 +50,18 @@ export default async function AdminLayout({
                     <AdminNavLink href="/admin/settings" icon={<Settings className="w-4 h-4" />} label="Ajustes Sistema" />
                 </nav>
 
-                <div className="p-4 border-t border-slate-800">
-                    <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 text-sm hover:text-white transition-colors">
+                <div className="p-4 border-t border-slate-800 space-y-2">
+                    <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors">
                         <LogOut className="w-4 h-4" />
                         <span>Volver al App</span>
                     </Link>
+
+                    <form action={logout}>
+                        <button type="submit" className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors">
+                            <LogOut className="w-4 h-4" />
+                            <span>Cerrar Sesión</span>
+                        </button>
+                    </form>
                 </div>
             </aside>
 

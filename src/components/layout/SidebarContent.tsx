@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin, CreditCard } from "lucide-react";
+import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin, CreditCard, TrendingUp } from "lucide-react";
 import { UserMenu } from "./UserMenu";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 import { isAdmin } from "@/lib/permissions";
@@ -8,6 +8,7 @@ const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Proyectos', href: '/projects', icon: FolderOpen, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Cotizaciones', href: '/quotes', icon: FileText, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
+    { name: 'Oportunidades (CRM)', href: '/crm/pipeline', icon: TrendingUp },
     { name: 'Facturación', href: '/invoices', icon: Receipt, restrictedToPlans: ['FREE', 'PRO', 'ENTERPRISE'] },
     { name: 'Inventario', href: '/catalog', icon: Package },
     { name: 'Ubicaciones', href: '/locations', icon: MapPin, adminOnly: true },

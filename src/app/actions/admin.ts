@@ -54,3 +54,30 @@ export async function updateOrganizationPlan(orgId: string, plan: 'FREE' | 'PRO'
     revalidatePath('/admin/orgs');
     return { success: true };
 }
+
+/**
+ * Updates a user's role globally.
+ */
+export async function updateUserRole(userId: string, role: string) {
+    const supabase = await createClient();
+
+    // Safety check: ensure only SUPERADMIN can do this
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
+    const { data: profile } = await supabase.from("Profile").select("role").eq("id", user.id).single();
+    if (profile?.role !== "SUPERADMIN") throw new Error("Forbidden: Admin access required");
+
+    const { error } = await supabase
+        .from('Profile')
+        .update({ role, updatedAt: new Date().toISOString() })
+        .eq('id', userId);
+
+    if (error) {
+        console.error("Error updating user role:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/users');
+    return { success: true };
+}

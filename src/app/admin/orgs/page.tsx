@@ -18,6 +18,12 @@ export default async function AdminOrgsPage() {
         `)
         .order("createdAt", { ascending: false });
 
+    const { data: plans } = await supabase
+        .from('Plan')
+        .select('id, name')
+        .eq('isActive', true)
+        .order('price', { ascending: true });
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -40,7 +46,7 @@ export default async function AdminOrgsPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {orgs?.map((org: any) => (
-                            <OrgAdminRow key={org.id} org={org} />
+                            <OrgAdminRow key={org.id} org={org} availablePlans={plans || []} />
                         ))}
                     </tbody>
                 </table>

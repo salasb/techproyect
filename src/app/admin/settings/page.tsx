@@ -1,12 +1,20 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, Save } from "lucide-react";
+import { Settings, Save, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from 'next/link';
 
 export default async function AdminSettingsPage() {
     const supabase = await createClient();
+
+    // Fetch active plans for summary
+    const { data: plans } = await supabase
+        .from('Plan')
+        .select('*')
+        .eq('isActive', true)
+        .order('price', { ascending: true });
 
     // Placeholder for global settings fetch
     // const { data: settings } = await supabase.from('GlobalSettings').select('*').single();
@@ -47,14 +55,43 @@ export default async function AdminSettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Future: Plan Definitions */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Planes y Suscripciones</CardTitle>
-                        <CardDescription>Definición de tipos de planes disponibles.</CardDescription>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Planes y Suscripciones</CardTitle>
+                                <CardDescription>Gestiona los planes disponibles para las organizaciones.</CardDescription>
+                            </div>
+                            <Link href="/admin/plans">
+                                <Button variant="outline" size="sm">
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    Gestionar Planes
+                                </Button>
+                            </Link>
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm text-muted-foreground">La gestión avanzada de planes se implementará aquí.</p>
+                        <div className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {plans?.map((plan) => (
+                                    <div key={plan.id} className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="font-bold text-sm">{plan.name}</span>
+                                            <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">
+                                                {plan.id}
+                                            </span>
+                                        </div>
+                                        <div className="text-2xl font-bold mb-1">
+                                            ${plan.price.toLocaleString()}
+                                            <span className="text-xs font-normal text-muted-foreground ml-1">/ {plan.interval === 'month' ? 'mess' : 'año'}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {(!plans || plans.length === 0) && (
+                                <p className="text-sm text-muted-foreground italic">No hay planes activos configurados.</p>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
             </div>

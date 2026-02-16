@@ -1,10 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { Users, Building2, Shield } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { UserAdminRow } from "@/components/admin/UserAdminRow";
 
 export default async function AdminUsersPage() {
     const supabase = await createClient();
@@ -57,47 +55,7 @@ export default async function AdminUsersPage() {
                         </TableHeader>
                         <TableBody>
                             {profiles?.map((user) => (
-                                <TableRow key={user.id}>
-                                    <TableCell>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-slate-900 dark:text-slate-100">{user.name}</span>
-                                            <span className="text-xs text-slate-500">{user.email}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {user.organization ? (
-                                            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                                                <Building2 className="w-4 h-4 text-slate-400" />
-                                                {user.organization.name}
-                                            </div>
-                                        ) : (
-                                            <span className="text-slate-400 italic">Sin Organización</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        {user.organization?.plan ? (
-                                            <Badge variant="outline" className="text-xs">
-                                                {user.organization.plan}
-                                            </Badge>
-                                        ) : (
-                                            <span className="text-slate-400">-</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            variant={user.role === 'SUPERADMIN' ? 'default' : user.role === 'ADMIN' ? 'secondary' : 'outline'}
-                                            className={user.role === 'SUPERADMIN' ? 'bg-purple-600 hover:bg-purple-700' : ''}
-                                        >
-                                            <div className="flex items-center gap-1">
-                                                {user.role === 'SUPERADMIN' && <Shield className="w-3 h-3" />}
-                                                {user.role}
-                                            </div>
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-slate-500 text-sm">
-                                        {user.createdAt ? format(new Date(user.createdAt), "d MMM yyyy", { locale: es }) : '-'}
-                                    </TableCell>
-                                </TableRow>
+                                <UserAdminRow key={user.id} user={user} />
                             ))}
                         </TableBody>
                     </Table>

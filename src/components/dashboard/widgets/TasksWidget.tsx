@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/badge";
 
 interface TaskItem {
     id: string;
-    type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER';
+    type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER' | 'MEETING';
     title: string;
     priority: 'HIGH' | 'MEDIUM' | 'LOW';
     dueDate?: Date | string;
-    projectName: string;
+    projectName?: string;
     companyName: string;
-    projectId: string;
+    projectId?: string;
+    opportunityId?: string;
 }
 
 export function TasksWidget({ tasks }: { tasks: TaskItem[] }) {
@@ -51,31 +52,37 @@ export function TasksWidget({ tasks }: { tasks: TaskItem[] }) {
                     </div>
                 ) : (
                     <div className="divide-y divide-border">
-                        {tasks.map((task) => (
-                            <div key={task.id} className="p-3 hover:bg-muted/30 transition-colors">
-                                <Link href={`/projects/${task.projectId}`} className="flex items-start gap-3 group">
-                                    <div className="mt-1 bg-background p-1.5 rounded-full border border-border shadow-sm">
-                                        {getIcon(task.type)}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
-                                            {task.title}
-                                        </p>
-                                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                                            <span className="truncate max-w-[120px]">{task.companyName}</span>
-                                            <span>•</span>
-                                            <span className="flex items-center gap-1">
-                                                <Calendar className="w-3 h-3" />
-                                                {formatDate(task.dueDate)}
-                                            </span>
+                        {tasks.map((task) => {
+                            const linkHref = task.opportunityId
+                                ? `/crm/opportunities/${task.opportunityId}`
+                                : `/projects/${task.projectId}`;
+
+                            return (
+                                <div key={task.id} className="p-3 hover:bg-muted/30 transition-colors">
+                                    <Link href={linkHref} className="flex items-start gap-3 group">
+                                        <div className="mt-1 bg-background p-1.5 rounded-full border border-border shadow-sm">
+                                            {getIcon(task.type)}
                                         </div>
-                                    </div>
-                                    {task.priority === 'HIGH' && (
-                                        <span className="w-2 h-2 rounded-full bg-red-500 mt-2" title="Alta Prioridad" />
-                                    )}
-                                </Link>
-                            </div>
-                        ))}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                                                {task.title}
+                                            </p>
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                                <span className="truncate max-w-[120px]">{task.companyName}</span>
+                                                <span>•</span>
+                                                <span className="flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3" />
+                                                    {formatDate(task.dueDate)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {task.priority === 'HIGH' && (
+                                            <span className="w-2 h-2 rounded-full bg-red-500 mt-2" title="Alta Prioridad" />
+                                        )}
+                                    </Link>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

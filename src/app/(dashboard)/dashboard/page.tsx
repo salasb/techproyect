@@ -64,7 +64,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const topClients = DashboardService.getTopClients(projects as any);
-    const actions = DashboardService.getActionCenterData(projects as any, settings);
+    const actions = DashboardService.getActionCenterData(projects as any, settings, opportunities as any);
     const alerts = DashboardService.getUpcomingDeadlines(projects as any, settings);
 
     // Filter tasks for widget (Pending tasks/follow-ups)

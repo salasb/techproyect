@@ -51,13 +51,15 @@ export class DashboardService {
         return { blockedProjects, focusProjects };
     }
 
-    static getActionCenterData(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
+    static getActionCenterData(projects: Project[], settings: Database['public']['Tables']['Settings']['Row'], opportunities: any[] = []) {
         const actions: {
             id: string;
-            projectId: string;
-            projectName: string;
+            projectId?: string;
+            opportunityId?: string;
+            projectName?: string;
+            opportunityTitle?: string;
             companyName: string;
-            type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER';
+            type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER' | 'MEETING';
             title: string;
             dueDate?: Date;
             isOverdue?: boolean;
@@ -66,8 +68,9 @@ export class DashboardService {
 
         const now = new Date();
 
+        // 1. Projects Logic
         projects.forEach(p => {
-            // 1. Blockers (High Priority)
+            // ... (existing logic for blockers and next actions)
             if (p.status === 'BLOQUEADO') {
                 actions.push({
                     id: `block-${p.id}`,
@@ -81,7 +84,6 @@ export class DashboardService {
                 });
             }
 
-            // 2. Next Actions (Medium/High based on date)
             if ((p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') && p.nextAction) {
                 const actionDate = p.nextActionDate ? new Date(p.nextActionDate) : null;
                 const isOverdue = actionDate ? actionDate < now : false;
@@ -107,11 +109,9 @@ export class DashboardService {
                 }
             }
 
-            // 3. Stale Quotes (Sent > 5 days ago)
             if (p.status === 'EN_ESPERA') {
                 const updated = new Date(p.updatedAt);
-                const diffTime = Math.abs(now.getTime() - updated.getTime());
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const diffDays = Math.ceil(Math.abs(now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24));
 
                 if (diffDays > 5) {
                     actions.push({
@@ -129,7 +129,29 @@ export class DashboardService {
             }
         });
 
-        // Sort by priority (HIGH first) then by date
+        // 2. Opportunities (CRM) Logic
+        opportunities.forEach(op => {
+            if (op.nextInteractionDate) {
+                const actionDate = new Date(op.nextInteractionDate);
+                const isOverdue = actionDate < now;
+                const isToday = actionDate.toDateString() === now.toDateString();
+
+                if (isOverdue || isToday) {
+                    actions.push({
+                        id: `opp-followup-${op.id}`,
+                        opportunityId: op.id,
+                        opportunityTitle: op.title,
+                        companyName: op.clientName || 'Prospecto',
+                        type: 'TASK',
+                        title: `Seguimiento: ${op.title}`,
+                        dueDate: actionDate,
+                        isOverdue: isOverdue,
+                        priority: isOverdue ? 'HIGH' : 'MEDIUM'
+                    });
+                }
+            }
+        });
+
         return actions.sort((a, b) => {
             if (a.priority === 'HIGH' && b.priority !== 'HIGH') return -1;
             if (a.priority !== 'HIGH' && b.priority === 'HIGH') return 1;
