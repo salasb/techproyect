@@ -37,93 +37,94 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // 1. Auth Guard (Login)
+    // 1. Skip middleware for static assets
+    if (request.nextUrl.pathname.match(/\.(svg|png|jpg|jpeg|gif|webp)$/)) {
+        return response;
+    }
+
+    // 2. Auth Guard (Login)
     if (request.nextUrl.pathname.startsWith('/login')) {
         if (user) {
-            // Check role to redirect correctly
-            const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
-            if (profile?.role === 'SUPERADMIN') {
-                return NextResponse.redirect(new URL('/admin', request.url))
-            }
             return NextResponse.redirect(new URL('/dashboard', request.url))
         }
         return response
     }
 
-    if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+    if (!user) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Root Redirect
-    if (request.nextUrl.pathname === '/') {
-        if (user) {
-            const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
-            if (profile?.role === 'SUPERADMIN') {
-                return NextResponse.redirect(new URL('/admin', request.url))
-            }
-            return NextResponse.redirect(new URL('/dashboard', request.url))
+    // 3. Start/Onboarding Guard
+    // Allow access to /start for everyone authenticated
+    if (request.nextUrl.pathname.startsWith('/start')) {
+        return response;
+    }
+
+    // 4. Org Context & Onboarding Enforcement
+    const orgId = request.cookies.get('app-org-id')?.value
+
+    // Fetch default org if not in cookies
+    let currentOrgId = orgId;
+    if (!currentOrgId) {
+        const { data: member } = await supabase
+            .from('OrganizationMember')
+            .select('organizationId')
+            .eq('userId', user.id)
+            .limit(1)
+            .maybeSingle();
+
+        if (member?.organizationId) {
+            currentOrgId = member.organizationId;
+            response.cookies.set('app-org-id', currentOrgId, {
+                httpOnly: false,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 60 * 60 * 24 * 7
+            });
         }
     }
 
-    // 2. Org Context Management
-    if (user && !request.nextUrl.pathname.startsWith('/login')) {
-        const orgId = request.cookies.get('app-org-id')?.value
+    // REDIRECT TO /START IF NO ORG (Except for Superadmins who can roam)
+    if (!currentOrgId && !request.nextUrl.pathname.startsWith('/admin')) {
+        const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
+        if (profile?.role !== 'SUPERADMIN') {
+            return NextResponse.redirect(new URL('/start', request.url));
+        }
+    }
 
-        if (!orgId) {
-            // User authenticated but no Org Context. Fetch default.
-            try {
-                const { data: member } = await supabase
-                    .from('OrganizationMember')
-                    .select('organizationId')
-                    .eq('userId', user.id)
-                    .limit(1)
-                    .single()
+    // 5. Subscription & State Verification
+    if (currentOrgId && !request.nextUrl.pathname.startsWith('/admin')) {
+        const { data: subscription } = await supabase
+            .from('Subscription')
+            .select('status, trialEndsAt')
+            .eq('organizationId', currentOrgId)
+            .maybeSingle();
 
-                if (member?.organizationId) {
-                    // Check if organization is ACTIVE and get user role
-                    const { data: memberData } = await supabase
-                        .from('OrganizationMember')
-                        .select('role, organization:Organization(status)')
-                        .eq('organizationId', member.organizationId)
-                        .eq('userId', user.id)
-                        .single();
-
-                    const orgStatus = (memberData?.organization as any)?.status;
-                    const userRole = memberData?.role;
-
-                    if (orgStatus && orgStatus !== 'ACTIVE' && !request.nextUrl.pathname.startsWith('/pending-activation')) {
-                        return NextResponse.redirect(new URL('/pending-activation', request.url))
-                    }
-
-                    // 3. Role-Based Route Protection (RBAC)
-                    const restrictedPaths = ['/settings/users', '/settings/organization', '/admin'];
-                    const isRestrictedPath = restrictedPaths.some(path => request.nextUrl.pathname.startsWith(path));
-
-                    if (isRestrictedPath) {
-                        const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
-                        const role = profile?.role;
-
-                        if (request.nextUrl.pathname.startsWith('/admin') && role !== 'SUPERADMIN') {
-                            return NextResponse.redirect(new URL('/dashboard', request.url));
-                        }
-
-                        // For other restricted paths, must be ADMIN or SUPERADMIN
-                        if (!request.nextUrl.pathname.startsWith('/admin') && role !== 'ADMIN' && role !== 'SUPERADMIN') {
-                            return NextResponse.redirect(new URL('/dashboard', request.url));
-                        }
-                    }
-
-                    // Set cookie for subsequent requests
-                    response.cookies.set('app-org-id', member.organizationId, {
-                        httpOnly: false,
-                        sameSite: 'lax',
-                        secure: process.env.NODE_ENV === 'production',
-                        maxAge: 60 * 60 * 24 * 7
-                    })
-                }
-            } catch (e) {
-                console.error("Failed to fetch organization context:", e)
+        // Auto-pause trial if expired (Middleware level check)
+        if (subscription?.status === 'TRIALING' && subscription.trialEndsAt) {
+            const now = new Date();
+            const trialEnd = new Date(subscription.trialEndsAt);
+            if (now > trialEnd) {
+                // Update via SQL (Silent update here, next request will see PAUSED)
+                await supabase.from('Subscription').update({ status: 'PAUSED' }).eq('organizationId', currentOrgId);
             }
+        }
+    }
+
+    // 6. Role-Based Route Protection (RBAC)
+    const restrictedPaths = ['/settings/users', '/settings/organization', '/admin'];
+    const isRestrictedPath = restrictedPaths.some(path => request.nextUrl.pathname.startsWith(path));
+
+    if (isRestrictedPath) {
+        const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
+        const role = profile?.role;
+
+        if (request.nextUrl.pathname.startsWith('/admin') && role !== 'SUPERADMIN') {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+
+        if (!request.nextUrl.pathname.startsWith('/admin') && role !== 'ADMIN' && role !== 'SUPERADMIN') {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
         }
     }
 

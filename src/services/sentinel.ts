@@ -17,13 +17,29 @@ export interface SentinelInsight {
 export class SentinelService {
     /**
      * Executes the rule engine for an organization and persists alerts/tasks.
-     * This should be called by a cron job or after key actions.
+     * @param organizationId The organization to analyze.
+     * @param force If true, skips the 15-minute cache check.
      */
-    static async runAnalysis(organizationId: string) {
+    static async runAnalysis(organizationId: string, force: boolean = false) {
         const supabase = await createClient();
         const now = new Date();
 
-        // 1. Fetch Thresholds (Defaults if not set)
+        // 1. Performance: 15-minute TTL Cache Check
+        if (!force) {
+            const { data: stats } = await supabase
+                .from('OrganizationStats')
+                .select('lastSentinelRunAt')
+                .eq('organizationId', organizationId)
+                .maybeSingle(); // Better handle empty
+
+            if (stats?.lastSentinelRunAt) {
+                const lastRun = new Date(stats.lastSentinelRunAt);
+                const diffMins = Math.floor((now.getTime() - lastRun.getTime()) / (1000 * 60));
+                if (diffMins < 15) return; // Skip if run recently
+            }
+        }
+
+        // 2. Fetch Thresholds
         const { data: org } = await supabase.from('Organization').select('settings').eq('id', organizationId).single();
         const settings = (org?.settings as any) || {};
         const thresholds = {
@@ -32,7 +48,7 @@ export class SentinelService {
             quoteFollowupDays: settings.sentinel_quote_followup_days || 5,
         };
 
-        // 2. Rule: Low Margin (S0)
+        // 3. Rule: Low Margin (S0)
         const { data: projects } = await supabase.from('Project').select('*').eq('organizationId', organizationId).neq('status', 'CERRADO');
         if (projects) {
             for (const p of projects) {
@@ -48,7 +64,7 @@ export class SentinelService {
             }
         }
 
-        // 3. Rule: Stock Critical (S1)
+        // 4. Rule: Stock Critical (S1)
         const { data: stockItems } = await supabase.from('Product').select('*').eq('organizationId', organizationId);
         if (stockItems) {
             for (const item of stockItems) {
@@ -66,10 +82,14 @@ export class SentinelService {
             }
         }
 
-        // 4. Rule: Budget Overflow (S1)
+        // 5. Rule: Budget Overflow (S1)
         if (projects) {
             for (const p of projects) {
-                const { data: costs } = await supabase.from('CostEntry').select('amountNet').eq('projectId', p.id);
+                const { data: costs } = await supabase.from('CostEntry')
+                    .select('amountNet')
+                    .eq('projectId', p.id)
+                    .eq('organizationId', organizationId); // Multi-tenancy check
+
                 const totalCost = costs?.reduce((sum, c) => sum + c.amountNet, 0) || 0;
                 if (p.budgetNet > 0 && totalCost > p.budgetNet) {
                     await this.triggerAlert(organizationId, {
@@ -85,7 +105,7 @@ export class SentinelService {
             }
         }
 
-        // 5. Rule: Stale Project (S2)
+        // 6. Rule: Stale Project (S2)
         if (projects) {
             for (const p of projects) {
                 const updatedAt = new Date(p.updatedAt);
@@ -104,8 +124,12 @@ export class SentinelService {
             }
         }
 
-        // 5. Rule: Quote Follow-up (S2)
-        const { data: pendingQuotes } = await supabase.from('Quote').select('*, project:Project(name, company:Company(name))').eq('status', 'SENT');
+        // 7. Rule: Quote Follow-up (S2)
+        const { data: pendingQuotes } = await supabase.from('Quote')
+            .select('*, project:Project(name, company:Company(name))')
+            .eq('organizationId', organizationId) // Multi-tenancy fix
+            .eq('status', 'SENT');
+
         if (pendingQuotes) {
             for (const q of pendingQuotes) {
                 const sentAt = new Date(q.updatedAt);
@@ -124,10 +148,14 @@ export class SentinelService {
             }
         }
 
-        // 6. Rule: Invoice Near Due (S3)
+        // 8. Rule: Invoice Near Due (S3)
         const in2Days = new Date(now);
         in2Days.setDate(now.getDate() + 2);
-        const { data: invoices } = await supabase.from('Invoice').select('*, project:Project(name)').eq('sent', true);
+        const { data: invoices } = await supabase.from('Invoice')
+            .select('*, project:Project(name)')
+            .eq('organizationId', organizationId) // Multi-tenancy fix
+            .eq('sent', true);
+
         if (invoices) {
             for (const inv of invoices) {
                 if (inv.dueDate) {
@@ -146,11 +174,17 @@ export class SentinelService {
                 }
             }
         }
+
+        // 9. Update lastSentinelRunAt
+        await supabase.from('OrganizationStats').upsert({
+            organizationId,
+            lastSentinelRunAt: now.toISOString()
+        }, { onConflict: 'organizationId' });
     }
 
     /**
      * Internal helper to create an alert and optionally a task.
-     * Prevents duplicate alerts for the same condition.
+     * Prevents duplicate alerts and tasks for the same condition.
      */
     private static async triggerAlert(organizationId: string, params: {
         type: SentinelType,
@@ -163,39 +197,50 @@ export class SentinelService {
     }) {
         const supabase = await createClient();
 
-        // Check for existing open alert for this entity
-        const { data: existing } = await supabase.from('SentinelAlert')
+        // 1. Idempotency Check: Existing Open Alert
+        const { data: existingAlert } = await supabase.from('SentinelAlert')
             .select('id')
             .eq('organizationId', organizationId)
             .eq('type', params.type)
             .eq('status', 'OPEN')
             .contains('metadata', params.metadata)
-            .single();
+            .maybeSingle();
 
-        if (existing) return;
-
-        // 1. Create Alert
-        const { data: alert } = await supabase.from('SentinelAlert').insert({
-            organizationId,
-            type: params.type,
-            severity: params.severity,
-            title: params.title,
-            message: params.message,
-            metadata: params.metadata,
-            status: 'OPEN'
-        }).select().single();
-
-        // 2. Create Task if required
-        if (params.createTask && params.taskTitle && params.metadata.projectId) {
-            await supabase.from('Task').insert({
+        // 2. Alert Generation
+        if (!existingAlert) {
+            await supabase.from('SentinelAlert').insert({
                 organizationId,
-                projectId: params.metadata.projectId,
-                title: params.taskTitle,
-                description: `Generada automáticamente por Sentinel: ${params.message}`,
-                priority: params.severity === 'S0' || params.severity === 'S1' ? 1 : 0,
-                type: 'SENTINEL',
-                dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // Default 24h
+                type: params.type,
+                severity: params.severity,
+                title: params.title,
+                message: params.message,
+                metadata: params.metadata,
+                status: 'OPEN'
             });
+        }
+
+        // 3. Task Generation with Deduplication
+        if (params.createTask && params.taskTitle && params.metadata.projectId) {
+            const { data: existingTask } = await supabase.from('Task')
+                .select('id')
+                .eq('organizationId', organizationId)
+                .eq('projectId', params.metadata.projectId)
+                .eq('title', params.taskTitle)
+                .eq('status', 'PENDING')
+                .eq('type', 'SENTINEL')
+                .maybeSingle();
+
+            if (!existingTask) {
+                await supabase.from('Task').insert({
+                    organizationId,
+                    projectId: params.metadata.projectId,
+                    title: params.taskTitle,
+                    description: `Generada automáticamente por Sentinel: ${params.message}`,
+                    priority: params.severity === 'S0' || params.severity === 'S1' ? 1 : 0,
+                    type: 'SENTINEL',
+                    dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
+                });
+            }
         }
     }
 

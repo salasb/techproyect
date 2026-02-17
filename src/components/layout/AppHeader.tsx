@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { NotificationCenter } from "./NotificationCenter";
+import { OrgSwitcher } from "./OrgSwitcher";
 
-export function AppHeader({ profile }: { profile?: any }) {
+export function AppHeader({ profile, currentOrgId }: { profile?: any; currentOrgId?: string }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [showResults, setShowResults] = useState(false);

@@ -33,9 +33,10 @@ const periodLabels: Record<string, string> = {
     'all': 'Histórico Completo'
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string; sentinel_force?: string }> }) {
     const params = await searchParams;
     const period = params?.period || '30d';
+    const isSentinelForce = params?.sentinel_force === 'true';
     const supabase = await createClient();
 
     // 1. Fetch Data (Server Side)
@@ -66,10 +67,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const opportunities = opportunitiesRes.data || [];
     const orgId = await getOrganizationId();
 
-    // 2. Trigger Sentinel Analysis (Optional: could be moved to background job, but here for live feedback)
+    // 2. Trigger Sentinel Analysis (Proactive Layer)
     if (orgId) {
         await Promise.all([
-            SentinelService.runAnalysis(orgId),
+            SentinelService.runAnalysis(orgId, isSentinelForce),
             SentinelService.updateOrgStats(orgId)
         ]);
     }

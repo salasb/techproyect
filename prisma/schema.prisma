@@ -239,6 +239,7 @@ model Organization {
   tasks              Task[]
   alerts             SentinelAlert[]
   stats              OrganizationStats?
+  subscription       Subscription?
   Opportunity        Opportunity[]
   Client             Client[]
   Company            Company[]
@@ -252,15 +253,35 @@ model Organization {
   SaleNote           SaleNote[]
   UserInvitation     UserInvitation[]
   OrganizationMember OrganizationMember[]
+  mode               OrganizationMode     @default(SOLO)
+}
+
+model Subscription {
+  id                     String             @id @default(uuid())
+  organizationId         String             @unique @db.Uuid
+  status                 SubscriptionStatus @default(TRIALING)
+  planCode               String             @default("FREE")
+  trialEndsAt            DateTime?
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  seatLimit              Int                @default(1)
+  provider               String? // e.g., 'stripe'
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  organization           Organization       @relation(fields: [organizationId], references: [id])
 }
 
 model OrganizationMember {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String?       @db.Uuid
-  userId         String?       @db.Uuid
-  role           String?       @default("admin")
-  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?          @db.Uuid
+  userId         String?          @db.Uuid
+  role           String?          @default("admin")
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  organization   Organization?    @relation(fields: [organizationId], references: [id])
 }
 
 model UserInvitation {
@@ -286,6 +307,25 @@ enum OrganizationPlan {
   PRO
   ENTERPRISE
   INVENTORY_ONLY
+}
+
+enum OrganizationMode {
+  SOLO
+  TEAM
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAUSED
+  PAST_DUE
+  CANCELED
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
 }
 
 enum ProjectStatus {
@@ -410,7 +450,8 @@ model OrganizationStats {
   quotesCount      Int          @default(0)
   projectsCount    Int          @default(0)
   inventoryCount   Int          @default(0)
-  lastActivityAt   DateTime     @default(now())
+  lastActivityAt    DateTime     @default(now())
+  lastSentinelRunAt DateTime?
   healthScore      Int          @default(100)
   organization     Organization @relation(fields: [organizationId], references: [id])
 }
