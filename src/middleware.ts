@@ -75,7 +75,7 @@ export async function updateSession(request: NextRequest) {
 
         if (member?.organizationId) {
             currentOrgId = member.organizationId;
-            response.cookies.set('app-org-id', currentOrgId, {
+            response.cookies.set('app-org-id', currentOrgId as string, {
                 httpOnly: false,
                 sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',

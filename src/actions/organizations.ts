@@ -114,7 +114,7 @@ export async function getUserOrganizations() {
 
     return prisma.organization.findMany({
         where: {
-            organizationMember: {
+            OrganizationMember: {
                 some: {
                     userId: user.id,
                     status: 'ACTIVE'
