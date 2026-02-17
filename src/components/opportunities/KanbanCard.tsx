@@ -11,6 +11,8 @@ type Opportunity = Database['public']['Tables']['Opportunity']['Row'] & {
     Client: {
         name: string;
     } | null;
+    lastInteractionDate?: string | null;
+    nextInteractionDate?: string | null;
 };
 
 interface Props {
@@ -74,28 +76,42 @@ export function KanbanCard({ opportunity }: Props) {
             </div>
 
             <div className="flex justify-between items-center text-[10px] text-zinc-400 border-t pt-2 mt-1">
-                <div className="flex flex-col gap-1">
-                    <span className="flex items-center" title="Fecha de cierre esperada">
-                        <Calendar className="w-3 h-3 mr-1 opacity-50" />
-                        {opportunity.expectedCloseDate ? format(new Date(opportunity.expectedCloseDate), 'dd MMM', { locale: es }) : 'Sin fecha'}
-                    </span>
-
-                    {opportunity.nextInteractionDate && (
-                        <span className={`flex items-center font-medium ${new Date(opportunity.nextInteractionDate) < new Date()
-                            ? 'text-red-600'
-                            : 'text-zinc-500'
-                            }`} title="Próximo contacto">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {format(new Date(opportunity.nextInteractionDate), 'dd MMM HH:mm', { locale: es })}
+                {/* Last Activity */}
+                <span className="flex items-center" title="Última actividad">
+                    <Clock className="w-3 h-3 mr-1 opacity-50" />
+                    {opportunity.lastInteractionDate ? (
+                        <span className="text-zinc-600">
+                            {format(new Date(opportunity.lastInteractionDate), 'dd MMM', { locale: es })}
                         </span>
+                    ) : (
+                        <span className="text-zinc-400 italic">Sin actividad</span>
                     )}
-                </div>
+                </span>
 
-                <div className='opacity-0 group-hover:opacity-100 transition-opacity'>
-                    <Link href={`/crm/opportunities/${opportunity.id}`} className="hover:bg-zinc-100 p-1 rounded-md block">
-                        <MoreHorizontal className="w-4 h-4" />
-                    </Link>
-                </div>
+                {/* Next Follow Up */}
+                {opportunity.nextInteractionDate && (
+                    <span className={`flex items-center font-medium mt-1 ${new Date(opportunity.nextInteractionDate) < new Date()
+                        ? 'text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md border border-red-100'
+                        : 'text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100'
+                        }`} title="Próximo contacto programado">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {format(new Date(opportunity.nextInteractionDate), 'dd MMM', { locale: es })}
+                    </span>
+                )}
+
+                {/* Close Date */}
+                {opportunity.expectedCloseDate && (
+                    <span className="flex items-center mt-1 text-zinc-400" title="Fecha de cierre esperada">
+                        <DollarSign className="w-3 h-3 mr-1 opacity-50" />
+                        Cierre: {format(new Date(opportunity.expectedCloseDate), 'dd MMM', { locale: es })}
+                    </span>
+                )}
+            </div>
+
+            <div className='opacity-0 group-hover:opacity-100 transition-opacity'>
+                <Link href={`/crm/opportunities/${opportunity.id}`} className="hover:bg-zinc-100 p-1 rounded-md block">
+                    <MoreHorizontal className="w-4 h-4" />
+                </Link>
             </div>
         </div>
     );

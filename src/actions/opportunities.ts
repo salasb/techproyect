@@ -207,3 +207,104 @@ export async function deleteOpportunity(id: string) {
     revalidatePath('/crm');
     return { success: true };
 }
+
+export async function convertOpportunityToProject(opportunityId: string) {
+    const supabase = await createClient();
+    const orgId = await getOrganizationId();
+
+    // 1. Fetch Opportunity with Client
+    const { data: opp, error: fetchError } = await supabase
+        .from('Opportunity')
+        .select(`
+            *,
+            Client:clientId (*)
+        `)
+        .eq('id', opportunityId)
+        .single();
+
+    if (fetchError || !opp) {
+        throw new Error("No se pudo encontrar la oportunidad");
+    }
+
+    // 2. Sync/Create Company
+    let companyId = "";
+    const clientName = opp.Client?.name || "Cliente S/N";
+
+    const { data: existingCompany } = await supabase
+        .from('Company')
+        .select('id')
+        .eq('name', clientName)
+        .eq('organizationId', orgId)
+        .maybeSingle();
+
+    if (existingCompany) {
+        companyId = existingCompany.id;
+    } else {
+        const { data: newCompany, error: companyError } = await supabase
+            .from('Company')
+            .insert({
+                id: crypto.randomUUID(),
+                name: clientName,
+                organizationId: orgId,
+                email: opp.Client?.email,
+                phone: opp.Client?.phone,
+                contactName: opp.Client?.contactName,
+                address: opp.Client?.address
+            })
+            .select()
+            .single();
+
+        if (companyError || !newCompany) {
+            throw new Error("Error al crear la empresa para el proyecto");
+        }
+        companyId = newCompany.id;
+    }
+
+    // 3. Create Project
+    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const projectId = `PRJ-${dateStr}-${randomSuffix}`;
+
+    const { error: projectError } = await supabase
+        .from('Project')
+        .insert({
+            id: projectId,
+            organizationId: orgId,
+            name: opp.title,
+            companyId: companyId,
+            clientId: opp.clientId,
+            status: "EN_ESPERA",
+            stage: "LEVANTAMIENTO",
+            startDate: new Date().toISOString(),
+            plannedEndDate: opp.expectedCloseDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            budgetNet: opp.value || 0,
+            responsible: "TBD",
+            scopeDetails: opp.description || null,
+            nextAction: 'Revisión técnica inicial',
+            nextActionDate: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+        });
+
+    if (projectError) {
+        console.error("Error creating project from opportunity:", projectError);
+        throw new Error("Error al formalizar el proyecto");
+    }
+
+    // 4. Update Interaction to link to New Project
+    await supabase
+        .from('Interaction')
+        .update({ projectId: projectId })
+        .eq('opportunityId', opportunityId);
+
+    // 5. Update Opportunity (Optionally delete or mark as Converted)
+    // We'll keep it as WON for history but maybe we could add a flag if schema allowed.
+    // For now, just revalidate.
+
+    revalidatePath('/projects');
+    revalidatePath('/crm/pipeline');
+    revalidatePath(`/crm/opportunities/${opportunityId}`);
+
+    return { success: true, projectId };
+}
+

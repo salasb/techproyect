@@ -4,11 +4,11 @@ import { useState, useTransition } from 'react';
 import { Database } from '@/types/supabase';
 import { Button } from '@/components/ui/button';
 import { EditOpportunityModal } from '@/components/opportunities/EditOpportunityModal';
-import { deleteOpportunity, updateOpportunityStage } from '@/actions/opportunities';
+import { deleteOpportunity, updateOpportunityStage, convertOpportunityToProject } from '@/actions/opportunities';
 import { useToast } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Rocket } from 'lucide-react';
 
 type Opportunity = Database['public']['Tables']['Opportunity']['Row'];
 
@@ -46,6 +46,20 @@ export function OpportunityActions({ opportunity }: Props) {
         });
     };
 
+    const handleConvert = () => {
+        startTransition(async () => {
+            try {
+                const result = await convertOpportunityToProject(opportunity.id);
+                if (result.success) {
+                    toast({ type: 'success', message: '¡Proyecto creado con éxito!' });
+                    router.push(`/projects/${result.projectId}/quote`);
+                }
+            } catch (error: any) {
+                toast({ type: 'error', message: error.message || 'Error al formalizar proyecto' });
+            }
+        });
+    };
+
     return (
         <>
             <div className="flex items-center gap-3">
@@ -58,6 +72,21 @@ export function OpportunityActions({ opportunity }: Props) {
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
                         {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Marcar Ganada'}
+                    </Button>
+                )}
+
+                {opportunity.stage === 'WON' && (
+                    <Button
+                        onClick={handleConvert}
+                        disabled={isPending}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20"
+                    >
+                        {isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                            <Rocket className="w-4 h-4 mr-2" />
+                        )}
+                        Formalizar Proyecto
                     </Button>
                 )}
 

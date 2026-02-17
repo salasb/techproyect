@@ -57,7 +57,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
     if (view === 'inventory') {
         const inventoryMetrics = await getInventoryMetrics(locationId);
         return (
-            <div className="space-y-6">
+            <div className="space-y-6 max-w-7xl mx-auto">
                 {header}
                 <InventoryAnalytics metrics={inventoryMetrics} />
             </div>
@@ -116,7 +116,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
     const pendingQuotes = processedProjects.filter((p: any) => p.stage === 'LEVANTAMIENTO').length;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-7xl mx-auto">
             {header}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

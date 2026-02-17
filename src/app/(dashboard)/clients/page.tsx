@@ -7,7 +7,7 @@ export default async function ClientsPage() {
     const clients = await getClients();
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-8 space-y-8 max-w-7xl mx-auto">
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Clientes</h1>

@@ -44,7 +44,7 @@ export default async function SettingsPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-7xl mx-auto space-y-8">
             <div>
                 <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Configuración del Sistema</h2>
                 <p className="text-zinc-500 dark:text-zinc-400 mt-1">Ajusta los parámetros globales y revisa el historial de cambios.</p>
