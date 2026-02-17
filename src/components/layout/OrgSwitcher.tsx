@@ -15,6 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
     const [organizations, setOrganizations] = useState<any[]>([]);
