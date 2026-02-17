@@ -1,165 +1,284 @@
 import { createClient } from "@/lib/supabase/server";
+import { Database } from "@/types/supabase";
+
+export type SentinelSeverity = 'S0' | 'S1' | 'S2' | 'S3';
+export type SentinelType = 'STOCK_CRITICAL' | 'BUDGET_OVERFLOW' | 'INVOICE_OVERDUE' | 'STALE_PROJECT' | 'LOW_MARGIN' | 'QUOTE_FOLLOWUP';
 
 export interface SentinelInsight {
     id: string;
-    type: 'STOCK_CRITICAL' | 'BUDGET_OVERFLOW' | 'INVOICE_OVERDUE' | 'INFO';
-    severity: 'high' | 'medium' | 'low';
+    severity: 'high' | 'amber' | 'info';
+    type: string;
     title: string;
     message: string;
-    actionLabel: string;
     actionHref: string;
+    actionLabel: string;
 }
 
 export class SentinelService {
     /**
-     * Analyzes current organization data and returns proactive insights.
+     * Executes the rule engine for an organization and persists alerts/tasks.
+     * This should be called by a cron job or after key actions.
      */
-    static async getInsights(organizationId: string): Promise<SentinelInsight[]> {
+    static async runAnalysis(organizationId: string) {
         const supabase = await createClient();
-        const insights: SentinelInsight[] = [];
+        const now = new Date();
 
-        // 1. Rule: Stock Critical
-        const { data: lowStockProducts } = await supabase
-            .from("Product")
-            .select("id, name, stock, min_stock")
-            .eq("organizationId", organizationId)
-            .lte("stock", supabase.rpc('get_min_stock_reference' as any)) // Hypothetical logic, let's use JS filter for safety if RLS/View is complex
-            .not("type", "eq", "SERVICE");
+        // 1. Fetch Thresholds (Defaults if not set)
+        const { data: org } = await supabase.from('Organization').select('settings').eq('id', organizationId).single();
+        const settings = (org?.settings as any) || {};
+        const thresholds = {
+            marginMin: settings.sentinel_margin_min || 15,
+            staleDays: settings.sentinel_stale_project_days || 7,
+            quoteFollowupDays: settings.sentinel_quote_followup_days || 5,
+        };
 
-        // Real check in JS for accuracy
-        if (lowStockProducts) {
-            lowStockProducts.forEach(p => {
-                if (p.stock <= p.min_stock) {
-                    insights.push({
-                        id: `stock-${p.id}`,
-                        type: 'STOCK_CRITICAL',
-                        severity: 'high',
-                        title: `Stock Crítico: ${p.name}`,
-                        message: `Solo quedan ${p.stock} unidades (Mínimo: ${p.min_stock}). Se recomienda reponer.`,
-                        actionLabel: "Ver Inventario",
-                        actionHref: "/catalog"
-                    });
-                }
-            });
-        }
-
-        // 2. Rule: Budget Overflow
-        const { data: projects } = await supabase
-            .from("Project")
-            .select("id, name, budgetNet")
-            .eq("organizationId", organizationId)
-            .neq("status", "CERRADO");
-
+        // 2. Rule: Low Margin (S0)
+        const { data: projects } = await supabase.from('Project').select('*').eq('organizationId', organizationId).neq('status', 'CERRADO');
         if (projects) {
-            for (const project of projects) {
-                const { data: costs } = await supabase
-                    .from("CostEntry")
-                    .select("amountNet")
-                    .eq("projectId", project.id);
-
-                const totalCost = costs?.reduce((acc, curr) => acc + curr.amountNet, 0) || 0;
-
-                if (project.budgetNet > 0 && totalCost > project.budgetNet) {
-                    insights.push({
-                        id: `budget-${project.id}`,
-                        type: 'BUDGET_OVERFLOW',
-                        severity: 'high',
-                        title: `Sobrecosto en ${project.name}`,
-                        message: `Los costos ($${totalCost.toLocaleString()}) han superado el presupuesto neto ($${project.budgetNet.toLocaleString()}).`,
-                        actionLabel: "Revisar Finanzas",
-                        actionHref: `/projects/${project.id}/finances`
-                    });
-                } else if (project.budgetNet > 0 && totalCost > project.budgetNet * 0.9) {
-                    insights.push({
-                        id: `budget-${project.id}`,
-                        type: 'BUDGET_OVERFLOW',
-                        severity: 'medium',
-                        title: `Alerta Presupuesto: ${project.name}`,
-                        message: `Has consumido el 90% del presupuesto.`,
-                        actionLabel: "Ver Detalle",
-                        actionHref: `/projects/${project.id}/finances`
+            for (const p of projects) {
+                if (p.marginPct * 100 < thresholds.marginMin) {
+                    await this.triggerAlert(organizationId, {
+                        type: 'LOW_MARGIN',
+                        severity: 'S0',
+                        title: `Margen Crítico: ${p.name}`,
+                        message: `El margen proyectado (${(p.marginPct * 100).toFixed(1)}%) es inferior al umbral del ${thresholds.marginMin}%.`,
+                        metadata: { projectId: p.id }
                     });
                 }
             }
         }
 
-        // 3. Rule: Invoices Overdue
-        const { data: overdueInvoices } = await supabase
-            .from("Invoice")
-            .select("id, projectId, amountInvoicedGross, dueDate, project:Project(name)")
-            .eq("organizationId", organizationId)
-            .eq("sent", true)
-            .lt("dueDate", new Date().toISOString())
-            .filter("amountPaidGross", "lt", supabase.from("Invoice").select("amountInvoicedGross") as any); // Simplification for logic
-
-        if (overdueInvoices) {
-            // Refine in JS to check balance
-            const realOverdue = overdueInvoices.filter((inv: any) => {
-                const total = inv.amountInvoicedGross || 0;
-                const paid = (inv as any).amountPaidGross || 0;
-                return total > paid;
-            });
-
-            realOverdue.forEach((inv: any) => {
-                insights.push({
-                    id: `invoice-${inv.id}`,
-                    type: 'INVOICE_OVERDUE',
-                    severity: 'high',
-                    title: `Factura Vencida: $${inv.amountInvoicedGross.toLocaleString()}`,
-                    message: `La factura del proyecto "${inv.project?.name}" venció el ${new Date(inv.dueDate).toLocaleDateString()}.`,
-                    actionLabel: "Ver Facturas",
-                    actionHref: "/invoices"
-                });
-            });
+        // 3. Rule: Stock Critical (S1)
+        const { data: stockItems } = await supabase.from('Product').select('*').eq('organizationId', organizationId);
+        if (stockItems) {
+            for (const item of stockItems) {
+                if (item.stock <= (item.min_stock || 0)) {
+                    await this.triggerAlert(organizationId, {
+                        type: 'STOCK_CRITICAL',
+                        severity: 'S1',
+                        title: `Quiebre de Stock: ${item.name}`,
+                        message: `Stock actual: ${item.stock}. Mínimo configurado: ${item.min_stock}.`,
+                        metadata: { productId: item.id },
+                        createTask: true,
+                        taskTitle: `Reponer stock: ${item.name}`
+                    });
+                }
+            }
         }
 
-        return insights;
+        // 4. Rule: Budget Overflow (S1)
+        if (projects) {
+            for (const p of projects) {
+                const { data: costs } = await supabase.from('CostEntry').select('amountNet').eq('projectId', p.id);
+                const totalCost = costs?.reduce((sum, c) => sum + c.amountNet, 0) || 0;
+                if (p.budgetNet > 0 && totalCost > p.budgetNet) {
+                    await this.triggerAlert(organizationId, {
+                        type: 'BUDGET_OVERFLOW',
+                        severity: 'S1',
+                        title: `Presupuesto Excedido: ${p.name}`,
+                        message: `Costos actuales ($${totalCost.toLocaleString()}) superan el presupuesto neto ($${p.budgetNet.toLocaleString()}).`,
+                        metadata: { projectId: p.id },
+                        createTask: true,
+                        taskTitle: `Auditar costos excedidos: ${p.name}`
+                    });
+                }
+            }
+        }
+
+        // 5. Rule: Stale Project (S2)
+        if (projects) {
+            for (const p of projects) {
+                const updatedAt = new Date(p.updatedAt);
+                const diffDays = Math.ceil(Math.abs(now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays > thresholds.staleDays) {
+                    await this.triggerAlert(organizationId, {
+                        type: 'STALE_PROJECT',
+                        severity: 'S2',
+                        title: `Proyecto Estancado: ${p.name}`,
+                        message: `Sin actividad registrada en los últimos ${diffDays} días.`,
+                        metadata: { projectId: p.id },
+                        createTask: true,
+                        taskTitle: `Revisar estado de proyecto: ${p.name}`
+                    });
+                }
+            }
+        }
+
+        // 5. Rule: Quote Follow-up (S2)
+        const { data: pendingQuotes } = await supabase.from('Quote').select('*, project:Project(name, company:Company(name))').eq('status', 'SENT');
+        if (pendingQuotes) {
+            for (const q of pendingQuotes) {
+                const sentAt = new Date(q.updatedAt);
+                const diffDays = Math.ceil(Math.abs(now.getTime() - sentAt.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays > thresholds.quoteFollowupDays) {
+                    await this.triggerAlert(organizationId, {
+                        type: 'QUOTE_FOLLOWUP',
+                        severity: 'S2',
+                        title: `Seguimiento Cotización: ${(q as any).project?.name}`,
+                        message: `Enviada hace ${diffDays} días sin respuesta del cliente (${(q as any).project?.company?.name}).`,
+                        metadata: { quoteId: q.id, projectId: q.projectId },
+                        createTask: true,
+                        taskTitle: `Llamar para seguimiento v${q.version}: ${(q as any).project?.name}`
+                    });
+                }
+            }
+        }
+
+        // 6. Rule: Invoice Near Due (S3)
+        const in2Days = new Date(now);
+        in2Days.setDate(now.getDate() + 2);
+        const { data: invoices } = await supabase.from('Invoice').select('*, project:Project(name)').eq('sent', true);
+        if (invoices) {
+            for (const inv of invoices) {
+                if (inv.dueDate) {
+                    const dueDate = new Date(inv.dueDate);
+                    if (dueDate.toDateString() === in2Days.toDateString()) {
+                        await this.triggerAlert(organizationId, {
+                            type: 'INVOICE_OVERDUE',
+                            severity: 'S3',
+                            title: `Vencimiento Próximo: ${inv.id.slice(0, 8)}`,
+                            message: `La factura del proyecto "${(inv as any).project?.name}" vence en 48 horas.`,
+                            metadata: { invoiceId: inv.id, projectId: inv.projectId },
+                            createTask: true,
+                            taskTitle: `Recordatorio de pago: ${(inv as any).project?.name}`
+                        });
+                    }
+                }
+            }
+        }
     }
 
     /**
-     * GLobal System Health for Super Admins.
+     * Internal helper to create an alert and optionally a task.
+     * Prevents duplicate alerts for the same condition.
      */
-    static async getGlobalSystemHealth(): Promise<SentinelInsight[]> {
+    private static async triggerAlert(organizationId: string, params: {
+        type: SentinelType,
+        severity: SentinelSeverity,
+        title: string,
+        message: string,
+        metadata: any,
+        createTask?: boolean,
+        taskTitle?: string
+    }) {
         const supabase = await createClient();
-        const insights: SentinelInsight[] = [];
 
-        // 1. Pending Organizations
-        const { count: pendingOrgs } = await supabase
-            .from("Organization")
-            .select("*", { count: 'exact', head: true })
-            .eq('status', 'PENDING');
+        // Check for existing open alert for this entity
+        const { data: existing } = await supabase.from('SentinelAlert')
+            .select('id')
+            .eq('organizationId', organizationId)
+            .eq('type', params.type)
+            .eq('status', 'OPEN')
+            .contains('metadata', params.metadata)
+            .single();
 
-        if (pendingOrgs && pendingOrgs > 0) {
-            insights.push({
-                id: 'sys-pending-orgs',
-                type: 'INFO',
-                severity: 'medium',
-                title: 'Solicitudes de Organización Pendientes',
-                message: `Hay ${pendingOrgs} organizaciones esperando activación.`,
-                actionLabel: "Revisar",
-                actionHref: "/admin"
+        if (existing) return;
+
+        // 1. Create Alert
+        const { data: alert } = await supabase.from('SentinelAlert').insert({
+            organizationId,
+            type: params.type,
+            severity: params.severity,
+            title: params.title,
+            message: params.message,
+            metadata: params.metadata,
+            status: 'OPEN'
+        }).select().single();
+
+        // 2. Create Task if required
+        if (params.createTask && params.taskTitle && params.metadata.projectId) {
+            await supabase.from('Task').insert({
+                organizationId,
+                projectId: params.metadata.projectId,
+                title: params.taskTitle,
+                description: `Generada automáticamente por Sentinel: ${params.message}`,
+                priority: params.severity === 'S0' || params.severity === 'S1' ? 1 : 0,
+                type: 'SENTINEL',
+                dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // Default 24h
             });
         }
+    }
 
-        // 2. System Errors (Audit Log)
-        const { count: errors } = await supabase
-            .from("AuditLog")
-            .select("*", { count: 'exact', head: true })
-            .eq('action', 'ERROR') // Assuming we log errors here, or check recent failures
-            .gt('createdAt', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+    /**
+     * Gets active alerts for an organization.
+     */
+    static async getActiveAlerts(organizationId: string) {
+        const supabase = await createClient();
+        return supabase.from('SentinelAlert')
+            .select('*')
+            .eq('organizationId', organizationId)
+            .neq('status', 'RESOLVED')
+            .order('severity', { ascending: true })
+            .order('createdAt', { ascending: false });
+    }
 
-        if (errors && errors > 0) {
-            insights.push({
-                id: 'sys-errors',
-                type: 'INFO',
-                severity: 'high',
-                title: 'Errores del Sistema (24h)',
-                message: `Se han registrado ${errors} errores críticos en las últimas 24 horas.`,
-                actionLabel: "Ver Logs",
-                actionHref: "/admin/logs"
-            });
+    /**
+     * Get a high-level system health summary for Superadmins
+     */
+    static async getGlobalSystemHealth() {
+        const supabase = await createClient();
+
+        // Count active organizations with serious alerts (S0, S1)
+        const { data: alerts } = await supabase
+            .from('SentinelAlert')
+            .select('severity, status')
+            .in('severity', ['S0', 'S1'])
+            .eq('status', 'OPEN');
+
+        const { count: orgCount } = await supabase
+            .from('Organization')
+            .select('*', { count: 'exact', head: true });
+
+        const criticalCount = alerts?.length || 0;
+
+        return {
+            status: criticalCount > (orgCount || 0) * 0.5 ? 'review' : 'optimal',
+            checksCount: 5, // Number of rules active
+            criticalAlerts: criticalCount,
+            lastGlobalCheck: new Date().toISOString()
+        };
+    }
+
+    /**
+     * Updates organization statistics for Superadmin dashboard.
+     */
+    static async updateOrgStats(organizationId: string) {
+        const supabase = await createClient();
+
+        // 1. Count modules usage
+        const [crmRes, quotesRes, projectsRes, invRes] = await Promise.all([
+            supabase.from('Opportunity').select('*', { count: 'exact', head: true }).eq('organizationId', organizationId),
+            supabase.from('Quote').select('*', { count: 'exact', head: true }).eq('organizationId', organizationId),
+            supabase.from('Project').select('*', { count: 'exact', head: true }).eq('organizationId', organizationId),
+            supabase.from('Product').select('*', { count: 'exact', head: true }).eq('organizationId', organizationId)
+        ]);
+
+        // 2. Activation metric (Days to 1st Quote)
+        let daysToFirstQuote = null;
+        const { data: firstQuote } = await supabase.from('Quote')
+            .select('createdAt')
+            .eq('organizationId', organizationId)
+            .order('createdAt', { ascending: true })
+            .limit(1)
+            .single();
+
+        if (firstQuote) {
+            const { data: org } = await supabase.from('Organization').select('createdAt').eq('id', organizationId).single();
+            if (org) {
+                const diff = new Date(firstQuote.createdAt).getTime() - new Date(org.createdAt).getTime();
+                daysToFirstQuote = Math.floor(diff / (1000 * 60 * 60 * 24));
+            }
         }
 
-        return insights;
+        // 3. Upsert Stats
+        await supabase.from('OrganizationStats').upsert({
+            organizationId,
+            crmCount: crmRes.count || 0,
+            quotesCount: quotesRes.count || 0,
+            projectsCount: projectsRes.count || 0,
+            inventoryCount: invRes.count || 0,
+            daysToFirstQuote,
+            lastActivityAt: new Date().toISOString()
+        }, { onConflict: 'organizationId' });
     }
 }

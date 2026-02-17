@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { NotificationCenter } from "./NotificationCenter";
 
 export function AppHeader({ profile }: { profile?: any }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -170,16 +171,7 @@ export function AppHeader({ profile }: { profile?: any }) {
 
             <div className="flex items-center space-x-4">
                 <ThemeToggle />
-                <div className="relative group">
-                    <button className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors relative">
-                        <Bell className="w-5 h-5" />
-                        {/* Only show if we had real notifications logic. For now, removed static red dot per user request. */}
-                        {/* <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-zinc-950"></span> */}
-                    </button>
-                    <div className="absolute right-0 top-full mt-2 w-64 p-4 bg-card border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
-                        <p className="text-sm text-center text-muted-foreground">Sin notificaciones nuevas</p>
-                    </div>
-                </div>
+                <NotificationCenter organizationId={userProfile?.organizationId} />
 
                 <div className="flex items-center space-x-3 pl-4 border-l border-zinc-200 dark:border-zinc-800">
                     <div className="flex flex-col text-right hidden sm:block leading-tight">

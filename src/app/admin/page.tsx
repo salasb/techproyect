@@ -1,136 +1,128 @@
 import { createClient } from "@/lib/supabase/server";
-import { Building2, Users, FolderKanban, ShieldAlert, Zap } from "lucide-react";
+import { Building2, Users, FolderKanban, ShieldAlert, Zap, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { SentinelService } from "@/services/sentinel";
-import { SentinelWidget } from "@/components/dashboard/SentinelWidget";
+import { AdminService } from "@/services/adminService";
+import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
 
 export default async function AdminDashboard() {
-    const supabase = await createClient();
-
-    // Global Sentinel Insights
-    const globalInsights = await SentinelService.getGlobalSystemHealth();
-
-    // Stats fetching
-    const { count: totalOrgs } = await supabase.from("Organization").select("*", { count: 'exact', head: true });
-    const { count: totalProjects } = await supabase.from("Project").select("*", { count: 'exact', head: true });
-    // Optimize: Single query or parallel
-    const { count: pendingOrgs } = await supabase.from("Organization").select("*", { count: 'exact', head: true }).eq('status', 'PENDING');
-    const { count: totalUsers } = await supabase.from("Profile").select("*", { count: 'exact', head: true });
+    // 1. Fetch Global Insights & Stats
+    const [globalInsights, globalStats, saasMetrics] = await Promise.all([
+        SentinelService.getGlobalSystemHealth(),
+        AdminService.getGlobalStats(),
+        AdminService.getSaaSMetrics()
+    ]);
 
     const stats = [
         {
-            label: "Total Organizaciones",
-            value: totalOrgs || 0,
+            label: "Organizaciones",
+            value: globalStats.totalOrganizations,
             icon: Building2,
             color: "text-blue-600",
             bg: "bg-blue-50",
-            sub: `${pendingOrgs || 0} pendientes de activación`
+            sub: "Empresas registradas"
         },
         {
-            label: "Usuarios Totales",
-            value: totalUsers || 0,
+            label: "Usuarios",
+            value: globalStats.totalUsers,
             icon: Users,
             color: "text-purple-600",
             bg: "bg-purple-50",
-            sub: "En todas las empresas"
+            sub: "Globalmente"
         },
         {
-            label: "Proyectos Activos",
-            value: totalProjects || 0,
+            label: "Proyectos",
+            value: globalStats.totalProjects,
             icon: FolderKanban,
             color: "text-emerald-600",
             bg: "bg-emerald-50",
-            sub: "Globalmente"
+            sub: "Actividad total"
         },
     ];
 
-    // Fetch recent orgs for preview
-    const { data: recentOrgs } = await supabase
-        .from("Organization")
-        .select("*, members:OrganizationMember(count)")
-        .order("createdAt", { ascending: false })
-        .limit(5);
-
     return (
-        <div className="space-y-8 animate-in fade-in duration-700">
-            <div className="flex justify-between items-center">
+        <div className="space-y-8 animate-in fade-in duration-700 pb-10">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">System Overview</h1>
-                    <p className="text-slate-500 font-medium">Panel de control global para Administradores de TechWise</p>
+                    <h1 className="text-3xl font-extrabold text-foreground tracking-tight bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent">SaaS Intelligence</h1>
+                    <p className="text-muted-foreground font-medium">Panel de control estratégico para SuperAdministradores TechWise.</p>
                 </div>
-                <div className="flex gap-2">
-                    {/* Sentinel Widget for Global Admin */}
+                <div className="flex items-center gap-3">
+                    <button className="bg-white dark:bg-zinc-800 border border-border px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 transition-all flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4" /> Reporte Global
+                    </button>
                 </div>
             </div>
 
-            <div className="mb-8">
-                <SentinelWidget insights={globalInsights} />
+            {/* 1. Global Health Indicator */}
+            <div className="bg-zinc-900 rounded-2xl p-6 text-white overflow-hidden relative shadow-2xl">
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="space-y-2">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase tracking-widest border border-blue-500/30">
+                            <ShieldAlert className="w-3 h-3" /> Estado del Ecosistema
+                        </div>
+                        <h2 className="text-3xl font-bold italic tracking-tight">TechWise está {globalInsights.status === 'optimal' ? 'Óptimo' : 'bajo revisión'}</h2>
+                        <p className="text-zinc-400 text-sm max-w-md">El motor Sentinel está monitorizando {globalInsights.checksCount} parámetros críticos en {globalStats.totalOrganizations} organizaciones de forma proactiva.</p>
+                    </div>
+                    <div className="flex gap-8">
+                        <div className="text-center">
+                            <div className="text-2xl font-black text-blue-400">{saasMetrics.filter((o: any) => o.health.status === 'HEALTHY').length}</div>
+                            <div className="text-[10px] font-bold text-zinc-500 uppercase">Saludables</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-black text-amber-400">{saasMetrics.filter((o: any) => o.health.status === 'WARNING').length}</div>
+                            <div className="text-[10px] font-bold text-zinc-500 uppercase">En Riesgo</div>
+                        </div>
+                    </div>
+                </div>
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32" />
             </div>
 
-            {/* Stats Grid */}
+            {/* 2. Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {stats.map((stat, i) => (
-                    <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
-                        <div className="flex items-center gap-4 mb-4">
+                    <div key={i} className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                        <div className="flex items-center gap-4 mb-3 relative z-10">
                             <div className={`p-3 rounded-xl ${stat.bg} ${stat.color} transition-transform group-hover:scale-110`}>
                                 <stat.icon className="w-6 h-6" />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
-                                <h3 className="text-3xl font-black text-slate-900 dark:text-white">{stat.value}</h3>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">{stat.label}</p>
+                                <h3 className="text-3xl font-black text-foreground">{stat.value}</h3>
                             </div>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
-                            <Zap className="w-3.5 h-3.5 text-blue-500" />
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground relative z-10">
+                            <Zap className="w-3 h-3 text-blue-500" />
                             {stat.sub}
                         </div>
+                        <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-zinc-50 dark:bg-zinc-900/50 rounded-full group-hover:scale-110 transition-transform" />
                     </div>
                 ))}
             </div>
 
-            {/* Organizations Preview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                        <h2 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-blue-500" />
-                            Altas Recientes
-                        </h2>
-                        <Link href="/admin/orgs" className="text-xs font-bold text-blue-600 hover:underline">Ver todas</Link>
-                    </div>
-                    <div className="p-0">
-                        {recentOrgs && recentOrgs.length > 0 ? (
-                            recentOrgs.map((org) => (
-                                <div key={org.id} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b last:border-0 border-slate-50 dark:border-slate-800">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${org.status === 'PENDING' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'
-                                            }`}>
-                                            {org.name.substring(0, 2).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <span className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">{org.name}</span>
-                                            <span className="text-[10px] text-slate-400 block">{format(new Date(org.createdAt), 'dd/MM/yyyy HH:mm')}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase ${org.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
-                                            org.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-                                            }`}>
-                                            {org.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="p-12 text-center text-slate-400 text-sm italic">
-                                No hay registros recientes.
-                            </div>
-                        )}
-                    </div>
-                </div>
+            {/* 3. Organizations Health Detail */}
+            <div className="space-y-6">
+                <SaaSHealthTable orgs={saasMetrics as any} />
+            </div>
+
+            {/* 4. Quick Actions & Navigation */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Link href="/admin/orgs" className="p-4 bg-white dark:bg-zinc-800 border border-border rounded-xl text-center hover:border-primary transition-all group">
+                    <span className="text-xs font-bold text-zinc-500 group-hover:text-primary transition-colors">Gestionar Empresas</span>
+                </Link>
+                <Link href="/admin/users" className="p-4 bg-white dark:bg-zinc-800 border border-border rounded-xl text-center hover:border-primary transition-all group">
+                    <span className="text-xs font-bold text-zinc-500 group-hover:text-primary transition-colors">Gestión de Usuarios</span>
+                </Link>
+                <Link href="/admin/plans" className="p-4 bg-white dark:bg-zinc-800 border border-border rounded-xl text-center hover:border-primary transition-all group">
+                    <span className="text-xs font-bold text-zinc-500 group-hover:text-primary transition-colors">Planes y Facturación</span>
+                </Link>
+                <Link href="/admin/settings" className="p-4 bg-white dark:bg-zinc-800 border border-border rounded-xl text-center hover:border-primary transition-all group">
+                    <span className="text-xs font-bold text-zinc-500 group-hover:text-primary transition-colors">Configuración Global</span>
+                </Link>
             </div>
         </div>
     );

@@ -16,6 +16,8 @@ import { ProjectGantt } from "@/components/dashboard/ProjectGantt";
 import InventoryAlertsWidget from "@/components/dashboard/InventoryAlertsWidget";
 import { SentinelService } from "@/services/sentinel";
 import { SentinelWidget } from "@/components/dashboard/SentinelWidget";
+import { SentinelAlertsPanel } from "@/components/dashboard/SentinelAlertsPanel";
+import { NextBestAction } from "@/components/dashboard/NextBestAction";
 import { getOrganizationId } from "@/lib/current-org";
 
 
@@ -62,23 +64,36 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const settings = settingsRes.data || { vatRate: DEFAULT_VAT_RATE } as Settings;
     const projects = projectsRes.data || [];
     const opportunities = opportunitiesRes.data || [];
+    const orgId = await getOrganizationId();
 
-    // Sentinel Agent Insights moved to Admin Portal
-    // const orgId = await getOrganizationId();
-    // const sentinelInsights = await SentinelService.getInsights(orgId);
+    // 2. Trigger Sentinel Analysis (Optional: could be moved to background job, but here for live feedback)
+    if (orgId) {
+        await Promise.all([
+            SentinelService.runAnalysis(orgId),
+            SentinelService.updateOrgStats(orgId)
+        ]);
+    }
 
-    // 2. Calculate Dashboard Data
+    // 3. Fetch Sentinel Active Alerts
+    const { data: sentinelAlerts } = orgId
+        ? await SentinelService.getActiveAlerts(orgId)
+        : { data: [] };
+
+    // 4. Calculate Dashboard Data
     const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const topClients = DashboardService.getTopClients(projects as any);
-    const actions = DashboardService.getActionCenterData(projects as any, settings, opportunities as any, tasksRes.data || []);
-    const alerts = DashboardService.getUpcomingDeadlines(projects as any, settings);
-
-    // Consolidated Tasks for Widget
-    const pendingTasks = actions.slice(0, 10);
+    const { actions: sortedActions, nextBestAction } = DashboardService.getActionCenterData(
+        projects as any,
+        settings,
+        opportunities as any,
+        tasksRes.data || [],
+        sentinelAlerts || []
+    );
+    const deadlines = DashboardService.getUpcomingDeadlines(projects as any, settings);
 
     // Filter billing alerts (Invoices due soon)
-    const billingAlerts = alerts.filter(a => a.type === 'INVOICE');
+    const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
@@ -104,12 +119,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
             </div>
 
-
-
             {/* 1. KPIs Section */}
             <DashboardKPIs data={kpis} />
 
-            {/* 2. Main Grid Layout */}
+            {/* 2. Proactive Layer (Sentinel Top Pick) */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-3">
+                    <NextBestAction action={nextBestAction as any} />
+                </div>
+                <div className="hidden lg:block lg:col-span-1">
+                    <div className="bg-zinc-900 rounded-xl p-6 text-white h-full flex flex-col justify-center">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Estado General</h4>
+                        <div className="text-3xl font-bold">Saludable</div>
+                        <p className="text-[10px] text-zinc-500 mt-2">Sentinel monitorizando 5 parámetros críticos.</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* 3. Main Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
 
                 {/* Left Column: Revenue Chart (Span 2) */}
@@ -124,18 +151,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         <RevenueChart data={chartData} />
                     </div>
 
-                    {/* Pending Tasks Widget */}
+                    {/* Action Center - Unified Tasks */}
                     <div className="flex-1">
-                        <TasksWidget tasks={pendingTasks as any} />
+                        <TasksWidget tasks={sortedActions.slice(0, 15) as any} />
                     </div>
                 </div>
 
-                {/* Right Column: Widgets Stack */}
+                {/* Right Column: Sentinel & Widgets Stack */}
                 <div className="space-y-6 flex flex-col">
-                    {/* Sentinel Proactive Agent moved to Admin Portal */}
-                    {/* <div className="flex-shrink-0">
-                        <SentinelWidget insights={sentinelInsights} />
-                    </div> */}
+                    {/* Sentinel Alerts Panel */}
+                    <div className="flex-shrink-0">
+                        <SentinelAlertsPanel alerts={sentinelAlerts as any || []} />
+                    </div>
 
                     {/* Inventory Alerts (Fallback/Detailed) */}
                     <div className="flex-shrink-0">
@@ -154,8 +181,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
             </div>
 
-
-            {/* 3. Gantt Chart Section */}
+            {/* 4. Gantt Chart Section */}
             <div className="mt-6">
                 <div className="bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
                     <ProjectGantt projects={projects as any} />

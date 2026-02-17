@@ -47,14 +47,13 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
             label: 'Ejecutar',
             items: [
                 { name: 'Proyectos', href: '/projects', icon: FolderOpen },
-                { name: 'Calendario', href: '/calendar', icon: Calendar },
+                { name: 'Calendario', href: '/crm/calendar', icon: Calendar },
             ]
         },
         {
             label: 'Cobrar',
             items: [
                 { name: 'Facturación', href: '/invoices', icon: Receipt },
-                { name: 'Pagos', href: '/payments', icon: CreditCard, hideInSoloMode: true },
             ]
         },
         {

@@ -55,7 +55,8 @@ export class DashboardService {
         projects: Project[],
         settings: Database['public']['Tables']['Settings']['Row'],
         opportunities: any[] = [],
-        dbTasks: any[] = []
+        dbTasks: any[] = [],
+        sentinelAlerts: any[] = []
     ) {
         const actions: {
             id: string;
@@ -64,16 +65,18 @@ export class DashboardService {
             projectName?: string;
             opportunityTitle?: string;
             companyName: string;
-            type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER' | 'MEETING' | 'INVOICE';
+            type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER' | 'MEETING' | 'INVOICE' | 'SENTINEL_ALERT';
             title: string;
+            message?: string;
             dueDate?: Date;
             isOverdue?: boolean;
             priority: 'HIGH' | 'MEDIUM' | 'LOW';
+            severity?: string;
         }[] = [];
 
         const now = new Date();
 
-        // 1. Database Model Tasks (New unified tasks)
+        // 1. Database Model Tasks (Manual + Sentinel)
         dbTasks.forEach(t => {
             const dueDate = t.dueDate ? new Date(t.dueDate) : undefined;
             actions.push({
@@ -83,13 +86,30 @@ export class DashboardService {
                 companyName: t.project?.company?.name || 'Cliente',
                 type: 'TASK',
                 title: t.title,
+                message: t.description || undefined,
                 dueDate: dueDate,
                 isOverdue: dueDate ? dueDate < now : false,
-                priority: t.priority === 1 ? 'HIGH' : 'MEDIUM'
+                priority: t.priority === 1 || t.type === 'SENTINEL' ? 'HIGH' : 'MEDIUM'
             });
         });
 
-        // 2. Projects Logic (Legacy / Status based actions)
+        // 2. Sentinel Alerts (Inmutable detections)
+        sentinelAlerts.forEach(a => {
+            actions.push({
+                id: `alert-${a.id}`,
+                projectId: (a.metadata as any)?.projectId,
+                projectName: (a.metadata as any)?.projectName,
+                companyName: 'Sistema',
+                type: 'SENTINEL_ALERT',
+                title: a.title,
+                message: a.message,
+                priority: a.severity === 'S0' || a.severity === 'S1' ? 'HIGH' : 'MEDIUM',
+                severity: a.severity,
+                dueDate: new Date(a.createdAt)
+            });
+        });
+
+        // 3. Projects Logic (Legacy / Status based actions)
         projects.forEach(p => {
             // Blockers
             if (p.status === 'BLOQUEADO') {
@@ -109,7 +129,6 @@ export class DashboardService {
             if ((p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') && p.nextAction) {
                 const actionDate = p.nextActionDate ? new Date(p.nextActionDate) : null;
                 const isOverdue = actionDate ? actionDate < now : false;
-                const isToday = actionDate ? actionDate.toDateString() === now.toDateString() : false;
 
                 const lowerAction = p.nextAction.toLowerCase();
                 let type: 'CALL' | 'EMAIL' | 'TASK' | 'MEETING' = 'TASK';
@@ -129,34 +148,13 @@ export class DashboardService {
                     priority: isOverdue ? 'HIGH' : 'MEDIUM'
                 });
             }
-
-            // Stale Quote Alerts
-            if (p.status === 'EN_ESPERA') {
-                const updated = new Date(p.updatedAt);
-                const diffDays = Math.ceil(Math.abs(now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24));
-
-                if (diffDays > 5) {
-                    actions.push({
-                        id: `stale-quote-${p.id}`,
-                        projectId: p.id,
-                        projectName: p.name,
-                        companyName: p.company?.name || 'Sin Cliente',
-                        type: 'EMAIL',
-                        title: `Seguimiento Cotización (${diffDays} días)`,
-                        dueDate: now,
-                        isOverdue: true,
-                        priority: 'HIGH'
-                    });
-                }
-            }
         });
 
-        // 3. Opportunities (CRM) Logic
+        // 4. Opportunities (CRM) Logic
         opportunities.forEach(op => {
             if (op.nextInteractionDate) {
                 const actionDate = new Date(op.nextInteractionDate);
                 const isOverdue = actionDate < now;
-                const isToday = actionDate.toDateString() === now.toDateString();
 
                 actions.push({
                     id: `opp-followup-${op.id}`,
@@ -172,7 +170,7 @@ export class DashboardService {
             }
         });
 
-        // 4. Overdue Invoices
+        // 5. Overdue Invoices
         projects.forEach(p => {
             p.invoices?.forEach(inv => {
                 if (inv.sent && !inv.amountPaidGross) {
@@ -195,7 +193,7 @@ export class DashboardService {
         });
 
         // Global Sort: Priority desc, DueDate asc
-        return actions.sort((a, b) => {
+        const sortedActions = actions.sort((a, b) => {
             // Priority Sort
             const prioMap = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
             if (prioMap[a.priority] !== prioMap[b.priority]) {
@@ -207,6 +205,14 @@ export class DashboardService {
             if (b.dueDate) return 1;
             return 0;
         });
+
+        // Next Best Action (Top 1)
+        const nextBestAction = sortedActions.length > 0 ? {
+            ...sortedActions[0],
+            reason: sortedActions[0].priority === 'HIGH' ? 'Prioridad crítica detectada' : 'Acción más próxima en agenda'
+        } : null;
+
+        return { actions: sortedActions, nextBestAction };
     }
 
     static getFinancialTrends(projects: Project[], period: string = '6m') {
