@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateProjectStatus } from "@/app/actions/projects";
 import { createInvoiceFromProject } from "@/app/actions/invoices";
+import { sendQuote, createQuoteRevision, toggleQuoteAcceptance } from "@/app/actions/quotes";
 import { useToast } from "@/components/ui/Toast";
 import confetti from 'canvas-confetti';
-import { Send, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Send, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 
 interface QuoteActionsProps {
     projectId: string;
@@ -20,21 +21,21 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
     const { toast } = useToast();
     const router = useRouter();
 
-    const handleAction = async (action: 'SEND' | 'ACCEPT' | 'REJECT') => {
+    const handleAction = async (action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REVISE') => {
         if (!confirm("¿Está seguro de realizar esta acción?")) return;
 
         setIsLoading(true);
         try {
             if (action === 'SEND') {
-                await updateProjectStatus(projectId, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
+                await sendQuote(projectId);
 
                 const subject = `Cotización ${projectName} - TechWise SpA`;
                 const body = `Estimado cliente,\n\nAdjunto encontrará la cotización para el proyecto reference.\n\nQuedamos atentos.\n\nSaludos,\nChristian Salas\nTechWise SpA`;
                 window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
 
-                toast({ type: 'success', message: "Estado actualizado a En Espera" });
+                toast({ type: 'success', message: "Cotización enviada y Snapshot v1 creado" });
             } else if (action === 'ACCEPT') {
-                await updateProjectStatus(projectId, 'EN_CURSO', 'DISENO', 'Iniciar Desarrollo');
+                await toggleQuoteAcceptance(projectId, true);
                 toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
                 confetti({
                     particleCount: 150,
@@ -44,12 +45,14 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
             } else if (action === 'REJECT') {
                 await updateProjectStatus(projectId, 'CANCELADO');
                 toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
+            } else if (action === 'REVISE') {
+                await createQuoteRevision(projectId);
+                toast({ type: 'success', message: `Nueva versión de revisión creada exitosamente.` });
             }
             router.refresh();
-            router.push(`/projects/${projectId}`); // Redirect back to project to see changes
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ type: 'error', message: "Error al actualizar estado" });
+            toast({ type: 'error', message: error.message || "Error al procesar acción" });
         } finally {
             setIsLoading(false);
         }
@@ -76,15 +79,25 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
 
     return (
         <div className="flex gap-2 print:hidden">
-            {!quoteSentDate && (
+            {!quoteSentDate ? (
                 <button
                     onClick={() => handleAction('SEND')}
                     disabled={isLoading}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
-                    title="Enviar Cotización (Cambia estado a En Espera)"
+                    title="Enviar Cotización (Congela versión actual)"
                 >
                     {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                     Enviar
+                </button>
+            ) : (
+                <button
+                    onClick={() => handleAction('REVISE')}
+                    disabled={isLoading}
+                    className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
+                    title="Crear Nueva Versión de Revisión"
+                >
+                    {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    Revisar (vN+1)
                 </button>
             )}
 

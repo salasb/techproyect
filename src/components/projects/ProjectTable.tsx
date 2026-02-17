@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Lock, Clock, Send, CheckCircle2, ChevronRight, Info } from "lucide-react";
 import { Database } from "@/types/supabase";
 import { format, differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
+import { es } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RiskBadge } from "@/components/projects/RiskBadge";
@@ -16,6 +17,7 @@ type Project = Database['public']['Tables']['Project']['Row'] & {
     costEntries: Database['public']['Tables']['CostEntry']['Row'][];
     invoices: Database['public']['Tables']['Invoice']['Row'][];
     quoteItems: Database['public']['Tables']['QuoteItem']['Row'][];
+    tasks?: any[];
 };
 
 type Settings = Database['public']['Tables']['Settings']['Row'];
@@ -72,6 +74,16 @@ export function ProjectTable({ projects, settings }: Props) {
                         const isOverdue = nextActionDate && isBefore(startOfDay(nextActionDate), startOfDay(today));
                         const isDueToday = nextActionDate && differenceInCalendarDays(nextActionDate, today) === 0;
 
+                        // Get most urgent task for display
+                        const urgentTask = project.tasks
+                            ?.filter(t => t.status === 'PENDING')
+                            .sort((a, b) => {
+                                if (b.priority !== a.priority) return b.priority - a.priority;
+                                if (!a.dueDate) return 1;
+                                if (!b.dueDate) return -1;
+                                return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                            })[0];
+
                         // Currency Helper
                         const currency = project.currency || 'CLP';
                         const formatCurrency = (amount: number) => {
@@ -111,16 +123,25 @@ export function ProjectTable({ projects, settings }: Props) {
                                     <StatusBadge status={project.status} type="PROJECT" />
                                 </td>
                                 <td className="px-6 py-4">
-                                    {project.nextAction ? (
-                                        <div className={`flex items-start space-x-2 text-xs ${isOverdue ? 'text-destructive font-semibold' : isDueToday ? 'text-amber-600 font-semibold' : 'text-muted-foreground'}`}>
-                                            {isOverdue && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
-                                            {!isOverdue && isDueToday && <Clock className="w-4 h-4 flex-shrink-0" />}
+                                    {(urgentTask || project.nextAction) ? (
+                                        <div className={`flex items-start space-x-2 text-xs 
+                                            ${(urgentTask?.dueDate && isBefore(startOfDay(new Date(urgentTask.dueDate)), startOfDay(today))) || isOverdue ? 'text-destructive font-semibold' :
+                                                (urgentTask?.dueDate && differenceInCalendarDays(new Date(urgentTask.dueDate), today) === 0) || isDueToday ? 'text-amber-600 font-semibold' :
+                                                    'text-muted-foreground'}`}>
+
+                                            {((urgentTask?.dueDate && isBefore(startOfDay(new Date(urgentTask.dueDate)), startOfDay(today))) || isOverdue) && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
+                                            {(!((urgentTask?.dueDate && isBefore(startOfDay(new Date(urgentTask.dueDate)), startOfDay(today))) || isOverdue) && ((urgentTask?.dueDate && differenceInCalendarDays(new Date(urgentTask.dueDate), today) === 0) || isDueToday)) && <Clock className="w-4 h-4 flex-shrink-0" />}
+
                                             <div className="flex flex-col">
-                                                <span>{project.nextAction}</span>
-                                                {nextActionDate && <span className="opacity-75 capitalize">{nextActionDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
+                                                <span className="line-clamp-1">{urgentTask?.title || project.nextAction}</span>
+                                                {(urgentTask?.dueDate || nextActionDate) && (
+                                                    <span className="opacity-75 capitalize">
+                                                        {format(new Date(urgentTask?.dueDate || project.nextActionDate!), "d 'de' MMMM", { locale: es })}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
-                                    ) : <span className="text-muted-foreground text-xs">-</span>}
+                                    ) : <span className="text-muted-foreground text-xs font-medium">Sin acciones</span>}
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">

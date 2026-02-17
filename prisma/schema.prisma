@@ -7,11 +7,12 @@ datasource db {
 }
 
 model Settings {
-  id                      Int    @id @default(autoincrement())
-  currency                String @default("CLP")
-  vatRate                 Float  @default(0.19)
-  defaultPaymentTermsDays Int    @default(30)
-  yellowThresholdDays     Int    @default(7)
+  id                      Int     @id @default(autoincrement())
+  currency                String  @default("CLP")
+  vatRate                 Float   @default(0.19)
+  defaultPaymentTermsDays Int     @default(30)
+  yellowThresholdDays     Int     @default(7)
+  isSoloMode              Boolean @default(false)
 }
 
 model Company {
@@ -27,7 +28,7 @@ model Company {
 
 model Project {
   id             String        @id
-  companyId      String
+  companyId      String?
   name           String
   responsible    String
   status         ProjectStatus
@@ -53,10 +54,13 @@ model Project {
   Interaction    Interaction[]
   invoices       Invoice[]
   Client         Client?       @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  company        Company       @relation(fields: [companyId], references: [id])
+  company        Company?      @relation(fields: [companyId], references: [id])
+  tasks          Task[]
   logs           ProjectLog[]
   quoteItems     QuoteItem[]
+  quotes         Quote[]
   saleNote       SaleNote?
+  closeReason    CloseReason?
 }
 
 model SaleNote {
@@ -72,6 +76,7 @@ model SaleNote {
 model QuoteItem {
   id        String  @id @default(dbgenerated("(gen_random_uuid())::text"))
   projectId String
+  quoteId   String?
   sku       String?
   detail    String
   quantity  Float   @default(1)
@@ -80,6 +85,7 @@ model QuoteItem {
   costNet   Float   @default(0)
   isSelected Boolean @default(true)
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  quote     Quote?  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 }
 
 model CostEntry {
@@ -230,4 +236,71 @@ enum InteractionType {
   EMAIL
   MEETING
   NOTE
+}
+
+model Task {
+  id             String    @id @default(uuid())
+  projectId      String
+  title          String
+  description    String?
+  status         TaskStatus @default(PENDING)
+  dueDate        DateTime?
+  priority       Int       @default(0) // 0: Normal, 1: High
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+}
+
+model Quote {
+  id              String        @id @default(uuid())
+  projectId       String
+  version         Int           @default(1)
+  status          QuoteStatus   @default(DRAFT)
+  totalNet        Float         @default(0)
+  totalTax        Float         @default(0)
+  frozenAt        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items           QuoteItem[]
+}
+
+model Opportunity {
+  id                  String    @id @default(uuid())
+  title               String
+  description         String?
+  value               Float?
+  probability         Int?      @default(0)
+  stage               String    @default("QUALIFIED")
+  expectedCloseDate   DateTime?
+  lastInteractionDate DateTime? @db.Timestamptz(6)
+  nextInteractionDate DateTime? @db.Timestamptz(6)
+  clientId            String?   @db.Uuid
+  organizationId      String?
+  closeReason         CloseReason?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  client              Client?   @relation(fields: [clientId], references: [id])
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REVISED
+  REJECTED
+}
+
+enum CloseReason {
+  PRICE
+  COMPETITION
+  DELAY
+  SCOPE
+  DISCARDED
+  OTHER
 }

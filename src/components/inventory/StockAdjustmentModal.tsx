@@ -202,17 +202,23 @@ export function StockAdjustmentModal({ productId, productName, currentStock, isO
                     )}
 
                     <div>
-                        <label className="block text-xs font-medium text-zinc-500 mb-1">Tipo de Movimiento</label>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Tipo de Operación</label>
                         <select
                             value={type}
                             onChange={(e) => setType(e.target.value as InventoryMovementType)}
-                            className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-zinc-800 dark:border-zinc-700"
+                            className="w-full p-2.5 border rounded-lg text-sm bg-white dark:bg-zinc-800 dark:border-zinc-700 font-medium"
                         >
-                            <option value="IN">Entrada (Compra/Reposición)</option>
-                            <option value="OUT">Salida (Consumo/Venta)</option>
-                            <option value="TRANSFER">Transferencia (Mover Stock)</option>
-                            <option value="ADJUSTMENT">Ajuste (Inventario)</option>
+                            <option value="IN">Entrada (+): Compras, devoluciones o reposición</option>
+                            <option value="OUT">Salida (-): Ventas, consumos o mermas</option>
+                            <option value="TRANSFER">Transferencia: Mover stock entre bodegas/vehículos</option>
+                            <option value="ADJUSTMENT">Ajuste Manual: Corrección de inventario (auditoría)</option>
                         </select>
+                        <p className="text-[10px] text-zinc-400 mt-1.5 italic px-1">
+                            {type === 'IN' && "Aumenta el stock en la ubicación destino seleccionada."}
+                            {type === 'OUT' && "Disminuye el stock en la ubicación de origen seleccionada."}
+                            {type === 'TRANSFER' && "Mueve cantidades de una ubicación a otra sin cambiar el total global."}
+                            {type === 'ADJUSTMENT' && "Sobreescribe o ajusta para coincidir con inventario físico."}
+                        </p>
                     </div>
 
                     <div className="grid gap-4">

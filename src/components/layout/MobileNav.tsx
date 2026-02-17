@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { SidebarContent } from "./SidebarContent";
 
-export function MobileNav({ profile }: { profile?: any }) {
+export function MobileNav({ profile, settings }: { profile?: any, settings?: any }) {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -44,6 +44,7 @@ export function MobileNav({ profile }: { profile?: any }) {
                             <SidebarContent
                                 onLinkClick={() => setIsOpen(false)}
                                 profile={profile}
+                                settings={settings}
                                 badges={{ projects: 0, quotes: 0 }} // Simplified temporarily
                             />
                         </div>

@@ -90,6 +90,12 @@ export async function createProject(formData: FormData) {
         finalCompanyId = newCompany.id;
     }
 
+    // W0: Allow empty/no customer selected
+    if (companyId === "none" || !companyId) {
+        finalCompanyId = null as any; // Cast as any because Prisma generated types might still expect string if not regenerated
+        finalClientId = null;
+    }
+
     // Create Project
     // Generate ID: PRJ-YYMMDD-XXXX (Random 4 chars)
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
@@ -202,7 +208,7 @@ export async function closeProject(projectId: string) {
     revalidatePath('/projects');
 }
 
-export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string) {
+export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string, closeReason?: string) {
     const orgId = await getOrganizationId();
     const supabase = await createClient();
 
@@ -212,22 +218,27 @@ export async function updateProjectStatus(projectId: string, status: string, sta
     };
 
     if (stage) updateData.stage = stage;
+    if (closeReason) updateData.closeReason = closeReason;
     if (nextAction) {
         updateData.nextAction = nextAction;
         updateData.nextActionDate = new Date().toISOString(); // Default to today/now
     }
 
-    // Special logic for Quote Sent
+    // Special logic for Quote Sent (W0: Validate Customer)
     if (status === 'EN_ESPERA' && stage === 'COTIZACION') {
+        // Fetch project to check customer
+        const { data: project } = await supabase.from('Project').select('companyId, clientId').eq('id', projectId).single();
+        if (!project?.companyId && !project?.clientId) {
+            throw new Error("Debe asignar un cliente antes de enviar la cotización");
+        }
+
         const followUpDate = new Date();
         followUpDate.setDate(followUpDate.getDate() + 7); // Follow up in 7 days
 
         updateData.nextAction = 'Seguimiento Cotización';
         updateData.nextActionDate = followUpDate.toISOString();
 
-        // Correction for DB Enum: 'COTIZACION' is not in the Enum.
-        // We map it to 'LEVANTAMIENTO' but set quoteSentDate to track progress.
-        updateData.stage = 'LEVANTAMIENTO';
+        updateData.stage = 'LEVANTAMIENTO'; // Keep in Enum range
         updateData.quoteSentDate = new Date().toISOString();
     }
 

@@ -84,36 +84,58 @@ export function ProjectHeader({ project }: Props) {
     }
 
     async function handleStatusChange(newStatus: string) {
-        // 1. Prompt for reason (Mandatory for Blocked, Optional for others but recommended)
-        let reason = prompt(
-            newStatus === 'BLOQUEADO'
-                ? "Motivo del bloqueo (Requerido):"
-                : "Motivo del cambio de estado (Opcional):",
-            project.blockingReason && newStatus === 'BLOQUEADO' ? project.blockingReason : ""
-        );
+        // CLOSE_REASONS Enum Mapping
+        const REASONS = [
+            { id: 'PRICE', label: 'Precio (Muy Caro)' },
+            { id: 'COMPETITION', label: 'Competencia (Perdimos vs otro)' },
+            { id: 'DELAY', label: 'Plazo (Tardamos mucho)' },
+            { id: 'SCOPE', label: 'Alcance (No cubrimos lo pedido)' },
+            { id: 'DISCARDED', label: 'Descartado (El cliente no siguió)' },
+            { id: 'OTHER', label: 'Otro' }
+        ];
 
-        if (newStatus === 'BLOQUEADO' && !reason) {
-            return; // Blocked requires a reason
+        let closeReason: string | undefined;
+
+        if (newStatus === 'CERRADO' || newStatus === 'CANCELADO') {
+            const reasonLines = REASONS.map((r, i) => `${i + 1}. ${r.label}`).join('\n');
+            const selection = prompt(`Seleccione la razón del cierre:\n${reasonLines}\n(Ingrese el número o texto):`);
+
+            if (!selection) return; // Cancelled status change
+
+            // Try to match index or text
+            const index = parseInt(selection) - 1;
+            if (index >= 0 && index < REASONS.length) {
+                closeReason = REASONS[index].id;
+            } else {
+                // Try to find by ID/Label or default to OTHER
+                const found = REASONS.find(r => r.id === selection.toUpperCase() || r.label.toLowerCase().includes(selection.toLowerCase()));
+                closeReason = found ? found.id : 'OTHER';
+            }
         }
 
-        // 2. Update Project Settings
+        let blockingReason = project.blockingReason;
+        if (newStatus === 'BLOQUEADO') {
+            const reason = prompt("Motivo del bloqueo (Requerido):", project.blockingReason || "");
+            if (!reason) return;
+            blockingReason = reason;
+        } else {
+            blockingReason = null;
+        }
+
+        // 2. Update via action
         await updateProjectSettings(project.id, {
             status: newStatus as any,
-            blockingReason: newStatus === 'BLOQUEADO' ? reason : null // Clear blocking reason if moving out of blocked
-        });
+            blockingReason,
+            closeReason: closeReason as any
+        } as any);
 
-        // 3. Log to Bitácora (Timeline)
-        // Only log if there's a reason OR it's a significant change
+        // 3. Log to Bitácora
         const statusLabel = newStatus.replace('_', ' ');
-        const logContent = reason
-            ? `Estado cambiado a '${statusLabel}'. Motivo: ${reason}`
-            : `Estado actualizado a '${statusLabel}'.`;
+        const logContent = closeReason
+            ? `Estado cambiado a '${statusLabel}'. Razón Comercial: ${REASONS.find(r => r.id === closeReason)?.label}`
+            : (blockingReason ? `Estado bloqueado. Motivo: ${blockingReason}` : `Estado actualizado a '${statusLabel}'.`);
 
-        await addLog(
-            project.id,
-            logContent,
-            newStatus === 'BLOQUEADO' ? 'BLOCKER' : 'STATUS_CHANGE'
-        );
+        await addLog(project.id, logContent, newStatus === 'BLOQUEADO' ? 'BLOCKER' : 'STATUS_CHANGE');
 
         setIsEditingStatus(false);
         toast({ type: 'success', message: "Estado actualizado correctamente" });

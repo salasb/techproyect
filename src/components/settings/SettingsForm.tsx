@@ -87,6 +87,24 @@ export function SettingsForm({ settings, updateSettingsAction }: Props) {
                         />
                         <p className="text-xs text-zinc-500 mt-1">Días antes de la fecha límite para cambiar el semáforo a amarillo.</p>
                     </div>
+
+                    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="text-sm font-medium text-zinc-900 dark:text-white">Modo Solo</label>
+                                <p className="text-xs text-zinc-500">Simplifica la interfaz ocultando opciones multi-usuario y roles avanzados.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    name="isSoloMode"
+                                    defaultChecked={(settings as any).isSoloMode || false}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
 

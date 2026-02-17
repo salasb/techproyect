@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import Link from "next/link";
+import { QrCode } from "lucide-react";
 import { DashboardService } from "@/services/dashboardService";
 import { getDollarRate } from "@/services/currency";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
@@ -37,7 +38,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     // 1. Fetch Data (Server Side)
     // Parallel fetching for performance
-    const [settingsRes, projectsRes, opportunitiesRes, dollarRate] = await Promise.all([
+    const [settingsRes, projectsRes, opportunitiesRes, tasksRes, dollarRate] = await Promise.all([
         supabase.from('Settings').select('*').single(),
         supabase.from('Project')
             .select(`
@@ -49,6 +50,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             `)
             .order('updatedAt', { ascending: false }),
         supabase.from('Opportunity').select('*'),
+        supabase.from('Task')
+            .select('*, project:Project(id, name, company:Company(name))')
+            .eq('status', 'PENDING')
+            .order('priority', { ascending: false })
+            .order('dueDate', { ascending: true })
+            .limit(20),
         getDollarRate()
     ]);
 
@@ -64,11 +71,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const topClients = DashboardService.getTopClients(projects as any);
-    const actions = DashboardService.getActionCenterData(projects as any, settings, opportunities as any);
+    const actions = DashboardService.getActionCenterData(projects as any, settings, opportunities as any, tasksRes.data || []);
     const alerts = DashboardService.getUpcomingDeadlines(projects as any, settings);
 
-    // Filter tasks for widget (Pending tasks/follow-ups)
-    const pendingTasks = actions.filter(a => !a.title.includes('Seguimiento') || a.priority === 'HIGH').slice(0, 10);
+    // Consolidated Tasks for Widget
+    const pendingTasks = actions.slice(0, 10);
 
     // Filter billing alerts (Invoices due soon)
     const billingAlerts = alerts.filter(a => a.type === 'INVOICE');
@@ -82,6 +89,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     <p className="text-muted-foreground">Visión estratégica y operativa en tiempo real.</p>
                 </div>
                 <div className="flex items-center space-x-3">
+                    <Link href="/inventory/scan">
+                        <button className="bg-white dark:bg-zinc-800 border border-border hover:bg-zinc-50 dark:hover:bg-zinc-700 text-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center">
+                            <QrCode className="w-4 h-4 mr-2" /> QR
+                        </button>
+                    </Link>
                     <ReportExportButton />
                     <PeriodSelector />
                     <Link href="/projects/new">

@@ -8,12 +8,13 @@ export interface ValidationResult {
     errors: string[];
 }
 
-export function validateProject(data: { name: string; companyId: string; startDate: string; budget?: number | null }) {
+export function validateProject(data: { name: string; companyId?: string | null; startDate: string; budget?: number | null }) {
     const errors: string[] = [];
     if (!data.name?.trim()) errors.push("El nombre es obligatorio");
     if (data.name.length > 100) errors.push("El nombre no puede exceder 100 caracteres");
 
-    if (!data.companyId?.trim()) errors.push("La empresa es obligatoria");
+    // companyId is now optional for W0
+    // if (!data.companyId?.trim()) errors.push("La empresa es obligatoria");
 
     if (isNaN(Date.parse(data.startDate))) {
         errors.push("Fecha de inicio inválida");

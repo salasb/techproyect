@@ -245,7 +245,7 @@ export default function CatalogPage() {
                                                                 <ArrowRightLeft className="w-4 h-4" />
                                                             </button>
                                                         </TooltipTrigger>
-                                                        <TooltipContent>Ajustar Stock</TooltipContent>
+                                                        <TooltipContent>Movimiento de Stock (Entrada/Salida/Ajuste)</TooltipContent>
                                                     </Tooltip>
 
                                                     <Tooltip>
@@ -257,7 +257,12 @@ export default function CatalogPage() {
                                                                 <History className="w-4 h-4" />
                                                             </button>
                                                         </TooltipTrigger>
-                                                        <TooltipContent>Ver Kardex</TooltipContent>
+                                                        <TooltipContent>
+                                                            <div className="space-y-1">
+                                                                <p className="font-bold">Ver Kardex</p>
+                                                                <p className="text-xs text-muted-foreground font-normal">Registro histórico detallado de todas las entradas y salidas de este producto.</p>
+                                                            </div>
+                                                        </TooltipContent>
                                                     </Tooltip>
 
                                                     <Tooltip>

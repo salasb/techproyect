@@ -52,6 +52,7 @@ import { CostsManager } from "./CostsManager";
 import { InvoicesManager } from "./InvoicesManager";
 import { ProjectScope } from "./ProjectScope";
 import { ExchangeRate } from "@/services/currency";
+import { ProjectTasksManager } from "./ProjectTasksManager";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 interface ProjectDetailViewProps {
@@ -64,9 +65,10 @@ interface ProjectDetailViewProps {
     risk: any;
     exchangeRate: ExchangeRate;
     ufRate: ExchangeRate;
+    tasks: any[];
 }
 
-export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk, exchangeRate: initialExchangeRate, ufRate: initialUfRate }: ProjectDetailViewProps) {
+export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk, exchangeRate: initialExchangeRate, ufRate: initialUfRate, tasks }: ProjectDetailViewProps) {
     const [currency, setCurrency] = useState<'CLP' | 'USD' | 'UF'>(project.currency as 'CLP' | 'USD' | 'UF' || 'CLP');
     const [activeTab, setActiveTab] = useState('overview');
     const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
@@ -626,31 +628,8 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* NEXT ACTION - IMPROVED */}
-                                    <div className={`p-3 rounded-lg border ${actionStatus ? actionStatus.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 ') : 'bg-zinc-50 border-zinc-100'} relative overflow-hidden`}>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Siguiente Gestión</span>
-                                            {actionStatus && (
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${actionStatus.color}`}>
-                                                    {actionStatus.label}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="font-medium text-sm flex items-start mt-2">
-                                            <Calendar className={`w-4 h-4 mr-2 mt-0.5 shrink-0 ${actionStatus ? actionStatus.iconColor : 'text-zinc-400'}`} />
-                                            <span className="line-clamp-2">{project.nextAction || "Sin gestión pendiente"}</span>
-                                        </div>
-
-                                        <div className="text-xs text-zinc-500 mt-2 pl-6">
-                                            {project.nextActionDate ? (
-                                                <span>
-                                                    {format(new Date(project.nextActionDate), "d 'de' MMMM", { locale: es })}
-                                                    {actionStatus?.label === 'Atrasado' && <span className="text-red-600 font-medium ml-1">(Vencido)</span>}
-                                                </span>
-                                            ) : '-'}
-                                        </div>
-                                    </div>
+                                    {/* NEXT ACTION / TASKS SYSTEM - REPLACED WITH ProjectTasksManager */}
+                                    <ProjectTasksManager projectId={project.id} tasks={tasks || []} />
 
                                     {/* RESPONSIBLE & LAST ACTIVITY - IMPROVED */}
                                     <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-100 dark:border-zinc-800 flex flex-col justify-between">

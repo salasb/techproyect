@@ -17,10 +17,12 @@ export default async function DashboardLayout({
         profile = data;
     }
 
+    const { data: settings } = await supabase.from('Settings').select('*').single();
+
     return (
         <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans">
-            <AppSidebar profile={profile} />
-            <MobileNav profile={profile} />
+            <AppSidebar profile={profile} settings={settings} />
+            <MobileNav profile={profile} settings={settings} />
             <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
                 <AppHeader profile={profile} />
                 <main className="flex-1 p-4 md:p-6 overflow-auto print:p-0 print:overflow-visible">

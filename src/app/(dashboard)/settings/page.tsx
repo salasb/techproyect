@@ -33,11 +33,13 @@ export default async function SettingsPage() {
         const vatRate = parseFloat(formData.get("vatRate") as string) / 100;
         const yellowThresholdDays = parseInt(formData.get("yellowThresholdDays") as string);
         const defaultPaymentTermsDays = parseInt(formData.get("defaultPaymentTermsDays") as string);
+        const isSoloMode = formData.get("isSoloMode") === "on";
 
         await supabase.from('Settings').update({
             vatRate,
             yellowThresholdDays,
-            defaultPaymentTermsDays
+            defaultPaymentTermsDays,
+            isSoloMode
         }).eq('id', settings!.id);
 
         revalidatePath('/settings');

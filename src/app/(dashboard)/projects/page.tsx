@@ -40,7 +40,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
             company:Company(*),
             costEntries:CostEntry(*),
             invoices:Invoice(*),
-            quoteItems:QuoteItem(*)
+            quoteItems:QuoteItem(*),
+            tasks:Task(*)
         `, { count: 'exact' });
 
     if (tab === 'active') {
@@ -134,6 +135,16 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
 
                             // Risk Analysis (Mobile)
                             const risk = RiskEngine.calculateProjectRisk(project as any, settings!);
+
+                            // Get most urgent task for display
+                            const urgentTask = (project as any).tasks
+                                ?.filter((t: any) => t.status === 'PENDING')
+                                .sort((a: any, b: any) => {
+                                    if (b.priority !== a.priority) return b.priority - a.priority;
+                                    if (!a.dueDate) return 1;
+                                    if (!b.dueDate) return -1;
+                                    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                                })[0];
 
                             return (
                                 <Link

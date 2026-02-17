@@ -51,7 +51,12 @@ export class DashboardService {
         return { blockedProjects, focusProjects };
     }
 
-    static getActionCenterData(projects: Project[], settings: Database['public']['Tables']['Settings']['Row'], opportunities: any[] = []) {
+    static getActionCenterData(
+        projects: Project[],
+        settings: Database['public']['Tables']['Settings']['Row'],
+        opportunities: any[] = [],
+        dbTasks: any[] = []
+    ) {
         const actions: {
             id: string;
             projectId?: string;
@@ -59,7 +64,7 @@ export class DashboardService {
             projectName?: string;
             opportunityTitle?: string;
             companyName: string;
-            type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER' | 'MEETING';
+            type: 'CALL' | 'EMAIL' | 'TASK' | 'BLOCKER' | 'MEETING' | 'INVOICE';
             title: string;
             dueDate?: Date;
             isOverdue?: boolean;
@@ -68,9 +73,25 @@ export class DashboardService {
 
         const now = new Date();
 
-        // 1. Projects Logic
+        // 1. Database Model Tasks (New unified tasks)
+        dbTasks.forEach(t => {
+            const dueDate = t.dueDate ? new Date(t.dueDate) : undefined;
+            actions.push({
+                id: `task-${t.id}`,
+                projectId: t.projectId,
+                projectName: t.project?.name,
+                companyName: t.project?.company?.name || 'Cliente',
+                type: 'TASK',
+                title: t.title,
+                dueDate: dueDate,
+                isOverdue: dueDate ? dueDate < now : false,
+                priority: t.priority === 1 ? 'HIGH' : 'MEDIUM'
+            });
+        });
+
+        // 2. Projects Logic (Legacy / Status based actions)
         projects.forEach(p => {
-            // ... (existing logic for blockers and next actions)
+            // Blockers
             if (p.status === 'BLOQUEADO') {
                 actions.push({
                     id: `block-${p.id}`,
@@ -84,31 +105,32 @@ export class DashboardService {
                 });
             }
 
+            // Next Actions
             if ((p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') && p.nextAction) {
                 const actionDate = p.nextActionDate ? new Date(p.nextActionDate) : null;
                 const isOverdue = actionDate ? actionDate < now : false;
                 const isToday = actionDate ? actionDate.toDateString() === now.toDateString() : false;
 
                 const lowerAction = p.nextAction.toLowerCase();
-                let type: 'CALL' | 'EMAIL' | 'TASK' = 'TASK';
+                let type: 'CALL' | 'EMAIL' | 'TASK' | 'MEETING' = 'TASK';
                 if (lowerAction.includes('llamar') || lowerAction.includes('call')) type = 'CALL';
                 else if (lowerAction.includes('correo') || lowerAction.includes('mail') || lowerAction.includes('enviar')) type = 'EMAIL';
+                else if (lowerAction.includes('reunion') || lowerAction.includes('reunión')) type = 'MEETING';
 
-                if (isOverdue || isToday) {
-                    actions.push({
-                        id: `action-${p.id}`,
-                        projectId: p.id,
-                        projectName: p.name,
-                        companyName: p.company?.name || 'Sin Cliente',
-                        type: type,
-                        title: p.nextAction,
-                        dueDate: actionDate || undefined,
-                        isOverdue: isOverdue,
-                        priority: isOverdue ? 'HIGH' : 'MEDIUM'
-                    });
-                }
+                actions.push({
+                    id: `action-${p.id}`,
+                    projectId: p.id,
+                    projectName: p.name,
+                    companyName: p.company?.name || 'Sin Cliente',
+                    type: type,
+                    title: p.nextAction,
+                    dueDate: actionDate || undefined,
+                    isOverdue: isOverdue,
+                    priority: isOverdue ? 'HIGH' : 'MEDIUM'
+                });
             }
 
+            // Stale Quote Alerts
             if (p.status === 'EN_ESPERA') {
                 const updated = new Date(p.updatedAt);
                 const diffDays = Math.ceil(Math.abs(now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24));
@@ -129,33 +151,60 @@ export class DashboardService {
             }
         });
 
-        // 2. Opportunities (CRM) Logic
+        // 3. Opportunities (CRM) Logic
         opportunities.forEach(op => {
             if (op.nextInteractionDate) {
                 const actionDate = new Date(op.nextInteractionDate);
                 const isOverdue = actionDate < now;
                 const isToday = actionDate.toDateString() === now.toDateString();
 
-                if (isOverdue || isToday) {
-                    actions.push({
-                        id: `opp-followup-${op.id}`,
-                        opportunityId: op.id,
-                        opportunityTitle: op.title,
-                        companyName: op.clientName || 'Prospecto',
-                        type: 'TASK',
-                        title: `Seguimiento: ${op.title}`,
-                        dueDate: actionDate,
-                        isOverdue: isOverdue,
-                        priority: isOverdue ? 'HIGH' : 'MEDIUM'
-                    });
-                }
+                actions.push({
+                    id: `opp-followup-${op.id}`,
+                    opportunityId: op.id,
+                    opportunityTitle: op.title,
+                    companyName: op.clientName || 'Prospecto',
+                    type: 'TASK',
+                    title: `Seguimiento CRM: ${op.title}`,
+                    dueDate: actionDate,
+                    isOverdue: isOverdue,
+                    priority: isOverdue ? 'HIGH' : 'MEDIUM'
+                });
             }
         });
 
+        // 4. Overdue Invoices
+        projects.forEach(p => {
+            p.invoices?.forEach(inv => {
+                if (inv.sent && !inv.amountPaidGross) {
+                    let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+                    if (dueDate && dueDate < now) {
+                        actions.push({
+                            id: `inv-overdue-${inv.id}`,
+                            projectId: p.id,
+                            projectName: p.name,
+                            companyName: p.company?.name || 'Cliente',
+                            type: 'INVOICE',
+                            title: `Cobranza Pendiente: ${p.name}`,
+                            dueDate: dueDate,
+                            isOverdue: true,
+                            priority: 'HIGH'
+                        });
+                    }
+                }
+            });
+        });
+
+        // Global Sort: Priority desc, DueDate asc
         return actions.sort((a, b) => {
-            if (a.priority === 'HIGH' && b.priority !== 'HIGH') return -1;
-            if (a.priority !== 'HIGH' && b.priority === 'HIGH') return 1;
+            // Priority Sort
+            const prioMap = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+            if (prioMap[a.priority] !== prioMap[b.priority]) {
+                return prioMap[b.priority] - prioMap[a.priority];
+            }
+            // Due Date Sort
             if (a.dueDate && b.dueDate) return a.dueDate.getTime() - b.dueDate.getTime();
+            if (a.dueDate) return -1;
+            if (b.dueDate) return 1;
             return 0;
         });
     }

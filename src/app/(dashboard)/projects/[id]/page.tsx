@@ -22,6 +22,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             costEntries:CostEntry(*),
             invoices:Invoice(*),
             quoteItems:QuoteItem(*),
+            tasks:Task(*),
             SaleNote(*)
         `)
         .eq('id', id)
@@ -115,6 +116,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             risk={risk}
             exchangeRate={exchangeRate}
             ufRate={ufRate}
+            tasks={project.tasks || []}
         />
     );
 }
