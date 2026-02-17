@@ -57,7 +57,7 @@ export function KanbanCard({ opportunity }: Props) {
             className="bg-white p-4 rounded-lg shadow-sm border border-zinc-100 cursor-grab hover:shadow-md transition-all active:cursor-grabbing group relative touch-none"
         >
             <div className="flex justify-between items-start mb-2">
-                <Link href={`/crm/opportunities/${opportunity.id}`} className="font-bold text-zinc-800 hover:text-blue-600 line-clamp-2 text-sm">
+                <Link prefetch={false} href={`/crm/opportunities/${opportunity.id}`} className="font-bold text-zinc-800 hover:text-blue-600 line-clamp-2 text-sm">
                     {opportunity.title}
                 </Link>
             </div>
