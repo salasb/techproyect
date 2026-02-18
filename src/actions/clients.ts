@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRut, cleanRut, formatRut } from "@/lib/rut";
 import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function getClients() {
     const supabase = await createClient();
@@ -15,6 +16,7 @@ export async function getClients() {
 
 export async function createClientAction(formData: FormData) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -81,6 +83,7 @@ export async function createClientAction(formData: FormData) {
 
 export async function updateClientAction(clientId: string, formData: FormData) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -147,6 +150,8 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 }
 
 export async function deleteClientAction(clientId: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
     const { error } = await supabase.from('Client').delete().eq('id', clientId);
     if (error) throw new Error(error.message);
@@ -155,6 +160,7 @@ export async function deleteClientAction(clientId: string) {
 
 export async function createQuickClient(formData: FormData) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;

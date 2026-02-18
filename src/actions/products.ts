@@ -22,10 +22,12 @@ export async function getProducts(query?: string) {
 }
 
 import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function createProduct(data: FormData) {
     try {
         const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         let sku = (data.get('sku') as string)?.trim();
@@ -112,6 +114,8 @@ export async function createProduct(data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
     try {
+        const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         let sku = (data.get('sku') as string)?.trim();
@@ -160,6 +164,8 @@ export async function updateProduct(id: string, data: FormData) {
 
 export async function deleteProduct(id: string) {
     try {
+        const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
         const { error } = await supabase.from('Product').delete().eq('id', id);
 

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Database } from "@/types/supabase";
 import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function getClientDetails(clientId: string) {
     const supabase = await createClient();
@@ -54,6 +55,7 @@ export async function getClientDetails(clientId: string) {
 
 export async function addContact(clientId: string, formData: FormData) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -77,6 +79,7 @@ export async function addContact(clientId: string, formData: FormData) {
 
 export async function addInteraction(clientId: string, formData: FormData) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const type = formData.get('type') as Database['public']['Enums']['InteractionType'];
@@ -99,6 +102,8 @@ export async function addInteraction(clientId: string, formData: FormData) {
 }
 
 export async function updateClientStatus(clientId: string, status: Database['public']['Enums']['ClientStatus']) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const { error } = await supabase.from('Client').update({

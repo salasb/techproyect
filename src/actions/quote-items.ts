@@ -4,10 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function addQuoteItem(projectId: string, data: FormData) {
     try {
         const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         const sku = data.get('sku') as string;
@@ -48,6 +50,8 @@ import { AuditService } from "@/services/auditService";
 
 export async function removeQuoteItem(itemId: string, projectId: string) {
     try {
+        const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         // 1. Delete Item
@@ -70,6 +74,8 @@ export async function removeQuoteItem(itemId: string, projectId: string) {
 
 export async function updateQuoteItem(itemId: string, projectId: string, data: FormData) {
     try {
+        const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         const sku = data.get('sku') as string;
@@ -106,7 +112,8 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
 
 export async function toggleQuoteItemSelection(itemId: string, projectId: string, isSelected: boolean) {
     try {
-        console.log("Server Action toggleQuoteItemSelection:", itemId, isSelected);
+        const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         const { error } = await supabase.from('QuoteItem').update({
@@ -128,6 +135,8 @@ export async function toggleQuoteItemSelection(itemId: string, projectId: string
 
 export async function toggleAllQuoteItems(projectId: string, isSelected: boolean) {
     try {
+        const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         const { error } = await supabase.from('QuoteItem').update({
@@ -149,6 +158,7 @@ export async function toggleAllQuoteItems(projectId: string, isSelected: boolean
 export async function addQuoteItemsBulk(projectId: string, items: any[]) {
     try {
         const orgId = await getOrganizationId();
+        await ensureNotPaused(orgId);
         const supabase = await createClient();
 
         // Map items to match DB schema

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Database } from "@/types/supabase";
 import { addBusinessDays } from "@/lib/date-utils";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 type Opportunity = Database['public']['Tables']['Opportunity']['Row'];
 type OpportunityInsert = Database['public']['Tables']['Opportunity']['Insert'];
@@ -60,6 +61,7 @@ import { createQuickClient } from "@/actions/clients";
 
 export async function createOpportunity(formData: FormData) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const title = formData.get('title') as string;
@@ -130,6 +132,8 @@ export async function createOpportunity(formData: FormData) {
 }
 
 export async function updateOpportunityStage(id: string, stage: OpportunityStage) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     // Calculate probability based on stage
@@ -162,6 +166,8 @@ export async function updateOpportunityStage(id: string, stage: OpportunityStage
 }
 
 export async function updateOpportunity(id: string, formData: FormData) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const title = formData.get('title') as string;
@@ -194,6 +200,8 @@ export async function updateOpportunity(id: string, formData: FormData) {
 }
 
 export async function deleteOpportunity(id: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const { error } = await supabase.from('Opportunity').delete().eq('id', id);
@@ -209,8 +217,9 @@ export async function deleteOpportunity(id: string) {
 }
 
 export async function convertOpportunityToProject(opportunityId: string) {
-    const supabase = await createClient();
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
+    const supabase = await createClient();
 
     // 1. Fetch Opportunity with Client
     const { data: opp, error: fetchError } = await supabase
@@ -226,9 +235,17 @@ export async function convertOpportunityToProject(opportunityId: string) {
         throw new Error("No se pudo encontrar la oportunidad");
     }
 
-    // 2. Sync/Create Company
+    // 2. Sync/Create Company & Formalize Client
     let companyId = "";
     const clientName = opp.Client?.name || "Cliente S/N";
+
+    // Update Client to 'CLIENT' (Real Client)
+    if (opp.clientId) {
+        await supabase
+            .from('Client')
+            .update({ status: 'CLIENT' })
+            .eq('id', opp.clientId);
+    }
 
     const { data: existingCompany } = await supabase
         .from('Company')

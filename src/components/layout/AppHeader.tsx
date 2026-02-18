@@ -171,23 +171,9 @@ export function AppHeader({ profile, currentOrgId }: { profile?: any; currentOrg
             </div>
 
             <div className="flex items-center space-x-4">
+                <OrgSwitcher currentOrgId={currentOrgId} />
                 <ThemeToggle />
                 <NotificationCenter organizationId={userProfile?.organizationId} />
-
-                <div className="flex items-center space-x-3 pl-4 border-l border-zinc-200 dark:border-zinc-800">
-                    <div className="flex flex-col text-right hidden sm:block leading-tight">
-                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">
-                            {sanitizedName}
-                        </span>
-                        <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-tighter">
-                            {userProfile?.role === 'SUPERADMIN' ? 'SuperAdmin' :
-                                userProfile?.role === 'ADMIN' ? 'Administrador' : 'Colaborador'}
-                        </span>
-                    </div>
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white dark:ring-zinc-900">
-                        <User className="w-5 h-5" />
-                    </div>
-                </div>
             </div>
         </header>
     );
