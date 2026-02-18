@@ -69,10 +69,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     // 2. Trigger Sentinel Analysis (Proactive Layer)
     if (orgId) {
-        await Promise.all([
-            SentinelService.runAnalysis(orgId, isSentinelForce),
-            SentinelService.updateOrgStats(orgId)
-        ]);
+        try {
+            await Promise.all([
+                SentinelService.runAnalysis(orgId, isSentinelForce),
+                SentinelService.updateOrgStats(orgId)
+            ]);
+        } catch (error) {
+            console.error("[Dashboard] Sentinel analysis failed:", error);
+            // Non-blocking error for main dashboard load
+        }
     }
 
     // 3. Fetch Sentinel Active Alerts

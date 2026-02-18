@@ -40,7 +40,7 @@ export class SentinelService {
         }
 
         // 2. Fetch Thresholds
-        const { data: org } = await supabase.from('Organization').select('settings').eq('id', organizationId).single();
+        const { data: org } = await supabase.from('Organization').select('settings').eq('id', organizationId).maybeSingle();
         const settings = (org?.settings as any) || {};
         const thresholds = {
             marginMin: settings.sentinel_margin_min || 15,
@@ -305,10 +305,10 @@ export class SentinelService {
             .eq('organizationId', organizationId)
             .order('createdAt', { ascending: true })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (firstQuote) {
-            const { data: org } = await supabase.from('Organization').select('createdAt').eq('id', organizationId).single();
+            const { data: org } = await supabase.from('Organization').select('createdAt').eq('id', organizationId).maybeSingle();
             if (org) {
                 const diff = new Date(firstQuote.createdAt).getTime() - new Date(org.createdAt).getTime();
                 daysToFirstQuote = Math.floor(diff / (1000 * 60 * 60 * 24));
