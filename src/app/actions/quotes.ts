@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { AuditService } from "@/services/auditService";
 import { getOrganizationId } from "@/lib/current-org";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+import { ActivationService } from "@/services/activation-service";
 
 export async function sendQuote(projectId: string) {
     const orgId = await getOrganizationId();
@@ -63,6 +64,9 @@ export async function sendQuote(projectId: string) {
         }
         quoteId = newQuote.id;
 
+        // Milestone: First Quote Created
+        await ActivationService.trackFirst('FIRST_QUOTE_DRAFT_CREATED', orgId, undefined, quoteId);
+
         // Link current items to this quote
         if ((project as any).quoteItems) {
             for (const item of (project as any).quoteItems) {
@@ -104,6 +108,25 @@ export async function sendQuote(projectId: string) {
         type: 'MILESTONE'
     });
     await AuditService.logAction(projectId, 'QUOTE_SEND', logContent);
+
+    // 6. Automation: Create follow-up task for 2 business days
+    // This feeds the Command Center and 'Next Best Action'
+    const dueIn2Days = new Date();
+    dueIn2Days.setDate(dueIn2Days.getDate() + 2);
+
+    await supabase.from('Task').insert({
+        organizationId: orgId,
+        projectId,
+        title: `Seguimiento Cotización: ${project.name}`,
+        description: `Se envió la cotización. Llamar al cliente para confirmar recepción y resolver dudas.`,
+        priority: 1, // Medium-High
+        status: 'PENDING',
+        type: 'SENTINEL', // Use SENTINEL type to distinguish as system-generated
+        dueDate: dueIn2Days.toISOString()
+    });
+
+    // Milestone: First Quote Sent
+    await ActivationService.trackFirst('FIRST_QUOTE_SENT', orgId, undefined, quoteId);
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/quote`);

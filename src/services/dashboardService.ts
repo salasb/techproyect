@@ -56,7 +56,9 @@ export class DashboardService {
         settings: Database['public']['Tables']['Settings']['Row'],
         opportunities: any[] = [],
         dbTasks: any[] = [],
-        sentinelAlerts: any[] = []
+        sentinelAlerts: any[] = [],
+        orgStats: any = null,
+        isTrialing: boolean = false
     ) {
         const actions: {
             id: string;
@@ -76,7 +78,32 @@ export class DashboardService {
 
         const now = new Date();
 
-        // 1. Database Model Tasks (Manual + Sentinel)
+        // 0. Onboarding "First Value" Injector (For Trialing users)
+        if (isTrialing) {
+            const attr = orgStats?.attributes || {};
+
+            if (!attr.FIRST_PROJECT_CREATED) {
+                actions.push({
+                    id: 'onboarding-project',
+                    companyName: 'Onboarding',
+                    type: 'TASK',
+                    title: '🚀 Primer Paso: Crear un Proyecto',
+                    message: 'Define lo que vas a cotizar. Es la base para tu flujo comercial.',
+                    priority: 'HIGH',
+                    dueDate: now
+                });
+            } else if (!attr.FIRST_QUOTE_SENT) {
+                actions.push({
+                    id: 'onboarding-quote',
+                    companyName: 'Onboarding',
+                    type: 'TASK',
+                    title: '💰 Segundo Paso: Generar Cotización',
+                    message: 'Entra a tu proyecto y agrega los ítems para ver el total y margen.',
+                    priority: 'HIGH',
+                    dueDate: now
+                });
+            }
+        }
         dbTasks.forEach(t => {
             const dueDate = t.dueDate ? new Date(t.dueDate) : undefined;
             actions.push({

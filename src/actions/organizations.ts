@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
+import { ActivationService } from "@/services/activation-service";
 
 /**
  * Creates a new organization with initial subscription and owner membership.
@@ -72,6 +73,9 @@ export async function createOrganizationAction(formData: FormData) {
 
         return newOrg;
     });
+
+    // 5. Activation Milestone
+    await ActivationService.trackMilestone(org.id, 'ORG_CREATED', user.id);
 
     // Set as current organization
     const cookieStore = await cookies();

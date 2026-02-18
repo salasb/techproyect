@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrganizationId } from "@/lib/current-org";
 import { AuditService } from "@/services/auditService";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+import { ActivationService } from "@/services/activation-service";
 
 /**
  * Creates an invoice based on the accepted quote of a project.
@@ -65,8 +66,9 @@ export async function createInvoiceFromProject(projectId: string) {
 
     if (error) throw new Error(`Error creando factura: ${error.message}`);
 
-    // 5. Log Action
+    // 5. Log Action & Milestone
     await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura ${invoiceNumber} generada automáticamente desde cotización por $${totalGross.toLocaleString()}`);
+    await ActivationService.trackMilestone(orgId, 'FIRST_INVOICE_CREATED');
 
     // 6. Update Project Next Action if needed
     await supabase.from('Project').update({
@@ -109,6 +111,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
     if (error) throw new Error(`Error creando factura: ${error.message}`);
 
     await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura manual creada por $${amount.toLocaleString()}`);
+    await ActivationService.trackMilestone(orgId, 'FIRST_INVOICE_CREATED');
 
     revalidatePath(`/projects/${projectId}`);
     return { success: true, invoiceId };

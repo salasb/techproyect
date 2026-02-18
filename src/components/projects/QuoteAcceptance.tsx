@@ -4,13 +4,15 @@ import { useState } from "react";
 import { toggleQuoteAcceptance } from "@/app/actions/quotes";
 import { useToast } from "@/components/ui/Toast";
 import { Loader2, Stamp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
     projectId: string;
     initialAccepted: boolean;
+    isPaused?: boolean;
 }
 
-export function QuoteAcceptance({ projectId, initialAccepted }: Props) {
+export function QuoteAcceptance({ projectId, initialAccepted, isPaused }: Props) {
     const [isAccepted, setIsAccepted] = useState(initialAccepted);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
@@ -66,9 +68,12 @@ export function QuoteAcceptance({ projectId, initialAccepted }: Props) {
                     className="sr-only peer"
                     checked={isAccepted}
                     onChange={handleToggle}
-                    disabled={isLoading}
+                    disabled={isLoading || isPaused}
                 />
-                <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                <div className={cn(
+                    "w-9 h-5 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600",
+                    isPaused && "opacity-50 grayscale cursor-not-allowed"
+                )}></div>
             </label>
         </div>
     );

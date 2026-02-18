@@ -62,6 +62,7 @@ export async function POST(req: Request) {
                             providerSubscriptionId: stripeSub.id,
                             providerCustomerId: session.customer as string,
                             currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
+                            seatLimit: stripeSub.items.data[0]?.quantity || 1,
                         }
                     });
                 }
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
                             status: status,
                             currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
                             cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+                            seatLimit: stripeSub.items.data[0]?.quantity || 1,
                         }
                     });
                 }

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Database } from "@/types/supabase";
 import { addBusinessDays } from "@/lib/date-utils";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+import { ActivationService } from "@/services/activation-service";
 
 type Opportunity = Database['public']['Tables']['Opportunity']['Row'];
 type OpportunityInsert = Database['public']['Tables']['Opportunity']['Insert'];
@@ -307,6 +308,9 @@ export async function convertOpportunityToProject(opportunityId: string) {
         console.error("Error creating project from opportunity:", projectError);
         throw new Error("Error al formalizar el proyecto");
     }
+
+    // Milestone
+    await ActivationService.trackMilestone(orgId, 'FIRST_PROJECT_CREATED');
 
     // 4. Update Interaction to link to New Project
     await supabase

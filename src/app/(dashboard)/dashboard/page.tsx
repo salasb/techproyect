@@ -19,6 +19,8 @@ import { SentinelWidget } from "@/components/dashboard/SentinelWidget";
 import { SentinelAlertsPanel } from "@/components/dashboard/SentinelAlertsPanel";
 import { NextBestAction } from "@/components/dashboard/NextBestAction";
 import { getOrganizationId } from "@/lib/current-org";
+import { OnboardingGuide } from "@/components/dashboard/OnboardingGuide";
+import prisma from "@/lib/prisma";
 
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -41,26 +43,43 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     // 1. Fetch Data (Server Side)
     // Parallel fetching for performance
-    const [settingsRes, projectsRes, opportunitiesRes, tasksRes, dollarRate] = await Promise.all([
-        supabase.from('Settings').select('*').single(),
-        supabase.from('Project')
-            .select(`
-                *,
-                company:Company(id, name, contactName, phone, email),
-                costEntries:CostEntry(id, amountNet, date, description),
-                invoices:Invoice(id, amountInvoicedGross, amountPaidGross, sent, sentDate, dueDate, paymentTermsDays),
-                quoteItems:QuoteItem(id, priceNet, costNet, quantity, isSelected)
-            `)
-            .order('updatedAt', { ascending: false }),
-        supabase.from('Opportunity').select('*'),
-        supabase.from('Task')
-            .select('*, project:Project(id, name, company:Company(name))')
-            .eq('status', 'PENDING')
-            .order('priority', { ascending: false })
-            .order('dueDate', { ascending: true })
-            .limit(20),
-        getDollarRate()
-    ]);
+    let settingsRes: any = { data: null };
+    let projectsRes: any = { data: [] };
+    let opportunitiesRes: any = { data: [] };
+    let tasksRes: any = { data: [] };
+    let dollarRate = { value: 855 }; // Safe default
+
+    try {
+        const results = await Promise.all([
+            supabase.from('Settings').select('*').maybeSingle(),
+            supabase.from('Project')
+                .select(`
+                    *,
+                    company:Company(id, name, contactName, phone, email),
+                    costEntries:CostEntry(id, amountNet, date, description),
+                    invoices:Invoice(id, amountInvoicedGross, amountPaidGross, sent, sentDate, dueDate, paymentTermsDays),
+                    quoteItems:QuoteItem(id, priceNet, costNet, quantity, isSelected)
+                `)
+                .order('updatedAt', { ascending: false }),
+            supabase.from('Opportunity').select('*'),
+            supabase.from('Task')
+                .select('*, project:Project(id, name, company:Company(name))')
+                .eq('status', 'PENDING')
+                .order('priority', { ascending: false })
+                .order('dueDate', { ascending: true })
+                .limit(20),
+            getDollarRate()
+        ]);
+
+        settingsRes = { data: results[0].data };
+        projectsRes = { data: results[1].data };
+        opportunitiesRes = { data: results[2].data };
+        tasksRes = { data: results[3].data };
+        dollarRate = results[4];
+    } catch (error) {
+        console.error("[Dashboard] Initial data fetch failed:", error);
+        // Fallback or handle partial failure
+    }
 
     const settings = settingsRes.data || { vatRate: DEFAULT_VAT_RATE } as Settings;
     const projects = projectsRes.data || [];
@@ -72,7 +91,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         try {
             await Promise.all([
                 SentinelService.runAnalysis(orgId, isSentinelForce),
-                SentinelService.updateOrgStats(orgId)
+                SentinelService.updateOrgStats(orgId),
+                // [Activation] Ensure Org Created is tracked (PLG entry point)
+                import("@/services/activation-service").then(({ ActivationService }) =>
+                    ActivationService.trackFirst('ORG_CREATED', orgId)
+                )
             ]);
         } catch (error) {
             console.error("[Dashboard] Sentinel analysis failed:", error);
@@ -89,12 +112,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
     const chartData = DashboardService.getFinancialTrends(projects as any, period);
     const topClients = DashboardService.getTopClients(projects as any);
+
+    // 5. Fetch Stats & Sub Status for Onboarding
+    const [orgStats, subscription] = await Promise.all([
+        orgId ? prisma.organizationStats.findUnique({ where: { organizationId: orgId } }) : null,
+        orgId ? prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }) : null
+    ]);
+    const isTrialing = subscription?.status === 'TRIALING';
+
     const { actions: sortedActions, nextBestAction } = DashboardService.getActionCenterData(
         projects as any,
         settings,
         opportunities as any,
         tasksRes.data || [],
-        sentinelAlerts || []
+        sentinelAlerts || [],
+        orgStats,
+        isTrialing
     );
     const deadlines = DashboardService.getUpcomingDeadlines(projects as any, settings);
 
@@ -124,6 +157,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     </Link>
                 </div>
             </div>
+
+            {/* Onboarding Guide (Trial focus) */}
+            {isTrialing && (
+                <OnboardingGuide stats={orgStats} />
+            )}
 
             {/* 1. KPIs Section */}
             <DashboardKPIs data={kpis} />

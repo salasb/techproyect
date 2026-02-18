@@ -57,16 +57,30 @@ export default async function QuotePage({ params }: Props) {
 
     const financials = calculateProjectFinancials(project, project.costEntries || [], project.invoices || [], settings, project.quoteItems || []);
 
+    // Fetch Subscription Status for Paywall
+    const { data: subscription } = await supabase
+        .from('Subscription')
+        .select('status')
+        .eq('organizationId', project.organizationId)
+        .maybeSingle();
+    const isPaused = subscription?.status === 'PAUSED' || subscription?.status === 'PAST_DUE';
+
     return (
         <div className="min-h-screen bg-zinc-100 dark:bg-zinc-900 p-8 print:p-0 print:bg-white">
             {/* Toolbar - Hidden when printing */}
             <div className="max-w-[210mm] mx-auto mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 print:hidden">
-                <QuoteAcceptance projectId={project.id} initialAccepted={!!project.acceptedAt} />
+                <QuoteAcceptance
+                    projectId={project.id}
+                    initialAccepted={!!project.acceptedAt}
+                    isPaused={isPaused}
+                />
                 <QuoteActions
                     projectId={project.id}
+                    clientId={project.clientId}
                     projectStatus={project.status}
                     projectName={project.name}
                     quoteSentDate={project.quoteSentDate}
+                    isPaused={isPaused}
                 />
                 <div className="flex gap-2">
                     <Link href={`/projects/${project.id}`} className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center">

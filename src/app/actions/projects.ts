@@ -10,6 +10,7 @@ import { getOrganizationId } from "@/lib/current-org";
 
 import { checkSubscriptionLimit } from "@/lib/subscriptions";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+import { ActivationService } from "@/services/activation-service";
 
 export async function createProject(formData: FormData) {
     const orgId = await getOrganizationId();
@@ -133,6 +134,9 @@ export async function createProject(formData: FormData) {
 
     // Log the creation
     await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${name}" creado para ${project.clientId ? 'Client' : 'Company'}: ${finalCompanyId}`);
+
+    // [Activation] Track Milestone
+    await ActivationService.trackFirst('FIRST_PROJECT_CREATED', orgId, undefined, project.id);
 
     revalidatePath("/projects");
     revalidatePath("/projects");
@@ -315,6 +319,22 @@ export async function updateProjectStatus(projectId: string, status: string, sta
         content: `Estado actualizado a ${readableStatus} ${readableStage ? `(${readableStage})` : ''}`,
         createdAt: new Date().toISOString()
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true };
+}
+
+export async function associateProjectToClient(projectId: string, clientId: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from('Project')
+        .update({ clientId })
+        .eq('id', projectId);
+
+    if (error) throw new Error("Error al asociar el cliente al proyecto");
 
     revalidatePath(`/projects/${projectId}`);
     return { success: true };

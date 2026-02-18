@@ -2,26 +2,36 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateProjectStatus } from "@/app/actions/projects";
+import Link from "next/link";
+import { updateProjectStatus, associateProjectToClient } from "@/app/actions/projects";
 import { createInvoiceFromProject } from "@/app/actions/invoices";
 import { sendQuote, createQuoteRevision, toggleQuoteAcceptance } from "@/app/actions/quotes";
+import { QuickClientDialog } from "@/components/clients/QuickClientDialog";
 import { useToast } from "@/components/ui/Toast";
 import confetti from 'canvas-confetti';
 import { Send, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 
 interface QuoteActionsProps {
     projectId: string;
+    clientId?: string | null;
     projectStatus: string;
     projectName: string;
     quoteSentDate?: string | null;
+    isPaused?: boolean;
 }
 
-export function QuoteActions({ projectId, projectStatus, projectName, quoteSentDate }: QuoteActionsProps) {
+export function QuoteActions({ projectId, clientId, projectStatus, projectName, quoteSentDate, isPaused }: QuoteActionsProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [isClientModalOpen, setIsClientModalOpen] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
 
     const handleAction = async (action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REVISE') => {
+        if (action === 'SEND' && !clientId) {
+            setIsClientModalOpen(true);
+            return;
+        }
+
         if (!confirm("¿Está seguro de realizar esta acción?")) return;
 
         setIsLoading(true);
@@ -78,11 +88,19 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
     }
 
     return (
-        <div className="flex gap-2 print:hidden">
+        <div className="flex gap-2 print:hidden relative group">
+            {isPaused && (
+                <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg border border-red-200 dark:border-red-900/50 animate-in fade-in zoom-in duration-300">
+                    <Link href="/settings/billing" className="text-[10px] font-bold text-red-600 dark:text-red-400 hover:underline px-2 py-1 bg-white dark:bg-zinc-800 rounded shadow-sm border border-red-100 dark:border-red-900/30 flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-pulse" />
+                        Reactivar Plan
+                    </Link>
+                </div>
+            )}
             {!quoteSentDate ? (
                 <button
                     onClick={() => handleAction('SEND')}
-                    disabled={isLoading}
+                    disabled={isLoading || isPaused}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
                     title="Enviar Cotización (Congela versión actual)"
                 >
@@ -133,6 +151,24 @@ export function QuoteActions({ projectId, projectStatus, projectName, quoteSentD
                     Generar Factura
                 </button>
             )}
+
+            <QuickClientDialog
+                isOpen={isClientModalOpen}
+                onClose={() => setIsClientModalOpen(false)}
+                onClientCreated={async (client) => {
+                    try {
+                        setIsLoading(true);
+                        await associateProjectToClient(projectId, client.id);
+                        toast({ type: 'success', message: "Cliente asociado. Procediendo a enviar..." });
+                        // Re-trigger SEND now that we have a client
+                        await handleAction('SEND');
+                    } catch (err: any) {
+                        toast({ type: 'error', message: err.message });
+                    } finally {
+                        setIsLoading(false);
+                    }
+                }}
+            />
         </div>
     );
 }

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { validateRut, cleanRut, formatRut } from "@/lib/rut";
 import { getOrganizationId } from "@/lib/current-org";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+import { ActivationService } from "@/services/activation-service";
 
 export async function getClients() {
     const supabase = await createClient();
@@ -52,6 +53,9 @@ export async function createClientAction(formData: FormData) {
     });
 
     if (clientError) throw new Error(clientError.message);
+
+    // [Activation] Track Milestone
+    await ActivationService.trackFirst('FIRST_CLIENT_CREATED', orgId, undefined, clientId);
 
     // Handle multiple contacts if provided
     if (contactsJson) {
@@ -182,6 +186,9 @@ export async function createQuickClient(formData: FormData) {
     }).select().single();
 
     if (error) return { success: false, error: error.message };
+
+    // [Activation] Track Milestone
+    await ActivationService.trackFirst('FIRST_CLIENT_CREATED', orgId, undefined, clientId);
 
     // Handle multiple contacts if provided
     if (contactsJson) {

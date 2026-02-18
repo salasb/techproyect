@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getOrganizationId } from "@/lib/current-org";
+import { ActivationService } from "@/services/activation-service";
 
 export async function inviteUser(formData: FormData) {
     const orgId = await getOrganizationId();
@@ -55,6 +56,9 @@ export async function inviteUser(formData: FormData) {
         }
         throw new Error(`Error creating invitation: ${error.message}`);
     }
+
+    // [Activation] Track Milestone
+    await ActivationService.trackFirst('FIRST_TEAM_INVITE_SENT', orgId);
 
     // 3. Mock Email Sending (In production, use Resend/SendGrid)
     // For now, we will return the link to be shown in the UI (Dev DX)

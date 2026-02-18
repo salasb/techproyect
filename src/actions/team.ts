@@ -6,8 +6,10 @@ import { createAuditLog } from "@/services/audit-service";
 import { isAdmin, isOwner } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 import { sendTeamInvitationEmail } from "@/lib/email";
+import { ActivationService } from "@/services/activation-service";
 
 /**
  * Invites a new member to an organization.
@@ -20,6 +22,36 @@ export async function inviteMemberAction(formData: FormData) {
     const orgId = formData.get("organizationId") as string;
     const email = formData.get("email") as string;
     const role = formData.get("role") as any; // MembershipRole
+
+    // 0. Rate Limiting (Anti-Abuse)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    const invitesToday = await prisma.auditLog.count({
+        where: {
+            organizationId: orgId,
+            action: 'INVITE_SENT',
+            createdAt: { gte: oneDayAgo }
+        }
+    });
+
+    const invitesHour = await prisma.auditLog.count({
+        where: {
+            organizationId: orgId,
+            action: 'INVITE_SENT',
+            createdAt: { gte: oneHourAgo }
+        }
+    });
+
+    if (invitesToday >= 20 || invitesHour >= 5) {
+        await createAuditLog({
+            organizationId: orgId,
+            userId: user.id,
+            action: 'INVITE_RATE_LIMIT_HIT' as any,
+            details: `Limit hit: ${invitesToday}/day, ${invitesHour}/hour`
+        });
+        throw new Error("Has alcanzado el límite de invitaciones. Por seguridad, espera un momento antes de enviar más.");
+    }
 
     // 1. Validate inviter permissions
     const member = await prisma.organizationMember.findUnique({
@@ -106,13 +138,15 @@ export async function inviteMemberAction(formData: FormData) {
         expiresAt: invite.expiresAt
     });
 
-    // 7. Audit
+    // 7. Audit & Milestone
     await createAuditLog({
         organizationId: orgId,
         userId: user.id,
         action: 'INVITE_SENT',
         details: `Invited ${email} with role ${role} (SentCount: ${invite.sentCount})`
     });
+
+    await ActivationService.trackMilestone(orgId, 'FIRST_INVITE_SENT', user.id);
 
     revalidatePath("/settings/team");
 
@@ -129,6 +163,21 @@ export async function resendInvitationAction(invitationId: string, orgId: string
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
+
+    // Rate Limit for Resends
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const resendsHour = await prisma.auditLog.count({
+        where: {
+            organizationId: orgId,
+            userId: user.id,
+            action: 'INVITE_SENT',
+            createdAt: { gte: oneHourAgo }
+        }
+    });
+
+    if (resendsHour >= 5) {
+        throw new Error("Límite de reenvíos alcanzado. Espera un momento.");
+    }
 
     const invitation = await prisma.userInvitation.findUnique({
         where: { id: invitationId }
@@ -159,7 +208,8 @@ export async function resendInvitationAction(invitationId: string, orgId: string
         orgName: org?.name || 'TechWise',
         invitedBy: user.email || 'Un administrador',
         joinUrl,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        type: 'RESEND'
     });
 
     await createAuditLog({
@@ -242,13 +292,15 @@ export async function acceptInvitationAction(token: string) {
         }
     });
 
-    // 5. Audit
+    // 5. Audit & Milestone
     await createAuditLog({
         organizationId: invitation.organizationId,
         userId: user.id,
         action: 'INVITE_ACCEPTED',
         details: `Joined organization via invitation (Seat ${currentMembers + 1}/${maxSeats})`
     });
+
+    await ActivationService.trackMilestone(invitation.organizationId, 'FIRST_INVITE_ACCEPTED', user.id);
 
     revalidatePath("/dashboard");
 
@@ -259,6 +311,7 @@ export async function acceptInvitationAction(token: string) {
  * Revokes a pending invitation.
  */
 export async function revokeInvitationAction(invitationId: string, orgId: string) {
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
@@ -297,6 +350,7 @@ export async function revokeInvitationAction(invitationId: string, orgId: string
  * Updates a member's role.
  */
 export async function updateMemberRoleAction(memberId: string, orgId: string, newRole: any) {
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
@@ -343,6 +397,7 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
  * Removes a member from the organization.
  */
 export async function removeMemberAction(memberId: string, orgId: string) {
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");

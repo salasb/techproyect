@@ -333,6 +333,7 @@ model Organization {
   inventoryMovements InventoryMovement[]
   locations          Location[]
   ProductStock       ProductStock[]
+  activationEvents   ActivationEvent[]
 
   @@schema("public")
 }
@@ -603,14 +604,17 @@ model OrganizationStats {
   wau              Int          @default(0)
   mau              Int          @default(0)
   daysToFirstQuote Int?
+  firstValueAt     DateTime?
+  ttvDays          Float?
   crmCount         Int          @default(0)
   quotesCount      Int          @default(0)
   projectsCount    Int          @default(0)
   inventoryCount   Int          @default(0)
   lastActivityAt    DateTime     @default(now())
   lastSentinelRunAt DateTime?
-  healthScore      Int          @default(100)
-  organization     Organization @relation(fields: [organizationId], references: [id])
+  healthScore       Int          @default(100)
+  attributes        Json?        @default("{}")
+  organization      Organization @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }
@@ -661,5 +665,19 @@ enum QuoteStatus {
   REVISED
   REJECTED
 
+  @@schema("public")
+}
+
+model ActivationEvent {
+  id             String       @id @default(uuid())
+  organizationId String       @db.Uuid
+  userId         String?      @db.Uuid
+  eventName      String
+  occurredAt     DateTime     @default(now())
+  entityId       String?
+  metadata       Json?        @default("{}")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, eventName])
   @@schema("public")
 }

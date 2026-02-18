@@ -88,7 +88,7 @@ export function calculateProjectFinancials(
         priceNet = baseCostNet + marginAmountNet
     }
 
-    const vatRate = settings.vatRate
+    const vatRate = settings?.vatRate ?? 0.19
     const vatAmount = priceNet * vatRate
     const priceGross = priceNet + vatAmount
 

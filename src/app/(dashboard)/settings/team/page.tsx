@@ -138,12 +138,18 @@ export default async function TeamSettingsPage() {
                                 <span className="text-2xl font-bold">{seatsUsed}</span>
                                 <span className="text-muted-foreground text-sm">de {maxSeats}</span>
                             </div>
-                            <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                            <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mb-4">
                                 <div
                                     className={`h-full ${seatsUsed >= maxSeats ? 'bg-destructive' : 'bg-primary'}`}
-                                    style={{ width: `${(seatsUsed / maxSeats) * 100}%` }}
+                                    style={{ width: `${Math.min(100, (seatsUsed / maxSeats) * 100)}%` }}
                                 />
                             </div>
+                            <p className="text-xs text-muted-foreground">
+                                Para aumentar los asientos disponibles,{" "}
+                                <a href="/settings/billing" className="text-primary hover:underline font-medium">
+                                    gestiona tu suscripción aquí
+                                </a>.
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
