@@ -66,9 +66,12 @@ export async function completeRegistration(formData: FormData) {
     // usage of 'revalidatePath' might not affect client auth state directly without a proper flow.
 
     if (authData.session) {
+        revalidatePath('/', 'layout');
         redirect('/dashboard');
     } else {
-        // Validation required?
-        return { success: true, message: "Cuenta creada. Por favor verifica tu correo si es necesario." };
+        return {
+            success: true,
+            message: "¡Cuenta creada con éxito! Por favor revisa tu correo electrónico para confirmar tu cuenta y activar tu perfil."
+        };
     }
 }

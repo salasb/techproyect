@@ -75,17 +75,24 @@ export async function signup(formData: FormData) {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
         email,
         password,
     })
 
     if (error) {
-        return { error: error.message }
+        return { error: translateAuthError(error.message) }
     }
 
-    revalidatePath('/', 'layout')
-    redirect('/')
+    if (data.session) {
+        revalidatePath('/', 'layout')
+        redirect('/dashboard')
+    }
+
+    return {
+        success: true,
+        message: '¡Cuenta creada con éxito! Por favor revisa tu correo electrónico para confirmar tu cuenta y poder ingresar.'
+    }
 }
 
 export async function logout() {

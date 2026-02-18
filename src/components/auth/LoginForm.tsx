@@ -19,7 +19,7 @@ export function LoginForm() {
         setMessage(null)
 
         try {
-            let result;
+            let result: any;
             if (mode === 'login') {
                 result = await login(formData)
             } else {
@@ -28,12 +28,10 @@ export function LoginForm() {
 
             if (result?.error) {
                 setError(result.error)
-            } else {
-                // Si no hay error y no redirigió (rara vez pasa en login exitoso por el redirect, 
-                // pero en signup puede pasar si requiere confirmación)
-                if (mode === 'signup') {
-                    setMessage("¡Cuenta creada! Si no eres redirigido, por favor verifica tu correo.")
-                }
+            } else if (result?.message) {
+                setMessage(result.message)
+            } else if (mode === 'signup') {
+                setMessage("¡Cuenta creada! Por favor verifica tu correo para continuar.")
             }
         } catch (e) {
             // Next.js redirects throw errors, we need to ignore them or handle actual errors

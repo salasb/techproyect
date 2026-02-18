@@ -13,32 +13,50 @@ interface Props {
 export function RegisterForm({ token, email }: Props) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [message, setMessage] = useState<string | null>(null);
     const router = useRouter();
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true);
         setError(null);
+        setMessage(null);
 
         try {
-            // Append token explicitly if not in form (it is hidden input)
             const result = await completeRegistration(formData);
 
             if (result?.error) {
                 setError(result.error);
-            } else {
-                // Success
-                // Actually completeRegistration redirects on session, so we might not reach here if successful
-                // But if it returns success message (email confirm needed), show it
-                if (result?.message) {
-                    alert(result.message); // Simple alert for now
-                    router.push('/login');
-                }
+            } else if (result?.message) {
+                setMessage(result.message);
+                // Si hay mensaje, es que requiere confirmación de correo. No redirigimos.
             }
         } catch (e: any) {
             setError(e.message || "Error desconocido");
         } finally {
             setIsLoading(false);
         }
+    }
+
+    if (message) {
+        return (
+            <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 p-8 text-center">
+                <div className="mb-6 flex justify-center">
+                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                        <Mail className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    </div>
+                </div>
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">¡Revisa tu correo!</h3>
+                <p className="text-zinc-600 dark:text-zinc-400 mb-8">
+                    {message}
+                </p>
+                <button
+                    onClick={() => router.push('/login')}
+                    className="w-full py-2.5 px-4 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-lg font-medium hover:opacity-90 transition-opacity"
+                >
+                    Volver al Inicio
+                </button>
+            </div>
+        );
     }
 
     return (
