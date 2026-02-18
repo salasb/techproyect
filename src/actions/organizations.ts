@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { OrganizationMode, SubscriptionStatus, Prisma, OrganizationStatus, OrganizationPlan, MembershipStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 /**
  * Creates a new organization with initial subscription and owner membership.
@@ -16,18 +16,20 @@ export async function createOrganizationAction(formData: FormData) {
     if (!user) throw new Error("Unauthorized");
 
     const name = formData.get('name') as string;
-    const mode = formData.get('mode') as OrganizationMode || 'SOLO';
-    const loadDemo = formData.get('loadDemo') === 'on';
-    const country = 'CL'; // Default to CL for simplicity in 1-step flow.
+    const mode = (formData.get('mode') as any) || 'SOLO';
+    // const loadDemo = formData.get('loadDemo') === 'on';
+    const country = 'CL';
     const vatRate = 0.19;
 
     // Use Prisma for transaction to ensure atomicity
-    const org = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const org = await prisma.$transaction(async (tx) => {
         // 1. Create Organization
         const newOrg = await tx.organization.create({
             data: {
                 name,
                 mode,
+                status: 'ACTIVE',
+                plan: 'FREE',
                 settings: {
                     country,
                     vatRate,
@@ -41,7 +43,7 @@ export async function createOrganizationAction(formData: FormData) {
             data: {
                 organizationId: newOrg.id,
                 userId: user.id,
-                role: 'owner',
+                role: 'OWNER',
                 status: 'ACTIVE'
             }
         });
@@ -101,13 +103,12 @@ export async function switchOrganizationAction(organizationId: string) {
     // Audit the switch
     await prisma.auditLog.create({
         data: {
-            projectId: 'SYSTEM', // System level event
+            projectId: null, // System level event
             organizationId: organizationId,
             userId: user.id,
             action: 'ORG_SWITCH',
             details: `Usuario cambió a organización: ${organizationId}`,
             userName: user.email,
-            createdAt: new Date()
         }
     });
 
@@ -136,7 +137,12 @@ export async function getUserOrganizations() {
             }
         },
         include: {
-            subscription: true
+            subscription: true,
+            OrganizationMember: {
+                where: {
+                    userId: user.id
+                }
+            }
         }
     });
 }

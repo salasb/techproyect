@@ -1,10 +1,17 @@
-export type UserRole = 'ADMIN' | 'USER' | 'SUPERADMIN' | 'VIEWER';
+export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | 'SUPERADMIN';
 
 /**
  * Checks if a user has administrative privileges within their organization.
  */
 export function isAdmin(role?: string | null): boolean {
-    return role === 'ADMIN' || role === 'SUPERADMIN';
+    return role === 'OWNER' || role === 'ADMIN' || role === 'SUPERADMIN';
+}
+
+/**
+ * Checks if a user is the primary owner of the organization.
+ */
+export function isOwner(role?: string | null): boolean {
+    return role === 'OWNER' || role === 'SUPERADMIN';
 }
 
 /**
@@ -18,7 +25,7 @@ export function isSuperAdmin(role?: string | null): boolean {
  * Checks if a user can manage organization settings and users.
  */
 export function canManageOrganization(role?: string | null): boolean {
-    return isAdmin(role);
+    return role === 'OWNER' || role === 'ADMIN' || role === 'SUPERADMIN';
 }
 
 /**
@@ -39,5 +46,5 @@ export function canUseApp(role?: string | null): boolean {
  * Checks if a user has write access (excludes Viewer).
  */
 export function canEdit(role?: string | null): boolean {
-    return role === 'ADMIN' || role === 'SUPERADMIN' || role === 'USER';
+    return role === 'OWNER' || role === 'ADMIN' || role === 'SUPERADMIN' || role === 'MEMBER';
 }

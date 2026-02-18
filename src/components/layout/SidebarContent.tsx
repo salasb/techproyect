@@ -74,7 +74,7 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
             label: 'Configuración',
             items: [
                 { name: 'Ajustes', href: '/settings', icon: Settings, adminOnly: true },
-                { name: 'Usuarios', href: '/settings/users', icon: UserPlus, adminOnly: true, hideInSoloMode: true },
+                { name: 'Equipo', href: '/settings/team', icon: Users, adminOnly: true, hideInSoloMode: true },
             ]
         }
     ];

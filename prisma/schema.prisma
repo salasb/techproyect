@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["public"]
 }
 
 model Settings {
@@ -13,6 +15,8 @@ model Settings {
   defaultPaymentTermsDays Int     @default(30)
   yellowThresholdDays     Int     @default(7)
   isSoloMode              Boolean @default(false)
+
+  @@schema("public")
 }
 
 model Company {
@@ -26,6 +30,8 @@ model Company {
   contactName    String?
   projects       Project[]
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model Project {
@@ -65,6 +71,9 @@ model Project {
   quotes         Quote[]
   saleNote       SaleNote?
   closeReason    CloseReason?
+  inventoryMovements InventoryMovement[]
+
+  @@schema("public")
 }
 
 model SaleNote {
@@ -77,6 +86,8 @@ model SaleNote {
   pdfUrl         String?
   project        Project       @relation(fields: [projectId], references: [id])
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model QuoteItem {
@@ -94,6 +105,8 @@ model QuoteItem {
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   quote          Quote?        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model CostEntry {
@@ -106,6 +119,8 @@ model CostEntry {
   amountNet      Float
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model Invoice {
@@ -121,6 +136,8 @@ model Invoice {
   updatedAt           DateTime      @updatedAt
   project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization        Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model ProjectLog {
@@ -132,6 +149,8 @@ model ProjectLog {
   createdAt      DateTime      @default(now())
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model Product {
@@ -146,20 +165,68 @@ model Product {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  stockEntries   ProductStock[]
+
+  @@schema("public")
+}
+
+model InventoryMovement {
+  id             String        @id @default(uuid())
+  projectId      String
+  organizationId String?       @db.Uuid
+  sku            String
+  quantity       Float
+  type           String // IN, OUT
+  description    String?
+  createdAt      DateTime      @default(now())
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+model Location {
+  id             String        @id @default(uuid())
+  organizationId String?       @db.Uuid
+  name           String        @unique
+  description    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  stockEntries   ProductStock[]
+
+  @@schema("public")
+}
+
+model ProductStock {
+  id             String        @id @default(uuid())
+  productId      String
+  locationId     String
+  organizationId String?       @db.Uuid
+  quantity       Float         @default(0)
+  minStock       Float?
+  lastSyncAt     DateTime?
+  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location       Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model AuditLog {
   id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId      String
+  projectId      String?
   organizationId String?       @db.Uuid
   action         String
   details        String?
   userName       String?
   createdAt      DateTime?     @default(now()) @db.Timestamptz(6)
   userId         String?       @db.Uuid
-  Project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  Project        Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   Profile        Profile?      @relation(fields: [userId], references: [id], onUpdate: NoAction)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -180,6 +247,8 @@ model Client {
   Project        Project[]
   opportunities  Opportunity[]
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -193,6 +262,8 @@ model Contact {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @db.Timestamptz(6)
   Client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -208,6 +279,8 @@ model Interaction {
   Client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   Project        Project?        @relation(fields: [projectId], references: [id], onUpdate: NoAction)
   organization   Organization?   @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -216,12 +289,15 @@ model Profile {
   organizationId String?       @db.Uuid
   name           String
   email          String        @unique(map: "profile_email_key")
-  role           String        @default("USER")
+  role           MembershipRole @default(MEMBER)
   avatarUrl      String?
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime      @default(now()) @db.Timestamptz(6)
-  AuditLog       AuditLog[]
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  AuditLog           AuditLog[]
+  organization       Organization?        @relation(fields: [organizationId], references: [id])
+  OrganizationMember OrganizationMember[]
+
+  @@schema("public")
 }
 
 model Organization {
@@ -254,6 +330,11 @@ model Organization {
   UserInvitation     UserInvitation[]
   OrganizationMember OrganizationMember[]
   mode               OrganizationMode     @default(SOLO)
+  inventoryMovements InventoryMovement[]
+  locations          Location[]
+  ProductStock       ProductStock[]
+
+  @@schema("public")
 }
 
 model StripeEvent {
@@ -261,6 +342,8 @@ model StripeEvent {
   type      String
   processed Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@schema("public")
 }
 
 model Subscription {
@@ -279,34 +362,61 @@ model Subscription {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   organization           Organization       @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model OrganizationMember {
   id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String?          @db.Uuid
-  userId         String?          @db.Uuid
-  role           String?          @default("admin")
+  organizationId String           @db.Uuid
+  userId         String           @db.Uuid
+  role           MembershipRole   @default(MEMBER)
   status         MembershipStatus @default(ACTIVE)
   createdAt      DateTime         @default(now()) @db.Timestamptz(6)
-  organization   Organization?    @relation(fields: [organizationId], references: [id])
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  profile        Profile          @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@schema("public")
 }
 
 model UserInvitation {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email          String
-  role           String       @default("USER")
-  organizationId String       @db.Uuid
-  token          String
-  expiresAt      DateTime     @db.Timestamptz(6)
-  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
-  acceptedAt     DateTime?    @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String
+  role            MembershipRole   @default(MEMBER)
+  organizationId  String           @db.Uuid
+  tokenHash       String           @unique
+  expiresAt       DateTime         @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  acceptedAt      DateTime?        @db.Timestamptz(6)
+  revokedAt       DateTime?        @db.Timestamptz(6)
+  sentAt          DateTime?        @db.Timestamptz(6)
+  sentCount       Int              @default(1)
+  status          InvitationStatus @default(PENDING)
+  invitedByUserId String?          @db.Uuid // Corregido el nombre para consistencia con el contrato
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, email, status])
+  @@index([tokenHash])
+  @@index([organizationId, createdAt])
+  @@schema("public")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+
+  @@schema("public")
 }
 
 enum OrganizationStatus {
   PENDING
   ACTIVE
   INACTIVE
+
+  @@schema("public")
 }
 
 enum OrganizationPlan {
@@ -314,11 +424,15 @@ enum OrganizationPlan {
   PRO
   ENTERPRISE
   INVENTORY_ONLY
+
+  @@schema("public")
 }
 
 enum OrganizationMode {
   SOLO
   TEAM
+
+  @@schema("public")
 }
 
 enum SubscriptionStatus {
@@ -327,12 +441,26 @@ enum SubscriptionStatus {
   PAUSED
   PAST_DUE
   CANCELED
+
+  @@schema("public")
 }
 
 enum MembershipStatus {
   PENDING
   ACTIVE
   INACTIVE
+  REMOVED
+
+  @@schema("public")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+
+  @@schema("public")
 }
 
 enum ProjectStatus {
@@ -341,6 +469,8 @@ enum ProjectStatus {
   BLOQUEADO
   CERRADO
   CANCELADO
+
+  @@schema("public")
 }
 
 enum ProjectStage {
@@ -350,6 +480,8 @@ enum ProjectStage {
   QA             @map("QA")
   IMPLEMENTACION
   SOPORTE
+
+  @@schema("public")
 }
 
 enum CostCategory {
@@ -358,6 +490,8 @@ enum CostCategory {
   SOFTWARE
   LOGISTICA
   OTROS
+
+  @@schema("public")
 }
 
 enum ClientStatus {
@@ -365,6 +499,8 @@ enum ClientStatus {
   PROSPECT
   CLIENT
   CHURNED
+
+  @@schema("public")
 }
 
 enum InteractionType {
@@ -372,6 +508,8 @@ enum InteractionType {
   EMAIL
   MEETING
   NOTE
+
+  @@schema("public")
 }
 
 model Task {
@@ -388,16 +526,22 @@ model Task {
   updatedAt      DateTime      @updatedAt
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 enum TaskType {
   MANUAL
   SENTINEL
+
+  @@schema("public")
 }
 
 enum TaskStatus {
   PENDING
   COMPLETED
+
+  @@schema("public")
 }
 
 model Quote {
@@ -412,6 +556,8 @@ model Quote {
   updatedAt DateTime    @updatedAt
   project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   items     QuoteItem[]
+
+  @@schema("public")
 }
 
 model Opportunity {
@@ -431,6 +577,8 @@ model Opportunity {
   updatedAt           DateTime      @updatedAt
   client              Client?       @relation(fields: [clientId], references: [id])
   organization        Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model SentinelAlert {
@@ -445,6 +593,8 @@ model SentinelAlert {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   organization   Organization     @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 model OrganizationStats {
@@ -461,6 +611,8 @@ model OrganizationStats {
   lastSentinelRunAt DateTime?
   healthScore      Int          @default(100)
   organization     Organization @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
 }
 
 enum SentinelType {
@@ -470,6 +622,8 @@ enum SentinelType {
   STALE_PROJECT
   LOW_MARGIN
   QUOTE_FOLLOWUP
+
+  @@schema("public")
 }
 
 enum SentinelSeverity {
@@ -477,12 +631,16 @@ enum SentinelSeverity {
   S1
   S2
   S3
+
+  @@schema("public")
 }
 
 enum AlertStatus {
   OPEN
   ACK
   RESOLVED
+
+  @@schema("public")
 }
 
 enum CloseReason {
@@ -492,6 +650,8 @@ enum CloseReason {
   SCOPE
   DISCARDED
   OTHER
+
+  @@schema("public")
 }
 
 enum QuoteStatus {
@@ -500,4 +660,6 @@ enum QuoteStatus {
   ACCEPTED
   REVISED
   REJECTED
+
+  @@schema("public")
 }

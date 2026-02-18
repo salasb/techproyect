@@ -77,6 +77,11 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                                         {currentOrg.subscription.status === 'TRIALING' ? 'TRIAL' :
                                             currentOrg.subscription.status === 'ACTIVE' ? 'PRO' : 'PAUSED'}
                                     </span>
+                                    {currentOrg.OrganizationMember?.[0]?.role && (
+                                        <Badge variant="outline" className="text-[9px] px-1 h-3.5 border-slate-200 dark:border-slate-800 text-slate-500">
+                                            {currentOrg.OrganizationMember[0].role}
+                                        </Badge>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -107,9 +112,16 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                                     <Building2 className="h-4 w-4" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className={cn("text-sm transition-all", org.id === currentOrgId ? "font-bold text-blue-700 dark:text-blue-400 scale-[1.02]" : "font-medium text-slate-700 dark:text-slate-300")}>
-                                        {org.name}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={cn("text-sm transition-all", org.id === currentOrgId ? "font-bold text-blue-700 dark:text-blue-400 scale-[1.02]" : "font-medium text-slate-700 dark:text-slate-300")}>
+                                            {org.name}
+                                        </span>
+                                        {org.OrganizationMember?.[0]?.role && (
+                                            <span className="text-[9px] px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold uppercase tracking-tighter">
+                                                {org.OrganizationMember[0].role}
+                                            </span>
+                                        )}
+                                    </div>
                                     <span className="text-[10px] text-slate-400 font-medium">
                                         {org.subscription?.status === 'ACTIVE' ? 'Suscripción Activa' :
                                             org.subscription?.status === 'TRIALING' ? 'Período de Prueba' : 'Cuenta Pausada'}
