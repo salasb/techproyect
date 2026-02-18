@@ -6,10 +6,21 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
-import { NotificationCenter } from "./NotificationCenter";
+import { PaywallBanner } from "./PaywallBanner";
 import { OrgSwitcher } from "./OrgSwitcher";
+import { NotificationCenter } from "./NotificationCenter";
 
-export function AppHeader({ profile, currentOrgId }: { profile?: any; currentOrgId?: string }) {
+export function AppHeader({
+    profile,
+    currentOrgId,
+    subscription,
+    paywallVariant
+}: {
+    profile?: any;
+    currentOrgId?: string;
+    subscription?: any;
+    paywallVariant?: 'A' | 'B';
+}) {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [showResults, setShowResults] = useState(false);
@@ -117,64 +128,73 @@ export function AppHeader({ profile, currentOrgId }: { profile?: any; currentOrg
         .trim();
 
     return (
-        <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-40 transition-colors flex items-center justify-between px-6 print:hidden">
-            <div className="flex items-center flex-1 gap-4">
-                {/* Breadcrumbs for easier navigation */}
-                <div className="hidden md:block">
-                    <Breadcrumbs />
-                </div>            {/* ... search ... */}
-                <div className="flex items-center w-1/3" ref={searchRef}>
-                    {/* DEBUG MARKER */}
+        <>
+            {subscription && (
+                <PaywallBanner
+                    status={subscription.status}
+                    trialEndsAt={subscription.trialEndsAt}
+                    variant={paywallVariant}
+                />
+            )}
+            <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-40 transition-colors flex items-center justify-between px-6 print:hidden">
+                <div className="flex items-center flex-1 gap-4">
+                    {/* Breadcrumbs for easier navigation */}
+                    <div className="hidden md:block">
+                        <Breadcrumbs />
+                    </div>            {/* ... search ... */}
+                    <div className="flex items-center w-1/3" ref={searchRef}>
+                        {/* DEBUG MARKER */}
 
-                    <div className="relative w-full max-w-md hidden md:block">
-                        {/* ... existing search code ... */}
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar proyectos o clientes..."
-                            value={searchQuery}
-                            onChange={(e) => handleSearch(e.target.value)}
-                            onFocus={() => { if (searchQuery.length >= 2) setShowResults(true) }}
-                            className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-full focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all shadow-sm hover:border-zinc-400"
-                        />
-                        {showResults && (
-                            <div className="absolute top-full left-0 w-full mt-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                {searchResults.length > 0 ? (
-                                    <ul className="py-1">
-                                        {searchResults.map((project) => (
-                                            <li key={project.id}>
-                                                <button
-                                                    onClick={() => {
-                                                        router.push(`/projects/${project.id}`);
-                                                        setShowResults(false);
-                                                        setSearchQuery("");
-                                                    }}
-                                                    className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex flex-col"
-                                                >
-                                                    <span className="font-medium text-sm text-foreground">{project.name}</span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {(project.client && project.client.name) || (project.company && project.company.name) || 'Sin cliente asignado'}
-                                                    </span>
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <div className="p-4 text-center text-sm text-muted-foreground">
-                                        No se encontraron resultados.
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        <div className="relative w-full max-w-md hidden md:block">
+                            {/* ... existing search code ... */}
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                            <input
+                                type="text"
+                                placeholder="Buscar proyectos o clientes..."
+                                value={searchQuery}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                onFocus={() => { if (searchQuery.length >= 2) setShowResults(true) }}
+                                className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-full focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all shadow-sm hover:border-zinc-400"
+                            />
+                            {showResults && (
+                                <div className="absolute top-full left-0 w-full mt-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    {searchResults.length > 0 ? (
+                                        <ul className="py-1">
+                                            {searchResults.map((project) => (
+                                                <li key={project.id}>
+                                                    <button
+                                                        onClick={() => {
+                                                            router.push(`/projects/${project.id}`);
+                                                            setShowResults(false);
+                                                            setSearchQuery("");
+                                                        }}
+                                                        className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex flex-col"
+                                                    >
+                                                        <span className="font-medium text-sm text-foreground">{project.name}</span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {(project.client && project.client.name) || (project.company && project.company.name) || 'Sin cliente asignado'}
+                                                        </span>
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className="p-4 text-center text-sm text-muted-foreground">
+                                            No se encontraron resultados.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="flex items-center space-x-4">
-                <OrgSwitcher currentOrgId={currentOrgId} />
-                <ThemeToggle />
-                <NotificationCenter organizationId={userProfile?.organizationId} />
-            </div>
-        </header>
+                <div className="flex items-center space-x-4">
+                    <OrgSwitcher currentOrgId={currentOrgId} />
+                    <ThemeToggle />
+                    <NotificationCenter organizationId={userProfile?.organizationId} />
+                </div>
+            </header>
+        </>
     );
 }

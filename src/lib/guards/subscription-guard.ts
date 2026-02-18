@@ -32,11 +32,12 @@ export async function isOrganizationPaused(organizationId: string): Promise<bool
 /**
  * Guard for Server Actions. Throws an error if the organization is paused.
  * Use this at the beginning of any create, update, or delete action.
+ * The message "READ_ONLY_MODE" is intercepted by the PaywallProvider.
  */
 export async function ensureNotPaused(organizationId: string) {
     const paused = await isOrganizationPaused(organizationId);
     if (paused) {
-        throw new Error("ACCIÓN BLOQUEADA: Tu organización está en modo de solo lectura (PAUSED). Por favor, activa un plan para continuar editando.");
+        throw new Error("READ_ONLY_MODE");
     }
 }
 

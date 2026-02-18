@@ -8,29 +8,55 @@ export type ActivationMilestone =
     | 'FIRST_QUOTE_SENT'
     | 'FIRST_INVOICE_CREATED'
     | 'FIRST_TEAM_INVITE_SENT'
-    | 'FIRST_TEAM_MEMBER_JOINED';
+    | 'FIRST_TEAM_MEMBER_JOINED'
+    // Funnel Events (Wave 5.2)
+    | 'TRIAL_STARTED'
+    | 'TRIAL_WILL_END'
+    | 'TRIAL_EXPIRED'
+    | 'UPGRADE_CLICKED'
+    | 'CHECKOUT_STARTED'
+    | 'CHECKOUT_COMPLETED'
+    | 'SUBSCRIPTION_ACTIVE'
+    | 'PAYMENT_FAILED'
+    | 'SUBSCRIPTION_CANCELED'
+    | 'PAUSED_ENTERED'
+    | 'PAUSED_EXITED';
 
 export class ActivationService {
     /**
      * Tracks an event for an organization.
      */
-    static async track(eventName: string, organizationId: string, userId?: string, entityId?: string, metadata?: any) {
+    static async track(eventName: string, organizationId: string, userId?: string, entityId?: string, metadata?: any, dedupeKey?: string) {
         try {
-            await (prisma as any).activationEvent.create({
-                data: {
+            await (prisma as any).activationEvent.upsert({
+                where: { dedupeKey: dedupeKey || 'NO_DEDUPE' }, // Fallback if no dedupe
+                create: {
                     organizationId,
                     userId,
                     eventName,
                     entityId,
-                    metadata: metadata || {}
-                }
+                    metadata: metadata || {},
+                    dedupeKey: dedupeKey || null
+                },
+                update: {} // Do nothing if exists
             });
 
             // Trigger denormalization/stats update
             await this.updateStats(organizationId);
         } catch (error) {
+            if (dedupeKey && (error as any).code === 'P2002') {
+                // Ignore unique constraint error if dedupeKey already exists
+                return;
+            }
             console.error(`[Activation] Failed to track ${eventName} for ${organizationId}:`, error);
         }
+    }
+
+    /**
+     * Tracks a funnel event with guaranteed idempotency via dedupeKey.
+     */
+    static async trackFunnelEvent(milestone: ActivationMilestone, organizationId: string, dedupeKey: string, userId?: string, metadata?: any) {
+        return this.track(milestone, organizationId, userId, undefined, metadata, dedupeKey);
     }
 
     /**
@@ -38,21 +64,10 @@ export class ActivationService {
      */
     static async trackFirst(milestone: ActivationMilestone, organizationId: string, userId?: string, entityId?: string, metadata?: any) {
         try {
-            // Check if already exists
-            const existing = await (prisma as any).activationEvent.findUnique({
-                where: {
-                    organizationId_eventName: {
-                        organizationId,
-                        eventName: milestone
-                    }
-                }
-            });
-
-            if (existing) return;
-
-            await this.track(milestone, organizationId, userId, entityId, metadata);
+            // Use traditional check or dedupeKey
+            const dedupeKey = `first_${milestone}_${organizationId}`;
+            await this.track(milestone, organizationId, userId, entityId, metadata, dedupeKey);
         } catch (error) {
-            // Likely race condition or unique constraint, ignore
             console.warn(`[Activation] trackFirst ignored for ${milestone}:`, error);
         }
     }

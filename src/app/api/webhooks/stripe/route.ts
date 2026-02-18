@@ -3,6 +3,7 @@ import { getStripe } from '@/lib/stripe';
 import prisma from '@/lib/prisma';
 import type Stripe from 'stripe';
 import { SubscriptionStatus } from '@prisma/client';
+import { ActivationService } from '@/services/activation-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,9 @@ export async function POST(req: Request) {
                             seatLimit: stripeSub.items.data[0]?.quantity || 1,
                         }
                     });
+
+                    // [Funnel] Checkout Completed
+                    await ActivationService.trackFunnelEvent('CHECKOUT_COMPLETED', orgId, `checkout_${event.id}`, session.customer as string);
                 }
                 break;
             }
@@ -85,6 +89,8 @@ export async function POST(req: Request) {
                         status = SubscriptionStatus.PAUSED;
                     }
 
+                    const oldSubscription = await prisma.subscription.findUnique({ where: { organizationId: orgId } });
+
                     await prisma.subscription.update({
                         where: { organizationId: orgId },
                         data: {
@@ -94,6 +100,20 @@ export async function POST(req: Request) {
                             seatLimit: stripeSub.items.data[0]?.quantity || 1,
                         }
                     });
+
+                    // [Funnel] Event Mapping
+                    if (status === SubscriptionStatus.TRIALING && oldSubscription?.status !== SubscriptionStatus.TRIALING) {
+                        await ActivationService.trackFunnelEvent('TRIAL_STARTED', orgId, `trial_start_${event.id}`);
+                    }
+                    if (status === SubscriptionStatus.ACTIVE && oldSubscription?.status !== SubscriptionStatus.ACTIVE) {
+                        await ActivationService.trackFunnelEvent('SUBSCRIPTION_ACTIVE', orgId, `sub_active_${event.id}`);
+                        if (oldSubscription?.status === SubscriptionStatus.PAST_DUE || oldSubscription?.status === SubscriptionStatus.PAUSED) {
+                            await ActivationService.trackFunnelEvent('PAUSED_EXITED', orgId, `paused_exit_${event.id}`);
+                        }
+                    }
+                    if ((status === SubscriptionStatus.PAST_DUE || status === SubscriptionStatus.PAUSED) && oldSubscription?.status === SubscriptionStatus.ACTIVE) {
+                        await ActivationService.trackFunnelEvent('PAUSED_ENTERED', orgId, `paused_enter_${event.id}`);
+                    }
                 }
                 break;
             }
@@ -103,6 +123,8 @@ export async function POST(req: Request) {
                 const orgId = stripeSub.metadata?.organizationId;
 
                 if (orgId) {
+                    const oldSub = await prisma.subscription.findUnique({ where: { organizationId: orgId } });
+
                     await prisma.subscription.update({
                         where: { organizationId: orgId },
                         data: {
@@ -110,6 +132,11 @@ export async function POST(req: Request) {
                             providerSubscriptionId: null,
                         }
                     });
+
+                    await ActivationService.trackFunnelEvent('SUBSCRIPTION_CANCELED', orgId, `sub_del_${event.id}`);
+                    if (oldSub?.status === SubscriptionStatus.TRIALING) {
+                        await ActivationService.trackFunnelEvent('TRIAL_EXPIRED', orgId, `trial_exp_${event.id}`);
+                    }
                 }
                 break;
             }
@@ -137,7 +164,21 @@ export async function POST(req: Request) {
                             dedupeKey: `TRIAL_WILL_END_${event.id}`,
                             isBilling: true
                         });
+
+                        // [Funnel] Trial Will End
+                        await ActivationService.trackFunnelEvent('TRIAL_WILL_END', orgId, `funnel_twe_${event.id}`);
                     }
+                }
+                break;
+            }
+
+            case 'invoice.payment_failed': {
+                const invoice = event.data.object as Stripe.Invoice;
+                const customer = await stripe.customers.retrieve(invoice.customer as string);
+                const orgId = (customer as any).metadata?.organizationId;
+
+                if (orgId) {
+                    await ActivationService.trackFunnelEvent('PAYMENT_FAILED', orgId, `payment_fail_${event.id}`, undefined, { invoiceId: invoice.id });
                 }
                 break;
             }

@@ -8,6 +8,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { QuickClientDialog } from "@/components/clients/QuickClientDialog";
+import { usePaywall } from "@/components/dashboard/PaywallContext";
 
 type Company = {
     id: string;
@@ -26,6 +27,7 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
+    const { handleActionError } = usePaywall();
 
     // Debug log to ensure clients are passing
     useEffect(() => {
@@ -80,9 +82,12 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
                     router.push(`/projects/${result.projectId}`);
                 }, 1000);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ type: 'error', message: error instanceof Error ? error.message : "Error al crear proyecto" });
+            const isPaywall = handleActionError(error);
+            if (!isPaywall) {
+                toast({ type: 'error', message: error instanceof Error ? error.message : "Error al crear proyecto" });
+            }
             setIsLoading(false);
         }
     };

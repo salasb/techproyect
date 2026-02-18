@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getOrganizationId } from "@/lib/current-org";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function requestUpgrade(planId: string) {
     const orgId = await getOrganizationId();
@@ -30,4 +31,26 @@ export async function requestUpgrade(planId: string) {
     console.log(`[SUBSCRIPTION] Upgrade requested for Org ${orgId} to ${planId} by ${user.email}`);
 
     return { success: true, message: "Solicitud enviada. Un ejecutivo te contactará en breve." };
+}
+
+export async function createCustomerPortalSession() {
+    const orgId = await getOrganizationId();
+    const prisma = (await import("@/lib/prisma")).default;
+    const { getStripe } = await import("@/lib/stripe");
+
+    const subscription = await prisma.subscription.findUnique({
+        where: { organizationId: orgId }
+    });
+
+    if (!subscription?.providerCustomerId) {
+        throw new Error("No customer ID found for this organization");
+    }
+
+    const stripe = getStripe();
+    const session = await stripe.billingPortal.sessions.create({
+        customer: subscription.providerCustomerId,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/settings/billing`,
+    });
+
+    redirect(session.url);
 }

@@ -1,12 +1,18 @@
 import { getOrganizationId } from "@/lib/current-org";
 import { getOrganizationSubscription } from "@/lib/subscriptions";
-import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database } from "lucide-react";
+import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database, CreditCard } from "lucide-react";
+import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 
 export default async function BillingPage() {
     const orgId = await getOrganizationId();
     const { plan, usage, limits } = await getOrganizationSubscription(orgId);
+
+    const subscription = await prisma.subscription.findUnique({
+        where: { organizationId: orgId },
+        include: { organization: true }
+    });
 
     // Fetch all active plans for upgrade options
     const supabase = await createClient();
@@ -28,6 +34,55 @@ export default async function BillingPage() {
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Facturación y Planes</h1>
                     <p className="text-slate-500 font-medium">Gestiona tu suscripción y consulta tu consumo.</p>
+                </div>
+                {subscription?.providerCustomerId && (
+                    <form action={async () => {
+                        'use server';
+                        const { createCustomerPortalSession } = await import("@/app/actions/subscription");
+                        await createCustomerPortalSession();
+                    }}>
+                        <Button type="submit" variant="outline" className="gap-2">
+                            <CreditCard className="w-4 h-4" />
+                            Gestionar en Stripe
+                        </Button>
+                    </form>
+                )}
+            </div>
+
+            {/* Status & Seats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Estado</span>
+                    <div className="flex items-center gap-2">
+                        {subscription?.status === 'ACTIVE' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                        {subscription?.status === 'TRIALING' && <Zap className="w-5 h-5 text-blue-500" />}
+                        {(subscription?.status === 'PAST_DUE' || subscription?.status === 'PAUSED') && <AlertTriangle className="w-5 h-5 text-amber-500" />}
+                        <span className="text-lg font-black text-slate-900 dark:text-white uppercase">{subscription?.status || 'SIN PLAN'}</span>
+                    </div>
+                    {subscription?.currentPeriodEnd && (
+                        <p className="text-xs text-slate-500 mt-2">
+                            Próximo cargo: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                        </p>
+                    )}
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asientos (Seats)</span>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">{usage.users}</span>
+                        <span className="text-slate-400 font-bold">/</span>
+                        <span className="text-lg font-bold text-slate-500">{subscription?.seatLimit || limits.maxUsers || '1'}</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">Usuarios activos en tu organización.</p>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Plan</span>
+                    <div className="flex items-center gap-2">
+                        <Crown className="w-5 h-5 text-amber-500" />
+                        <span className="text-lg font-black text-slate-900 dark:text-white uppercase">{plan}</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">Tu nivel de servicio actual.</p>
                 </div>
             </div>
 
@@ -89,8 +144,8 @@ export default async function BillingPage() {
                             <div
                                 key={p.id}
                                 className={`rounded-3xl border p-8 flex flex-col relative ${isCurrent
-                                        ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10 dark:bg-blue-900/10'
-                                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm hover:shadow-md transition-all'
+                                    ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10 dark:bg-blue-900/10'
+                                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm hover:shadow-md transition-all'
                                     }`}
                             >
                                 {isCurrent && (

@@ -339,6 +339,7 @@ model Organization {
   activationEvents   ActivationEvent[]
   EmailEventLog      EmailEventLog[]
   NudgeDismissed     NudgeDismissed[]
+  ExperimentAssignment ExperimentAssignment[]
 
   @@schema("public")
 }
@@ -681,9 +682,35 @@ model ActivationEvent {
   occurredAt     DateTime     @default(now())
   entityId       String?
   metadata       Json?        @default("{}")
+  dedupeKey      String?      @unique
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, eventName])
+  @@schema("public")
+}
+
+model Experiment {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  variants    Json     // ["A", "B"]
+  enabled     Boolean  @default(true)
+  startAt     DateTime @default(now())
+  endAt       DateTime?
+  assignments ExperimentAssignment[]
+
+  @@schema("public")
+}
+
+model ExperimentAssignment {
+  id             String      @id @default(uuid())
+  organizationId String      @db.Uuid
+  experimentId   String
+  variant        String
+  assignedAt     DateTime    @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  experiment     Experiment   @relation(fields: [experimentId], references: [id])
+
+  @@unique([organizationId, experimentId])
   @@schema("public")
 }
 
