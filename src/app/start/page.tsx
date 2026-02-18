@@ -89,8 +89,8 @@ export default async function StartPage() {
                                         <RadioGroupItem value="SOLO" id="mode-solo" className="sr-only" />
                                         <User className="mb-3 h-6 w-6 text-slate-600" />
                                         <div className="space-y-1 text-center">
-                                            <p className="text-sm font-semibold leading-none">Modo Solo</p>
-                                            <p className="text-xs text-slate-500">Ideal para freelancers.</p>
+                                            <p className="text-sm font-semibold leading-none">Independiente</p>
+                                            <p className="text-xs text-slate-500">Uso personal.</p>
                                         </div>
                                     </Label>
                                     <Label
@@ -100,30 +100,33 @@ export default async function StartPage() {
                                         <RadioGroupItem value="TEAM" id="mode-team" className="sr-only" />
                                         <Building2 className="mb-3 h-6 w-6 text-slate-600" />
                                         <div className="space-y-1 text-center">
-                                            <p className="text-sm font-semibold leading-none">Modo Equipo</p>
-                                            <p className="text-xs text-slate-500">Gestión colaborativa.</p>
+                                            <p className="text-sm font-semibold leading-none">Equipo / Empresa</p>
+                                            <p className="text-xs text-slate-500">Múltiples usuarios.</p>
                                         </div>
                                     </Label>
                                 </RadioGroup>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="country">País / Región Fiscal</Label>
-                                <select
-                                    id="country"
-                                    name="country"
-                                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    defaultValue="CL"
-                                >
-                                    <option value="CL">Chile (19% IVA)</option>
-                                    <option value="MX">México (16% IVA)</option>
-                                    <option value="AR">Argentina</option>
-                                    <option value="US">Estados Unidos (Sin Tax)</option>
-                                </select>
+                            <div className="flex items-start space-x-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                <div className="flex items-center h-5">
+                                    <input
+                                        id="loadDemo"
+                                        name="loadDemo"
+                                        type="checkbox"
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded cursor-pointer"
+                                        defaultChecked
+                                    />
+                                </div>
+                                <div className="text-sm leading-5">
+                                    <Label htmlFor="loadDemo" className="font-semibold text-slate-700 cursor-pointer">
+                                        Cargar datos de demostración
+                                    </Label>
+                                    <p className="text-slate-500 text-xs">Añadiremos proyectos y clientes de ejemplo para que explores el sistema.</p>
+                                </div>
                             </div>
 
-                            <Button type="submit" className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700">
-                                Comenzar Prueba Gratuita
+                            <Button type="submit" className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-[0.98]">
+                                Crear y comenzar prueba
                             </Button>
 
                             <p className="text-center text-xs text-slate-500 mt-4">

@@ -1,12 +1,14 @@
 import { headers } from 'next/headers';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import prisma from '@/lib/prisma';
 import type Stripe from 'stripe';
 import { SubscriptionStatus } from '@prisma/client';
 
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+    const stripe = getStripe();
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
     const body = await req.text();
     const sig = (await headers()).get('stripe-signature');
 
@@ -14,6 +16,7 @@ export async function POST(req: Request) {
 
     try {
         if (!sig || !endpointSecret) {
+            console.error('Webhook Error: Missing signature or secret');
             return Response.json({ error: 'Missing signature or secret' }, { status: 400 });
         }
         event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
@@ -21,6 +24,26 @@ export async function POST(req: Request) {
         console.error(`Webhook Signature Error: ${err.message}`);
         return Response.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
     }
+
+    // 1. Idempotency Check
+    const existingEvent = await prisma.stripeEvent.findUnique({
+        where: { id: event.id }
+    });
+
+    if (existingEvent?.processed) {
+        return Response.json({ received: true, duplication: true });
+    }
+
+    // Record event
+    await prisma.stripeEvent.upsert({
+        where: { id: event.id },
+        update: {},
+        create: {
+            id: event.id,
+            type: event.type,
+            processed: false
+        }
+    });
 
     // Handle the event
     try {
@@ -93,9 +116,15 @@ export async function POST(req: Request) {
                 console.log(`Unhandled event type ${event.type}`);
         }
 
+        // Mark as processed
+        await prisma.stripeEvent.update({
+            where: { id: event.id },
+            data: { processed: true }
+        });
+
         return Response.json({ received: true });
     } catch (error: any) {
-        console.error(`Webhook Processing Error: ${error.message}`);
+        console.error(`Webhook Processing Error [${event.id}]: ${error.message}`);
         return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
     }
 }

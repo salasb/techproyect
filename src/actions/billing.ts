@@ -1,6 +1,6 @@
 'use server';
 
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { getOrganizationId } from '@/lib/current-org';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
@@ -12,6 +12,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
  * Creates a Stripe Checkout Session for a subscription
  */
 export async function createCheckoutSession(priceId: string) {
+    const stripe = getStripe();
     const orgId = await getOrganizationId();
     if (!orgId) throw new Error("No organization selected");
 
@@ -56,6 +57,7 @@ export async function createCheckoutSession(priceId: string) {
  * Creates a Stripe Customer Portal Session
  */
 export async function createPortalSession() {
+    const stripe = getStripe();
     const orgId = await getOrganizationId();
     if (!orgId) throw new Error("No organization selected");
 

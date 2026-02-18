@@ -256,6 +256,13 @@ model Organization {
   mode               OrganizationMode     @default(SOLO)
 }
 
+model StripeEvent {
+  id        String   @id // This is the Stripe Event ID
+  type      String
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
 model Subscription {
   id                     String             @id @default(uuid())
   organizationId         String             @unique @db.Uuid

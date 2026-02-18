@@ -130,6 +130,8 @@ export async function getPipelineProjects() {
 }
 
 export async function updateProjectStage(projectId: string, stage: Database['public']['Enums']['ProjectStage']) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const { error } = await supabase.from('Project').update({

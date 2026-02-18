@@ -16,7 +16,8 @@ export async function isOrganizationPaused(organizationId: string): Promise<bool
     if (!subscription) return false;
 
     // Paused if explicitly paused, past due, or canceled
-    if ([SubscriptionStatus.PAUSED, SubscriptionStatus.PAST_DUE, SubscriptionStatus.CANCELED].includes(subscription.status)) {
+    const status = subscription.status;
+    if (status === SubscriptionStatus.PAUSED || status === SubscriptionStatus.PAST_DUE || status === SubscriptionStatus.CANCELED) {
         return true;
     }
 

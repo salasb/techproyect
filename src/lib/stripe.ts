@@ -1,10 +1,23 @@
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is not defined in the environment variables.');
-}
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2024-12-18.acacia', // Latest stable version or compatible with the project
-    typescript: true,
-});
+let stripeInstance: Stripe | null = null;
+
+export const getStripe = (): Stripe => {
+    if (stripeInstance) return stripeInstance;
+
+    if (!stripeSecretKey) {
+        throw new Error('STRIPE_SECRET_KEY is not defined. Ensure it is set in your environment variables.');
+    }
+
+    stripeInstance = new Stripe(stripeSecretKey, {
+        apiVersion: '2026-01-28.clover',
+        typescript: true,
+    });
+
+    return stripeInstance;
+};
+
+// For backward compatibility while we refactor usages
+export const stripe = {} as Stripe; // Will be replaced by getStripe() calls

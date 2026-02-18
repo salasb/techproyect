@@ -17,8 +17,9 @@ export async function createOrganizationAction(formData: FormData) {
 
     const name = formData.get('name') as string;
     const mode = formData.get('mode') as OrganizationMode || 'SOLO';
-    const country = formData.get('country') as string || 'CL';
-    const vatRate = country === 'CL' ? 0.19 : 0;
+    const loadDemo = formData.get('loadDemo') === 'on';
+    const country = 'CL'; // Default to CL for simplicity in 1-step flow.
+    const vatRate = 0.19;
 
     // Use Prisma for transaction to ensure atomicity
     const org = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {

@@ -61,15 +61,33 @@ export async function updateSession(request: NextRequest) {
     }
 
     // 4. Org Context & Onboarding Enforcement
-    const orgId = request.cookies.get('app-org-id')?.value
+    const orgIdFromCookie = request.cookies.get('app-org-id')?.value
+    let currentOrgId = orgIdFromCookie;
 
-    // Fetch default org if not in cookies
-    let currentOrgId = orgId;
+    // VALIDATE MEMBERSHIP IF FROM COOKIE
+    if (orgIdFromCookie) {
+        const { data: membership } = await supabase
+            .from('OrganizationMember')
+            .select('status')
+            .eq('organizationId', orgIdFromCookie)
+            .eq('userId', user.id)
+            .eq('status', 'ACTIVE')
+            .maybeSingle();
+
+        if (!membership) {
+            // Invisible security: clear invalid cookie and force re-detection or /start
+            currentOrgId = undefined;
+            response.cookies.delete('app-org-id');
+        }
+    }
+
+    // Fetch default org if not in cookies or invalid
     if (!currentOrgId) {
         const { data: member } = await supabase
             .from('OrganizationMember')
             .select('organizationId')
             .eq('userId', user.id)
+            .eq('status', 'ACTIVE') // Only active memberships
             .limit(1)
             .maybeSingle();
 

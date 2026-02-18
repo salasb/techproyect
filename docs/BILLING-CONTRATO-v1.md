@@ -1,37 +1,36 @@
-# Contrato de Estados de Billing (Wave 3.1)
+# Contrato de Facturación y Estados (v1)
 
-Este documento define la fuente de verdad y las transiciones de estado para la monetización de TechProyect.
+Este documento define la lógica de estados de suscripción, transiciones y permisos dentro de la plataforma, usando Stripe como fuente de verdad.
 
-## 1. Fuente de Verdad
-**Stripe** es la única fuente de verdad para el estado de la suscripción. La sincronización se realiza exclusivamente a través de **Webhooks**.
+## 1. Estados de Suscripción
 
-## 2. Mapa de Estados
-
-| Estado Stripe | Estado TechProyect | Permisos | Descripción |
+| Estado (Prisma/Stripe) | Descripción | Modo de Acceso | Comportamiento UI |
 | :--- | :--- | :--- | :--- |
-| `trialing` | `TRIALING` | **Total** | Periodo de prueba gratuito (14 días). |
-| `active` | `ACTIVE` | **Total** | Suscripción pagada y al día. |
-| `past_due` | `PAST_DUE` | **Lectura** | Intento de cobro fallido. Bloqueo de escritura. |
-| `unpaid` | `PAUSED` | **Lectura** | Cobro fallido persistente. Solo visualización. |
-| `paused` | `PAUSED` | **Lectura** | Suscripción pausada manualmente. |
-| `canceled` | `CANCELED` | **Lectura** | Suscripción terminada. |
+| `TRIALING` | Período de gracia inicial (14 días). | **Full Access** | Badge "TRIAL" |
+| `ACTIVE` | Suscripción pagada y al día. | **Full Access** | Badge "PRO" |
+| `PAST_DUE` | Fallo de pago. Stripe intentará cobrar. | **Read-Only** | Banner de Alerta |
+| `PAUSED` | Suscripción pausada manualmente o por impago crítico. | **Read-Only** | Badge "PAUSED" |
+| `CANCELED` | Suscripción terminada. | **Read-Only** | Bloqueo de Acciones |
 
-## 3. Comportamiento Read-Only (PAUSED/CANCELED)
+## 2. Lógica de Sincronización (Webhooks)
 
-Cuando una organización no está en `ACTIVE` o `TRIALING`:
-- **Permitido**: Navegar por dashboards, ver detalles, exportar reportes/PDFs.
-- **Prohibido**: 
-  - Crear nuevas oportunidades, clientes o proyectos.
-  - Editar cualquier registro existente.
-  - Eliminar datos.
-  - Registrar nuevos movimientos de stock o facturas.
+La sincronización es unidireccional: **Stripe → Base de Datos Local**.
 
-## 4. Transiciones Críticas
-- **Checkout Success**: `TRIALING` -> `ACTIVE`.
-- **Trial Expired (No card)**: `TRIALING` -> `PAUSED` (Gestionado por lógica interna si no hay suscripción activa en Stripe).
-- **Payment Failed**: `ACTIVE` -> `PAST_DUE` -> `PAUSED`.
-- **Cancellation**: `ACTIVE` -> `CANCELED`.
+- **Checkout Completed**: Activa la suscripción y vincula el `providerCustomerId`.
+- **Subscription Updated**: Sincroniza cambios de plan, estado (`PAUSED`, `ACTIVE`) y fechas de periodo.
+- **Subscription Deleted**: Marca la organización como `CANCELED` inmediatamente.
 
-## 5. Idempotencia & Seguridad
-- Los webhooks verifican la firma (`STRIPE_WEBHOOK_SECRET`).
-- Se utiliza el `organizationId` en la `metadata` de Stripe para vincular eventos.
+## 3. Seguridad e Idempotencia
+
+- **Idempotencia**: Todos los eventos de Stripe se registran en la tabla `StripeEvent`. Si un evento ya fue procesado, se ignora para evitar duplicidad.
+- **Verificación de Firma**: Solo se aceptan peticiones firmadas legítimamente por Stripe.
+- **Lazy Loading**: El cliente de Stripe se inicializa solo en runtime para evitar fallos de compilación si faltan variables de entorno.
+
+## 4. Enforcement de Solo Lectura
+
+El guard `ensureNotPaused(orgId)` debe ejecutarse al inicio de **toda** Server Action que realice operaciones de escritura:
+- Crear registros (Clientes, Proyectos, Oportunidades).
+- Actualizar datos.
+- Eliminar o archivar.
+
+Si la suscripción no es `ACTIVE` o `TRIALING` (válido), la acción lanzará un error capturable por la UI.
