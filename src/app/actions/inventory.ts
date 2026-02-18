@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export type InventoryMovementType = 'IN' | 'OUT' | 'ADJUSTMENT' | 'SALE' | 'PURCHASE' | 'TRANSFER';
 
@@ -14,6 +16,8 @@ export async function adjustStock(
     reason?: string,
     referenceId?: string
 ) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     // Validate Stock for Outgoing Movements

@@ -3,10 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getOrganizationId } from "@/lib/current-org";
 import { revalidatePath } from "next/cache";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function createLocation(data: { name: string; address?: string; type?: string }) {
-    const supabase = await createClient();
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
+    const supabase = await createClient();
 
     if (!orgId) return { error: "No organization found" };
 

@@ -9,10 +9,13 @@ import { AuditService } from "@/services/auditService";
 import { getOrganizationId } from "@/lib/current-org";
 
 import { checkSubscriptionLimit } from "@/lib/subscriptions";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function createProject(formData: FormData) {
-    // 0. Check Subscription Limits
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
+
+    // 0. Check Subscription Limits
     const limitCheck = await checkSubscriptionLimit(orgId, 'projects');
     if (!limitCheck.allowed) {
         throw new Error(limitCheck.message);
@@ -137,6 +140,8 @@ export async function createProject(formData: FormData) {
 }
 
 export async function deleteProject(projectId: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     try {

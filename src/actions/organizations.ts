@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { OrganizationMode, SubscriptionStatus, Prisma } from "@prisma/client";
+import { OrganizationMode, SubscriptionStatus, Prisma, OrganizationStatus, OrganizationPlan, MembershipStatus } from "@prisma/client";
 
 /**
  * Creates a new organization with initial subscription and owner membership.
@@ -97,6 +97,19 @@ export async function switchOrganizationAction(organizationId: string) {
     });
 
     if (!membership) throw new Error("No access to this organization");
+
+    // Audit the switch
+    await prisma.auditLog.create({
+        data: {
+            projectId: 'SYSTEM', // System level event
+            organizationId: organizationId,
+            userId: user.id,
+            action: 'ORG_SWITCH',
+            details: `Usuario cambió a organización: ${organizationId}`,
+            userName: user.email,
+            createdAt: new Date()
+        }
+    });
 
     const cookieStore = await cookies();
     cookieStore.set('app-org-id', organizationId);

@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { AuditService } from "@/services/auditService";
 import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function sendQuote(projectId: string) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     // 1. Fetch current project and client
@@ -110,6 +112,7 @@ export async function sendQuote(projectId: string) {
 
 export async function createQuoteRevision(projectId: string) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     // 1. Get latest SENT quote
@@ -164,6 +167,7 @@ export async function createQuoteRevision(projectId: string) {
 
 export async function toggleQuoteAcceptance(projectId: string, isAccepted: boolean) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
     const acceptedAt = isAccepted ? new Date().toISOString() : null;
 

@@ -19,5 +19,5 @@ export const getStripe = (): Stripe => {
     return stripeInstance;
 };
 
-// For backward compatibility while we refactor usages
-export const stripe = {} as Stripe; // Will be replaced by getStripe() calls
+// El cliente de Stripe se inicializa de forma lazy para evitar errores en el build.
+// Todas las llamadas deben usar getStripe().

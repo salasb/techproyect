@@ -10,8 +10,11 @@ type CostCategory = Database['public']['Enums']['CostCategory'];
 import { validateCost } from "@/lib/validators";
 
 import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function addCost(projectId: string, formData: FormData) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const description = formData.get("description") as string;
     const amount = parseFloat(formData.get("amount") as string);
     const category = formData.get("category") as CostCategory;
@@ -22,7 +25,7 @@ export async function addCost(projectId: string, formData: FormData) {
         throw new Error(validation.errors.join(", "));
     }
 
-    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -50,6 +53,8 @@ export async function addCost(projectId: string, formData: FormData) {
 }
 
 export async function deleteCost(projectId: string, costId: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const { error } = await supabase

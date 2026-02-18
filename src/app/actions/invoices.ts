@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getOrganizationId } from "@/lib/current-org";
 import { AuditService } from "@/services/auditService";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 /**
  * Creates an invoice based on the accepted quote of a project.
  */
 export async function createInvoiceFromProject(projectId: string) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     // 1. Fetch Project and Quote Items to calculate total
@@ -82,6 +84,7 @@ export async function createInvoiceFromProject(projectId: string) {
  */
 export async function createInvoice(projectId: string, formData: FormData) {
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const amount = parseFloat(formData.get('amount') as string);
@@ -112,6 +115,8 @@ export async function createInvoice(projectId: string, formData: FormData) {
 }
 
 export async function deleteInvoice(projectId: string, invoiceId: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const { error } = await supabase.from('Invoice').delete().eq('id', invoiceId);
@@ -147,6 +152,8 @@ export async function markInvoiceSent(projectId: string, invoiceId: string, sent
 
 
 export async function registerPayment(projectId: string, invoiceId: string, amount: number) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     // Fetch current invoice to check existing payments if needed, keeping simple assumes full payment or increment

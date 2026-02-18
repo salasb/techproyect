@@ -3,10 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getOrganizationId } from "@/lib/current-org";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function createTask(projectId: string, data: { title: string; description?: string; dueDate?: string; priority?: number }) {
-    const supabase = await createClient();
     const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
+    const supabase = await createClient();
 
     const { error } = await supabase
         .from('Task')
@@ -29,6 +31,8 @@ export async function createTask(projectId: string, data: { title: string; descr
 }
 
 export async function toggleTaskStatus(taskId: string, projectId: string, currentStatus: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
     const newStatus = currentStatus === 'PENDING' ? 'COMPLETED' : 'PENDING';
 
@@ -47,6 +51,8 @@ export async function toggleTaskStatus(taskId: string, projectId: string, curren
 }
 
 export async function deleteTask(taskId: string, projectId: string) {
+    const orgId = await getOrganizationId();
+    await ensureNotPaused(orgId);
     const supabase = await createClient();
 
     const { error } = await supabase
