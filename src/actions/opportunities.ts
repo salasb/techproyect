@@ -310,7 +310,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
     }
 
     // Milestone
-    await ActivationService.trackMilestone(orgId, 'FIRST_PROJECT_CREATED');
+    await ActivationService.trackFirst('FIRST_PROJECT_CREATED', orgId);
 
     // 4. Update Interaction to link to New Project
     await supabase

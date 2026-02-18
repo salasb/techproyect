@@ -146,7 +146,7 @@ export async function inviteMemberAction(formData: FormData) {
         details: `Invited ${email} with role ${role} (SentCount: ${invite.sentCount})`
     });
 
-    await ActivationService.trackMilestone(orgId, 'FIRST_INVITE_SENT', user.id);
+    await ActivationService.trackFirst('FIRST_TEAM_INVITE_SENT', orgId, user.id);
 
     revalidatePath("/settings/team");
 
@@ -300,7 +300,7 @@ export async function acceptInvitationAction(token: string) {
         details: `Joined organization via invitation (Seat ${currentMembers + 1}/${maxSeats})`
     });
 
-    await ActivationService.trackMilestone(invitation.organizationId, 'FIRST_INVITE_ACCEPTED', user.id);
+    await ActivationService.trackFirst('FIRST_TEAM_MEMBER_JOINED', invitation.organizationId, user.id);
 
     revalidatePath("/dashboard");
 

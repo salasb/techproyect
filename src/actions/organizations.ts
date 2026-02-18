@@ -75,7 +75,7 @@ export async function createOrganizationAction(formData: FormData) {
     });
 
     // 5. Activation Milestone
-    await ActivationService.trackMilestone(org.id, 'ORG_CREATED', user.id);
+    await ActivationService.trackFirst('ORG_CREATED', org.id, user.id);
 
     // Set as current organization
     const cookieStore = await cookies();

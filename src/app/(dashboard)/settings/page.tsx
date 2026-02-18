@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Users, ChevronRight, History, Building2, CreditCard } from "lucide-react";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { GlobalAuditModal } from "@/components/settings/GlobalAuditModal";
+import { UserPreferencesForm } from "@/components/settings/UserPreferencesForm";
 
 export default async function SettingsPage() {
     const supabase = await createClient();
@@ -45,11 +46,29 @@ export default async function SettingsPage() {
         revalidatePath('/settings');
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from('Profile').select('*').eq('id', user?.id).single();
+
     return (
         <div className="max-w-7xl mx-auto space-y-8">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Configuración del Sistema</h2>
-                <p className="text-zinc-500 dark:text-zinc-400 mt-1">Ajusta los parámetros globales y revisa el historial de cambios.</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Configuración</h2>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-1">Ajusta tus preferencias personales y los parámetros del sistema.</p>
+                </div>
+            </div>
+
+            {/* User Preferences Section (PLG Wave 5.1) */}
+            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6">
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <History className="w-5 h-5 text-blue-500" /> Mis Preferencias
+                </h3>
+                {profile && (
+                    <UserPreferencesForm
+                        userId={profile.id}
+                        initialPreferences={{ receiveProductTips: (profile as any).receiveProductTips ?? true }}
+                    />
+                )}
             </div>
 
             {/* Quick Access */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bell, Check, X, AlertCircle, AlertTriangle, Info, CheckCircle2, ArrowRight } from "lucide-react";
+import { Bell, Check, X, AlertCircle, AlertTriangle, Info, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -19,34 +19,54 @@ interface Notification {
     metadata: any;
 }
 
+import { getActiveNudgesAction, dismissNudgeAction } from "@/app/actions/nudges";
+
+interface Nudge {
+    id: string;
+    type: 'ONBOARDING' | 'BILLING' | 'TIP';
+    severity: 'info' | 'warn';
+    title: string;
+    body: string;
+    ctaLabel: string;
+    ctaHref: string;
+    dedupeKey: string;
+}
+
 export function NotificationCenter({ organizationId }: { organizationId?: string }) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [nudges, setNudges] = useState<Nudge[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
 
-    const fetchNotifications = async () => {
+    const fetchData = async () => {
         if (!organizationId) return;
         const supabase = createClient();
-        const { data } = await supabase
-            .from('SentinelAlert')
-            .select('*')
-            .eq('organizationId', organizationId)
-            .order('createdAt', { ascending: false })
-            .limit(10);
 
-        if (data) {
-            setNotifications(data as any);
-            setUnreadCount(data.filter(n => n.status === 'OPEN').length);
+        const [alertsRes, nudgesData] = await Promise.all([
+            supabase.from('SentinelAlert')
+                .select('*')
+                .eq('organizationId', organizationId)
+                .order('createdAt', { ascending: false })
+                .limit(10),
+            getActiveNudgesAction()
+        ]);
+
+        if (alertsRes.data) {
+            setNotifications(alertsRes.data as any);
         }
+        if (nudgesData) {
+            setNudges(nudgesData as any);
+        }
+
+        const alertUnread = (alertsRes.data || []).filter(n => n.status === 'OPEN').length;
+        setUnreadCount(alertUnread + (nudgesData?.length || 0));
     };
 
     useEffect(() => {
-        fetchNotifications();
-
-        // Polling for updates (could be optimized with Realtime)
-        const interval = setInterval(fetchNotifications, 60000);
+        fetchData();
+        const interval = setInterval(fetchData, 60000);
         return () => clearInterval(interval);
     }, [organizationId]);
 
@@ -67,8 +87,13 @@ export function NotificationCenter({ organizationId }: { organizationId?: string
             .update({ status: 'RESOLVED' })
             .eq('id', id);
 
-        // Update local state
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, status: 'RESOLVED' } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+    };
+
+    const handleDismissNudge = async (dedupeKey: string) => {
+        await dismissNudgeAction(dedupeKey);
+        setNudges(prev => prev.filter(n => n.dedupeKey !== dedupeKey));
         setUnreadCount(prev => Math.max(0, prev - 1));
     };
 
@@ -77,6 +102,8 @@ export function NotificationCenter({ organizationId }: { organizationId?: string
             case 'S0': return <AlertCircle className="w-4 h-4 text-red-600" />;
             case 'S1': return <AlertTriangle className="w-4 h-4 text-orange-600" />;
             case 'S2': return <Info className="w-4 h-4 text-blue-600" />;
+            case 'warn': return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+            case 'info': return <Sparkles className="w-4 h-4 text-primary text-blue-500" />;
             default: return <CheckCircle2 className="w-4 h-4 text-zinc-500" />;
         }
     };
@@ -107,6 +134,43 @@ export function NotificationCenter({ organizationId }: { organizationId?: string
                     </div>
 
                     <div className="max-h-[400px] overflow-y-auto divide-y divide-border">
+                        {/* Nudges Section */}
+                        {nudges.map((nudge) => (
+                            <div key={nudge.id} className="p-4 bg-primary/[0.03] border-l-4 border-primary hover:bg-primary/[0.05] transition-colors relative group/nudge">
+                                <div className="flex gap-3">
+                                    <div className="mt-0.5">
+                                        {getSeverityIcon(nudge.severity)}
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none">
+                                                {nudge.type} Tip
+                                            </span>
+                                            <button
+                                                onClick={() => handleDismissNudge(nudge.dedupeKey)}
+                                                className="text-zinc-400 hover:text-red-500 transition-colors opacity-0 group-hover/nudge:opacity-100"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                        <h5 className="text-xs font-bold text-foreground leading-tight">{nudge.title}</h5>
+                                        <p className="text-[11px] text-muted-foreground line-clamp-2">{nudge.body}</p>
+
+                                        <div className="flex items-center gap-3 mt-2">
+                                            <Link
+                                                href={nudge.ctaHref}
+                                                onClick={() => setIsOpen(false)}
+                                                className="text-[10px] font-bold text-primary hover:underline flex items-center bg-primary/10 px-2 py-0.5 rounded"
+                                            >
+                                                {nudge.ctaLabel} <ArrowRight className="w-3 h-3 ml-1" />
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Sentinel Alerts Section */}
                         {notifications.length > 0 ? (
                             notifications.map((n) => (
                                 <div key={n.id} className={`p-4 hover:bg-zinc-50 transition-colors ${n.status === 'OPEN' ? 'bg-primary/[0.02]' : ''}`}>
@@ -116,7 +180,7 @@ export function NotificationCenter({ organizationId }: { organizationId?: string
                                         </div>
                                         <div className="flex-1 space-y-1">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-bold text-zinc-400 capitalize">
+                                                <span className="text-[10px] font-bold text-zinc-400 capitalize whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px]">
                                                     {n.type.replace('_', ' ')}
                                                 </span>
                                                 <span className="text-[10px] text-muted-foreground">
@@ -153,12 +217,14 @@ export function NotificationCenter({ organizationId }: { organizationId?: string
                                 </div>
                             ))
                         ) : (
-                            <div className="p-8 text-center space-y-2">
-                                <div className="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center mx-auto">
-                                    <Info className="w-5 h-5 text-zinc-300" />
+                            nudges.length === 0 && (
+                                <div className="p-8 text-center space-y-2">
+                                    <div className="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center mx-auto">
+                                        <Info className="w-5 h-5 text-zinc-300" />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">No tienes notificaciones pendientes.</p>
                                 </div>
-                                <p className="text-xs text-muted-foreground">No tienes notificaciones pendientes.</p>
-                            </div>
+                            )
                         )}
                     </div>
 

@@ -19,7 +19,7 @@ import { SentinelWidget } from "@/components/dashboard/SentinelWidget";
 import { SentinelAlertsPanel } from "@/components/dashboard/SentinelAlertsPanel";
 import { NextBestAction } from "@/components/dashboard/NextBestAction";
 import { getOrganizationId } from "@/lib/current-org";
-import { OnboardingGuide } from "@/components/dashboard/OnboardingGuide";
+import { ActivationChecklist } from "@/components/dashboard/ActivationChecklist";
 import prisma from "@/lib/prisma";
 
 
@@ -114,11 +114,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const topClients = DashboardService.getTopClients(projects as any);
 
     // 5. Fetch Stats & Sub Status for Onboarding
-    const [orgStats, subscription] = await Promise.all([
+    const [orgStats, subscription, org] = await Promise.all([
         orgId ? prisma.organizationStats.findUnique({ where: { organizationId: orgId } }) : null,
-        orgId ? prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }) : null
+        orgId ? prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }) : null,
+        orgId ? prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true } }) : null
     ]);
     const isTrialing = subscription?.status === 'TRIALING';
+    const orgMode = (org?.mode as 'SOLO' | 'TEAM') || 'SOLO';
 
     const { actions: sortedActions, nextBestAction } = DashboardService.getActionCenterData(
         projects as any,
@@ -158,10 +160,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
             </div>
 
-            {/* Onboarding Guide (Trial focus) */}
-            {isTrialing && (
-                <OnboardingGuide stats={orgStats} />
-            )}
+            {/* Activation Checklist (PLG Wave 5.1) */}
+            <ActivationChecklist stats={orgStats} orgMode={orgMode} />
 
             {/* 1. KPIs Section */}
             <DashboardKPIs data={kpis} />

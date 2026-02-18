@@ -103,3 +103,29 @@ export async function deleteUser(userId: string) {
 
     revalidatePath("/settings/users");
 }
+
+export async function updateProfilePreference(userId: string, data: { receiveProductTips: boolean }) {
+    if (!userId) throw new Error("User ID is required");
+
+    const supabase = await createClient();
+
+    // Security check: users can only update themselves
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id !== userId) {
+        throw new Error("Acceso denegado: Solo puedes actualizar tus propias preferencias");
+    }
+
+    const { error } = await supabase
+        .from('Profile')
+        .update({
+            receiveProductTips: data.receiveProductTips,
+            updatedAt: new Date().toISOString()
+        } as any)
+        .eq('id', userId);
+
+    if (error) {
+        throw new Error(`Error updating preferences: ${error.message}`);
+    }
+
+    revalidatePath("/settings");
+}

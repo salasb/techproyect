@@ -114,6 +114,34 @@ export async function POST(req: Request) {
                 break;
             }
 
+            case 'customer.subscription.trial_will_end': {
+                const stripeSub = event.data.object as Stripe.Subscription;
+                const orgId = stripeSub.metadata?.organizationId;
+
+                if (orgId) {
+                    // Fetch OWNER to send email
+                    const owner = await prisma.profile.findFirst({
+                        where: {
+                            organizationId: orgId,
+                            role: 'OWNER'
+                        }
+                    });
+
+                    if (owner) {
+                        const { LifecycleEmailService } = await import("@/services/lifecycle-email");
+                        // DedupeKey: StripeEventID ensures we don't send multiple for same event
+                        await LifecycleEmailService.sendLifecycleEmail({
+                            organizationId: orgId,
+                            userId: owner.id,
+                            templateKey: 'TRIAL_3D',
+                            dedupeKey: `TRIAL_WILL_END_${event.id}`,
+                            isBilling: true
+                        });
+                    }
+                }
+                break;
+            }
+
             default:
                 console.log(`Unhandled event type ${event.type}`);
         }

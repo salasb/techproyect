@@ -293,9 +293,12 @@ model Profile {
   avatarUrl      String?
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime      @default(now()) @db.Timestamptz(6)
+  receiveProductTips Boolean @default(true)
   AuditLog           AuditLog[]
   organization       Organization?        @relation(fields: [organizationId], references: [id])
   OrganizationMember OrganizationMember[]
+  EmailEventLog      EmailEventLog[]
+  NudgeDismissed     NudgeDismissed[]
 
   @@schema("public")
 }
@@ -334,6 +337,8 @@ model Organization {
   locations          Location[]
   ProductStock       ProductStock[]
   activationEvents   ActivationEvent[]
+  EmailEventLog      EmailEventLog[]
+  NudgeDismissed     NudgeDismissed[]
 
   @@schema("public")
 }
@@ -679,5 +684,34 @@ model ActivationEvent {
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, eventName])
+  @@schema("public")
+}
+
+model EmailEventLog {
+  id             String       @id @default(uuid())
+  organizationId String       @db.Uuid
+  userId         String       @db.Uuid
+  templateKey    String
+  dedupeKey      String       @unique
+  sentAt         DateTime     @default(now())
+  providerMessageId String?
+  meta           Json?        @default("{}")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  profile        Profile      @relation(fields: [userId], references: [id])
+
+  @@schema("public")
+}
+
+model NudgeDismissed {
+  id             String       @id @default(uuid())
+  organizationId String       @db.Uuid
+  userId         String       @db.Uuid
+  dedupeKey      String
+  dismissedAt    DateTime     @default(now())
+  expiresAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  profile        Profile      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, organizationId, dedupeKey])
   @@schema("public")
 }

@@ -68,7 +68,7 @@ export async function createInvoiceFromProject(projectId: string) {
 
     // 5. Log Action & Milestone
     await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura ${invoiceNumber} generada automáticamente desde cotización por $${totalGross.toLocaleString()}`);
-    await ActivationService.trackMilestone(orgId, 'FIRST_INVOICE_CREATED');
+    await ActivationService.trackFirst('FIRST_INVOICE_CREATED', orgId);
 
     // 6. Update Project Next Action if needed
     await supabase.from('Project').update({
@@ -111,7 +111,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
     if (error) throw new Error(`Error creando factura: ${error.message}`);
 
     await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura manual creada por $${amount.toLocaleString()}`);
-    await ActivationService.trackMilestone(orgId, 'FIRST_INVOICE_CREATED');
+    await ActivationService.trackFirst('FIRST_INVOICE_CREATED', orgId);
 
     revalidatePath(`/projects/${projectId}`);
     return { success: true, invoiceId };
