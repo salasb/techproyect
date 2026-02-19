@@ -79,11 +79,18 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-    if (resolution.action === 'SELECT') {
-        // User has multiple organizations and no valid cookie
-        const allowed = ['/org/select', '/start', '/join', '/api', '/logout', '/pending-activation'];
+    if (resolution.action === 'ERROR') {
+        // Critical error (DB down, etc) - Never send to START as a "clean slate"
+        const allowed = ['/start', '/logout', '/api', '/_debug'];
         const isAllowed = allowed.some(p => request.nextUrl.pathname.startsWith(p));
+        if (!isAllowed) {
+            return NextResponse.redirect(new URL(`/start?error=true&msg=${encodeURIComponent(resolution.message || '')}`, request.url));
+        }
+    }
 
+    if (resolution.action === 'SELECT') {
+        const allowed = ['/org/select', '/start', '/join', '/api', '/logout', '/pending-activation', '/_debug'];
+        const isAllowed = allowed.some(p => request.nextUrl.pathname.startsWith(p));
         if (!isAllowed) {
             return NextResponse.redirect(new URL('/org/select', request.url));
         }
@@ -96,10 +103,11 @@ export async function updateSession(request: NextRequest) {
         // Auto-fix cookie if missing or mismatched
         if (orgIdFromCookie !== currentOrgId) {
             response.cookies.set('app-org-id', currentOrgId, {
+                path: '/',
                 httpOnly: false,
                 sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
-                maxAge: 60 * 60 * 24 * 7
+                maxAge: 60 * 60 * 24 * 7 // 1 week
             });
         }
 
@@ -110,12 +118,15 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-    // REDIRECT TO /START IF NO ORG (Except for Superadmins who can roam)
-    if (!currentOrgId && !request.nextUrl.pathname.startsWith('/admin')) {
-        const { data: profile } = await supabase.from('Profile').select('role').eq('id', user.id).single();
-        if (profile?.role !== 'SUPERADMIN') {
-            return NextResponse.redirect(new URL('/start', request.url));
-        }
+    // 4.5. Final Guard: If we still don't have currentOrgId but were NOT in START/ERROR/SELECT
+    // This catches logic gaps. Ensure /start is only for verified START state.
+    if (!currentOrgId && !request.nextUrl.pathname.startsWith('/admin') && resolution.action !== 'START' && resolution.action !== 'ERROR' && resolution.action !== 'SELECT') {
+        // Fallback for edge cases
+    }
+
+    // REDIRECT TO /START ONLY IF action is START
+    if (resolution.action === 'START' && !request.nextUrl.pathname.startsWith('/start') && !request.nextUrl.pathname.startsWith('/api')) {
+        return NextResponse.redirect(new URL('/start', request.url));
     }
 
     // 5. Subscription & State Verification

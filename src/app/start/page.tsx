@@ -4,17 +4,54 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Building2, User, CheckCircle2 } from "lucide-react";
+import { Building2, User, CheckCircle2, AlertCircle, RefreshCcw } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default async function StartPage() {
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function StartPage({
+    searchParams
+}: {
+    searchParams: Promise<{ error?: string; msg?: string }>
+}) {
+    const { error, msg } = await searchParams;
     const orgs = await getUserOrganizations();
+
+    // Auto-redirect if orgs exist and no error
+    if (orgs.length > 0 && !error) {
+        // If they have 1 org, just sent them to dashboard
+        if (orgs.length === 1) {
+            redirect('/dashboard');
+        }
+        // If they have multiple, redirect to selector
+        redirect('/org/select');
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
             <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Intro Section */}
                 <div className="flex flex-col justify-center space-y-6">
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-6 space-y-3 animate-in fade-in slide-in-from-top-4">
+                            <div className="flex items-center gap-2 text-red-800 font-bold">
+                                <AlertCircle className="w-5 h-5" />
+                                <span>Hubo un problema de conexión</span>
+                            </div>
+                            <p className="text-sm text-red-600">
+                                No pudimos verificar tus organizaciones correctamente. {msg && `Detalle: ${msg}`}
+                            </p>
+                            <Button asChild variant="outline" className="w-full bg-white border-red-200 text-red-700 hover:bg-red-50">
+                                <Link href="/start" className="flex items-center gap-2">
+                                    <RefreshCcw className="w-4 h-4" />
+                                    Reintentar ahora
+                                </Link>
+                            </Button>
+                        </div>
+                    )}
+
                     <div className="space-y-2">
                         <h1 className="text-4xl font-bold tracking-tight text-slate-900 leading-tight">
                             Bienvenido a <span className="text-blue-600">TechProyect</span>

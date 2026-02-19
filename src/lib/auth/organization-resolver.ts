@@ -1,8 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import prisma from '@/lib/prisma'
 
 export type OrgResolutionResult =
     | { action: 'START' }
     | { action: 'SELECT' }
+    | { action: 'ERROR', message?: string }
     | { action: 'ENTER', organizationId: string }
 
 export async function resolveActiveOrganization(
@@ -12,84 +14,83 @@ export async function resolveActiveOrganization(
     hostname?: string
 ): Promise<OrgResolutionResult> {
     const DEBUG = process.env.LOG_ORG_RESOLUTION === '1';
+    const trace: string[] = [];
 
-    // 1. Fetch memberships & Profile (owned org) in parallel
-    const [membershipsRes, profileRes] = await Promise.all([
-        supabase
-            .from('OrganizationMember')
-            .select('organizationId, role, status')
-            .eq('userId', userId)
-            .eq('status', 'ACTIVE'),
-        supabase
-            .from('Profile')
-            .select('organizationId, role, email')
-            .eq('id', userId)
-            .single()
-    ]);
+    try {
+        // 1. Fetch memberships & Profile (owned org) using Prisma
+        const [memberships, profile] = await Promise.all([
+            prisma.organizationMember.findMany({
+                where: { userId, status: 'ACTIVE' },
+                select: { organizationId: true, role: true, status: true }
+            }),
+            prisma.profile.findUnique({
+                where: { id: userId },
+                select: { organizationId: true, role: true, email: true }
+            })
+        ]);
 
-    const memberships = membershipsRes.data || [];
-    const profile = profileRes.data;
-    const ownedOrgId = profile?.organizationId;
+        const ownedOrgId = profile?.organizationId;
 
-    if (DEBUG) {
-        console.log(`[OrgResolution] Diagnóstico:`, {
-            userId,
-            email: profile?.email,
-            hostname,
-            cookiePresent: !!cookieOrgId,
-            cookieValue: cookieOrgId ? `${cookieOrgId.slice(0, 8)}...` : null,
-            membershipsCount: memberships.length,
-            ownedOrgId: ownedOrgId ? `${ownedOrgId.slice(0, 8)}...` : null,
-            membershipsError: membershipsRes.error?.message,
-            profileError: profileRes.error?.message
-        });
-    }
-
-    // 2. AUTO-REPAIR: 0 memberships but is the verified OWNER of an organization
-    if (memberships.length === 0 && ownedOrgId && profile?.role === 'OWNER') {
-        if (DEBUG) console.log(`[OrgResolution] Auto-repair: Detectada org huérfana ${ownedOrgId.slice(0, 8)}... para OWNER. Creando membresía...`);
-
-        const { error: repairError } = await supabase
-            .from('OrganizationMember')
-            .insert({
-                organizationId: ownedOrgId,
-                userId: userId,
-                role: 'OWNER',
-                status: 'ACTIVE'
+        if (DEBUG) {
+            console.log(`[OrgResolution] Trace:`, {
+                userId,
+                email: profile?.email,
+                hostname,
+                cookieOrgId,
+                membershipsCount: memberships.length,
+                ownedOrgId
             });
-
-        if (!repairError) {
-            if (DEBUG) console.log(`[OrgResolution] Auto-repair exitoso para ${ownedOrgId.slice(0, 8)}...`);
-            // Recalculate as if we had this 1 organization
-            return { action: 'ENTER', organizationId: ownedOrgId };
-        } else {
-            console.error(`[OrgResolution] Falló auto-repair:`, repairError);
         }
-    }
 
-    // 3. Resolve by Cookie (Must exist in memberships)
-    if (cookieOrgId) {
-        const matchingMembership = memberships.find(m => m.organizationId === cookieOrgId);
-        if (matchingMembership) {
-            if (DEBUG) console.log(`[OrgResolution] Resultado: ENTER (Cookie validada)`);
-            return { action: 'ENTER', organizationId: cookieOrgId };
+        // 2. AUTO-REPAIR: 0 memberships but is the verified OWNER of an organization
+        if (memberships.length === 0 && ownedOrgId && profile?.role === 'OWNER') {
+            if (DEBUG) console.log(`[OrgResolution] Auto-repair candidate: ${ownedOrgId.slice(0, 8)}...`);
+
+            try {
+                await prisma.organizationMember.create({
+                    data: {
+                        organizationId: ownedOrgId,
+                        userId: userId,
+                        role: 'OWNER',
+                        status: 'ACTIVE'
+                    }
+                });
+                if (DEBUG) console.log(`[OrgResolution] Auto-repair success`);
+                return { action: 'ENTER', organizationId: ownedOrgId };
+            } catch (repairError) {
+                console.error(`[OrgResolution] Repair failed:`, repairError);
+                // Don't returned START if repair failed, go to ERROR
+                return { action: 'ERROR', message: 'Repair failed' };
+            }
         }
-        if (DEBUG) console.log(`[OrgResolution] Cookie inválida (${cookieOrgId}). Re-calculando...`);
-    }
 
-    // 4. Branch: 0, 1, or Many
-    if (memberships.length === 0) {
-        // Double check: if they have an ownedOrgId that failed repair (unlikely) or just genuinely 0/0
-        if (DEBUG) console.log(`[OrgResolution] Resultado: START (Sin membresías)`);
-        return { action: 'START' };
-    }
+        // 3. Resolve by Cookie (Must exist in memberships)
+        if (cookieOrgId) {
+            const match = memberships.find(m => m.organizationId === cookieOrgId);
+            if (match) {
+                if (DEBUG) console.log(`[OrgResolution] Decision: ENTER (Cookie)`);
+                return { action: 'ENTER', organizationId: cookieOrgId };
+            }
+            if (DEBUG) console.log(`[OrgResolution] Cookie mismatch/stale: ${cookieOrgId}`);
+        }
 
-    if (memberships.length === 1) {
-        if (DEBUG) console.log(`[OrgResolution] Resultado: ENTER (Única membresía)`);
-        return { action: 'ENTER', organizationId: memberships[0].organizationId };
-    }
+        // 4. Branch: 0, 1, or Many
+        if (memberships.length === 0) {
+            if (DEBUG) console.log(`[OrgResolution] Decision: START (No memberships)`);
+            return { action: 'START' };
+        }
 
-    // Multiple memberships, no valid cookie
-    if (DEBUG) console.log(`[OrgResolution] Resultado: SELECT (${memberships.length} orgs)`);
-    return { action: 'SELECT' };
+        if (memberships.length === 1) {
+            if (DEBUG) console.log(`[OrgResolution] Decision: ENTER (Single)`);
+            return { action: 'ENTER', organizationId: memberships[0].organizationId };
+        }
+
+        if (DEBUG) console.log(`[OrgResolution] Decision: SELECT (${memberships.length} orgs)`);
+        return { action: 'SELECT' };
+
+    } catch (error: any) {
+        console.error(`[OrgResolution] CRITICAL ERROR:`, error);
+        // CRITICAL: Never return START on error
+        return { action: 'ERROR', message: error.message };
+    }
 }
