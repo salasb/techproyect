@@ -392,6 +392,9 @@ model Subscription {
   provider               String? // e.g., 'stripe'
   providerCustomerId     String?
   providerSubscriptionId String?
+  compedUntil            DateTime?
+  compedReason           String?
+  source                 String?            @default("STRIPE") // STRIPE, COMPED, MANUAL
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   organization           Organization       @relation(fields: [organizationId], references: [id])
@@ -489,6 +492,7 @@ enum MembershipStatus {
 }
 
 enum MembershipRole {
+  SUPERADMIN
   OWNER
   ADMIN
   MEMBER

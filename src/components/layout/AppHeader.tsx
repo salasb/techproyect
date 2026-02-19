@@ -1,6 +1,7 @@
 'use client'
 
-import { Bell, Search, User, X } from "lucide-react";
+import { Search, Shield } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -17,9 +18,12 @@ export function AppHeader({
     subscription,
     paywallVariant
 }: {
-    profile?: any;
+    profile?: { name?: string; role?: string; id?: string };
     currentOrgId?: string;
-    subscription?: any;
+    subscription?: {
+        status: "TRIALING" | "ACTIVE" | "PAUSED" | "PAST_DUE" | "CANCELED";
+        trialEndsAt?: Date | null;
+    };
     paywallVariant?: 'A' | 'B';
 }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -27,8 +31,8 @@ export function AppHeader({
     const [showResults, setShowResults] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
-    const [user, setUser] = useState<any>(null);
-    const [userProfile, setUserProfile] = useState<any>(profile);
+    const [user, setUser] = useState<{ email?: string; id: string } | null>(null);
+    const [userProfile, setUserProfile] = useState<{ name?: string; role?: string; id?: string } | undefined>(profile);
 
     useEffect(() => {
         async function getUser() {
@@ -121,7 +125,7 @@ export function AppHeader({
 
 
     const displayedName = (userProfile?.name || user?.email || 'Usuario');
-    const sanitizedName = displayedName
+    displayedName
         .replace(/testUSER/i, 'Test') // Specific fix for reported case
         .replace(/\s*User$/i, '')
         .replace(/^\s*User\s*/i, '')
@@ -192,11 +196,21 @@ export function AppHeader({
                 </div>
 
                 <div className="flex items-center space-x-4">
+                    {userProfile?.role === 'SUPERADMIN' && (
+                        <Link
+                            href="/admin"
+                            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-primary transition-colors flex items-center gap-2"
+                            title="Panel Superadmin"
+                        >
+                            <Shield className="w-5 h-5" />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden lg:inline">Admin</span>
+                        </Link>
+                    )}
                     <OrgSwitcher currentOrgId={currentOrgId} />
                     <ThemeToggle />
                     <NotificationCenter
                         organizationId={currentOrgId}
-                        userRole={profile?.role}
+                        userRole={(userProfile?.role as string) || 'MEMBER'}
                     />
                 </div>
             </header>
