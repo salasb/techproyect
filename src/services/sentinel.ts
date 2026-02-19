@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 
 export type SentinelSeverity = 'S0' | 'S1' | 'S2' | 'S3';
-export type SentinelType = 'STOCK_CRITICAL' | 'BUDGET_OVERFLOW' | 'INVOICE_OVERDUE' | 'STALE_PROJECT' | 'LOW_MARGIN' | 'QUOTE_FOLLOWUP';
+export type SentinelType = 'STOCK_CRITICAL' | 'BUDGET_OVERFLOW' | 'INVOICE_OVERDUE' | 'STALE_PROJECT' | 'LOW_MARGIN' | 'QUOTE_FOLLOWUP' | 'WEBHOOK_FAILURE' | 'ORG_PAST_DUE';
 
 export interface SentinelInsight {
     id: string;
@@ -173,6 +173,44 @@ export class SentinelService {
                     }
                 }
             }
+        }
+
+        // 10. Rule: Organization Past Due (S0)
+        const { data: subscription } = await supabase.from('Subscription')
+            .select('status')
+            .eq('organizationId', organizationId)
+            .maybeSingle();
+
+        if (subscription && subscription.status === 'PAST_DUE') {
+            await this.triggerAlert(organizationId, {
+                type: 'ORG_PAST_DUE',
+                severity: 'S0',
+                title: 'Suscripción Vencida',
+                message: 'El pago de la suscripción ha fallado. La organización pasará a modo lectura pronto.',
+                metadata: { source: 'stripe' },
+                createTask: true,
+                taskTitle: 'Actualizar método de pago'
+            });
+        }
+
+        // 11. Rule: Webhook Failures (S1)
+        // Check for any webhook errors in the last 24 hours for this org
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+        const { data: webhookErrors } = await supabase.from('StripeEvent')
+            .select('id, error, type')
+            .eq('orgId', organizationId)
+            .eq('status', 'ERROR')
+            .gt('createdAt', oneDayAgo)
+            .limit(1);
+
+        if (webhookErrors && webhookErrors.length > 0) {
+            await this.triggerAlert(organizationId, {
+                type: 'WEBHOOK_FAILURE',
+                severity: 'S1',
+                title: 'Error de Sincronización',
+                message: `Fallo detectado en webhook de facturación (${webhookErrors[0].type}). Contacte a soporte.`,
+                metadata: { eventId: webhookErrors[0].id, error: webhookErrors[0].error }
+            });
         }
 
         // 9. Update lastSentinelRunAt

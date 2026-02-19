@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ShareLinkService } from "@/services/share-link-service";
 import prisma from "@/lib/prisma";
 import { AuditService } from "@/services/auditService";
+import { RateLimitService } from "@/services/rate-limit";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,17 @@ export async function POST(
     context: { params: Promise<{ token: string }> }
 ) {
     const { token } = await context.params;
+
+    // Rate Limiting (IP-based)
+    const ip = req.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimit = await RateLimitService.check(ip, 'QUOTE_ACCEPT_ATTEMPT', 5, 3600); // 5 attempts per hour per IP
+
+    if (!rateLimit.success) {
+        return NextResponse.json(
+            { error: "Too many attempts. Please try again later." },
+            { status: 429 }
+        );
+    }
 
     // 1. Verify Token
     const auth = await ShareLinkService.verifyLink(token);

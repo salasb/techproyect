@@ -161,6 +161,34 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
+    // 7. Security Headers
+    // Content Security Policy (CSP)
+    const cspHeader = `
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://m.stripe.network https://*.supabase.co;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' blob: data: https://*.stripe.com;
+        font-src 'self' data:;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'none';
+        frame-src 'self' https://js.stripe.com https://hooks.stripe.com;
+        connect-src 'self' https://api.stripe.com https://m.stripe.network https://*.supabase.co https://*.supabase.in;
+        upgrade-insecure-requests;
+    `.replace(/\s{2,}/g, ' ').trim();
+
+    response.headers.set('Content-Security-Policy', cspHeader);
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+    // HSTS (Strict-Transport-Security) - Enabled for 1 year in production
+    if (process.env.NODE_ENV === 'production') {
+        response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    }
+
     return response
 }
 

@@ -348,10 +348,16 @@ model Organization {
 }
 
 model StripeEvent {
-  id        String   @id // This is the Stripe Event ID
-  type      String
-  processed Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id          String   @id // This is the Stripe Event ID
+  type        String
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  status      String   @default("PENDING") // OK, ERROR, PENDING
+  error       String?
+  processedAt DateTime?
+  durationMs  Int?
+  orgId       String?  @db.Uuid
+  data        Json?    // Snapshot of the event payload (optional/truncated)
 
   @@schema("public")
 }
@@ -375,6 +381,7 @@ model Subscription {
 
   @@schema("public")
 }
+
 
 model OrganizationMember {
   id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -635,6 +642,8 @@ enum SentinelType {
   STALE_PROJECT
   LOW_MARGIN
   QUOTE_FOLLOWUP
+  WEBHOOK_FAILURE
+  ORG_PAST_DUE
 
   @@schema("public")
 }
