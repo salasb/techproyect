@@ -4,11 +4,12 @@ import { useState } from "react";
 import { Database } from "@/types/supabase";
 import { createInvoice, deleteInvoice, markInvoiceSent, registerPayment } from "@/app/actions/invoices";
 import { closeProject } from "@/app/actions/projects";
-import { Plus, Trash2, Calendar, FileText, Send, CheckCircle, Clock, Loader2, DollarSign, X } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, Send, CheckCircle, Clock, Loader2, DollarSign, X, Share2 } from "lucide-react";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ShareDialog } from "@/components/sharing/ShareDialog";
 
 type Invoice = Database['public']['Tables']['Invoice']['Row'];
 
@@ -260,6 +261,15 @@ export function InvoicesManager({
                                                         <button onClick={() => handleDelete(inv.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
+                                                        <ShareDialog
+                                                            entityType="INVOICE"
+                                                            entityId={inv.id}
+                                                            trigger={
+                                                                <button className="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors" title="Compartir">
+                                                                    <Share2 className="w-4 h-4" />
+                                                                </button>
+                                                            }
+                                                        />
                                                     </>
                                                 )}
                                             </td>
@@ -283,104 +293,109 @@ export function InvoicesManager({
                         </button>
                     </div>
                 )
-            )}
+            )
+            }
 
-            {isAdding ? (
-                <form action={handleCreate} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
-                    <h4 className="text-sm font-medium mb-4">Nueva Factura</h4>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Monto (Bruto)</label>
-                            {/* Pre-fill with remaining amount */}
-                            <MoneyInput name="amount" required placeholder="0" defaultValue={remainingToInvoice} />
-                            <p className="text-[10px] text-muted-foreground mt-1">Sugerido: {formatMoney(remainingToInvoice)}</p>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Vencimiento</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
-                                <input
-                                    name="dueDate"
-                                    type="date"
-                                    required
-                                    value={dueDate}
-                                    onChange={handleDateChange}
-                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
-                                />
+            {
+                isAdding ? (
+                    <form action={handleCreate} className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
+                        <h4 className="text-sm font-medium mb-4">Nueva Factura</h4>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Monto (Bruto)</label>
+                                {/* Pre-fill with remaining amount */}
+                                <MoneyInput name="amount" required placeholder="0" defaultValue={remainingToInvoice} />
+                                <p className="text-[10px] text-muted-foreground mt-1">Sugerido: {formatMoney(remainingToInvoice)}</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Vencimiento</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
+                                    <input
+                                        name="dueDate"
+                                        type="date"
+                                        required
+                                        value={dueDate}
+                                        onChange={handleDateChange}
+                                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                </div>
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Días de Pago</label>
+                                <div className="relative">
+                                    <Clock className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
+                                    <input
+                                        name="paymentTerms"
+                                        type="number"
+                                        placeholder="30"
+                                        value={paymentTerms}
+                                        onChange={handleTermsChange}
+                                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    Calculado automáticamente: {paymentTerms} días desde hoy.
+                                </p>
                             </div>
                         </div>
-                        <div className="col-span-2">
-                            <label className="block text-xs font-medium text-zinc-500 mb-1">Días de Pago</label>
-                            <div className="relative">
-                                <Clock className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
-                                <input
-                                    name="paymentTerms"
-                                    type="number"
-                                    placeholder="30"
-                                    value={paymentTerms}
-                                    onChange={handleTermsChange}
-                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
-                                />
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                                Calculado automáticamente: {paymentTerms} días desde hoy.
-                            </p>
+                        <div className="flex justify-end space-x-3">
+                            <button type="button" onClick={() => setIsAdding(false)} className="text-sm text-zinc-500 hover:text-zinc-700">Cancelar</button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center disabled:opacity-50 hover:bg-blue-700"
+                            >
+                                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Crear Factura
+                            </button>
                         </div>
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                        <button type="button" onClick={() => setIsAdding(false)} className="text-sm text-zinc-500 hover:text-zinc-700">Cancelar</button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center disabled:opacity-50 hover:bg-blue-700"
-                        >
-                            {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            Crear Factura
+                    </form>
+                ) : (
+                    invoices.length > 0 && (
+                        <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700">
+                            <Plus className="w-4 h-4 mr-2" /> Nueva Factura
                         </button>
-                    </div>
-                </form>
-            ) : (
-                invoices.length > 0 && (
-                    <button onClick={() => setIsAdding(true)} className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700">
-                        <Plus className="w-4 h-4 mr-2" /> Nueva Factura
-                    </button>
+                    )
                 )
-            )}
+            }
 
             {/* Mark Sent Dialog */}
-            {markingSentId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-card w-full max-w-sm rounded-xl border border-border shadow-lg p-6 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-semibold">Registrar Envío</h3>
-                            <button onClick={() => setMarkingSentId(null)} className="text-muted-foreground hover:text-foreground">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                            Indica la fecha en que se envió esta factura al cliente.
-                        </p>
-                        <div className="space-y-2">
-                            <label className="block text-xs font-medium text-zinc-500">Fecha de Envío</label>
-                            <input
-                                type="date"
-                                value={sentDate}
-                                onChange={(e) => setSentDate(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm"
-                            />
-                        </div>
-                        <div className="flex justify-end gap-3 pt-2">
-                            <button onClick={() => setMarkingSentId(null)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
-                            <button
-                                onClick={confirmMarkSent}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-                            >
-                                Confirmar Envío
-                            </button>
+            {
+                markingSentId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-card w-full max-w-sm rounded-xl border border-border shadow-lg p-6 space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-semibold">Registrar Envío</h3>
+                                <button onClick={() => setMarkingSentId(null)} className="text-muted-foreground hover:text-foreground">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Indica la fecha en que se envió esta factura al cliente.
+                            </p>
+                            <div className="space-y-2">
+                                <label className="block text-xs font-medium text-zinc-500">Fecha de Envío</label>
+                                <input
+                                    type="date"
+                                    value={sentDate}
+                                    onChange={(e) => setSentDate(e.target.value)}
+                                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button onClick={() => setMarkingSentId(null)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
+                                <button
+                                    onClick={confirmMarkSent}
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+                                >
+                                    Confirmar Envío
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

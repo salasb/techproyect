@@ -2,6 +2,7 @@ import { QuotePrintButton } from "@/components/projects/QuotePrintButton";
 import { QuoteAcceptance } from "@/components/projects/QuoteAcceptance";
 import { QuoteActions } from "@/components/projects/QuoteActions";
 import { QuoteDocument } from "@/components/projects/QuoteDocument";
+import { ShareDialog } from "@/components/sharing/ShareDialog";
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { Database } from "@/types/supabase";
@@ -88,6 +89,7 @@ export default async function QuotePage({ params }: Props) {
                         Volver al Proyecto
                     </Link>
                     <QuotePrintButton variant="solid" />
+                    <ShareDialog entityType="QUOTE" entityId={project.quotes?.[0]?.id || 'unknown'} />
                 </div>
             </div>
 

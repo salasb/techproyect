@@ -52,7 +52,9 @@ export async function POST(req: Request) {
             case 'checkout.session.completed': {
                 const session = event.data.object as Stripe.Checkout.Session;
                 const orgId = session.metadata?.organizationId;
+                const invoiceId = session.metadata?.invoiceId;
 
+                // Handle Subscription Checkout
                 if (orgId && session.subscription) {
                     const stripeSub = await stripe.subscriptions.retrieve(session.subscription as string);
 
@@ -69,6 +71,31 @@ export async function POST(req: Request) {
 
                     // [Funnel] Checkout Completed
                     await ActivationService.trackFunnelEvent('CHECKOUT_COMPLETED', orgId, `checkout_${event.id}`, session.customer as string);
+                }
+
+                // Handle One-Time Invoice Payment
+                else if (invoiceId && session.payment_status === 'paid') {
+                    const amount = session.amount_total ? session.amount_total / 100 : 0; // Stripe is in cents
+
+                    // Verify invoice exists
+                    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+                    if (invoice) {
+                        await prisma.invoice.update({
+                            where: { id: invoiceId },
+                            data: {
+                                amountPaidGross: { increment: amount }, // Increment or set? Usually full payment via link
+                                updatedAt: new Date().toISOString()
+                            }
+                        });
+
+                        // Log Audit
+                        const { AuditService } = await import("@/services/auditService");
+                        await AuditService.logAction(invoice.projectId, 'INVOICE_PAYMENT', `Pago online registrado vía Stripe por $${amount.toLocaleString()}`);
+
+                        // Log Activity?? InvoicesManager uses markInvoiceSent/registerPayment actions.
+                        // Ideally we should use the same service/action logic but actions are typically user-initiated?
+                        // Using direct Prisma update is fine for webhook.
+                    }
                 }
                 break;
             }
