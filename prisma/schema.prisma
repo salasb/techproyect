@@ -358,6 +358,8 @@ model Organization {
   paymentRecords     PaymentRecord[]
   purchaseOrders     PurchaseOrder[]
   purchaseOrderItems PurchaseOrderItem[]
+  poCounter          Int                  @default(0)
+  purchaseOrderReceipts PurchaseOrderReceipt[]
 
   @@schema("public")
 }
@@ -663,23 +665,54 @@ enum PurchaseOrderStatus {
 }
 
 model PurchaseOrder {
-  id             String              @id @default(uuid())
-  organizationId String              @db.Uuid
-  vendorId       String              @db.Uuid
-  poNumber       Int                 @default(autoincrement())
-  status         PurchaseOrderStatus @default(DRAFT)
-  totalNet       Float               @default(0)
-  totalTax       Float               @default(0)
-  totalBruto     Float               @default(0)
+  id             String                @id @default(uuid())
+  organizationId String                @db.Uuid
+  vendorId       String                @db.Uuid
+  poNumber       Int                   // Sequential per organization, managed in service
+  status         PurchaseOrderStatus   @default(DRAFT)
+  totalNet       Float                 @default(0)
+  totalTax       Float                 @default(0)
+  totalBruto     Float                 @default(0)
   notes          String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
-  organization   Organization        @relation(fields: [organizationId], references: [id])
-  vendor         Client              @relation("VendorPO", fields: [vendorId], references: [id])
+  organization   Organization          @relation(fields: [organizationId], references: [id])
+  vendor         Client                @relation("VendorPO", fields: [vendorId], references: [id])
   items          PurchaseOrderItem[]
+  receipts       PurchaseOrderReceipt[]
 
   @@unique([organizationId, poNumber])
+  @@schema("public")
+}
+
+model PurchaseOrderReceipt {
+  id               String               @id @default(uuid())
+  organizationId   String               @db.Uuid
+  purchaseOrderId  String
+  receiptNumber    String               // External or internal receipt id (e.g. Invoice # from vendor)
+  receivedAt       DateTime             @default(now())
+  receivedBy       String               @db.Uuid // Profile ID
+  notes            String?
+  createdAt        DateTime             @default(now())
+
+  organization     Organization         @relation(fields: [organizationId], references: [id])
+  purchaseOrder    PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
+  items            ReceiptItem[]
+  
+  @@unique([organizationId, purchaseOrderId, receiptNumber]) // Idempotency key
+  @@schema("public")
+}
+
+model ReceiptItem {
+  id                     String               @id @default(uuid())
+  purchaseOrderReceiptId String
+  purchaseOrderItemId    String
+  quantity               Float
+  
+  receipt                PurchaseOrderReceipt @relation(fields: [purchaseOrderReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderItem      PurchaseOrderItem    @relation(fields: [purchaseOrderItemId], references: [id])
+
   @@schema("public")
 }
 
@@ -701,6 +734,7 @@ model PurchaseOrderItem {
   project          Project?      @relation(fields: [projectId], references: [id])
   location         Location?     @relation(fields: [locationId], references: [id])
   organization     Organization  @relation(fields: [organizationId], references: [id])
+  receiptItems     ReceiptItem[]
 
   @@schema("public")
 }

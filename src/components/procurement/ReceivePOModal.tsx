@@ -31,20 +31,24 @@ export function ReceivePOModal({ isOpen, onClose, po, locations }: Props) {
         return po.items.filter((item: any) => item.receivedQuantity < item.quantity);
     }, [po.items]);
 
-    const [receptionData, setReceptionData] = useState<Record<string, { quantity: number; locationId: string }>>({});
+    const [receptionData, setReceptionData] = useState<Record<string, { quantity: number }>>({});
+    const [receiptNumber, setReceiptNumber] = useState("");
+    const [receivedNotes, setReceivedNotes] = useState("");
+    const [targetLocationId, setTargetLocationId] = useState(po.items[0]?.locationId || (locations[0]?.id || ""));
 
     // Initialize state when modal opens
     useMemo(() => {
         if (!isOpen) return;
-        const initial: Record<string, { quantity: number; locationId: string }> = {};
+        const initial: Record<string, { quantity: number }> = {};
         receivableItems.forEach((item: any) => {
             initial[item.id] = {
                 quantity: item.quantity - item.receivedQuantity,
-                locationId: item.locationId || (locations[0]?.id || "")
             };
         });
         setReceptionData(initial);
-    }, [isOpen, receivableItems, locations]);
+        setReceiptNumber("");
+        setReceivedNotes("");
+    }, [isOpen, receivableItems]);
 
     if (!isOpen) return null;
 
@@ -69,13 +73,22 @@ export function ReceivePOModal({ isOpen, onClose, po, locations }: Props) {
     };
 
     const handleReceive = async () => {
+        if (!receiptNumber.trim()) {
+            toast({ type: 'error', message: "Debes ingresar un Número de Recibo o Factura" });
+            return;
+        }
+
+        if (!targetLocationId) {
+            toast({ type: 'error', message: "Debes seleccionar una ubicación de destino" });
+            return;
+        }
+
         // Filter out items with 0 quantity
         const lines = Object.entries(receptionData)
             .filter(([_, data]) => data.quantity > 0)
             .map(([itemId, data]) => ({
                 itemId,
                 quantity: data.quantity,
-                locationId: data.locationId
             }));
 
         if (lines.length === 0) {
@@ -83,14 +96,15 @@ export function ReceivePOModal({ isOpen, onClose, po, locations }: Props) {
             return;
         }
 
-        if (lines.some(l => !l.locationId)) {
-            toast({ type: 'error', message: "Debes seleccionar una ubicación para todos los ítems" });
-            return;
-        }
-
         startTransition(async () => {
             try {
-                const res = await receivePurchaseOrderAction(po.id, lines);
+                const res = await receivePurchaseOrderAction({
+                    poId: po.id,
+                    receiptNumber: receiptNumber,
+                    locationId: targetLocationId,
+                    notes: receivedNotes,
+                    lines: lines
+                });
                 if (res.error) throw new Error(res.error);
 
                 toast({ type: 'success', message: "Recepción procesada correctamente" });
@@ -120,8 +134,10 @@ export function ReceivePOModal({ isOpen, onClose, po, locations }: Props) {
                     </button>
                 </div>
 
+                {/* Header counts or info could go here */}
+
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {receivableItems.length === 0 ? (
                         <div className="p-12 text-center space-y-4">
                             <div className="mx-auto w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">
@@ -132,62 +148,84 @@ export function ReceivePOModal({ isOpen, onClose, po, locations }: Props) {
                             <button onClick={onClose} className="px-6 py-2 bg-zinc-900 text-white rounded-xl font-bold">Cerrar</button>
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-12 gap-4 text-xs font-black uppercase text-muted-foreground px-4 mb-2">
-                                <div className="col-span-4">Ítem / Producto</div>
-                                <div className="col-span-2 text-center">Pendiente</div>
-                                <div className="col-span-3">Bodega Destino</div>
-                                <div className="col-span-3 text-right">Cant. a Recibir</div>
+                        <div className="space-y-6">
+                            {/* Receipt Data Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-zinc-50 border border-zinc-200 rounded-xl">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase text-zinc-500">Número de Recibo / Factura</label>
+                                    <div className="relative">
+                                        <Hash className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Ej: FAC-12345"
+                                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 bg-white text-sm focus:ring-2 focus:ring-primary outline-none"
+                                            value={receiptNumber}
+                                            onChange={(e) => setReceiptNumber(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase text-zinc-500">Bodega de Destino (Global)</label>
+                                    <div className="relative">
+                                        <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
+                                        <select
+                                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 bg-white text-sm focus:ring-2 focus:ring-primary outline-none appearance-none"
+                                            value={targetLocationId}
+                                            onChange={(e) => setTargetLocationId(e.target.value)}
+                                        >
+                                            <option value="">(Seleccionar ubicación...)</option>
+                                            {locations.map(loc => (
+                                                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="md:col-span-2 space-y-2">
+                                    <label className="text-xs font-black uppercase text-zinc-500">Notas de Recepción (Opcional)</label>
+                                    <textarea
+                                        placeholder="Observaciones sobre el estado de los productos..."
+                                        className="w-full px-4 py-2 rounded-lg border border-zinc-300 bg-white text-sm focus:ring-2 focus:ring-primary outline-none min-h-[60px]"
+                                        value={receivedNotes}
+                                        onChange={(e) => setReceivedNotes(e.target.value)}
+                                    />
+                                </div>
                             </div>
 
+                            {/* Items Table */}
                             <div className="space-y-3">
+                                <div className="grid grid-cols-12 gap-4 text-[10px] font-black uppercase text-muted-foreground px-4 mb-2">
+                                    <div className="col-span-8">Ítem / Producto</div>
+                                    <div className="col-span-2 text-center">Pendiente</div>
+                                    <div className="col-span-2 text-right">A Recibir</div>
+                                </div>
+
                                 {receivableItems.map((item: any) => {
                                     const remaining = item.quantity - item.receivedQuantity;
-                                    const data = receptionData[item.id] || { quantity: 0, locationId: "" };
+                                    const data = receptionData[item.id] || { quantity: 0 };
 
                                     return (
-                                        <div key={item.id} className="grid grid-cols-12 gap-4 items-center p-4 rounded-xl border border-zinc-100 bg-zinc-50/50 hover:bg-zinc-100/50 transition-colors group">
-                                            <div className="col-span-4">
-                                                <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{item.description}</p>
-                                                <div className="flex items-center gap-2 mt-1">
+                                        <div key={item.id} className="grid grid-cols-12 gap-4 items-center p-4 rounded-xl border border-zinc-100 bg-white hover:bg-zinc-50 transition-colors">
+                                            <div className="col-span-8">
+                                                <p className="text-sm font-bold text-foreground">{item.description}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
                                                     <Package className="w-3 h-3 text-zinc-400" />
                                                     <span className="text-[10px] text-muted-foreground font-mono">{item.product?.sku || 'S/S'}</span>
                                                 </div>
                                             </div>
 
                                             <div className="col-span-2 text-center">
-                                                <span className="text-sm font-black text-zinc-500">{remaining}</span>
-                                                <span className="text-[10px] text-zinc-400 ml-1 uppercase">{item.product?.unit || 'UN'}</span>
+                                                <span className="text-sm font-black text-zinc-400">{remaining}</span>
                                             </div>
 
-                                            <div className="col-span-3">
-                                                <div className="relative">
-                                                    <MapPin className="absolute left-2 top-2 w-3 h-3 text-zinc-400" />
-                                                    <select
-                                                        className="w-full pl-6 p-1.5 rounded-lg border border-input bg-background text-xs"
-                                                        value={data.locationId}
-                                                        onChange={(e) => handleUpdateLocation(item.id, e.target.value)}
-                                                    >
-                                                        <option value="">(Seleccionar...)</option>
-                                                        {locations.map(loc => (
-                                                            <option key={loc.id} value={loc.id}>{loc.name}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div className="col-span-3">
-                                                <div className="relative">
-                                                    <Hash className="absolute left-2 top-2 w-3 h-3 text-zinc-400" />
-                                                    <input
-                                                        type="number"
-                                                        className="w-full pl-6 p-1.5 rounded-lg border border-zinc-300 bg-white text-sm text-right font-black focus:ring-2 focus:ring-primary outline-none"
-                                                        value={data.quantity}
-                                                        onChange={(e) => handleUpdateQuantity(item.id, parseFloat(e.target.value) || 0)}
-                                                        min={0}
-                                                        max={remaining}
-                                                    />
-                                                </div>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="number"
+                                                    className="w-full p-2 rounded-lg border border-zinc-200 bg-zinc-50 text-sm text-right font-black focus:ring-2 focus:ring-emerald-500 outline-none"
+                                                    value={data.quantity}
+                                                    onChange={(e) => handleUpdateQuantity(item.id, parseFloat(e.target.value) || 0)}
+                                                    min={0}
+                                                    max={remaining}
+                                                />
                                             </div>
                                         </div>
                                     );

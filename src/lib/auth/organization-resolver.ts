@@ -45,24 +45,21 @@ export async function resolveActiveOrganization(
         });
     }
 
-    // 2. AUTO-REPAIR: 0 memberships but has an owned organization
-    if (memberships.length === 0 && ownedOrgId) {
-        if (DEBUG) console.log(`[OrgResolution] Auto-repair: Detectada org huérfana ${ownedOrgId}. Creando membresía...`);
-
-        // Determine role: Use profile role or default to OWNER if it's their primary org
-        const repairRole = profile?.role === 'ADMIN' ? 'ADMIN' : 'OWNER';
+    // 2. AUTO-REPAIR: 0 memberships but is the verified OWNER of an organization
+    if (memberships.length === 0 && ownedOrgId && profile?.role === 'OWNER') {
+        if (DEBUG) console.log(`[OrgResolution] Auto-repair: Detectada org huérfana ${ownedOrgId.slice(0, 8)}... para OWNER. Creando membresía...`);
 
         const { error: repairError } = await supabase
             .from('OrganizationMember')
             .insert({
                 organizationId: ownedOrgId,
                 userId: userId,
-                role: repairRole,
+                role: 'OWNER',
                 status: 'ACTIVE'
             });
 
         if (!repairError) {
-            if (DEBUG) console.log(`[OrgResolution] Auto-repair exitoso para ${ownedOrgId}`);
+            if (DEBUG) console.log(`[OrgResolution] Auto-repair exitoso para ${ownedOrgId.slice(0, 8)}...`);
             // Recalculate as if we had this 1 organization
             return { action: 'ENTER', organizationId: ownedOrgId };
         } else {

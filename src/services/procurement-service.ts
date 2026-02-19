@@ -20,7 +20,16 @@ export interface CreatePODTO {
 export interface ReceivePOLineDTO {
     itemId: string;
     quantity: number;
+}
+
+export interface ReceivePODTO {
+    organizationId: string;
+    userId: string;
+    poId: string;
+    receiptNumber: string; // The idempotency key (e.g. Vendor Invoice #)
     locationId: string;
+    notes?: string;
+    lines: ReceivePOLineDTO[];
 }
 
 export class ProcurementService {
@@ -29,7 +38,16 @@ export class ProcurementService {
      */
     static async createPO(data: CreatePODTO) {
         return await prisma.$transaction(async (tx) => {
-            // Calculate totals
+            // 1. Get and increment poCounter atomically
+            const org = await tx.organization.update({
+                where: { id: data.organizationId },
+                data: { poCounter: { increment: 1 } },
+                select: { poCounter: true }
+            });
+
+            const nextPoNumber = org.poCounter;
+
+            // 2. Calculate totals
             let totalNet = 0;
             let totalTax = 0;
 
@@ -43,7 +61,7 @@ export class ProcurementService {
                     organizationId: data.organizationId,
                     productId: item.productId,
                     projectId: item.projectId,
-                    locationId: item.locationId,
+                    locationId: item.locationId ?? null,
                     description: item.description,
                     quantity: item.quantity,
                     priceNet: item.priceNet,
@@ -55,6 +73,7 @@ export class ProcurementService {
                 data: {
                     organizationId: data.organizationId,
                     vendorId: data.vendorId,
+                    poNumber: nextPoNumber,
                     status: 'DRAFT',
                     totalNet,
                     totalTax,
@@ -87,18 +106,55 @@ export class ProcurementService {
      * Receives items from a PO. 
      * Creates Inventory Movements and updates received quantities.
      */
-    static async receivePO(organizationId: string, userId: string, poId: string, lines: ReceivePOLineDTO[]) {
+    static async receivePO(data: ReceivePODTO) {
         return await prisma.$transaction(async (tx) => {
+            // 0. Check Idempotency: Has this receiptNumber already been processed for this PO?
+            const existingReceipt = await tx.purchaseOrderReceipt.findUnique({
+                where: {
+                    organizationId_purchaseOrderId_receiptNumber: {
+                        organizationId: data.organizationId,
+                        purchaseOrderId: data.poId,
+                        receiptNumber: data.receiptNumber
+                    }
+                }
+            });
+
+            if (existingReceipt) {
+                console.log(`[Procurement] Receipt ${data.receiptNumber} already processed. Skipping.`);
+                return { success: true, alreadyProcessed: true };
+            }
+
             // 1. Fetch PO and items
             const po = await tx.purchaseOrder.findUnique({
-                where: { id: poId, organizationId },
+                where: { id: data.poId, organizationId: data.organizationId },
                 include: { items: true }
             });
 
             if (!po) throw new Error("Orden de compra no encontrada");
-            if (po.status === 'CANCELED') throw new Error("No se puede recibir una OC cancelada");
 
-            for (const line of lines) {
+            // Status Contract: No receive in CANCELLED or already RECEIVED
+            if (po.status === 'CANCELED') throw new Error("No se puede recibir una OC cancelada");
+            if (po.status === 'RECEIVED') throw new Error("La OC ya ha sido recibida completamente");
+
+            // 2. Create Receipt Record
+            await tx.purchaseOrderReceipt.create({
+                data: {
+                    organizationId: data.organizationId,
+                    purchaseOrderId: data.poId,
+                    receiptNumber: data.receiptNumber,
+                    receivedBy: data.userId,
+                    notes: data.notes,
+                    items: {
+                        create: data.lines.map(l => ({
+                            purchaseOrderItemId: l.itemId,
+                            quantity: l.quantity
+                        }))
+                    }
+                }
+            });
+
+            // 3. Process each received line
+            for (const line of data.lines) {
                 const item = po.items.find(i => i.id === line.itemId);
                 if (!item) throw new Error(`Item ${line.itemId} no pertenece a esta OC`);
 
@@ -107,22 +163,17 @@ export class ProcurementService {
                     throw new Error(`Cantidad recibida (${line.quantity}) excede el pendiente (${remaining}) para ${item.description}`);
                 }
 
-                // 2. Update Item receivedQuantity
+                // 3a. Update Item receivedQuantity
                 await tx.purchaseOrderItem.update({
                     where: { id: item.id },
                     data: {
                         receivedQuantity: { increment: line.quantity },
-                        locationId: line.locationId // Update last destination
+                        locationId: data.locationId // Update last destination
                     }
                 });
 
-                // 3. Create Inventory Movement (if product exists)
+                // 3b. Create Inventory Movement (if product exists)
                 if (item.productId) {
-                    // We use the injected transaction `tx` if InventoryService supported it,
-                    // but our InventoryService creates its own transaction. 
-                    // To keep it transactional, we should ideally refactor InventoryService to accept a transaction,
-                    // or just implement the movement logic here using tx.
-
                     // Fetch Product SKU
                     const product = await tx.product.findUnique({
                         where: { id: item.productId },
@@ -132,14 +183,14 @@ export class ProcurementService {
                     if (product) {
                         await tx.inventoryMovement.create({
                             data: {
-                                organizationId: organizationId,
-                                locationId: line.locationId,
+                                organizationId: data.organizationId,
+                                locationId: data.locationId,
                                 productId: item.productId,
                                 sku: product.sku,
                                 type: 'IN',
                                 quantity: line.quantity,
-                                userId: userId,
-                                description: `Recepción OC #${po.poNumber}: ${item.description}`,
+                                userId: data.userId,
+                                description: `Recepción OC #${po.poNumber} (Recibo: ${data.receiptNumber}): ${item.description}`,
                                 projectId: item.projectId
                             }
                         });
@@ -149,13 +200,13 @@ export class ProcurementService {
                             where: {
                                 productId_locationId: {
                                     productId: item.productId,
-                                    locationId: line.locationId
+                                    locationId: data.locationId
                                 }
                             },
                             create: {
-                                organizationId: organizationId,
+                                organizationId: data.organizationId,
                                 productId: item.productId,
-                                locationId: line.locationId,
+                                locationId: data.locationId,
                                 quantity: line.quantity,
                             },
                             update: {
@@ -165,37 +216,37 @@ export class ProcurementService {
                     }
                 }
 
-                // 4. Impute Cost to Project if exists
+                // 3c. Impute Cost to Project if exists
                 if (item.projectId) {
                     await tx.costEntry.create({
                         data: {
-                            organizationId: organizationId,
+                            organizationId: data.organizationId,
                             projectId: item.projectId,
                             date: new Date(),
-                            category: 'HARDWARE', // Default for procurement? Or map from product?
-                            description: `Compra via OC #${po.poNumber}: ${item.description}`,
+                            category: 'HARDWARE',
+                            description: `Compra via OC #${po.poNumber} (Recibo: ${data.receiptNumber}): ${item.description}`,
                             amountNet: item.priceNet * line.quantity
                         }
                     });
                 }
             }
 
-            // 5. Update PO status
+            // 4. Update PO status
             const updatedPO = await tx.purchaseOrder.findUnique({
-                where: { id: poId },
+                where: { id: data.poId },
                 include: { items: true }
             });
 
             const allReceived = updatedPO?.items.every(i => i.receivedQuantity >= i.quantity);
             const anyReceived = updatedPO?.items.some(i => i.receivedQuantity > 0);
 
-            let newStatus = po.status;
+            let newStatus: PurchaseOrderStatus = po.status;
             if (allReceived) newStatus = 'RECEIVED';
             else if (anyReceived) newStatus = 'PARTIALLY_RECEIVED';
 
             if (newStatus !== po.status) {
                 await tx.purchaseOrder.update({
-                    where: { id: poId },
+                    where: { id: data.poId },
                     data: { status: newStatus as PurchaseOrderStatus }
                 });
             }
@@ -205,9 +256,7 @@ export class ProcurementService {
     }
 
     /**
-     * Cancels a PO. Only if no items received yet?
-     * Decision: If items received, cancellation might be complex. 
-     * For V1: only cancel if DRAFT/SENT/APPROVED (no receptions).
+     * Cancels a PO. 
      */
     static async cancelPO(organizationId: string, poId: string, reason?: string) {
         const po = await prisma.purchaseOrder.findUnique({
@@ -216,8 +265,8 @@ export class ProcurementService {
         });
 
         if (!po) throw new Error("OC no encontrada");
-        if (po.items.some(i => i.receivedQuantity > 0)) {
-            throw new Error("No se puede cancelar una OC con recepciones parciales. Use devoluciones (v2).");
+        if (po.status === 'RECEIVED' || po.status === 'PARTIALLY_RECEIVED') {
+            throw new Error("No se puede cancelar una OC con recepciones. Use devoluciones (v2).");
         }
 
         return await prisma.purchaseOrder.update({
@@ -234,7 +283,10 @@ export class ProcurementService {
             where: { organizationId },
             include: {
                 vendor: { select: { name: true } },
-                items: true
+                items: true,
+                receipts: {
+                    include: { items: true }
+                }
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -250,6 +302,16 @@ export class ProcurementService {
                         product: true,
                         project: true,
                         location: true
+                    }
+                },
+                receipts: {
+                    orderBy: { receivedAt: 'desc' },
+                    include: {
+                        items: {
+                            include: {
+                                purchaseOrderItem: true
+                            }
+                        }
                     }
                 }
             }

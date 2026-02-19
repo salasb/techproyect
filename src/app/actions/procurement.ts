@@ -1,6 +1,6 @@
 "use server";
 
-import { ProcurementService, CreatePODTO, ReceivePOLineDTO } from "@/services/procurement-service";
+import { ProcurementService, CreatePODTO, ReceivePOLineDTO, ReceivePODTO } from "@/services/procurement-service";
 import { resolveActiveOrganization } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { revalidatePath } from "next/cache";
@@ -47,7 +47,7 @@ export async function updatePurchaseOrderStatusAction(poId: string, status: Purc
 /**
  * Receives items from a PO.
  */
-export async function receivePurchaseOrderAction(poId: string, lines: ReceivePOLineDTO[]) {
+export async function receivePurchaseOrderAction(data: Omit<ReceivePODTO, "organizationId" | "userId">) {
     const orgId = await resolveActiveOrganization();
     await ensureNotPaused(orgId);
 
@@ -56,9 +56,13 @@ export async function receivePurchaseOrderAction(poId: string, lines: ReceivePOL
     if (!user) throw new Error("No autenticado");
 
     try {
-        await ProcurementService.receivePO(orgId, user.id, poId, lines);
+        await ProcurementService.receivePO({
+            ...data,
+            organizationId: orgId,
+            userId: user.id
+        });
         revalidatePath("/purchases");
-        revalidatePath(`/purchases/${poId}`);
+        revalidatePath(`/purchases/${data.poId}`);
         revalidatePath("/inventory"); // Stock updated
         return { success: true };
     } catch (e: any) {

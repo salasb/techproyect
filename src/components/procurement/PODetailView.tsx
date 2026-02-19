@@ -189,18 +189,67 @@ export function PODetailView({ po, locations }: Props) {
                         </div>
                     </div>
 
-                    {/* Reception History (Placeholder for now) */}
-                    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
-                        <div className="px-6 py-4 border-b border-border bg-zinc-50 flex items-center justify-between">
+                    {/* Reception History */}
+                    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between">
                             <h2 className="text-lg font-bold flex items-center gap-2">
-                                <History className="w-5 h-5 text-zinc-400" />
+                                <History className="w-5 h-5 text-primary" />
                                 Historial de Recepciones
                             </h2>
+                            <span className="text-xs font-bold bg-zinc-100 px-2 py-1 rounded-md text-zinc-500 uppercase tracking-tighter">
+                                {po.receipts?.length || 0} Registros
+                            </span>
                         </div>
-                        <div className="p-12 text-center text-muted-foreground">
-                            <Package className="w-12 h-12 mx-auto mb-4 text-zinc-200" />
-                            <p className="text-sm">Las recepciones de productos se reflejarán aquí una vez procesadas.</p>
-                        </div>
+                        {po.receipts && po.receipts.length > 0 ? (
+                            <div className="divide-y divide-border">
+                                {po.receipts.map((receipt: any) => (
+                                    <div key={receipt.id} className="p-6 hover:bg-muted/5 transition-colors">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-black text-foreground">
+                                                        Recibo #{receipt.receiptNumber}
+                                                    </span>
+                                                    <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold uppercase">
+                                                        Procesado
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Recibido el {format(new Date(receipt.createdAt), "PPP p", { locale: es })}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs font-bold text-foreground">Bodega: {receipt.location?.name || 'N/A'}</div>
+                                                <div className="text-[10px] text-muted-foreground">Por: {receipt.receivedBy?.name || 'Sistema'}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Items in this receipt */}
+                                        <div className="bg-muted/30 rounded-lg p-3">
+                                            <ul className="space-y-2">
+                                                {receipt.items.map((ri: any) => (
+                                                    <li key={ri.id} className="flex justify-between items-center text-xs">
+                                                        <span className="text-muted-foreground font-medium">• {ri.purchaseOrderItem?.description || 'Item'}</span>
+                                                        <span className="font-black text-foreground">{ri.quantity} UN</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        {receipt.notes && (
+                                            <p className="mt-3 text-xs text-muted-foreground italic bg-zinc-50 p-2 rounded border-l-2 border-zinc-200">
+                                                "{receipt.notes}"
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-12 text-center text-muted-foreground">
+                                <Package className="w-12 h-12 mx-auto mb-4 text-zinc-200" />
+                                <p className="text-sm font-medium">No hay recepciones registradas para esta orden.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

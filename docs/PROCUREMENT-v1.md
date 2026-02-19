@@ -1,38 +1,41 @@
-# Documentación Funcional: Procurement v1
+# Contrato de Procurement v1
 
-## 1. Visión General
-El módulo de Procurement permite gestionar las compras de la organización, integrándolas directamente con el inventario (entrada de stock) y los proyectos (imputación de costos reales).
+Este documento define las reglas de negocio, estados e invariantes del módulo de Adquisiciones.
 
-## 2. Modelos de Datos
+## Estados de la Orden de Compra (PurchaseOrderStatus)
 
-### Vendor (Proveedor)
-- Reutiliza la tabla `Client` con un flag `isVendor: true`.
-- Permite diferenciar entre clientes (quienes pagan) y proveedores (a quienes pagamos).
+| Estado | Descripción | Transiciones Permitidas | Restricciones |
+| :--- | :--- | :--- | :--- |
+| `DRAFT` | Borrador inicial. | `SENT`, `CANCELED` | Puede ser editada libremente. |
+| `SENT` | Enviada al proveedor. | `APPROVED`, `CANCELED`, `PARTIALLY_RECEIVED` | No editable (salvo notas). |
+| `APPROVED` | Aprobada internamente. | `SENT`, `PARTIALLY_RECEIVED`, `RECEIVED`, `CANCELED` | Lista para recepción. |
+| `PARTIALLY_RECEIVED` | Algunos ítems han sido recibidos. | `RECEIVED`, `CANCELED` (vía devoluciones en v2) | **Bloqueada**: No se puede cancelar si hay stock recibido. |
+| `RECEIVED` | Todos los ítems recibidos (100%). | Ninguna (Final) | **Cerrada**: No editable. |
+| `CANCELED` | Anulada. | Ninguna | Solo si no hay recepciones asociadas. |
 
-### PurchaseOrder (Orden de Compra - OC)
-- **Campos**: `poNumber`, `organizationId`, `vendorId`, `status`, `totalNet`, `totalTax`, `totalBruto`, `notes`, `createdAt`, `updatedAt`.
-- **Estados**:
-  - `DRAFT`: Edición inicial.
-  - `SENT`: Enviada al proveedor.
-  - `APPROVED`: Aprobación interna (opcional para V1, integrada en SENT/APPROVED).
-  - `PARTIALLY_RECEIVED`: Algunos items han sido recibidos.
-  - `RECEIVED`: Recepción total.
-  - `CANCELED`: Anulada.
+## Reglas de Negocio e Invariantes
 
-### PurchaseOrderItem (Detalle de OC)
-- **Campos**: `productId`, `description` (manual si no hay producto), `quantity`, `receivedQuantity`, `priceNet`, `taxRate`, `projectId` (opcional), `locationId` (destino default).
+### 1. Numeración Correlativa (Idempotencia en Creación)
+- El `poNumber` es secuencial **por organización**.
+- Se utiliza un contador atómico en la entidad `Organization` para evitar colisiones bajo concurrencia.
+- Restricción: `UNIQUE(organizationId, poNumber)`.
 
-## 3. Reglas de Negocio
-- **Imputación a Proyecto**: Si un ítem de la OC tiene un `projectId`, al momento de la recepción (`Goods Receipt`), se debe registrar un movimiento de costo en el proyecto.
-- **Integración con Inventario**: Cada recepción de ítems genera un `InventoryMovement` tipo `IN` o `PURCHASE`.
-- **Cálculos**: Los totales se recalculan en cada cambio de líneas.
-- **Seguridad**: Solo miembros de la organización pueden ver sus OCs. Orgs en pausa no pueden crear o recibir OCs.
+### 2. Recepciones e Idempotencia
+- Cada proceso de recepción requiere un `receiptNumber` (ej: Número de Factura o Guía de Despacho del proveedor).
+- Se registra una entidad `PurchaseOrderReceipt` que actúa como "Idempotency Key".
+- Si se intenta procesar el mismo `receiptNumber` para la misma OC, el sistema ignorará la operación sin duplicar stock ni movimientos contables.
+- Invariante: `receivedQty <= orderedQty`. No se permite sobre-recepción en v1.
 
-## 4. Flujo de Usuario
-1. Crear Proveedor en `/vendors`.
-2. Crear Nueva OC en `/purchases/new`.
-3. Gestionar OC (Aprobar/Enviar).
-4. Recepcionar items vía modal en `/purchases/[id]`.
-   - Seleccionar ubicación de destino.
-   - Ingresar cantidad recibida.
-   - Generar movimientos de stock.
+### 3. Trazabilidad e Inventario
+- Cada recepción genera automáticamente registros en `InventoryMovement`.
+- Los movimientos de inventario deben referenciar el `receiptNumber` para auditoría.
+- Si el ítem está vinculado a un proyecto, se genera un `CostEntry` automático por el monto neto recibido.
+
+## Seguridad Multi-Tenant
+- Todos los queries y mutaciones **deben** incluir `organizationId` en el predicado `where`.
+- El acceso a `/purchases/[id]` debe dar 404 o Error si la OC no pertenece a la organización activa del usuario.
+
+## Permisos (RBAC)
+- **OWNER / ADMIN**: Acceso total (Crear, Aprobar, Recibir, Cancelar).
+- **MEMBER**: Crear DRAFT, Ver listas.
+- **VIEWER**: Solo lectura.
