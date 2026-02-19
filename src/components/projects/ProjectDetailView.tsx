@@ -34,7 +34,9 @@ import {
     X,
     Sparkles,
     RefreshCw,
-    Lock
+    Lock,
+    Truck,
+    Plus
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInDays, formatDistanceToNow } from "date-fns";
@@ -507,6 +509,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         { id: 'financials', label: 'Finanzas', icon: DollarSign },
                         { id: 'inventory', label: 'Inventario', icon: Package },
                         { id: 'sales', label: 'Ventas', icon: FileText },
+                        { id: 'purchases', label: 'Compras', icon: Truck },
                         { id: 'logs', label: 'Bitácora', icon: History },
                         { id: 'settings', label: 'Configuración', icon: Settings },
                     ].map((tab) => (
@@ -920,6 +923,82 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                             toast({ type: 'success', message: "Nota de Venta lista. Redirigiendo..." });
                                         }}
                                     />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'purchases' && (
+                <div className="bg-white dark:bg-card shadow rounded-xl overflow-hidden min-h-[400px] border border-border animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="p-6 border-b border-border bg-muted/20">
+                        <h3 className="text-lg font-bold leading-6 text-foreground flex items-center gap-2">
+                            <Truck className="w-5 h-5 text-primary" />
+                            Órdenes de Compra vinculadas
+                        </h3>
+                    </div>
+                    <div className="p-0">
+                        {project.purchaseOrderItems?.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-muted-foreground uppercase bg-muted/40 border-b border-border">
+                                        <tr>
+                                            <th className="px-6 py-4 font-bold">OC #</th>
+                                            <th className="px-6 py-4 font-bold">Proveedor</th>
+                                            <th className="px-6 py-4 font-bold text-center">Estado</th>
+                                            <th className="px-6 py-4 font-bold text-right">Total Bruto</th>
+                                            <th className="px-6 py-4 font-bold text-right">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {Array.from(new Set(project.purchaseOrderItems.map((poi: any) => poi.purchaseOrder.id))).map((poId: any) => {
+                                            const poi = project.purchaseOrderItems.find((p: any) => p.purchaseOrder.id === poId);
+                                            const po = poi.purchaseOrder;
+                                            return (
+                                                <tr key={po.id} className="hover:bg-muted/10 transition-colors group">
+                                                    <td className="px-6 py-4 font-mono font-bold text-primary">
+                                                        #{po.poNumber || po.id.slice(0, 8)}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="font-bold text-foreground">{po.vendor?.name}</div>
+                                                        <div className="text-xs text-muted-foreground">{po.vendor?.taxId}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <StatusBadge status={po.status} type="PURCHASE_ORDER" />
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right font-mono font-black text-foreground">
+                                                        ${po.totalBruto.toLocaleString('es-CL')}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <Link
+                                                            href={`/purchases/${po.id}`}
+                                                            className="inline-flex items-center px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-all shadow-md active:scale-95"
+                                                        >
+                                                            <ArrowUpRight className="w-3 h-3 mr-1" />
+                                                            Explorar OC
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="text-center py-24 text-muted-foreground space-y-4">
+                                <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Truck className="w-10 h-10 opacity-20" />
+                                </div>
+                                <p className="text-xl font-black text-foreground">No hay compras registradas</p>
+                                <p className="text-sm max-w-md mx-auto">Vincule sus adquisiciones a este proyecto para tener un control exacto de los costos en tiempo real.</p>
+                                <div className="pt-6">
+                                    <Link href="/purchases/new">
+                                        <button className="flex items-center mx-auto px-8 py-3 bg-blue-600 text-white rounded-xl font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95">
+                                            <Plus className="w-5 h-5 mr-2" />
+                                            Nueva Orden de Compra
+                                        </button>
+                                    </Link>
                                 </div>
                             </div>
                         )}

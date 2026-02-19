@@ -24,7 +24,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             invoices:Invoice(*),
             quoteItems:QuoteItem(*),
             tasks:Task(*),
-            SaleNote(*)
+            SaleNote(*),
+            purchaseOrderItems:PurchaseOrderItem(
+                purchaseOrder:PurchaseOrder(
+                    vendor:Client(*)
+                )
+            )
         `)
         .eq('id', id)
         .single();

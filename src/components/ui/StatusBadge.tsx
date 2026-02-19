@@ -17,7 +17,7 @@ import {
     LucideIcon
 } from "lucide-react";
 
-export type StatusType = 'PROJECT' | 'INVOICE' | 'QUOTE' | 'CLIENT' | 'RESIDENT';
+export type StatusType = 'PROJECT' | 'INVOICE' | 'QUOTE' | 'CLIENT' | 'RESIDENT' | 'PURCHASE_ORDER';
 
 interface StatusBadgeProps {
     status: string;
@@ -67,6 +67,14 @@ const SPECIAL_CONFIG: Record<string, Record<string, Omit<BadgeConfig, 'icon'> & 
         SENT: { label: "Enviada", color: "bg-blue-100/50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400", icon: PlayCircle },
         ACCEPTED: { label: "Aceptada", color: "bg-emerald-100/50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400", icon: CheckCircle2 },
         REJECTED: { label: "Rechazada", color: "bg-red-100/50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400", icon: XCircle },
+    },
+    PURCHASE_ORDER: {
+        DRAFT: { label: "Borrador", color: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-500", icon: FileText },
+        SENT: { label: "Enviada", color: "bg-blue-100/50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400", icon: PlayCircle },
+        APPROVED: { label: "Aprobada", color: "bg-indigo-100/50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400", icon: CheckCircle2 },
+        PARTIALLY_RECEIVED: { label: "Recepción Parcial", color: "bg-amber-100/50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400", icon: Clock },
+        RECEIVED: { label: "Recibida", color: "bg-emerald-100/50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400", icon: CheckCircle2 },
+        CANCELED: { label: "Cancelada", color: "bg-red-100/50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400", icon: Ban },
     }
 };
 
@@ -81,10 +89,10 @@ export function StatusBadge({ status, type, className }: StatusBadgeProps) {
 
     // 2. Try canonical STATUS_MAP
     if (!config) {
-        const canonicalType = type === 'RESIDENT' ? 'RESIDENT' : 
-                            type === 'PROJECT' ? 'PROJECT' : 
-                            type === 'CLIENT' ? 'CLIENT' : null;
-        
+        const canonicalType = type === 'RESIDENT' ? 'RESIDENT' :
+            type === 'PROJECT' ? 'PROJECT' :
+                type === 'CLIENT' ? 'CLIENT' : null;
+
         if (canonicalType && (STATUS_MAP as any)[canonicalType][status]) {
             const canonical = (STATUS_MAP as any)[canonicalType][status];
             config = {
@@ -107,7 +115,7 @@ export function StatusBadge({ status, type, className }: StatusBadgeProps) {
     const Icon = config.icon;
 
     return (
-        <span 
+        <span
             data-testid={`status-badge-${status.toLowerCase()}`}
             className={cn(
                 "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors",

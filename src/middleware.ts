@@ -67,7 +67,7 @@ export async function updateSession(request: NextRequest) {
 
     // Use resolver to determine status
     const { resolveActiveOrganization } = await import('./lib/auth/organization-resolver');
-    const resolution = await resolveActiveOrganization(supabase, user.id, orgIdFromCookie);
+    const resolution = await resolveActiveOrganization(supabase, user.id, orgIdFromCookie, request.nextUrl.hostname);
 
     if (resolution.action === 'START') {
         // User has NO active organizations

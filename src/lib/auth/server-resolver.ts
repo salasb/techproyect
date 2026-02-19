@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveActiveOrganization as coreResolve } from "./organization-resolver";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 /**
@@ -19,7 +19,10 @@ export async function resolveActiveOrganization() {
     const cookieStore = await cookies();
     const orgIdFromCookie = cookieStore.get('app-org-id')?.value;
 
-    const resolution = await coreResolve(supabase, user.id, orgIdFromCookie);
+    // Get hostname for diagnostics
+    const host = (await headers()).get('host') || 'unknown';
+
+    const resolution = await coreResolve(supabase, user.id, orgIdFromCookie, host);
 
     if (resolution.action === 'ENTER') {
         return resolution.organizationId;
