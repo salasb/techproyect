@@ -54,7 +54,7 @@ export async function syncSubscription(organizationId: string) {
             where: { organizationId },
             data: {
                 status: status,
-                currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+                currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
                 cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
                 seatLimit: stripeSub.items.data[0]?.quantity || 1,
                 updatedAt: new Date()

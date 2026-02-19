@@ -1,3 +1,13 @@
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    robots: {
+        index: false,
+        follow: false,
+    },
+    title: 'Portal Seguro | TechProyect',
+}
+
 export default function PublicLayout({
     children,
 }: {

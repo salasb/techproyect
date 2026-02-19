@@ -152,6 +152,7 @@ export async function getUserOrganizations() {
             ]
         },
         include: {
+            subscription: true,
         }
     });
 }

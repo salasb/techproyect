@@ -41,11 +41,19 @@ export class SentinelService {
 
         // 2. Fetch Thresholds
         const { data: org } = await supabase.from('Organization').select('settings').eq('id', organizationId).maybeSingle();
-        const settings = (org?.settings as any) || {};
+
+        interface SentinelSettings {
+            sentinel_margin_min?: number;
+            sentinel_stale_project_days?: number;
+            sentinel_quote_followup_days?: number;
+            [key: string]: unknown;
+        }
+
+        const settings = (org?.settings as SentinelSettings) || {};
         const thresholds = {
-            marginMin: settings.sentinel_margin_min || 15,
-            staleDays: settings.sentinel_stale_project_days || 7,
-            quoteFollowupDays: settings.sentinel_quote_followup_days || 5,
+            marginMin: (settings.sentinel_margin_min as number) || 15,
+            staleDays: (settings.sentinel_stale_project_days as number) || 7,
+            quoteFollowupDays: (settings.sentinel_quote_followup_days as number) || 5,
         };
 
         // 3. Rule: Low Margin (S0)
@@ -138,11 +146,11 @@ export class SentinelService {
                     await this.triggerAlert(organizationId, {
                         type: 'QUOTE_FOLLOWUP',
                         severity: 'S2',
-                        title: `Seguimiento Cotización: ${(q as any).project?.name}`,
-                        message: `Enviada hace ${diffDays} días sin respuesta del cliente (${(q as any).project?.company?.name}).`,
+                        title: `Seguimiento Cotización: ${(q as { project?: { name: string } }).project?.name}`,
+                        message: `Enviada hace ${diffDays} días sin respuesta del cliente (${(q as { project?: { company?: { name: string } } }).project?.company?.name}).`,
                         metadata: { quoteId: q.id, projectId: q.projectId },
                         createTask: true,
-                        taskTitle: `Llamar para seguimiento v${q.version}: ${(q as any).project?.name}`
+                        taskTitle: `Llamar para seguimiento v${q.version}: ${(q as { project?: { name: string } }).project?.name}`
                     });
                 }
             }
@@ -165,10 +173,10 @@ export class SentinelService {
                             type: 'INVOICE_OVERDUE',
                             severity: 'S3',
                             title: `Vencimiento Próximo: ${inv.id.slice(0, 8)}`,
-                            message: `La factura del proyecto "${(inv as any).project?.name}" vence en 48 horas.`,
+                            message: `La factura del proyecto "${(inv as { project?: { name: string } }).project?.name}" vence en 48 horas.`,
                             metadata: { invoiceId: inv.id, projectId: inv.projectId },
                             createTask: true,
-                            taskTitle: `Recordatorio de pago: ${(inv as any).project?.name}`
+                            taskTitle: `Recordatorio de pago: ${(inv as { project?: { name: string } }).project?.name}`
                         });
                     }
                 }
@@ -201,6 +209,7 @@ export class SentinelService {
             .eq('orgId', organizationId)
             .eq('status', 'ERROR')
             .gt('createdAt', oneDayAgo)
+            .order('createdAt', { ascending: false }) // Get latest
             .limit(1);
 
         if (webhookErrors && webhookErrors.length > 0) {
@@ -236,13 +245,22 @@ export class SentinelService {
         const supabase = await createClient();
 
         // 1. Idempotency Check: Existing Open Alert
-        const { data: existingAlert } = await supabase.from('SentinelAlert')
+        // For WEBHOOK_FAILURE, we want Singleton behavior (don't stack multiple errors), so we skip metadata check.
+        // For others, we might want specific metadata matching (e.g. per Project).
+        let query = supabase.from('SentinelAlert')
             .select('id')
             .eq('organizationId', organizationId)
             .eq('type', params.type)
-            .eq('status', 'OPEN')
-            .contains('metadata', params.metadata)
-            .maybeSingle();
+            .eq('status', 'OPEN');
+
+        // Singleton types
+        const minimalTypes = ['WEBHOOK_FAILURE', 'ORG_PAST_DUE'];
+
+        if (!minimalTypes.includes(params.type)) {
+            query = query.contains('metadata', params.metadata);
+        }
+
+        const { data: existingAlert } = await query.maybeSingle();
 
         // 2. Alert Generation
         if (!existingAlert) {

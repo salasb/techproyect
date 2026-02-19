@@ -41,7 +41,6 @@ export async function POST(req: Request) {
         where: { id: event.id },
         update: {
             status: 'PENDING',
-            description: `Retry attempt at ${new Date().toISOString()}`
         },
         create: {
             id: event.id,
