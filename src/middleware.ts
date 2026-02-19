@@ -61,59 +61,52 @@ export async function updateSession(request: NextRequest) {
     }
 
     // 4. Org Context & Onboarding Enforcement
+    // 4. Org Context & Resolution
     const orgIdFromCookie = request.cookies.get('app-org-id')?.value
     let currentOrgId = orgIdFromCookie;
 
-    // VALIDATE MEMBERSHIP IF FROM COOKIE
-    if (orgIdFromCookie) {
-        const { data: membership } = await supabase
-            .from('OrganizationMember')
-            .select('status')
-            .eq('organizationId', orgIdFromCookie)
-            .eq('userId', user.id)
-            .eq('status', 'ACTIVE')
-            .maybeSingle();
+    // Use resolver to determine status
+    const { resolveActiveOrganization } = await import('./lib/auth/organization-resolver');
+    const resolution = await resolveActiveOrganization(supabase, user.id, orgIdFromCookie);
 
-        if (!membership) {
-            // Invisible security: clear invalid cookie and force re-detection or /start
-            currentOrgId = undefined;
-            response.cookies.delete('app-org-id');
+    if (resolution.action === 'START') {
+        // User has NO active organizations
+        const allowed = ['/start', '/join', '/api', '/logout', '/pending-activation'];
+        const isAllowed = allowed.some(p => request.nextUrl.pathname.startsWith(p));
+
+        if (!isAllowed) {
+            return NextResponse.redirect(new URL('/start', request.url));
         }
     }
 
-    // Fetch default org if not in cookies or invalid
-    if (!currentOrgId) {
-        // 1. Try Membership first
-        const { data: member } = await supabase
-            .from('OrganizationMember')
-            .select('organizationId')
-            .eq('userId', user.id)
-            .eq('status', 'ACTIVE') // Only active memberships
-            .limit(1)
-            .maybeSingle();
+    if (resolution.action === 'SELECT') {
+        // User has multiple organizations and no valid cookie
+        const allowed = ['/org/select', '/start', '/join', '/api', '/logout', '/pending-activation'];
+        const isAllowed = allowed.some(p => request.nextUrl.pathname.startsWith(p));
 
-        if (member?.organizationId) {
-            currentOrgId = member.organizationId;
-        } else {
-            // 2. Fallback: Check Profile.organizationId (Legacy/Single org mode)
-            const { data: profile } = await supabase
-                .from('Profile')
-                .select('organizationId')
-                .eq('id', user.id)
-                .single();
-
-            if (profile?.organizationId) {
-                currentOrgId = profile.organizationId;
-            }
+        if (!isAllowed) {
+            return NextResponse.redirect(new URL('/org/select', request.url));
         }
+    }
 
-        if (currentOrgId) {
-            response.cookies.set('app-org-id', currentOrgId as string, {
+    if (resolution.action === 'ENTER') {
+        // User has a valid active organization resolved
+        currentOrgId = resolution.organizationId;
+
+        // Auto-fix cookie if missing or mismatched
+        if (orgIdFromCookie !== currentOrgId) {
+            response.cookies.set('app-org-id', currentOrgId, {
                 httpOnly: false,
                 sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
                 maxAge: 60 * 60 * 24 * 7
             });
+        }
+
+        // Redirect logic for ENTER state
+        // If user is at /login, /, or /org/select (which implies they are done selecting), send to dashboard
+        if (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname === '/' || request.nextUrl.pathname.startsWith('/org/select')) {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
         }
     }
 

@@ -6,6 +6,8 @@ import { getOrganizationId } from "@/lib/current-org";
 import { AuditService } from "@/services/auditService";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
+import { InvoiceService } from "@/services/invoiceService";
+import prisma from "@/lib/prisma";
 
 /**
  * Creates an invoice based on the accepted quote of a project.
@@ -14,71 +16,37 @@ export async function createInvoiceFromProject(projectId: string) {
     const orgId = await getOrganizationId();
     await ensureNotPaused(orgId);
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || 'SYSTEM';
 
-    // 1. Fetch Project and Quote Items to calculate total
-    const { data: project } = await supabase
-        .from('Project')
-        .select(`
-            *,
-            quoteItems:QuoteItem(*)
-        `)
-        .eq('id', projectId)
-        .single();
-
-    if (!project) throw new Error("Proyecto no encontrado");
-
-    // 2. Validate Status
-    if (project.status === 'EN_ESPERA' || project.stage === 'LEVANTAMIENTO') {
-        throw new Error("El proyecto debe estar En Curso/Aceptado para facturar.");
-    }
-
-    // 3. Calculate Totals
-    const selectedItems = project.quoteItems?.filter((i: any) => i.isSelected !== false) || [];
-
-    if (selectedItems.length === 0) {
-        throw new Error("No hay ítems en la cotización para facturar.");
-    }
-
-    // Calculate Net
-    const totalNet = selectedItems.reduce((acc: number, item: any) => acc + (item.priceNet * item.quantity), 0);
-
-    // Get Settings for VAT
-    const { data: settings } = await supabase.from('Settings').select('vatRate').single();
-    const vatRate = settings?.vatRate || 0.19;
-
-    // Calculate Gross
-    const totalGross = totalNet * (1 + vatRate);
-
-    // 4. Create Invoice
-    const invoiceId = crypto.randomUUID();
-    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
-
-    const { error } = await supabase.from('Invoice').insert({
-        id: invoiceId,
-        projectId: projectId,
-        organizationId: orgId,
-        amountInvoicedGross: totalGross,
-        amountPaidGross: 0,
-        sent: false,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString()
+    // 1. Find Accepted Quote
+    const acceptedQuote = await prisma.quote.findFirst({
+        where: { projectId, status: 'ACCEPTED' },
+        orderBy: { version: 'desc' }
     });
 
-    if (error) throw new Error(`Error creando factura: ${error.message}`);
+    if (!acceptedQuote) {
+        throw new Error("No hay una cotización aceptada para facturar.");
+    }
 
-    // 5. Log Action & Milestone
-    await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura ${invoiceNumber} generada automáticamente desde cotización por $${totalGross.toLocaleString()}`);
+    // 2. Generate Invoice via Service
+    const invoice = await InvoiceService.generateFromQuote(acceptedQuote.id, userId, orgId);
+
+    // 3. Update Project Next Action if needed
+    await prisma.project.update({
+        where: { id: projectId },
+        data: {
+            nextAction: 'Enviar Factura',
+            nextActionDate: new Date()
+        }
+    });
+
+    // Milestone
     await ActivationService.trackFirst('FIRST_INVOICE_CREATED', orgId);
-
-    // 6. Update Project Next Action if needed
-    await supabase.from('Project').update({
-        nextAction: 'Enviar Factura',
-        nextActionDate: new Date().toISOString()
-    }).eq('id', projectId);
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/dashboard`);
-    return { success: true, invoiceId };
+    return { success: true, invoiceId: invoice.id };
 }
 
 /**
@@ -158,22 +126,14 @@ export async function registerPayment(projectId: string, invoiceId: string, amou
     const orgId = await getOrganizationId();
     await ensureNotPaused(orgId);
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || 'SYSTEM';
 
-    // Fetch current invoice to check existing payments if needed, keeping simple assumes full payment or increment
-    // Since UI sends "currentAmount", simplified logic handles it as "Fully Paid Trigger" if amount matches total?
-    // The UI sends `inv.amountInvoicedGross` as `amount` when clicking "Pagada" (full payment).
-
-    const { error } = await supabase.from('Invoice').update({
-        amountPaidGross: amount,
-        paidDate: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    }).eq('id', invoiceId);
-
-    if (error) throw new Error(`Error registrando pago: ${error.message}`);
-
-    await AuditService.logAction(projectId, 'INVOICE_PAYMENT', `Pago registrado por $${amount.toLocaleString()}`);
+    // Call Service
+    // method is hardcoded 'MANUAL' or passed? Existing fn signature only has amount.
+    // 'reference' is null.
+    await InvoiceService.registerPayment(invoiceId, amount, 'MANUAL', null, userId, orgId);
 
     // Check if Project is Fully Paid logic could go here or be handled by logic inside component calling closeProject
-    // Return status
     return { success: true, isFullyPaid: true };
 }

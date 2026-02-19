@@ -36,7 +36,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
         include: {
             project: {
                 include: {
-                    Client: true,
+                    client: true,
                     company: true
                 }
             }

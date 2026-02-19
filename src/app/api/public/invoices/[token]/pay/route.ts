@@ -26,7 +26,7 @@ export async function POST(
             where: { id: invoiceId },
             include: {
                 project: {
-                    include: { Client: true }
+                    include: { client: true }
                 }
             }
         });

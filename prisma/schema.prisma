@@ -62,7 +62,7 @@ model Project {
   costEntries    CostEntry[]
   Interaction    Interaction[]
   invoices       Invoice[]
-  Client         Client?       @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  client         Client?       @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company        Company?      @relation(fields: [companyId], references: [id])
   organization   Organization? @relation(fields: [organizationId], references: [id])
   tasks          Task[]
@@ -123,22 +123,8 @@ model CostEntry {
   @@schema("public")
 }
 
-model Invoice {
-  id                  String        @id @default(uuid())
-  projectId           String
-  organizationId      String?       @db.Uuid
-  sent                Boolean       @default(false)
-  sentDate            DateTime?
-  paymentTermsDays    Int?
-  dueDate             DateTime?
-  amountInvoicedGross Float         @default(0)
-  amountPaidGross     Float         @default(0)
-  updatedAt           DateTime      @updatedAt
-  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  organization        Organization? @relation(fields: [organizationId], references: [id])
-
-  @@schema("public")
-}
+// Migrated to bottom
+// model Invoice { ... }
 
 model ProjectLog {
   id             String        @id @default(uuid())
@@ -343,6 +329,7 @@ model Organization {
   paymentIssues      PaymentIssue[]
   cancelIntents      CancelIntent[]
   shareLinks         ShareLink[]
+  paymentRecords     PaymentRecord[]
 
   @@schema("public")
 }
@@ -491,6 +478,7 @@ enum ProjectStatus {
 }
 
 enum ProjectStage {
+  COTIZACION
   LEVANTAMIENTO
   DISENO
   DESARROLLO
@@ -561,18 +549,76 @@ enum TaskStatus {
   @@schema("public")
 }
 
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  VOID
+  PARTIALLY_PAID
+
+  @@schema("public")
+}
+
 model Quote {
-  id        String      @id @default(uuid())
-  projectId String
-  version   Int         @default(1)
-  status    QuoteStatus @default(DRAFT)
-  totalNet  Float       @default(0)
-  totalTax  Float       @default(0)
-  frozenAt  DateTime?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  items     QuoteItem[]
+  id           String      @id @default(uuid())
+  projectId    String
+  version      Int         @default(1)
+  status       QuoteStatus @default(DRAFT)
+  totalNet     Float       @default(0)
+  totalTax     Float       @default(0)
+  frozenAt     DateTime?
+  sentAt       DateTime?   @db.Timestamptz(6)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  // Versioning
+  revisionOfId String?
+  parentQuote  Quote?      @relation("QuoteVersions", fields: [revisionOfId], references: [id])
+  revisions    Quote[]     @relation("QuoteVersions")
+
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items        QuoteItem[]
+  invoices     Invoice[]
+
+  @@schema("public")
+}
+
+model Invoice {
+  id                  String        @id @default(uuid())
+  projectId           String
+  organizationId      String?       @db.Uuid
+  quoteId             String?
+  status              InvoiceStatus @default(DRAFT)
+  currency            String        @default("CLP")
+  sent                Boolean       @default(false)
+  sentDate            DateTime?
+  paymentTermsDays    Int?
+  dueDate             DateTime?
+  amountInvoicedGross Float         @default(0)
+  amountPaidGross     Float         @default(0)
+  updatedAt           DateTime      @updatedAt
+  
+  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization        Organization? @relation(fields: [organizationId], references: [id])
+  quote               Quote?        @relation(fields: [quoteId], references: [id])
+  payments            PaymentRecord[]
+
+  @@schema("public")
+}
+
+model PaymentRecord {
+  id             String        @id @default(uuid())
+  organizationId String?       @db.Uuid
+  invoiceId      String
+  amount         Float
+  currency       String        @default("CLP")
+  method         String        // STRIPE, TRANSFER, CASH
+  reference      String?       // Transaction ID or Comment
+  status         String        @default("COMPLETED") // COMPLETED, FAILED, PENDING
+  recordedAt     DateTime      @default(now())
+  
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }

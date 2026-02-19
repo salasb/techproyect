@@ -11,6 +11,7 @@ import { es } from "date-fns/locale";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import prisma from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,8 @@ interface Props {
 }
 
 export default async function QuotePage({ params }: Props) {
-    const { id } = await params;
     const supabase = await createClient();
+    const { id } = await params; // params is a promise
 
     // Fetch Project Project with Quote Items included
     const { data: project } = await supabase
@@ -38,9 +39,34 @@ export default async function QuotePage({ params }: Props) {
         .eq('id', id)
         .single();
 
+    if (!project) return <div>Proyecto no encontrado</div>
+
+    // Fetch Latest Quote to display SNAPSHOT items
+    // We use Prisma here to easily get the relation, but could use Supabase too.
+    // Since we validated Project access via Supabase RLS above, 
+    // fetching Quote by projectId via Prisma is safe.
+    const latestQuote = await prisma.quote.findFirst({
+        where: { projectId: id },
+        include: { items: true },
+        orderBy: { version: 'desc' }
+    });
+
+    if (latestQuote) {
+        // Override items with the Snapshot items
+        // We cast/map them to match the expected type if needed, but they are same model.
+        project.quoteItems = latestQuote.items as any;
+        project.totalNet = latestQuote.totalNet;
+        // We might want to override acceptedAt if it comes from quote, 
+        // but project.acceptedAt is the source of truth for Project status?
+        // Actually QuoteService syncs them? 
+        // Logic: toggleQuoteAcceptance updates BOTH Project and Quote.
+    }
+
     // Sort quoteItems by sku (client-side sort since we are using join)
     if (project && project.quoteItems) {
         // FILTER: Keep only selected items for the Quote View
+        // If it's a Quote Snapshot, items don't have isSelected? 
+        // Schema says QuoteItem HAS isSelected.
         project.quoteItems = project.quoteItems.filter((item: any) => item.isSelected !== false);
 
         project.quoteItems.sort((a: any, b: any) => {
@@ -89,7 +115,7 @@ export default async function QuotePage({ params }: Props) {
                         Volver al Proyecto
                     </Link>
                     <QuotePrintButton variant="solid" />
-                    <ShareDialog entityType="QUOTE" entityId={project.quotes?.[0]?.id || 'unknown'} />
+                    <ShareDialog entityType="QUOTE" entityId={latestQuote?.id || ''} />
                 </div>
             </div>
 

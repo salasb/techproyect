@@ -36,7 +36,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
         include: {
             project: {
                 include: {
-                    Client: true,
+                    client: true,
                     company: true
                 }
             },
@@ -81,9 +81,9 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                     <div>
                         <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Cliente</h3>
-                        <p className="font-semibold text-lg">{(quote as any).project.Client?.name || 'Cliente General'}</p>
-                        <p className="text-sm text-muted-foreground">{(quote as any).project.Client?.email}</p>
-                        <p className="text-sm text-muted-foreground">{(quote as any).project.Client?.address}</p>
+                        <p className="font-semibold text-lg">{(quote as any).project.client?.name || 'Cliente General'}</p>
+                        <p className="text-sm text-muted-foreground">{(quote as any).project.client?.email}</p>
+                        <p className="text-sm text-muted-foreground">{(quote as any).project.client?.address}</p>
                     </div>
                     <div className="text-left md:text-right">
                         <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Detalles</h3>
