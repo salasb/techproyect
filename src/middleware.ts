@@ -83,6 +83,7 @@ export async function updateSession(request: NextRequest) {
 
     // Fetch default org if not in cookies or invalid
     if (!currentOrgId) {
+        // 1. Try Membership first
         const { data: member } = await supabase
             .from('OrganizationMember')
             .select('organizationId')
@@ -93,6 +94,20 @@ export async function updateSession(request: NextRequest) {
 
         if (member?.organizationId) {
             currentOrgId = member.organizationId;
+        } else {
+            // 2. Fallback: Check Profile.organizationId (Legacy/Single org mode)
+            const { data: profile } = await supabase
+                .from('Profile')
+                .select('organizationId')
+                .eq('id', user.id)
+                .single();
+
+            if (profile?.organizationId) {
+                currentOrgId = profile.organizationId;
+            }
+        }
+
+        if (currentOrgId) {
             response.cookies.set('app-org-id', currentOrgId as string, {
                 httpOnly: false,
                 sameSite: 'lax',

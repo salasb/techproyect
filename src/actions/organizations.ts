@@ -133,20 +133,25 @@ export async function getUserOrganizations() {
 
     return prisma.organization.findMany({
         where: {
-            OrganizationMember: {
-                some: {
-                    userId: user.id,
-                    status: 'ACTIVE'
+            OR: [
+                {
+                    OrganizationMember: {
+                        some: {
+                            userId: user.id,
+                            status: 'ACTIVE'
+                        }
+                    }
+                },
+                {
+                    profiles: {
+                        some: {
+                            id: user.id
+                        }
+                    }
                 }
-            }
+            ]
         },
         include: {
-            subscription: true,
-            OrganizationMember: {
-                where: {
-                    userId: user.id
-                }
-            }
         }
     });
 }
