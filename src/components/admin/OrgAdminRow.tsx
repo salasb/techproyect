@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import { updateOrganizationStatus, updateOrganizationPlan } from "@/app/actions/admin";
+import { compSubscriptionAction, extendTrialAction } from "@/app/actions/admin-actions";
 import { useToast } from "@/components/ui/Toast";
-import { Building2, Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert, Zap, Globe } from "lucide-react";
+import { Building2, Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert, Zap, Globe, CalendarPlus, Gift } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans: { id: string, name: string }[] }) {
     const [status, setStatus] = useState(org.status || 'ACTIVE');
@@ -34,6 +41,37 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
             toast({ type: 'success', message: `Plan actualizado a ${newPlan}` });
         } else {
             toast({ type: 'error', message: res.error || "Error al actualizar" });
+        }
+    };
+
+    const handleGrantComp = async () => {
+        if (!confirm("¿Estás seguro de otorgar acceso COMP a esta organización?")) return;
+        setIsLoading(true);
+        try {
+            await compSubscriptionAction(org.id, {
+                compedUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+                compedReason: "Admin Granted"
+            });
+            toast({ type: 'success', message: "Acceso COMP otorgado por 1 año" });
+        } catch (e: any) {
+            toast({ type: 'error', message: e.message || "Error al otorgar COMP" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExtendTrial = async () => {
+        const days = prompt("¿Cuántos días quieres extender el trial?", "30");
+        if (!days || isNaN(parseInt(days))) return;
+
+        setIsLoading(true);
+        try {
+            await extendTrialAction(org.id, parseInt(days));
+            toast({ type: 'success', message: `Trial extendido por ${days} días` });
+        } catch (e: any) {
+            toast({ type: 'error', message: e.message || "Error al extender trial" });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -94,7 +132,7 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
                 </div>
             </td>
             <td className="px-6 py-4 text-right">
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end items-center gap-1">
                     {status === 'ACTIVE' ? (
                         <button
                             onClick={() => handleStatusChange('INACTIVE')}
@@ -114,6 +152,22 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
                             <CheckCircle2 className="w-4 h-4" />
                         </button>
                     )}
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger disabled={isLoading} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors outline-none focus:ring-2 focus:ring-blue-500">
+                            <MoreVertical className="w-4 h-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={handleGrantComp} className="cursor-pointer flex items-center gap-2">
+                                <Gift className="w-4 h-4 text-purple-500" />
+                                <span>Otorgar COMP</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExtendTrial} className="cursor-pointer flex items-center gap-2">
+                                <CalendarPlus className="w-4 h-4 text-amber-500" />
+                                <span>Extender Trial</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </td>
         </tr>

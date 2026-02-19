@@ -70,3 +70,33 @@ export async function resetSubscriptionAction(orgId: string) {
     revalidatePath(`/admin/orgs/${orgId}`);
     return { success: true };
 }
+
+/**
+ * Extends the trial period of a subscription by a given number of days.
+ */
+export async function extendTrialAction(orgId: string, days: number = 30) {
+    await ensureSuperadmin();
+
+    const currentSub = await prisma.subscription.findUnique({
+        where: { organizationId: orgId }
+    });
+
+    if (!currentSub) throw new Error("Subscription not found");
+
+    const newTrialEndsAt = currentSub.trialEndsAt
+        ? new Date(currentSub.trialEndsAt.getTime() + days * 24 * 60 * 60 * 1000)
+        : new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    await prisma.subscription.update({
+        where: { organizationId: orgId },
+        data: {
+            status: 'TRIALING',
+            trialEndsAt: newTrialEndsAt,
+            source: currentSub.source || 'STRIPE'
+        } as any
+    });
+
+    revalidatePath(`/admin/orgs/${orgId}`);
+    return { success: true, trialEndsAt: newTrialEndsAt };
+}
+

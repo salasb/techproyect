@@ -95,7 +95,12 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="my-1" />
                 <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                    {organizations.map((org) => (
+                    {organizations.length === 0 ? (
+                        <div className="px-3 py-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                            No tienes organizaciones activas.<br />
+                            <span className="text-xs">Crea o únete a una para comenzar.</span>
+                        </div>
+                    ) : organizations.map((org) => (
                         <DropdownMenuItem
                             key={org.id}
                             className={cn(

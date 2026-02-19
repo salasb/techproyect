@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function GET() {
+    // F) Diagnóstico Dev-Safe protection
+    if (process.env.DEBUG_WORKSPACE !== '1') {
+        return NextResponse.json({ error: "Debug endpoint disabled" }, { status: 404 });
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 

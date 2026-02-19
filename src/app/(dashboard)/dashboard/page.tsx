@@ -117,9 +117,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
 
     // 3. Calculate Dashboard Data
-    const kpis = orgId
+    const kpis = (orgId && !isExplore)
         ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
-        : {
+        : isExplore ? {
+            billing: { value: 7500000, previous: 5000000, trend: 50 },
+            margin: { value: 3200000, previous: 2800000, trend: 14.2 },
+            earnedMargin: 0.42,
+            projectedMargin: 0.45,
+            pipeline: { value: 12000000, count: 5 }
+        } : {
             billing: { value: 0, previous: 0, trend: 0 },
             margin: { value: 0, previous: 0, trend: 0 },
             earnedMargin: 0,
@@ -127,8 +133,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             pipeline: { value: 0, count: 0 }
         };
 
-    const chartData = orgId ? DashboardService.getFinancialTrends(projects as any, period) : [];
-    const topClients = orgId ? DashboardService.getTopClients(projects as any) : [];
+    const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects as any, period) :
+        isExplore ? [
+            { name: 'Ene', label: 'Ene', income: 1200000, cost: 800000, profit: 400000, dateVal: 1 },
+            { name: 'Feb', label: 'Feb', income: 1500000, cost: 950000, profit: 550000, dateVal: 2 },
+            { name: 'Mar', label: 'Mar', income: 2800000, cost: 1100000, profit: 1700000, dateVal: 3 },
+        ] : [];
+
+    const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects as any) :
+        isExplore ? [
+            { name: 'Acme Corp', value: 4500000 },
+            { name: 'Global Tech', value: 3000000 }
+        ] : [];
 
     // 4. Fetch Stats & Sub Status for Onboarding (if org exists)
     let orgStats = null;
@@ -162,6 +178,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
             {!orgId && !isExplore ? (
                 <WorkspaceSetupBanner />
+            ) : isExplore && !orgId ? (
+                <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between shadow-sm animate-in slide-in-from-top-4 gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-500/20 p-2 rounded-lg">
+                            <Building2 className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-blue-900 dark:text-blue-400">Modo Exploración</h4>
+                            <p className="text-sm text-blue-700 dark:text-blue-300">Estás viendo datos de demostración de solo lectura. Crea un espacio de trabajo para gestionar tu propia información.</p>
+                        </div>
+                    </div>
+                    <Link href="/start" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all whitespace-nowrap">
+                        Crear Organización
+                    </Link>
+                </div>
             ) : (
                 workspace.isAutoProvisioned && (
                     <div className="bg-blue-600 rounded-xl p-6 text-white shadow-lg space-y-4 animate-in slide-in-from-top-4 duration-500">

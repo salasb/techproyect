@@ -12,6 +12,7 @@ export default async function AdminOrgsPage() {
         .from("Organization")
         .select(`
             *,
+            subscription:Subscription(*),
             members:OrganizationMember(count),
             projects:Project(count),
             clients:Client(count)
