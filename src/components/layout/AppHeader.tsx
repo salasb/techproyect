@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { PaywallBanner } from "./PaywallBanner";
+import { DunningBanner } from "../dashboard/DunningBanner";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { NotificationCenter } from "./NotificationCenter";
 
@@ -129,6 +130,7 @@ export function AppHeader({
 
     return (
         <>
+            <DunningBanner subscription={subscription} />
             {subscription && (
                 <PaywallBanner
                     status={subscription.status}
@@ -192,7 +194,10 @@ export function AppHeader({
                 <div className="flex items-center space-x-4">
                     <OrgSwitcher currentOrgId={currentOrgId} />
                     <ThemeToggle />
-                    <NotificationCenter organizationId={userProfile?.organizationId} />
+                    <NotificationCenter
+                        organizationId={currentOrgId}
+                        userRole={profile?.role}
+                    />
                 </div>
             </header>
         </>

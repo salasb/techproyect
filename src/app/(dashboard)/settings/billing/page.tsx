@@ -4,6 +4,7 @@ import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database, Cr
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { BillingClient } from "@/components/settings/BillingClient";
 
 export default async function BillingPage() {
     const orgId = await getOrganizationId();
@@ -36,16 +37,23 @@ export default async function BillingPage() {
                     <p className="text-slate-500 font-medium">Gestiona tu suscripción y consulta tu consumo.</p>
                 </div>
                 {subscription?.providerCustomerId && (
-                    <form action={async () => {
-                        'use server';
-                        const { createCustomerPortalSession } = await import("@/app/actions/subscription");
-                        await createCustomerPortalSession();
-                    }}>
-                        <Button type="submit" variant="outline" className="gap-2">
-                            <CreditCard className="w-4 h-4" />
-                            Gestionar en Stripe
-                        </Button>
-                    </form>
+                    <div className="flex flex-col items-end gap-2">
+                        <form action={async () => {
+                            'use server';
+                            const { createCustomerPortalSession } = await import("@/app/actions/subscription");
+                            await createCustomerPortalSession();
+                        }}>
+                            <Button type="submit" variant="outline" className="gap-2">
+                                <CreditCard className="w-4 h-4" />
+                                Gestionar en Stripe
+                            </Button>
+                        </form>
+
+                        {/* Wave 5.3: Save Flow */}
+                        {subscription.status === 'ACTIVE' && (
+                            <BillingClient variant="CONTINUITY" />
+                        )}
+                    </div>
                 )}
             </div>
 

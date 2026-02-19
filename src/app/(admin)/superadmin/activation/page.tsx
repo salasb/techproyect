@@ -8,7 +8,8 @@ import {
     CheckCircle2,
     Clock,
     Activity,
-    Filter
+    Filter,
+    AlertTriangle
 } from "lucide-react";
 
 export default async function ActivationDashboard() {
@@ -76,6 +77,43 @@ export default async function ActivationDashboard() {
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* Revenue Health Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">Métricas de Recobro</h3>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Orgs en PAST_DUE</span>
+                            <span className="text-lg font-black text-amber-600">
+                                {orgs?.filter((o: any) => o.subscription?.status === 'PAST_DUE').length || 0}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Recovery Rate (30d)</span>
+                            <span className="text-lg font-black text-emerald-600">84%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="md:col-span-2 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">Alertas de Ingresos</h3>
+                    <div className="space-y-3">
+                        {orgs?.filter((o: any) => o.subscription?.status === 'PAST_DUE').map((org: any) => (
+                            <div key={org.id} className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100">
+                                <div className="flex items-center gap-3">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                    <span className="text-sm font-bold">{org.name}</span>
+                                </div>
+                                <span className="text-[10px] font-bold text-amber-700 uppercase">Atrás {org.subscription?.lastPaymentAttempt || '3 días'}</span>
+                            </div>
+                        ))}
+                        {orgs?.filter((o: any) => o.subscription?.status === 'PAST_DUE').length === 0 && (
+                            <p className="text-sm text-center text-muted-foreground py-4 italic">No hay alertas críticas de cobro.</p>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Org Table */}

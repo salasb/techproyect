@@ -19,6 +19,13 @@ interface Notification {
     metadata: any;
 }
 
+interface PaymentIssue {
+    id: string;
+    status: 'OPEN' | 'RESOLVED' | 'EXPIRED';
+    attemptCount: number;
+    lastAttemptAt: string;
+}
+
 import { getActiveNudgesAction, dismissNudgeAction } from "@/app/actions/nudges";
 
 interface Nudge {
@@ -32,9 +39,10 @@ interface Nudge {
     dedupeKey: string;
 }
 
-export function NotificationCenter({ organizationId }: { organizationId?: string }) {
+export function NotificationCenter({ organizationId, userRole }: { organizationId?: string, userRole?: string }) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [nudges, setNudges] = useState<Nudge[]>([]);
+    const [paymentIssue, setPaymentIssue] = useState<PaymentIssue | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -44,24 +52,44 @@ export function NotificationCenter({ organizationId }: { organizationId?: string
         if (!organizationId) return;
         const supabase = createClient();
 
-        const [alertsRes, nudgesData] = await Promise.all([
+        const [alertsRes, nudgesData, paymentRes] = await Promise.all([
             supabase.from('SentinelAlert')
                 .select('*')
                 .eq('organizationId', organizationId)
                 .order('createdAt', { ascending: false })
                 .limit(10),
-            getActiveNudgesAction()
+            getActiveNudgesAction(),
+            supabase.from('PaymentIssue')
+                .select('*')
+                .eq('organizationId', organizationId)
+                .eq('status', 'OPEN')
+                .order('lastAttemptAt', { ascending: false })
+                .limit(1)
+                .single()
         ]);
 
         if (alertsRes.data) {
-            setNotifications(alertsRes.data as any);
+            // "Replace don't stack" logic: Only show the most recent alert for each type
+            const uniqueAlertsMap = new Map<string, any>();
+            (alertsRes.data as any[]).forEach(alert => {
+                if (!uniqueAlertsMap.has(alert.type)) {
+                    uniqueAlertsMap.set(alert.type, alert);
+                }
+            });
+            setNotifications(Array.from(uniqueAlertsMap.values()));
         }
         if (nudgesData) {
             setNudges(nudgesData as any);
         }
+        if (paymentRes.data) {
+            setPaymentIssue(paymentRes.data as any);
+        } else {
+            setPaymentIssue(null);
+        }
 
         const alertUnread = (alertsRes.data || []).filter(n => n.status === 'OPEN').length;
-        setUnreadCount(alertUnread + (nudgesData?.length || 0));
+        const billingUnread = paymentRes.data ? 1 : 0;
+        setUnreadCount(alertUnread + (nudgesData?.length || 0) + billingUnread);
     };
 
     useEffect(() => {
@@ -134,6 +162,25 @@ export function NotificationCenter({ organizationId }: { organizationId?: string
                     </div>
 
                     <div className="max-h-[400px] overflow-y-auto divide-y divide-border">
+                        {/* Payment Issue (High Priority) - Only for Admins */}
+                        {paymentIssue && userRole === 'ADMIN' && (
+                            <div className="p-4 bg-red-50 dark:bg-red-900/10 border-l-4 border-red-500">
+                                <div className="flex gap-3">
+                                    <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Billing Issue</span>
+                                        </div>
+                                        <h5 className="text-xs font-bold text-foreground leading-tight">Problema con tu pago</h5>
+                                        <p className="text-[11px] text-muted-foreground">No pudimos procesar tu último cargo. Por favor actualiza tu método de pago.</p>
+                                        <Link href="/settings/billing" onClick={() => setIsOpen(false)} className="text-[10px] font-bold text-red-600 hover:underline flex items-center mt-2">
+                                            Resolver Ahora <ArrowRight className="w-3 h-3 ml-1" />
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Nudges Section */}
                         {nudges.map((nudge) => (
                             <div key={nudge.id} className="p-4 bg-primary/[0.03] border-l-4 border-primary hover:bg-primary/[0.05] transition-colors relative group/nudge">

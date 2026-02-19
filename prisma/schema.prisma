@@ -340,6 +340,8 @@ model Organization {
   EmailEventLog      EmailEventLog[]
   NudgeDismissed     NudgeDismissed[]
   ExperimentAssignment ExperimentAssignment[]
+  paymentIssues      PaymentIssue[]
+  cancelIntents      CancelIntent[]
 
   @@schema("public")
 }
@@ -740,5 +742,67 @@ model NudgeDismissed {
   profile        Profile      @relation(fields: [userId], references: [id])
 
   @@unique([userId, organizationId, dedupeKey])
+  @@schema("public")
+}
+
+model PaymentIssue {
+  id             String        @id @default(uuid())
+  organizationId String        @db.Uuid
+  status         PaymentIssueStatus @default(OPEN)
+  lastAttemptAt  DateTime      @default(now())
+  attemptCount   Int           @default(1)
+  invoiceId      String?
+  customerPortalUrl String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+enum PaymentIssueStatus {
+  OPEN
+  RESOLVED
+  EXPIRED
+
+  @@schema("public")
+}
+
+model CancelIntent {
+  id             String        @id @default(uuid())
+  organizationId String        @db.Uuid
+  userId         String        @db.Uuid
+  reason         CancellationReason
+  comment        String?
+  variant        String?       // For A/B testing: CONTINUITY, VALUE_ROI
+  outcome        CancelOutcome @default(CANCEL_PENDING)
+  createdAt      DateTime      @default(now())
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+enum CancellationReason {
+  PRICE
+  MISSING_FEATURE
+  HARD_TO_USE
+  NOT_USING_IT
+  BUGS
+  SWITCHING_COMPETITOR
+  TEMPORARY_PROJECT
+  SUPPORT_ISSUE
+  OTHER
+
+  @@schema("public")
+}
+
+enum CancelOutcome {
+  CANCEL_PENDING
+  SAVED_PAUSE
+  SAVED_DOWNGRADE
+  SAVED_DISCOUNT
+  COMPLETED
+  RECOVERED
+
   @@schema("public")
 }

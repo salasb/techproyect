@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-export type LifecycleTemplateKey = 'WELCOME' | 'MISSING_PROJ' | 'MISSING_QUOTE' | 'TRIAL_7D' | 'TRIAL_3D' | 'TRIAL_EXP';
+export type LifecycleTemplateKey = 'WELCOME' | 'MISSING_PROJ' | 'MISSING_QUOTE' | 'TRIAL_7D' | 'TRIAL_3D' | 'TRIAL_EXP' | 'DUNNING_FAIL' | 'DUNNING_RECOVERED';
 
 export class LifecycleEmailService {
     /**
@@ -94,6 +94,14 @@ export class LifecycleEmailService {
             TRIAL_EXP: {
                 subject: 'Tu cuenta ha pasado a modo lectura',
                 html: `<p>Tu periodo de trial ha expirado. Tu cuenta está en modo pausa hasta que configures una suscripción.</p>`
+            },
+            DUNNING_FAIL: {
+                subject: 'Acción Requerida: Fallo en el pago de tu suscripción ⚠️',
+                html: `<p>Hola ${userName}, no hemos podido procesar el pago de tu suscripción. Por favor actualiza tu método de pago para evitar la interrupción del servicio.</p>`
+            },
+            DUNNING_RECOVERED: {
+                subject: '¡Todo listo! Pago procesado con éxito ✅',
+                html: `<p>Hola ${userName}, hemos recibido tu pago correctamente. Tu suscripción vuelve a estar activa.</p>`
             }
         };
 

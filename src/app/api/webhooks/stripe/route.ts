@@ -178,7 +178,20 @@ export async function POST(req: Request) {
                 const orgId = (customer as any).metadata?.organizationId;
 
                 if (orgId) {
-                    await ActivationService.trackFunnelEvent('PAYMENT_FAILED', orgId, `payment_fail_${event.id}`, undefined, { invoiceId: invoice.id });
+                    const { DunningService } = await import("@/services/dunning-service");
+                    await DunningService.handlePaymentFailure(orgId, invoice.id);
+                }
+                break;
+            }
+
+            case 'invoice.payment_succeeded': {
+                const invoice = event.data.object as Stripe.Invoice;
+                const customer = await stripe.customers.retrieve(invoice.customer as string);
+                const orgId = (customer as any).metadata?.organizationId;
+
+                if (orgId) {
+                    const { DunningService } = await import("@/services/dunning-service");
+                    await DunningService.handlePaymentSuccess(orgId);
                 }
                 break;
             }

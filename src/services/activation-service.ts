@@ -18,6 +18,9 @@ export type ActivationMilestone =
     | 'CHECKOUT_COMPLETED'
     | 'SUBSCRIPTION_ACTIVE'
     | 'PAYMENT_FAILED'
+    | 'PAYMENT_RECOVERED'
+    | 'CANCEL_INTENT'
+    | 'CANCEL_SAVED'
     | 'SUBSCRIPTION_CANCELED'
     | 'PAUSED_ENTERED'
     | 'PAUSED_EXITED';
