@@ -5,6 +5,14 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle2, FileText, Ban, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+    robots: {
+        index: false,
+        follow: false,
+    }
+};
 
 // Force dynamic to ensure token is validated on every request
 export const dynamic = 'force-dynamic';
@@ -12,7 +20,7 @@ export const dynamic = 'force-dynamic';
 export default async function PublicQuotePage({ params }: { params: Promise<{ token: string }> }) {
     const { token } = await params;
 
-    // 1. Verify Token
+    // 1. Verify Token (and check simple rate limit by access count?)
     const auth = await ShareLinkService.verifyLink(token);
 
     if (!auth.isValid) {
@@ -142,9 +150,27 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
                             </Button>
                         </form>
                     </div>
+                ) : quote.status === 'ACCEPTED' ? (
+                    <div className="p-8 bg-emerald-50 dark:bg-emerald-950/30 border-t border-emerald-100 dark:border-emerald-900 text-center">
+                        <h3 className="text-emerald-800 dark:text-emerald-400 font-bold text-lg mb-1 flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-5 h-5" /> Cotización Aceptada
+                        </h3>
+                        <p className="text-sm text-emerald-600 dark:text-emerald-500">
+                            Procesada el {format(new Date(quote.updatedAt), "dd 'de' MMMM, yyyy", { locale: es })}
+                        </p>
+                    </div>
+                ) : quote.status === 'REVISED' ? (
+                    <div className="p-8 bg-amber-50 dark:bg-amber-950/30 border-t border-amber-100 dark:border-amber-900 text-center">
+                        <h3 className="text-amber-800 dark:text-amber-400 font-bold text-lg mb-1">
+                            Nueva Versión Disponible
+                        </h3>
+                        <p className="text-sm text-amber-600 dark:text-amber-500">
+                            Esta cotización ha sido actualizada. Por favor, solicite el enlace de la versión más reciente.
+                        </p>
+                    </div>
                 ) : (
                     <div className="p-8 bg-zinc-50 dark:bg-zinc-950/30 border-t border-zinc-100 dark:border-zinc-800 text-center text-sm text-muted-foreground">
-                        Esta cotización ya ha sido procesada o aceptada.
+                        Esta cotización ya no está disponible para aceptación ({quote.status}).
                     </div>
                 )}
             </div>

@@ -80,21 +80,29 @@ export async function POST(req: Request) {
                     // Verify invoice exists
                     const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
                     if (invoice) {
+                        const newAmountPaid = invoice.amountPaidGross + amount;
                         await prisma.invoice.update({
                             where: { id: invoiceId },
                             data: {
-                                amountPaidGross: { increment: amount }, // Increment or set? Usually full payment via link
+                                amountPaidGross: newAmountPaid,
                                 updatedAt: new Date().toISOString()
                             }
                         });
 
                         // Log Audit
                         const { AuditService } = await import("@/services/auditService");
-                        await AuditService.logAction(invoice.projectId, 'INVOICE_PAYMENT', `Pago online registrado vía Stripe por $${amount.toLocaleString()}`);
+                        const status = newAmountPaid >= invoice.amountInvoicedGross ? ' (Pagada Totalmente)' : ' (Pago Parcial)';
 
-                        // Log Activity?? InvoicesManager uses markInvoiceSent/registerPayment actions.
-                        // Ideally we should use the same service/action logic but actions are typically user-initiated?
-                        // Using direct Prisma update is fine for webhook.
+                        await AuditService.logAction(
+                            invoice.projectId,
+                            'INVOICE_PAYMENT',
+                            `Pago online registrado vía Stripe por $${amount.toLocaleString()}${status}`,
+                            {
+                                name: 'Stripe System',
+                                ip: 'Stripe Webhook',
+                                userAgent: 'Stripe/1.0'
+                            }
+                        );
                     }
                 }
                 break;
@@ -234,8 +242,9 @@ export async function POST(req: Request) {
         });
 
         return Response.json({ received: true });
-    } catch (error: any) {
-        console.error(`Webhook Processing Error [${event.id}]: ${error.message}`);
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error(`Webhook Processing Error [${event.id}]: ${errorMessage}`);
         return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
     }
 }

@@ -5,6 +5,14 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle2, FileText, Ban, XCircle, CreditCard, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+    robots: {
+        index: false,
+        follow: false,
+    }
+};
 
 // Force dynamic to ensure token is validated on every request
 export const dynamic = 'force-dynamic';
@@ -34,6 +42,10 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
             }
         }
     });
+
+    // Correction: Invoice logic seems to rely on finding the invoice.
+    // The previous code block for page.tsx was likely simplified in my read or the file content I saw was correct.
+    // I will stick to what I saw in view_file.
 
     if (!invoice) return notFound();
 

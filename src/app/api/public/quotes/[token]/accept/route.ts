@@ -29,6 +29,12 @@ export async function POST(
 
         if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
 
+        // Idempotency: If already accepted, treat as success
+        if (quote.status === 'ACCEPTED') {
+            const url = new URL(`/p/q/${token}?accepted=true`, req.url);
+            return NextResponse.redirect(url, 303);
+        }
+
         if (quote.status !== 'SENT' && quote.status !== 'DRAFT') {
             return NextResponse.json({ error: 'Quote cannot be accepted in current status' }, { status: 400 });
         }
@@ -42,12 +48,22 @@ export async function POST(
             }
         });
 
-        // 4. Update Project Status if needed (e.g. to 'ACEPTADO' or start stage)
-        // For now, just log.
-        await AuditService.logAction(quote.projectId, 'QUOTE_ACCEPT', `Cotización #${quote.version} aceptada públicamente.`);
+        // 4. Update Project Log & Audit
+        const ip = req.headers.get('x-forwarded-for') || 'unknown';
+        const userAgent = req.headers.get('user-agent') || 'unknown';
+
+        await AuditService.logAction(
+            quote.projectId,
+            'QUOTE_ACCEPT_PUBLIC',
+            `Cotización #${quote.version} aceptada vía enlace público.`,
+            {
+                name: 'Cliente (Público)',
+                ip,
+                userAgent
+            }
+        );
 
         // 5. Redirect back to page with success
-        // Use 303 See Other for POST-redirect-GET pattern
         const url = new URL(`/p/q/${token}`, req.url);
         url.searchParams.set('accepted', 'true');
 
