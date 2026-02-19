@@ -29,20 +29,22 @@ export async function GET() {
     const trace: string[] = [];
     trace.push('Auth success: ' + user.email);
 
+    // Trace decisions using Workspace Resolver (Node Runtime)
     try {
-        // Trace decisions using Prisma-based resolver
-        const { resolveActiveOrganizationPrisma } = await import('@/lib/auth/organization-resolver-server');
-        const resolution = await resolveActiveOrganizationPrisma(supabase, user.id, cookieOrgId);
+        const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+        const workspace = await getWorkspaceState();
 
         return NextResponse.json({
             status: 'success',
             userId: user.id,
             email: user.email,
             cookieOrgId: cookieOrgId ? `${cookieOrgId.slice(0, 8)}...` : null,
-            resolution,
+            workspace,
             trace: [
                 `Auth success: ${user.email}`,
-                `Final Decision (Prisma): ${resolution.action}`
+                `Organization Count: ${workspace.organizationsCount}`,
+                `Active Org ID: ${workspace.activeOrgId}`,
+                `Is Auto-provisioned: ${workspace.isAutoProvisioned}`
             ]
         });
     } catch (e: any) {

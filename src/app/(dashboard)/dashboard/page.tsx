@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import Link from "next/link";
-import { QrCode } from "lucide-react";
+import { QrCode, Building2 } from "lucide-react";
 import { DashboardService } from "@/services/dashboardService";
 import { getDollarRate } from "@/services/currency";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
@@ -41,6 +41,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const isSentinelForce = params?.sentinel_force === 'true';
     const supabase = await createClient();
 
+    // 0. Resolve Workspace State (Node Runtime)
+    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+    const workspace = await getWorkspaceState();
+    const orgId = workspace.activeOrgId;
+
+    if (!workspace.hasOrganizations || !orgId) {
+        // Fallback for extreme cases where auto-provision fails
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6">
+                <div className="text-center space-y-2">
+                    <h1 className="text-3xl font-bold">Generando tu espacio...</h1>
+                    <p className="text-muted-foreground text-lg">Estamos preparando TechProyect para ti.</p>
+                </div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="text-sm text-slate-400">Si esto tarda mucho, intenta recargar la página.</p>
+            </div>
+        );
+    }
+
     // 1. Fetch Data (Server Side)
     // Parallel fetching for performance
     let settingsRes: any = { data: null };
@@ -51,7 +70,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     try {
         const results = await Promise.all([
-            supabase.from('Settings').select('*').maybeSingle(),
+            supabase.from('Settings').select('*').eq('organizationId', orgId).maybeSingle(),
             supabase.from('Project')
                 .select(`
                     *,
@@ -60,10 +79,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     invoices:Invoice(id, amountInvoicedGross, amountPaidGross, sent, sentDate, dueDate, paymentTermsDays),
                     quoteItems:QuoteItem(id, priceNet, costNet, quantity, isSelected)
                 `)
+                .eq('organizationId', orgId)
                 .order('updatedAt', { ascending: false }),
-            supabase.from('Opportunity').select('*'),
+            supabase.from('Opportunity').select('*').eq('organizationId', orgId),
             supabase.from('Task')
                 .select('*, project:Project(id, name, company:Company(name))')
+                .eq('organizationId', orgId)
                 .eq('status', 'PENDING')
                 .order('priority', { ascending: false })
                 .order('dueDate', { ascending: true })
@@ -84,7 +105,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const settings = settingsRes.data || { vatRate: DEFAULT_VAT_RATE } as Settings;
     const projects = projectsRes.data || [];
     const opportunities = opportunitiesRes.data || [];
-    const orgId = await getOrganizationId();
 
     // 2. Trigger Sentinel Analysis (Proactive Layer)
     if (orgId) {
@@ -104,9 +124,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
 
     // 3. Fetch Sentinel Active Alerts
-    const { data: sentinelAlerts } = orgId
-        ? await SentinelService.getActiveAlerts(orgId)
-        : { data: [] };
+    const { data: sentinelAlerts } = await SentinelService.getActiveAlerts(orgId);
 
     // 4. Calculate Dashboard Data
     const kpis = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
@@ -115,9 +133,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     // 5. Fetch Stats & Sub Status for Onboarding
     const [orgStats, subscription, org] = await Promise.all([
-        orgId ? prisma.organizationStats.findUnique({ where: { organizationId: orgId } }) : null,
-        orgId ? prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }) : null,
-        orgId ? prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true } }) : null
+        prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
+        prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
+        prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true } })
     ]);
     const isTrialing = subscription?.status === 'TRIALING';
     const orgMode = (org?.mode as 'SOLO' | 'TEAM') || 'SOLO';
@@ -138,6 +156,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
+            {workspace.isAutoProvisioned && (
+                <div className="bg-blue-600 rounded-xl p-6 text-white shadow-lg space-y-4 animate-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white/20 p-2 rounded-lg">
+                            <Building2 className="w-5 h-5 text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold">¡Bienvenido a TechProyect!</h3>
+                    </div>
+                    <p className="text-blue-50 opacity-90 max-w-2xl">
+                        Hemos creado un espacio de trabajo inicial llamado "Mi Organización" para que puedas empezar de inmediato. Puedes cambiarle el nombre en la configuración en cualquier momento.
+                    </p>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>

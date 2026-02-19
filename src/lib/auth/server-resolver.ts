@@ -1,37 +1,22 @@
-import { createClient } from "@/lib/supabase/server";
-import { resolveActiveOrganization as coreResolve } from "./organization-resolver";
-import { cookies, headers } from "next/headers";
+import { getWorkspaceState } from "./workspace-resolver";
 import { redirect } from "next/navigation";
 
 /**
  * Resolves the active organization for Server Components and Server Actions.
- * If no active organization is found, it redirects to /start or /org/select.
- * Returns the Organization ID directly.
+ * If no active organization is found, it may redirect or return null.
  */
-export async function resolveActiveOrganization() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+export async function resolveActiveOrganization(): Promise<string> {
+    const state = await getWorkspaceState();
 
-    if (!user) {
+    if (state.activeOrgId) {
+        return state.activeOrgId;
+    }
+
+    if (state.error === 'Not authenticated') {
         redirect('/login');
     }
 
-    const cookieStore = await cookies();
-    const orgIdFromCookie = cookieStore.get('app-org-id')?.value;
-
-    // Get hostname for diagnostics
-    const host = (await headers()).get('host') || 'unknown';
-
-    const resolution = await coreResolve(supabase, user.id, orgIdFromCookie, host);
-
-    if (resolution.action === 'ENTER') {
-        return resolution.organizationId;
-    }
-
-    if (resolution.action === 'SELECT') {
-        redirect('/org/select');
-    }
-
-    // Action START
-    redirect('/start');
+    // Fallback: This should ideally not be reached due to Auto-provisioning,
+    // but if it is, we redirect to dashboard to trigger the Setup UI.
+    redirect('/dashboard');
 }
