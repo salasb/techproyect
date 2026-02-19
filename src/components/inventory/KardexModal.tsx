@@ -77,8 +77,7 @@ export function KardexModal({ productId, productName, isOpen, onClose }: KardexM
                                 <th className="px-4 py-3">Fecha</th>
                                 <th className="px-4 py-3">Tipo</th>
                                 <th className="px-4 py-3 text-right">Cantidad</th>
-                                <th className="px-4 py-3">Origen</th>
-                                <th className="px-4 py-3">Destino</th>
+                                <th className="px-4 py-3">Ubicación</th>
                                 <th className="px-4 py-3">Usuario</th>
                                 <th className="px-4 py-3">Notas / Ref</th>
                             </tr>
@@ -100,16 +99,13 @@ export function KardexModal({ productId, productName, isOpen, onClose }: KardexM
                                         {['OUT', 'SALE'].includes(mov.type) ? '-' : '+'}{mov.quantity}
                                     </td>
                                     <td className="px-4 py-3 text-slate-500 text-xs">
-                                        {mov.fromLocation?.name || '-'}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-500 text-xs">
-                                        {mov.toLocation?.name || '-'}
+                                        {mov.location?.name || '-'}
                                     </td>
                                     <td className="px-4 py-3 text-slate-500 text-xs">
                                         {mov.user?.name || 'Sistema'}
                                     </td>
                                     <td className="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate">
-                                        {[mov.reference, mov.notes].filter(Boolean).join(' - ')}
+                                        {[mov.reference, mov.description].filter(Boolean).join(' - ')}
                                     </td>
                                 </tr>
                             ))}

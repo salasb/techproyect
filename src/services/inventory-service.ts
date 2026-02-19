@@ -213,45 +213,27 @@ export class InventoryService {
         description?: string
     ) {
         return await prisma.$transaction(async (tx) => {
-            // Out from Origin
+            // 1. Movement OUT from Origin
             await InventoryService.createMovement({
                 organizationId: orgId,
                 locationId: fromLocId,
                 productId,
-                type: 'OUT', // Or TRANSFER_OUT?
+                type: 'OUT',
                 quantity,
                 userId,
-                description: `Transfer to ${toLocId}. ${description || ''}`,
-                // We use OUT type for source to keep it simple, or add Metadata?
-                // Ideally we'd use TRANSFER type, but we need direction.
-                // Let's use TRANSFER type but sign?
-                // "quantity: Float (Always positive)".
-                // If TRANSFER, we create TWO movements.
-                // 1. TRANSFER (quantity, location: FROM). Implies OUT?
-                // 2. TRANSFER (quantity, location: TO). Implies IN?
-                // It's ambiguous.
-                // Better: Use OUT and IN types with description "Transfer".
-                // Or generic params.
-                type: 'TRANSFER', // We need to define how TRANSFER affects stock.
-                // If type is TRANSFER, does it mean + or -?
-                // It's context dependent. 
-                // Let's stick to OUT/IN for transfers for clarity in V1 kardex.
-            } as any);
+                description: `Transferencia a ${toLocId}. ${description || ''}`,
+            });
 
-            // Actually, let's just call createMovement with OUT/IN types?
-            // User requested TRANSFER type in Enum.
-            // Maybe we store `type: TRANSFER` and `quantity: -10` for source?
-            // If we enforce positive quantity, we need `TRANSFER_OUT` and `TRANSFER_IN`.
-            // Given constraints, I will use OUT and IN for the physical records, 
-            // and perhaps append "[TRANSFER]" to description.
-
-            // Correct approach for V1 with limited Enum:
-            // Source: Type OUT, Desc: "Transfer to..."
-            // Dest: Type IN, Desc: "Transfer from..."
-
-            // If we MUST use TRANSFER enum:
-            // We need to know context.
-            // Let's rely on IN/OUT for now as it's robust.
+            // 2. Movement IN to Destination
+            await InventoryService.createMovement({
+                organizationId: orgId,
+                locationId: toLocId,
+                productId,
+                type: 'IN',
+                quantity,
+                userId,
+                description: `Transferencia desde ${fromLocId}. ${description || ''}`,
+            });
         });
     }
 

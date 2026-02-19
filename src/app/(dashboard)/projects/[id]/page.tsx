@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import ProjectDetailView from "@/components/projects/ProjectDetailView";
+import ProjectInventory from "@/components/projects/ProjectInventory";
 import { Database } from "@/types/supabase";
 import { RiskEngine } from "@/services/riskEngine";
 import { getDollarRate, getUfRate } from "@/services/currency";
