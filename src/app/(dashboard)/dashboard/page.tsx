@@ -4,7 +4,7 @@ import Link from "next/link";
 import { QrCode, Building2 } from "lucide-react";
 import { DashboardService } from "@/services/dashboardService";
 import { getDollarRate } from "@/services/currency";
-import { DEFAULT_VAT_RATE } from "@/lib/constants";
+import { DEFAULT_VAT_RATE, DEFAULT_PAYMENT_TERMS_DAYS, YELLOW_THRESHOLD_DAYS, DEFAULT_CURRENCY } from "@/lib/constants";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { ReportExportButton } from "@/components/dashboard/ReportExportButton";
 import { DashboardKPIs } from "@/components/dashboard/DashboardKPIs";
@@ -89,7 +89,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         }
     }
 
-    const settings = settingsRes.data || { vatRate: DEFAULT_VAT_RATE } as Settings;
+    const settings = settingsRes.data || {
+        vatRate: DEFAULT_VAT_RATE,
+        yellowThresholdDays: YELLOW_THRESHOLD_DAYS,
+        defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
+        currency: DEFAULT_CURRENCY
+    } as Settings;
     const projects = projectsRes.data || [];
     const opportunities = opportunitiesRes.data || [];
 
@@ -114,7 +119,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     // 3. Calculate Dashboard Data
     const kpis = orgId
         ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
-        : { totalRevenue: 0, activeProjects: 0, pendingQuotes: 0, conversionRate: 0, periodRevenue: 0, revenueGrowth: 0 };
+        : {
+            billing: { value: 0, previous: 0, trend: 0 },
+            margin: { value: 0, previous: 0, trend: 0 },
+            earnedMargin: 0,
+            projectedMargin: 0,
+            pipeline: { value: 0, count: 0 }
+        };
 
     const chartData = orgId ? DashboardService.getFinancialTrends(projects as any, period) : [];
     const topClients = orgId ? DashboardService.getTopClients(projects as any) : [];
