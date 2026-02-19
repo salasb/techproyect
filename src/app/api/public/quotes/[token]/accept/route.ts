@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { token: string } }
+    context: { params: Promise<{ token: string }> }
 ) {
-    const { token } = params;
+    const { token } = await context.params;
 
     // 1. Verify Token
     const auth = await ShareLinkService.verifyLink(token);

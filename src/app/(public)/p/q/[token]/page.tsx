@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 // Force dynamic to ensure token is validated on every request
 export const dynamic = 'force-dynamic';
 
-export default async function PublicQuotePage({ params }: { params: { token: string } }) {
-    const { token } = params;
+export default async function PublicQuotePage({ params }: { params: Promise<{ token: string }> }) {
+    const { token } = await params;
 
     // 1. Verify Token
     const auth = await ShareLinkService.verifyLink(token);
