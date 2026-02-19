@@ -342,6 +342,7 @@ model Organization {
   ExperimentAssignment ExperimentAssignment[]
   paymentIssues      PaymentIssue[]
   cancelIntents      CancelIntent[]
+  shareLinks         ShareLink[]
 
   @@schema("public")
 }
@@ -803,6 +804,32 @@ enum CancelOutcome {
   SAVED_DISCOUNT
   COMPLETED
   RECOVERED
+
+  @@schema("public")
+}
+
+model ShareLink {
+  id              String        @id @default(uuid())
+  organizationId  String        @db.Uuid
+  entityType      ShareLinkType
+  entityId        String
+  tokenHash       String        @unique
+  createdByUserId String        @db.Uuid
+  createdAt       DateTime      @default(now())
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  accessCount     Int           @default(0)
+  lastAccessAt    DateTime?
+  organization    Organization  @relation(fields: [organizationId], references: [id])
+
+  @@index([tokenHash])
+  @@index([entityId, entityType])
+  @@schema("public")
+}
+
+enum ShareLinkType {
+  QUOTE
+  INVOICE
 
   @@schema("public")
 }
