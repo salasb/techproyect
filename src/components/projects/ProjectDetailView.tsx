@@ -20,6 +20,7 @@ import {
     LayoutDashboard,
     PieChart,
     Settings,
+    Package,
     MoreVertical,
     CheckCircle2,
     AlertCircle,
@@ -66,9 +67,10 @@ interface ProjectDetailViewProps {
     exchangeRate: ExchangeRate;
     ufRate: ExchangeRate;
     tasks: any[];
+    inventoryWidget?: React.ReactNode;
 }
 
-export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk, exchangeRate: initialExchangeRate, ufRate: initialUfRate, tasks }: ProjectDetailViewProps) {
+export default function ProjectDetailView({ project, clients, auditLogs, financials, settings, projectLogs, risk, exchangeRate: initialExchangeRate, ufRate: initialUfRate, tasks, inventoryWidget }: ProjectDetailViewProps) {
     const [currency, setCurrency] = useState<'CLP' | 'USD' | 'UF'>(project.currency as 'CLP' | 'USD' | 'UF' || 'CLP');
     const [activeTab, setActiveTab] = useState('overview');
     const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
@@ -503,6 +505,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         { id: 'overview', label: 'Visión General', icon: LayoutDashboard },
                         { id: 'items', label: 'Ítems', icon: FileText },
                         { id: 'financials', label: 'Finanzas', icon: DollarSign },
+                        { id: 'inventory', label: 'Inventario', icon: Package },
                         { id: 'sales', label: 'Ventas', icon: FileText },
                         { id: 'logs', label: 'Bitácora', icon: History },
                         { id: 'settings', label: 'Configuración', icon: Settings },
@@ -539,327 +542,330 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 </div>
             </div >
 
-            {
-                activeTab === 'overview' && (
-                    <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        {/* Left Column: Status & Key Info */}
-                        <div className="lg:col-span-2 space-y-6">
+            {activeTab === 'inventory' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {inventoryWidget}
+                </div>
+            )}
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Left Column: Status & Key Info */}
+                <div className="lg:col-span-2 space-y-6">
 
-                            {/* ALERTS & PENDING ACTIONS CARD */}
-                            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-                                <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center">
-                                    <Activity className="w-4 h-4 mr-2 text-primary" />
-                                    Estado y Alertas
-                                </h3>
+                    {/* ALERTS & PENDING ACTIONS CARD */}
+                    <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+                        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center">
+                            <Activity className="w-4 h-4 mr-2 text-primary" />
+                            Estado y Alertas
+                        </h3>
 
-                                {/* Alert Logic Display */}
-                                {alerts.length > 0 ? (
-                                    <div className="space-y-2 mb-4">
-                                        {alerts.map((alert, idx) => (
-                                            <div key={idx} className={`p-3 rounded-lg border text-sm flex items-center ${alert.type === 'danger' ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/10' :
-                                                alert.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/10' :
-                                                    'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/10'
-                                                }`}>
-                                                <AlertCircle className="w-5 h-5 mr-3 shrink-0" />
-                                                {alert.msg}
-                                            </div>
-                                        ))}
+                        {/* Alert Logic Display */}
+                        {alerts.length > 0 ? (
+                            <div className="space-y-2 mb-4">
+                                {alerts.map((alert, idx) => (
+                                    <div key={idx} className={`p-3 rounded-lg border text-sm flex items-center ${alert.type === 'danger' ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/10' :
+                                        alert.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/10' :
+                                            'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/10'
+                                        }`}>
+                                        <AlertCircle className="w-5 h-5 mr-3 shrink-0" />
+                                        {alert.msg}
                                     </div>
-                                ) : (
-                                    <div className={`p-4 border rounded-lg text-sm mb-4 ${project.status === 'EN_ESPERA' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/10 dark:border-green-900/30'}`}>
-                                        <div className="flex items-center font-medium mb-1">
-                                            <Check className="w-4 h-4 mr-2" />
-                                            {project.status === 'EN_ESPERA' ? 'Sin Alertas (En Espera)' : 'Todo en orden'}
-                                        </div>
-                                        <div className="text-xs opacity-90 leading-relaxed">
-                                            {project.status === 'EN_ESPERA'
-                                                ? (
-                                                    <div>
-                                                        El proyecto está detenido. No se esperan avances ni movimientos financieros.
-                                                        {project.quoteSentDate && (
-                                                            <div className="mt-2 text-yellow-700 bg-yellow-100/50 p-2 rounded-md flex items-center">
-                                                                <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
-                                                                <span>Cotización enviada el <strong>{format(new Date(project.quoteSentDate), "d 'de' MMMM", { locale: es })}</strong></span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )
-                                                : (
-                                                    <div>
-                                                        <span>El proyecto avanza según lo planificado.</span>
-                                                        {acceptanceLog && (
-                                                            <div className="mt-2 text-emerald-700 bg-emerald-100/50 p-2 rounded-md flex items-center border border-emerald-200/50">
-                                                                <CheckCircle2 className="w-3.5 h-3.5 mr-2 flex-shrink-0" />
-                                                                <span>
-                                                                    Aceptación Digital registrada el <strong>{format(new Date(acceptanceLog.createdAt), "d 'de' MMMM", { locale: es })}</strong>
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                ))}
+                            </div>
+                        ) : (
+                            <div className={`p-4 border rounded-lg text-sm mb-4 ${project.status === 'EN_ESPERA' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/10 dark:border-green-900/30'}`}>
+                                <div className="flex items-center font-medium mb-1">
+                                    <Check className="w-4 h-4 mr-2" />
+                                    {project.status === 'EN_ESPERA' ? 'Sin Alertas (En Espera)' : 'Todo en orden'}
+                                </div>
+                                <div className="text-xs opacity-90 leading-relaxed">
+                                    {project.status === 'EN_ESPERA'
+                                        ? (
+                                            <div>
+                                                El proyecto está detenido. No se esperan avances ni movimientos financieros.
+                                                {project.quoteSentDate && (
+                                                    <div className="mt-2 text-yellow-700 bg-yellow-100/50 p-2 rounded-md flex items-center">
+                                                        <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
+                                                        <span>Cotización enviada el <strong>{format(new Date(project.quoteSentDate), "d 'de' MMMM", { locale: es })}</strong></span>
                                                     </div>
                                                 )}
-                                            {project.status === 'EN_CURSO' && (
-                                                <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
-                                                    <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
-                                                    <li>Margen actual del <strong>{(financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0).toFixed(1)}%</strong> considerado saludable.</li>
-                                                    {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM', { locale: es })}</strong>.</li>}
-                                                    {project.quoteSentDate && <li>Cotización enviada el <strong>{format(new Date(project.quoteSentDate), "d 'de' MMMM", { locale: es })}</strong>.</li>}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Sale Note CTA for Accepted Projects */}
-                                {project.status === 'EN_CURSO' && !project.saleNote && (
-                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4">
-                                        <div className="space-y-1">
-                                            <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                                                <span className="bg-emerald-100 dark:bg-emerald-800 p-1.5 rounded-full">✓</span>
-                                                Proyecto Aceptado: Siguiente Paso
-                                            </h3>
-                                            <p className="text-emerald-700 dark:text-emerald-500 max-w-xl">
-                                                La cotización ha sido aprobada. Genera la Nota de Venta para formalizar el cierre comercial y habilitar la facturación.
-                                            </p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* NEXT ACTION / TASKS SYSTEM - REPLACED WITH ProjectTasksManager */}
-                                    <ProjectTasksManager projectId={project.id} tasks={tasks || []} />
-
-                                    {/* RESPONSIBLE & LAST ACTIVITY - IMPROVED */}
-                                    <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-100 dark:border-zinc-800 flex flex-col justify-between">
-                                        <div>
-                                            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider block mb-2">Responsable</span>
-                                            <div className="font-medium text-sm flex items-center mb-3">
-                                                <User className="w-4 h-4 mr-2 text-primary/70" />
-                                                {project.responsible || "Sin asignar"}
                                             </div>
-                                        </div>
-
-                                        {lastActivity && (
-                                            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700 mt-auto">
-                                                <div className="flex items-center text-xs text-muted-foreground mb-0.5">
-                                                    <History className="w-3 h-3 mr-1" />
-                                                    última actividad:
-                                                </div>
-                                                <div className="text-xs font-medium text-foreground truncate" title={`${lastActivity.userName || 'Usuario'} - ${lastActivity.details || ''}`}>
-                                                    {lastActivity.userName || 'Usuario'}
-                                                </div>
-                                                <div className="text-[10px] text-zinc-500">
-                                                    hace {formatDistanceToNow(new Date(lastActivity.createdAt!), { locale: es })}
-                                                </div>
+                                        )
+                                        : (
+                                            <div>
+                                                <span>El proyecto avanza según lo planificado.</span>
+                                                {acceptanceLog && (
+                                                    <div className="mt-2 text-emerald-700 bg-emerald-100/50 p-2 rounded-md flex items-center border border-emerald-200/50">
+                                                        <CheckCircle2 className="w-3.5 h-3.5 mr-2 flex-shrink-0" />
+                                                        <span>
+                                                            Aceptación Digital registrada el <strong>{format(new Date(acceptanceLog.createdAt), "d 'de' MMMM", { locale: es })}</strong>
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
-                                    </div>
+                                    {project.status === 'EN_CURSO' && (
+                                        <ul className="list-disc list-inside mt-1 space-y-0.5 ml-1">
+                                            <li>Presupuesto ejecutado al <strong>{financials.calculatedProgress.toFixed(0)}%</strong> (Dentro de lo esperado).</li>
+                                            <li>Margen actual del <strong>{(financials.priceNet > 0 ? (financials.marginAmountNet / financials.priceNet) * 100 : 0).toFixed(1)}%</strong> considerado saludable.</li>
+                                            {project.nextActionDate && <li>Próxima acción programada para el <strong>{format(new Date(project.nextActionDate), 'dd MMM', { locale: es })}</strong>.</li>}
+                                            {project.quoteSentDate && <li>Cotización enviada el <strong>{format(new Date(project.quoteSentDate), "d 'de' MMMM", { locale: es })}</strong>.</li>}
+                                        </ul>
+                                    )}
                                 </div>
                             </div>
+                        )}
 
-                            {/* RECENT ACTIVITY / MILESTONES */}
-                            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-sm font-semibold text-foreground flex items-center">
-                                        <History className="w-4 h-4 mr-2 text-primary" />
-                                        Hitos Recientes
+                        {/* Sale Note CTA for Accepted Projects */}
+                        {project.status === 'EN_CURSO' && !project.saleNote && (
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
+                                        <span className="bg-emerald-100 dark:bg-emerald-800 p-1.5 rounded-full">✓</span>
+                                        Proyecto Aceptado: Siguiente Paso
                                     </h3>
-                                    <button
-                                        onClick={() => setActiveTab('logs')}
-                                        className="text-xs text-blue-600 hover:underline"
-                                    >
-                                        Ver Bitácora Completa
-                                    </button>
+                                    <p className="text-emerald-700 dark:text-emerald-500 max-w-xl">
+                                        La cotización ha sido aprobada. Genera la Nota de Venta para formalizar el cierre comercial y habilitar la facturación.
+                                    </p>
                                 </div>
-                                {projectLogs && projectLogs.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {projectLogs.slice(0, 3).map((log: any) => (
-                                            <div key={log.id} className="flex gap-3 text-sm p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                                                <div className="flex-none w-16 text-xs text-muted-foreground pt-0.5">
-                                                    {format(new Date(log.createdAt), 'dd MMM')}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium
-                                                            ${log.type === 'MILESTONE' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300' :
-                                                                log.type === 'BLOCKER' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
-                                                                    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'}`}>
-                                                            {log.type === 'MILESTONE' ? 'HITO' : log.type === 'BLOCKER' ? 'BLOQUEO' : 'NOTA'}
-                                                        </span>
-                                                        <span className="font-medium text-foreground line-clamp-1">{log.content}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                <div className="flex-shrink-0">
+                                    <SaleNoteButton projectId={project.id} onNoteGenerated={() => window.location.reload()} />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* NEXT ACTION / TASKS SYSTEM - REPLACED WITH ProjectTasksManager */}
+                            <ProjectTasksManager projectId={project.id} tasks={tasks || []} />
+
+                            {/* RESPONSIBLE & LAST ACTIVITY - IMPROVED */}
+                            <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-100 dark:border-zinc-800 flex flex-col justify-between">
+                                <div>
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider block mb-2">Responsable</span>
+                                    <div className="font-medium text-sm flex items-center mb-3">
+                                        <User className="w-4 h-4 mr-2 text-primary/70" />
+                                        {project.responsible || "Sin asignar"}
                                     </div>
-                                ) : (
-                                    <div className="text-center py-4 text-xs text-muted-foreground italic">
-                                        No hay registros en la bitácora aún.
+                                </div>
+
+                                {lastActivity && (
+                                    <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700 mt-auto">
+                                        <div className="flex items-center text-xs text-muted-foreground mb-0.5">
+                                            <History className="w-3 h-3 mr-1" />
+                                            última actividad:
+                                        </div>
+                                        <div className="text-xs font-medium text-foreground truncate" title={`${lastActivity.userName || 'Usuario'} - ${lastActivity.details || ''}`}>
+                                            {lastActivity.userName || 'Usuario'}
+                                        </div>
+                                        <div className="text-[10px] text-zinc-500">
+                                            hace {formatDistanceToNow(new Date(lastActivity.createdAt!), { locale: es })}
+                                        </div>
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
 
-                            {/* DEADLINES & STATUS CARD (Simplified) */}
-                            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-sm font-semibold text-foreground flex items-center">
-                                        <Calendar className="w-4 h-4 mr-2 text-primary" />
-                                        Plazos del Proyecto
-                                    </h3>
-                                    {/* Optional: Add a simple status badge here if needed, or keep clean */}
+                    {/* RECENT ACTIVITY / MILESTONES */}
+                    <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-semibold text-foreground flex items-center">
+                                <History className="w-4 h-4 mr-2 text-primary" />
+                                Hitos Recientes
+                            </h3>
+                            <button
+                                onClick={() => setActiveTab('logs')}
+                                className="text-xs text-blue-600 hover:underline"
+                            >
+                                Ver Bitácora Completa
+                            </button>
+                        </div>
+                        {projectLogs && projectLogs.length > 0 ? (
+                            <div className="space-y-3">
+                                {projectLogs.slice(0, 3).map((log: any) => (
+                                    <div key={log.id} className="flex gap-3 text-sm p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                                        <div className="flex-none w-16 text-xs text-muted-foreground pt-0.5">
+                                            {format(new Date(log.createdAt), 'dd MMM')}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium
+                                                            ${log.type === 'MILESTONE' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300' :
+                                                        log.type === 'BLOCKER' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300' :
+                                                            'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'}`}>
+                                                    {log.type === 'MILESTONE' ? 'HITO' : log.type === 'BLOCKER' ? 'BLOQUEO' : 'NOTA'}
+                                                </span>
+                                                <span className="font-medium text-foreground line-clamp-1">{log.content}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 text-xs text-muted-foreground italic">
+                                No hay registros en la bitácora aún.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* DEADLINES & STATUS CARD (Simplified) */}
+                    <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-sm font-semibold text-foreground flex items-center">
+                                <Calendar className="w-4 h-4 mr-2 text-primary" />
+                                Plazos del Proyecto
+                            </h3>
+                            {/* Optional: Add a simple status badge here if needed, or keep clean */}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4 text-center divide-x divide-border">
+                            <div>
+                                <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Inicio</div>
+                                <div className="font-medium text-sm text-foreground">
+                                    {project.startDate ? format(new Date(project.startDate), 'dd MMM yy') : '-'}
                                 </div>
+                            </div>
+                            <div>
+                                <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Término</div>
+                                <div className="font-medium text-sm text-foreground">
+                                    {project.plannedEndDate ? format(new Date(project.plannedEndDate), 'dd MMM yy') : '-'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Tiempo Restante</div>
+                                <div className={`font-bold text-sm ${financials.trafficLightTime === 'RED' ? 'text-red-500' : 'text-blue-600 dark:text-blue-400'}`}>
+                                    {project.plannedEndDate ? (
+                                        (() => {
+                                            const days = differenceInDays(new Date(project.plannedEndDate), new Date());
+                                            if (days < 0) return `Vencido hace ${Math.abs(days)} días`;
+                                            if (days === 0) return 'Vence hoy';
+                                            return `${days} días`;
+                                        })()
+                                    ) : '-'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                                <div className="grid grid-cols-3 gap-4 text-center divide-x divide-border">
-                                    <div>
-                                        <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Inicio</div>
-                                        <div className="font-medium text-sm text-foreground">
-                                            {project.startDate ? format(new Date(project.startDate), 'dd MMM yy') : '-'}
+                    <ProjectScope project={project} />
+                </div>
+
+                {/* Right Column: Financial Summary */}
+                <div className="space-y-6">
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-border bg-muted/20">
+                            <h3 className="font-semibold text-foreground flex items-center">
+                                <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+                                Finanzas
+                                <div className="ml-auto flex items-center gap-2">
+                                    {project.currency === 'USD' && exchangeRate && (
+                                        <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title={`Fuente: ${exchangeRate.source} (${new Date(exchangeRate.date).toLocaleDateString()})`}>
+                                            <RefreshCw className="w-3 h-3 mr-1" />
+                                            Hoy: ${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 1 })} ({exchangeRate.date ? format(new Date(exchangeRate.date), "dd/MM/yy") : ''}) • {exchangeRate.source}
+                                        </span>
+                                    )}
+                                </div>
+                            </h3>
+                        </div>
+                        <div className="p-6 space-y-8">
+                            {/* AI Auditor */}
+                            <ProjectFinancialAuditor projectId={project.id} />
+
+                            {/* Cost Analysis */}
+                            {/* Financial Plan vs Actual */}
+                            <div>
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6 border-b border-border pb-2">Plan vs Ejecución</h4>
+                                <div className="flex flex-col gap-8">
+                                    {/* Plan (Business Case) */}
+                                    <div className="relative pl-4 border-l-2 border-zinc-200 dark:border-zinc-700">
+                                        <h5 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
+                                            <span>Planificado (Base)</span>
+                                            <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full font-medium">Presupuesto</span>
+                                        </h5>
+
+                                        <div className="grid grid-cols-2 gap-y-2 text-sm">
+                                            <div className="text-muted-foreground">Venta Neta</div>
+                                            <div className="text-right font-medium">{formatMoney(financials.priceNet)}</div>
+
+                                            <div className="text-muted-foreground">Costo Base</div>
+                                            <div className="text-right text-zinc-500">-{formatMoney(financials.baseCostNet)}</div>
+
+                                            <div className="col-span-2 my-1 border-t border-border"></div>
+
+                                            <div className="col-span-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-3 mt-1">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-tight">Utilidad Proy.</span>
+                                                    <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+                                                        {formatMoney(financials.marginAmountNet)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <span className="text-emerald-600 dark:text-emerald-500 font-medium">Margen %</span>
+                                                    <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                                                        {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Término</div>
-                                        <div className="font-medium text-sm text-foreground">
-                                            {project.plannedEndDate ? format(new Date(project.plannedEndDate), 'dd MMM yy') : '-'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] uppercase text-muted-foreground mb-1 tracking-wider">Tiempo Restante</div>
-                                        <div className={`font-bold text-sm ${financials.trafficLightTime === 'RED' ? 'text-red-500' : 'text-blue-600 dark:text-blue-400'}`}>
-                                            {project.plannedEndDate ? (
-                                                (() => {
-                                                    const days = differenceInDays(new Date(project.plannedEndDate), new Date());
-                                                    if (days < 0) return `Vencido hace ${Math.abs(days)} días`;
-                                                    if (days === 0) return 'Vence hoy';
-                                                    return `${days} días`;
-                                                })()
-                                            ) : '-'}
+
+                                    {/* Actual (Reality) */}
+                                    <div className="relative pl-4 border-l-2 border-amber-400 dark:border-amber-600/50">
+                                        <h5 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
+                                            <span>Gastos Ejecutados</span>
+                                        </h5>
+
+                                        <div className="grid grid-cols-2 gap-y-2 text-sm">
+                                            <div className="text-muted-foreground">Total Gastos</div>
+                                            <div className="text-right font-medium text-amber-700 dark:text-amber-500">
+                                                -{formatMoney(financials.totalExecutedCostNet)}
+                                            </div>
+
+                                            <div className="col-span-2 my-1 border-t border-border border-dashed"></div>
+
+                                            <div className="font-medium text-foreground">Saldo (Venta - Gasto)</div>
+                                            <div className="text-right">
+                                                {(() => {
+                                                    const balance = financials.priceNet - financials.totalExecutedCostNet;
+                                                    return (
+                                                        <span className={`font-bold ${balance < 0 ? 'text-red-600' : 'text-zinc-900'}`}>
+                                                            {formatMoney(balance)}
+                                                        </span>
+                                                    )
+                                                })()}
+                                            </div>
+
+                                            <div className="col-span-2 mt-1">
+                                                <p className="text-[10px] text-muted-foreground italic leading-tight">
+                                                    * Saldo disponible para cubrir gastos restantes y utilidad.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <ProjectScope project={project} />
-                        </div>
-
-                        {/* Right Column: Financial Summary */}
-                        <div className="space-y-6">
-                            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                                <div className="p-6 border-b border-border bg-muted/20">
-                                    <h3 className="font-semibold text-foreground flex items-center">
-                                        <DollarSign className="w-5 h-5 mr-2 text-green-600" />
-                                        Finanzas
-                                        <div className="ml-auto flex items-center gap-2">
-                                            {project.currency === 'USD' && exchangeRate && (
-                                                <span className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 flex items-center" title={`Fuente: ${exchangeRate.source} (${new Date(exchangeRate.date).toLocaleDateString()})`}>
-                                                    <RefreshCw className="w-3 h-3 mr-1" />
-                                                    Hoy: ${exchangeRate.value.toLocaleString('es-CL', { maximumFractionDigits: 1 })} ({exchangeRate.date ? format(new Date(exchangeRate.date), "dd/MM/yy") : ''}) • {exchangeRate.source}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </h3>
-                                </div>
-                                <div className="p-6 space-y-8">
-                                    {/* AI Auditor */}
-                                    <ProjectFinancialAuditor projectId={project.id} />
-
-                                    {/* Cost Analysis */}
-                                    {/* Financial Plan vs Actual */}
-                                    <div>
-                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6 border-b border-border pb-2">Plan vs Ejecución</h4>
-                                        <div className="flex flex-col gap-8">
-                                            {/* Plan (Business Case) */}
-                                            <div className="relative pl-4 border-l-2 border-zinc-200 dark:border-zinc-700">
-                                                <h5 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
-                                                    <span>Planificado (Base)</span>
-                                                    <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full font-medium">Presupuesto</span>
-                                                </h5>
-
-                                                <div className="grid grid-cols-2 gap-y-2 text-sm">
-                                                    <div className="text-muted-foreground">Venta Neta</div>
-                                                    <div className="text-right font-medium">{formatMoney(financials.priceNet)}</div>
-
-                                                    <div className="text-muted-foreground">Costo Base</div>
-                                                    <div className="text-right text-zinc-500">-{formatMoney(financials.baseCostNet)}</div>
-
-                                                    <div className="col-span-2 my-1 border-t border-border"></div>
-
-                                                    <div className="col-span-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-3 mt-1">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-tight">Utilidad Proy.</span>
-                                                            <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400 font-mono">
-                                                                {formatMoney(financials.marginAmountNet)}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-xs">
-                                                            <span className="text-emerald-600 dark:text-emerald-500 font-medium">Margen %</span>
-                                                            <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                                                                {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(1) : '0.0'}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Actual (Reality) */}
-                                            <div className="relative pl-4 border-l-2 border-amber-400 dark:border-amber-600/50">
-                                                <h5 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
-                                                    <span>Gastos Ejecutados</span>
-                                                </h5>
-
-                                                <div className="grid grid-cols-2 gap-y-2 text-sm">
-                                                    <div className="text-muted-foreground">Total Gastos</div>
-                                                    <div className="text-right font-medium text-amber-700 dark:text-amber-500">
-                                                        -{formatMoney(financials.totalExecutedCostNet)}
-                                                    </div>
-
-                                                    <div className="col-span-2 my-1 border-t border-border border-dashed"></div>
-
-                                                    <div className="font-medium text-foreground">Saldo (Venta - Gasto)</div>
-                                                    <div className="text-right">
-                                                        {(() => {
-                                                            const balance = financials.priceNet - financials.totalExecutedCostNet;
-                                                            return (
-                                                                <span className={`font-bold ${balance < 0 ? 'text-red-600' : 'text-zinc-900'}`}>
-                                                                    {formatMoney(balance)}
-                                                                </span>
-                                                            )
-                                                        })()}
-                                                    </div>
-
-                                                    <div className="col-span-2 mt-1">
-                                                        <p className="text-[10px] text-muted-foreground italic leading-tight">
-                                                            * Saldo disponible para cubrir gastos restantes y utilidad.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                            {/* Grand Total */}
+                            <div className="mt-6 pt-4 border-t border-border">
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                        <span>Neto</span>
+                                        <span className="font-mono">{formatMoney(financials.priceNet)}</span>
                                     </div>
-
-                                    {/* Grand Total */}
-                                    <div className="mt-6 pt-4 border-t border-border">
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                                <span>Neto</span>
-                                                <span className="font-mono">{formatMoney(financials.priceNet)}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                                <span>IVA</span>
-                                                <span className="font-mono">{formatMoney(financials.vatAmount)}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center pt-2 border-t border-dashed border-border mt-1">
-                                                <span className="font-bold text-foreground text-base">Total a Facturar</span>
-                                                <span className="text-xl font-bold text-primary font-mono">{formatMoney(financials.priceGross)}</span>
-                                            </div>
-                                        </div>
+                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                        <span>IVA</span>
+                                        <span className="font-mono">{formatMoney(financials.vatAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-dashed border-border mt-1">
+                                        <span className="font-bold text-foreground text-base">Total a Facturar</span>
+                                        <span className="text-xl font-bold text-primary font-mono">{formatMoney(financials.priceGross)}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                )
+                </div>
+            </div>
+            )
             }
 
             {

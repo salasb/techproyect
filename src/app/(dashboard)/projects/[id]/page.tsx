@@ -117,6 +117,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             exchangeRate={exchangeRate}
             ufRate={ufRate}
             tasks={project.tasks || []}
+            inventoryWidget={<ProjectInventory projectId={id} orgId={project.organizationId} />}
         />
     );
 }
