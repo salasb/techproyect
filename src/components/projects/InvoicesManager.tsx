@@ -144,27 +144,35 @@ export function InvoicesManager({
         }
     }
 
-    async function handlePay(id: string, currentAmount: number) {
-        // Simple full payment for now
-        if (confirm("¿Registrar pago total de esta factura?")) {
-            setIsLoading(id);
-            toast({ type: 'loading', message: "Registrando pago...", duration: 2000 });
-            try {
-                const res = await registerPayment(projectId, id, currentAmount);
-                toast({ type: 'success', message: "Pago registrado exitosamente" });
+    async function handlePay(id: string, currentAmount: number, paidSoFar: number) {
+        const remaining = currentAmount - paidSoFar;
+        const amountStr = prompt(`Ingresa el monto a pagar (Pendiente: ${formatMoney(remaining)}):`, remaining.toString());
 
-                if (res?.isFullyPaid) {
-                    // Determine if we should prompt
-                    if (confirm("El proyecto ha sido pagado en su totalidad. ¿Deseas cerrar el proyecto y marcarlo como Finalizado?")) {
-                        await closeProject(projectId);
-                        toast({ type: 'success', message: "Proyecto finalizado" });
-                    }
+        if (!amountStr) return;
+        const amountToPay = parseInt(amountStr.replace(/\D/g, '')) || 0;
+
+        if (amountToPay <= 0) {
+            toast({ type: 'error', message: "El monto debe ser mayor a 0" });
+            return;
+        }
+
+        setIsLoading(id);
+        toast({ type: 'loading', message: "Registrando pago...", duration: 2000 });
+        try {
+            const res = await registerPayment(projectId, id, amountToPay);
+            toast({ type: 'success', message: "Pago registrado exitosamente" });
+
+            if (res?.isFullyPaid) {
+                // Determine if we should prompt
+                if (confirm("La factura ha sido pagada. ¿Deseas cerrar el proyecto y marcarlo como Finalizado?")) {
+                    await closeProject(projectId);
+                    toast({ type: 'success', message: "Proyecto finalizado" });
                 }
-            } catch (error) {
-                toast({ type: 'error', message: "Error al registrar pago" });
-            } finally {
-                setIsLoading(null);
             }
+        } catch (error: any) {
+            toast({ type: 'error', message: error.message || "Error al registrar pago" });
+        } finally {
+            setIsLoading(null);
         }
     }
 
@@ -250,12 +258,12 @@ export function InvoicesManager({
                                                         )}
                                                         {inv.sent && !isPaid && (
                                                             <button
-                                                                onClick={() => handlePay(inv.id, inv.amountInvoicedGross)}
+                                                                onClick={() => handlePay(inv.id, inv.amountInvoicedGross, inv.amountPaidGross)}
                                                                 className="flex items-center text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1.5 rounded-md transition-colors"
-                                                                title="Registrar Pago Completo"
+                                                                title="Registrar Pago"
                                                             >
                                                                 <DollarSign className="w-3.5 h-3.5 mr-1.5" />
-                                                                Pagada
+                                                                Pagar
                                                             </button>
                                                         )}
                                                         <button onClick={() => handleDelete(inv.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors">

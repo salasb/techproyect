@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InvoiceExportButton } from "@/components/invoices/InvoiceExportButton";
 import { createClient } from "@/lib/supabase/server";
 import { PaginationControl } from "@/components/ui/PaginationControl";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -44,11 +45,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Facturación</h2>
                     <p className="text-muted-foreground text-sm mt-1">Gestiona tus documentos tributarios</p>
                 </div>
-                {/* 
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20">
-                    + Nueva Factura
-                </button>
-                */}
+                <div className="flex gap-2">
+                    <InvoiceExportButton invoices={invoices || []} />
+                    {/* 
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20">
+                        + Nueva Factura
+                    </button>
+                    */}
+                </div>
             </div>
 
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">

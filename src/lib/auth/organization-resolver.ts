@@ -20,6 +20,7 @@ export async function resolveActiveOrganization(
         .eq('status', 'ACTIVE'); // Crucial: Only active
 
     if (error || !memberships || memberships.length === 0) {
+        console.log(`[OrgResolver] User ${userId}: No active memberships. Action: START`);
         return { action: 'START' };
     }
 
@@ -27,16 +28,19 @@ export async function resolveActiveOrganization(
     if (cookieOrgId) {
         const matchingMembership = memberships.find(m => m.organizationId === cookieOrgId);
         if (matchingMembership) {
+            // console.log(`[OrgResolver] User ${userId}: Valid cookie found. Action: ENTER ${cookieOrgId}`);
             return { action: 'ENTER', organizationId: cookieOrgId };
         }
-        // If cookie exists but invalid, we ignore it and fall through logic
+        console.log(`[OrgResolver] User ${userId}: Invalid cookie (${cookieOrgId}). Re-resolving.`);
     }
 
     // 3. Logic for 1 vs Many
     if (memberships.length === 1) {
+        console.log(`[OrgResolver] User ${userId}: Single membership. Action: ENTER ${memberships[0].organizationId}`);
         return { action: 'ENTER', organizationId: memberships[0].organizationId };
     }
 
     // 4. Multiple memberships and no valid cookie
+    console.log(`[OrgResolver] User ${userId}: Multiple memberships (${memberships.length}), no valid cookie. Action: SELECT`);
     return { action: 'SELECT' };
 }

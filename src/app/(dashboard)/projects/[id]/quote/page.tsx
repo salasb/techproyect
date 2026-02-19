@@ -2,6 +2,7 @@ import { QuotePrintButton } from "@/components/projects/QuotePrintButton";
 import { QuoteAcceptance } from "@/components/projects/QuoteAcceptance";
 import { QuoteActions } from "@/components/projects/QuoteActions";
 import { QuoteDocument } from "@/components/projects/QuoteDocument";
+import { QuoteVersionSelector } from "@/components/projects/QuoteVersionSelector";
 import { ShareDialog } from "@/components/sharing/ShareDialog";
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
@@ -21,11 +22,12 @@ interface Props {
     params: Promise<{ id: string }>
 }
 
-export default async function QuotePage({ params }: Props) {
+export default async function QuotePage({ params, searchParams }: Props & { searchParams: Promise<{ v?: string }> }) {
     const supabase = await createClient();
-    const { id } = await params; // params is a promise
+    const { id } = await params;
+    const { v } = await searchParams;
 
-    // Fetch Project Project with Quote Items included
+    // Fetch Project with Quote Items
     const { data: project } = await supabase
         .from('Project')
         .select(`
@@ -41,25 +43,26 @@ export default async function QuotePage({ params }: Props) {
 
     if (!project) return <div>Proyecto no encontrado</div>
 
-    // Fetch Latest Quote to display SNAPSHOT items
-    // We use Prisma here to easily get the relation, but could use Supabase too.
-    // Since we validated Project access via Supabase RLS above, 
-    // fetching Quote by projectId via Prisma is safe.
-    const latestQuote = await prisma.quote.findFirst({
+    // Fetch ALL Quotes for Version History
+    const allQuotes = await prisma.quote.findMany({
         where: { projectId: id },
         include: { items: true },
         orderBy: { version: 'desc' }
     });
 
-    if (latestQuote) {
-        // Override items with the Snapshot items
-        // We cast/map them to match the expected type if needed, but they are same model.
-        project.quoteItems = latestQuote.items as any;
-        project.totalNet = latestQuote.totalNet;
-        // We might want to override acceptedAt if it comes from quote, 
-        // but project.acceptedAt is the source of truth for Project status?
-        // Actually QuoteService syncs them? 
-        // Logic: toggleQuoteAcceptance updates BOTH Project and Quote.
+    // Determine Selected Quote
+    let selectedQuote = allQuotes.length > 0 ? allQuotes[0] : null;
+    if (v) {
+        const found = allQuotes.find(q => q.id === v);
+        if (found) selectedQuote = found;
+    }
+
+    if (selectedQuote) {
+        // Override items with the Snapshot items from SELECTED quote
+        project.quoteItems = selectedQuote.items as any;
+        project.totalNet = selectedQuote.totalNet;
+        // project.acceptedAt logic is tricky if viewing old version, 
+        // but for visual consistency we show the snapshot data.
     }
 
     // Sort quoteItems by sku (client-side sort since we are using join)
@@ -109,13 +112,23 @@ export default async function QuotePage({ params }: Props) {
                     quoteSentDate={project.quoteSentDate}
                     isPaused={isPaused}
                 />
-                <div className="flex gap-2">
-                    <Link href={`/projects/${project.id}`} className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center">
+                <div className="flex gap-2 items-center">
+                    <QuoteVersionSelector
+                        quotes={allQuotes.map(q => ({
+                            id: q.id,
+                            version: q.version,
+                            status: q.status,
+                            createdAt: q.createdAt.toISOString(),
+                            totalNet: q.totalNet || 0
+                        }))}
+                        currentQuoteId={selectedQuote?.id || ''}
+                    />
+                    <Link href={`/projects/${project.id}`} className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center h-10">
                         <ArrowLeft className="w-4 h-4 mr-2" />
-                        Volver al Proyecto
+                        Volver
                     </Link>
                     <QuotePrintButton variant="solid" />
-                    <ShareDialog entityType="QUOTE" entityId={latestQuote?.id || ''} />
+                    <ShareDialog entityType="QUOTE" entityId={selectedQuote?.id || ''} />
                 </div>
             </div>
 
