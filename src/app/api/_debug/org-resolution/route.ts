@@ -30,57 +30,20 @@ export async function GET() {
     trace.push('Auth success: ' + user.email);
 
     try {
-        const [memberships, profile] = await Promise.all([
-            prisma.organizationMember.findMany({
-                where: { userId: user.id, status: 'ACTIVE' },
-                select: { organizationId: true, role: true, status: true }
-            }),
-            prisma.profile.findUnique({
-                where: { id: user.id },
-                select: { organizationId: true, role: true, email: true }
-            })
-        ]);
-
-        const ownedOrgId = profile?.organizationId;
-        trace.push(`Found ${memberships.length} memberships`);
-        trace.push(`Profile ownedOrgId: ${ownedOrgId ? ownedOrgId.slice(0, 8) + '...' : 'none'}`);
-
-        let decision = 'UNKNOWN';
-        let finalOrgId = null;
-
-        if (memberships.length === 0 && ownedOrgId && profile?.role === 'OWNER') {
-            decision = 'AUTO-REPAIR-CANDIDATE';
-            trace.push('Matches auto-repair criteria');
-        } else if (cookieOrgId) {
-            const match = memberships.find(m => m.organizationId === cookieOrgId);
-            if (match) {
-                decision = 'ENTER (Cookie)';
-                finalOrgId = cookieOrgId;
-            } else {
-                trace.push('Cookie invalid/stale');
-            }
-        }
-
-        if (decision === 'UNKNOWN') {
-            if (memberships.length === 0) decision = 'START';
-            else if (memberships.length === 1) {
-                decision = 'ENTER (Single member)';
-                finalOrgId = memberships[0].organizationId;
-            }
-            else decision = 'SELECT';
-        }
+        // Trace decisions using Prisma-based resolver
+        const { resolveActiveOrganizationPrisma } = await import('@/lib/auth/organization-resolver-server');
+        const resolution = await resolveActiveOrganizationPrisma(supabase, user.id, cookieOrgId);
 
         return NextResponse.json({
             status: 'success',
             userId: user.id,
             email: user.email,
             cookieOrgId: cookieOrgId ? `${cookieOrgId.slice(0, 8)}...` : null,
-            membershipsCount: memberships.length,
-            memberships,
-            profile,
-            trace,
-            finalDecision: decision,
-            finalOrgId
+            resolution,
+            trace: [
+                `Auth success: ${user.email}`,
+                `Final Decision (Prisma): ${resolution.action}`
+            ]
         });
     } catch (e: any) {
         return NextResponse.json({
