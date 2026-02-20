@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 };
 
 import { ToastProvider } from "@/components/ui/Toast";
+import { DeploymentWarningBanner } from "@/components/layout/DeploymentWarningBanner";
 
 export default function RootLayout({
   children,
@@ -38,6 +39,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <DeploymentWarningBanner />
           <ToastProvider>
             <Toaster position="top-right" expand={false} richColors />
             <TooltipProvider>

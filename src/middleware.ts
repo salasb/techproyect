@@ -42,6 +42,11 @@ export async function updateSession(request: NextRequest) {
         return response;
     }
 
+    // 1.5 Bypass for forensics
+    if (request.nextUrl.pathname.startsWith('/api/forensics')) {
+        return response;
+    }
+
     // 2. Auth Guard (Login)
     if (request.nextUrl.pathname.startsWith('/login')) {
         if (user) {

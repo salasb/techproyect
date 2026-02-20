@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
     // Role check - Only Superadmin can see this
     const profile = await prisma.profile.findUnique({
         where: { id: user.id },
-        select: { role: true }
+        select: { id: true, role: true }
     });
 
     if ((profile?.role as string) !== 'SUPERADMIN') {
@@ -35,17 +36,20 @@ export async function GET() {
             include: { organization: true }
         });
 
+        const cookieStore = await cookies();
+        const activeOrgFromCookie = cookieStore.get('app-org-id')?.value || null;
+
         const debugInfo = {
+            userId: user.id,
+            profileId: profile?.id || null, // Ensure to get profile.id if available
+            membershipsCount: memberships.length,
+            orgIds: memberships.map(m => m.organizationId),
+            activeOrgFromCookie,
+            activeOrgResolved: workspace.activeOrgId,
+            // Extra info
             timestamp: new Date().toISOString(),
-            user: {
-                id: user.id,
-                email: user.email,
-                role: profile?.role
-            },
-            resolvedWorkspace: workspace,
             rawMemberships: memberships,
-            envCount: Object.keys(process.env).length,
-            nodeVersion: process.version
+            resolvedWorkspace: workspace
         };
 
         return NextResponse.json(debugInfo);

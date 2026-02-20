@@ -116,6 +116,12 @@ export async function switchOrganizationAction(organizationId: string) {
         }
     });
 
+    // Update Profile
+    await prisma.profile.update({
+        where: { id: user.id },
+        data: { organizationId: organizationId }
+    });
+
     const cookieStore = await cookies();
     cookieStore.set('app-org-id', organizationId);
 

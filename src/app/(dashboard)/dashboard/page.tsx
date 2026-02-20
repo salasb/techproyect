@@ -176,8 +176,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
-            {!orgId && !isExplore ? (
+            {!orgId && !workspace.hasOrganizations && !isExplore ? (
                 <WorkspaceSetupBanner />
+            ) : !orgId && workspace.hasOrganizations && !isExplore ? (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
+                    <h2 className="text-xl font-bold text-amber-700 dark:text-amber-500 mb-2">Selecciona tu espacio de trabajo</h2>
+                    <p className="text-muted-foreground mb-4">Tienes acceso a {workspace.organizationsCount} {workspace.organizationsCount === 1 ? 'organización' : 'organizaciones'}, pero en este dominio no hay una organización activa seleccionada.</p>
+                    <p className="text-sm text-muted-foreground mb-6">Selecciona tu espacio de trabajo para cargar tus proyectos y métricas.</p>
+                    <Link href="/org/select" className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
+                        Ir al Selector de Organización
+                    </Link>
+                </div>
             ) : isExplore && !orgId ? (
                 <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between shadow-sm animate-in slide-in-from-top-4 gap-4 mb-6">
                     <div className="flex items-center gap-3">

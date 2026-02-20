@@ -156,17 +156,46 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         let activeOrgId = null;
         if (cookieOrgId && activeMemberships.some(m => m.organizationId === cookieOrgId)) {
             activeOrgId = cookieOrgId;
-        } else if (activeMemberships.length > 0) {
+        } else if (activeMemberships.length === 1) {
+            // Unica organización, la seleccionamos automáticamente
             activeOrgId = activeMemberships[0].organizationId;
-            // Sync cookie if mismatched
-            cookieStore.set('app-org-id', activeOrgId, {
+            const cookieStoreMutable = await cookies();
+            cookieStoreMutable.set('app-org-id', activeOrgId, {
                 path: '/',
                 httpOnly: false,
                 sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
                 maxAge: 60 * 60 * 24 * 7 // 1 week
             });
+
+            // Sync last active org in DB IF different
+            if (profile?.organizationId !== activeOrgId) {
+                await prisma.profile.update({
+                    where: { id: user.id },
+                    data: { organizationId: activeOrgId }
+                });
+            }
+        } else if (activeMemberships.length > 1) {
+            // Múltiples orgs y sin cookie válida -> revisamos lastActiveOrg (Profile.organizationId)
+            const lastActiveOrgId = profile?.organizationId;
+
+            if (lastActiveOrgId && activeMemberships.some(m => m.organizationId === lastActiveOrgId)) {
+                // Recuperar la última activa
+                activeOrgId = lastActiveOrgId;
+                const cookieStoreMutable = await cookies();
+                cookieStoreMutable.set('app-org-id', activeOrgId, {
+                    path: '/',
+                    httpOnly: false,
+                    sameSite: 'lax',
+                    secure: process.env.NODE_ENV === 'production',
+                    maxAge: 60 * 60 * 24 * 7 // 1 week
+                });
+            } else {
+                // Ninguna válida, forzar selector
+                activeOrgId = null;
+            }
         }
+
 
         return {
             hasOrganizations: activeMemberships.length > 0,

@@ -15,5 +15,22 @@ export async function selectOrganization(orgId: string) {
         path: '/',
     })
 
+    // Update Profile DB
+    const { createClient } = await import('@/lib/supabase/server');
+    const prisma = (await import('@/lib/prisma')).default;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+        try {
+            await prisma.profile.update({
+                where: { id: user.id },
+                data: { organizationId: orgId }
+            });
+        } catch (e) {
+            console.error("Error setting profile active orgid: ", e);
+        }
+    }
+
     redirect('/dashboard')
 }
