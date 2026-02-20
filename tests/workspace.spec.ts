@@ -36,4 +36,24 @@ test.describe('Workspace Resolution & Onboarding (Smoke)', () => {
         await expect(page.locator('text=Organización')).not.toHaveCount(0);
         // Debe haber recuperado silenciosamente
     });
+
+    test('Usuario con login válido pero profile ausente -> Muestra error de sincronización de perfil', async ({ page }) => {
+        // Mock profileMissing = true
+        await page.goto('/dashboard');
+
+        // Debe verse el banner rojo y no haber spinner infinito
+        await expect(page.locator('text=Perfil de usuario incompleto')).toBeVisible();
+        await expect(page.locator('text=Ejecutar autodiagnóstico')).toBeVisible();
+    });
+
+    test('Org activa pero sin proyectos -> Muestra dashboard vacío sin solicitar crear org', async ({ page }) => {
+        await page.goto('/dashboard');
+
+        // No debería ver el WorkspaceSetupBanner ni "Sesión de trabajo no especificada"
+        await expect(page.locator('text=Aún no tienes un espacio de trabajo activo')).toHaveCount(0);
+        await expect(page.locator('text=Sesión de trabajo no especificada')).toHaveCount(0);
+
+        // Debería ver los widgets vacíos o el Command Center global
+        await expect(page.locator('text=Command Center')).toBeVisible();
+    });
 });

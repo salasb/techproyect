@@ -22,6 +22,8 @@ export async function createOrganizationAction(formData: FormData) {
     const country = 'CL';
     const vatRate = 0.19;
 
+    const requireManualApproval = process.env.MANUAL_APPROVAL_REQUIRED === '1';
+
     // Use Prisma for transaction to ensure atomicity
     const org = await prisma.$transaction(async (tx) => {
         // 1. Create Organization
@@ -29,7 +31,7 @@ export async function createOrganizationAction(formData: FormData) {
             data: {
                 name,
                 mode,
-                status: 'ACTIVE',
+                status: requireManualApproval ? 'PENDING' : 'ACTIVE',
                 plan: 'FREE',
                 settings: {
                     country,

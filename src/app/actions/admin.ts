@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import prisma from "@/lib/prisma";
 
 /**
  * Updates the activation status of an organization.
@@ -25,6 +26,16 @@ export async function updateOrganizationStatus(orgId: string, status: 'PENDING' 
         console.error("Error updating org status:", error);
         return { success: false, error: error.message };
     }
+
+    // Add traceability log
+    await prisma.auditLog.create({
+        data: {
+            organizationId: orgId,
+            action: status === 'ACTIVE' ? 'SUPERADMIN_APPROVE_ORG' : `SUPERADMIN_SET_ORG_${status}`,
+            details: `Organization status explicitly set to ${status} by ${user.email}`,
+            userName: user.email
+        }
+    });
 
     revalidatePath('/admin/orgs');
     return { success: true };

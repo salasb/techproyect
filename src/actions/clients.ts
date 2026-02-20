@@ -8,11 +8,17 @@ import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
 
 export async function getClients() {
+    const orgId = await getOrganizationId();
+    if (!orgId) return [];
+
     const supabase = await createClient();
-    // We fetch from Client table as this currently represents the clients in the system
-    const { data, error } = await supabase.from('Client').select('*').order('name');
-    if (error) throw new Error(error.message);
-    return data;
+    const { data, error } = await supabase.from('Client').select('*').eq('organizationId', orgId).order('name');
+
+    if (error) {
+        console.error("[getClients] error:", error.message);
+        return [];
+    }
+    return data || [];
 }
 
 export async function createClientAction(formData: FormData) {

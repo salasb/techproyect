@@ -29,9 +29,13 @@ test.describe('Domain Hop Workspace Resolution (Smoke)', () => {
         // resolverá activeOrgId = null. 
         // Por ende el Dashboard debe mostrar el banner flotante obligando a escoger.
 
-        // Caso B: orgId null + hasOrganizations true => muestra selector "Selecciona tu espacio de trabajo"
-        const forceSelector = page.locator('text=Selecciona tu espacio de trabajo');
-        // Alternativa: Caso A: orgId null + hasOrganizations false => muestra onboarding "Aún no tienes un espacio de trabajo activo" (WorkspaceSetupBanner)
+        // Caso B: orgId null + hasOrganizations true => muestra selector "Sesión de trabajo no especificada"
+        const forceSelector = page.locator('text=Sesión de trabajo no especificada');
+        await expect(forceSelector).toBeVisible();
+
+        // Verifica que no aparezca el setup banner de usuario nuevo
+        const setupBanner = page.locator('text=Aún no tienes un espacio de trabajo activo');
+        await expect(setupBanner).toHaveCount(0);
 
         await expect(page).toHaveURL(/.*dashboard/);
     });

@@ -2,119 +2,93 @@ import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 
+export type WorkspaceStatus =
+    | 'NOT_AUTHENTICATED'
+    | 'PROFILE_MISSING'
+    | 'NO_ORG'
+    | 'ORG_PENDING_APPROVAL'
+    | 'ORG_MULTI_NO_SELECTION'
+    | 'ORG_ACTIVE_SELECTED'
+    | 'WORKSPACE_ERROR';
+
 export interface WorkspaceState {
+    status: WorkspaceStatus;
     hasOrganizations: boolean;
     organizationsCount: number;
     activeOrgId: string | null;
-    organizations: { id: string; name: string; rut?: string | null }[];
+    organizations: { id: string; name: string; rut?: string | null; status?: string | null }[];
     userRole?: string;
     error?: string;
     isAutoProvisioned?: boolean;
 }
 
 /**
- * Server-side organization resolution.
- * This runs in Node runtime (Prisma safe).
+ * Server-side organization resolution conforming to RESET-FUNDACIONAL-WORKSPACE-v1.
+ * Strict State Machine output.
  */
 export async function getWorkspaceState(): Promise<WorkspaceState> {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-        return {
-            hasOrganizations: false,
-            organizationsCount: 0,
-            activeOrgId: null,
-            organizations: [],
-            error: 'Not authenticated'
-        };
-    }
+    // Safety Wrapper for timeouts - 6 seconds max for DB ops
+    const fetchWithTimeout = async <T>(promise: Promise<T>, ms = 6000): Promise<T> => {
+        let timeoutId: NodeJS.Timeout;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+                reject(new Error('Resolver Timeout Exceeded'));
+            }, ms);
+        });
+        return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+    };
 
     try {
-        // 1. Fetch memberships & Profile (for global role) using Prisma
-        const memberships = await prisma.organizationMember.findMany({
+        const { data: { user } } = await fetchWithTimeout(supabase.auth.getUser(), 3000);
+
+        if (!user) {
+            return {
+                status: 'NOT_AUTHENTICATED',
+                hasOrganizations: false,
+                organizationsCount: 0,
+                activeOrgId: null,
+                organizations: []
+            };
+        }
+
+        // 1. Fetch memberships & Profile via Prisma
+        const membershipsPromise = prisma.organizationMember.findMany({
             where: { userId: user.id, status: 'ACTIVE' },
-            include: {
-                organization: {
-                    include: {
-                        subscription: true
-                    }
-                }
-            }
+            include: { organization: true }
         });
 
-        const profile = await prisma.profile.findUnique({
+        const profilePromise = prisma.profile.findUnique({
             where: { id: user.id },
             select: { role: true, organizationId: true }
         });
 
+        const [memberships, profile] = await fetchWithTimeout(Promise.all([membershipsPromise, profilePromise]));
+
+        if (!profile) {
+            return {
+                status: 'PROFILE_MISSING',
+                hasOrganizations: false,
+                organizationsCount: 0,
+                activeOrgId: null,
+                organizations: [],
+                error: 'Tu cuenta existe, pero el perfil interno no está listo.'
+            };
+        }
+
         let activeMemberships = memberships;
         let isAutoProvisioned = false;
-        let isRecovered = false;
 
-        // --- AUTO-REPAIR LOGIC ---
+        // Auto-provision if absolute NO_ORG
         if (activeMemberships.length === 0) {
-            console.log('[WorkspaceResolver] No active memberships found. Attempting auto-repair...');
-
-            // Attempt A: Try to recover from Profile.organizationId
-            if (profile?.organizationId) {
-                const orgExists = await prisma.organization.findUnique({
-                    where: { id: profile.organizationId },
-                    include: { subscription: true }
-                });
-
-                if (orgExists) {
-                    console.log(`[WorkspaceResolver] Recovering via Profile.organizationId: ${profile.organizationId}`);
-                    const newMember = await prisma.organizationMember.create({
-                        data: {
-                            userId: user.id,
-                            organizationId: profile.organizationId,
-                            role: 'OWNER',
-                            status: 'ACTIVE'
-                        },
-                        include: { organization: { include: { subscription: true } } }
-                    });
-                    activeMemberships = [newMember];
-                    isRecovered = true;
-                }
-            }
-
-            // Attempt B: Try to recover from user's interaction logs if A didn't work
-            if (activeMemberships.length === 0) {
-                const lastLog = await prisma.auditLog.findFirst({
-                    where: { userId: user.id, organizationId: { not: null } },
-                    orderBy: { createdAt: 'desc' },
-                    include: { organization: { include: { subscription: true } } }
-                });
-
-                if (lastLog?.organizationId && lastLog.organization) {
-                    console.log(`[WorkspaceResolver] Recovering via AuditLog.organizationId: ${lastLog.organizationId}`);
-                    const newMember = await prisma.organizationMember.create({
-                        data: {
-                            userId: user.id,
-                            organizationId: lastLog.organizationId,
-                            role: 'OWNER',
-                            status: 'ACTIVE'
-                        },
-                        include: { organization: { include: { subscription: true } } }
-                    });
-                    activeMemberships = [newMember];
-                    isRecovered = true;
-
-                    // Keep Profile synced
-                    await prisma.profile.update({
-                        where: { id: user.id },
-                        data: { organizationId: lastLog.organizationId }
-                    });
-                }
-            }
-
-            // Attempt C: Auto-Provision if completely empty and env var is set
-            if (activeMemberships.length === 0 && process.env.AUTO_PROVISION === '1') {
+            if (process.env.AUTO_PROVISION === '1') {
+                const requireManualApproval = process.env.MANUAL_APPROVAL_REQUIRED === '1';
                 console.log('[WorkspaceResolver] Auto-provisioning new organization...');
-                const newOrg = await prisma.organization.create({
+                const newOrg = await fetchWithTimeout(prisma.organization.create({
                     data: {
                         name: 'Mi Organización',
+                        status: requireManualApproval ? 'PENDING' : 'ACTIVE',
                         OrganizationMember: {
                             create: {
                                 userId: user.id,
@@ -123,99 +97,124 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                             }
                         },
                         subscription: {
-                            create: {
-                                status: 'TRIALING'
-                            }
+                            create: { status: 'TRIALING' }
                         }
                     },
                     include: {
-                        subscription: true,
                         OrganizationMember: {
-                            include: {
-                                organization: { include: { subscription: true } }
-                            }
+                            include: { organization: true }
                         }
                     }
-                });
+                }));
 
                 activeMemberships = newOrg.OrganizationMember;
                 isAutoProvisioned = true;
-                isRecovered = true;
 
-                await prisma.profile.update({
+                await fetchWithTimeout(prisma.profile.update({
                     where: { id: user.id },
                     data: { organizationId: newOrg.id }
-                });
+                }));
+            } else {
+                return {
+                    status: 'NO_ORG',
+                    hasOrganizations: false,
+                    organizationsCount: 0,
+                    activeOrgId: null,
+                    organizations: [],
+                    userRole: profile.role
+                };
             }
         }
 
-        // 2. Resolve active organization from cookie or default
+        // We have memberships. Let's resolve the cookie.
         const cookieStore = await cookies();
         const cookieOrgId = cookieStore.get('app-org-id')?.value;
 
         let activeOrgId = null;
+        let setCookieId = null;
+
         if (cookieOrgId && activeMemberships.some(m => m.organizationId === cookieOrgId)) {
             activeOrgId = cookieOrgId;
         } else if (activeMemberships.length === 1) {
-            // Unica organización, la seleccionamos automáticamente
             activeOrgId = activeMemberships[0].organizationId;
-            const cookieStoreMutable = await cookies();
-            cookieStoreMutable.set('app-org-id', activeOrgId, {
-                path: '/',
-                httpOnly: false,
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
-                maxAge: 60 * 60 * 24 * 7 // 1 week
-            });
-
-            // Sync last active org in DB IF different
-            if (profile?.organizationId !== activeOrgId) {
+            setCookieId = activeOrgId;
+            // Sync fallback
+            if (profile.organizationId !== activeOrgId) {
                 await prisma.profile.update({
                     where: { id: user.id },
                     data: { organizationId: activeOrgId }
-                });
+                }).catch(() => { });
             }
         } else if (activeMemberships.length > 1) {
-            // Múltiples orgs y sin cookie válida -> revisamos lastActiveOrg (Profile.organizationId)
-            const lastActiveOrgId = profile?.organizationId;
-
+            const lastActiveOrgId = profile.organizationId;
             if (lastActiveOrgId && activeMemberships.some(m => m.organizationId === lastActiveOrgId)) {
-                // Recuperar la última activa
                 activeOrgId = lastActiveOrgId;
+                setCookieId = activeOrgId;
+            } else {
+                activeOrgId = null; // Forces Multi Selection State
+            }
+        }
+
+        if (setCookieId) {
+            try {
                 const cookieStoreMutable = await cookies();
-                cookieStoreMutable.set('app-org-id', activeOrgId, {
+                cookieStoreMutable.set('app-org-id', setCookieId, {
                     path: '/',
                     httpOnly: false,
                     sameSite: 'lax',
                     secure: process.env.NODE_ENV === 'production',
                     maxAge: 60 * 60 * 24 * 7 // 1 week
                 });
-            } else {
-                // Ninguna válida, forzar selector
-                activeOrgId = null;
+            } catch (err) {
+                // Ignore Next.js Server Component context errors
             }
         }
 
+        if (!activeOrgId && activeMemberships.length > 0) {
+            return {
+                status: 'ORG_MULTI_NO_SELECTION',
+                hasOrganizations: true,
+                organizationsCount: activeMemberships.length,
+                activeOrgId: null,
+                organizations: activeMemberships.map(m => m.organization),
+                userRole: profile.role,
+                isAutoProvisioned
+            };
+        }
+
+        // Check if the Selected Org is PENDING
+        const selectedOrg = activeMemberships.find(m => m.organizationId === activeOrgId)?.organization;
+        if (selectedOrg?.status === 'PENDING') {
+            return {
+                status: 'ORG_PENDING_APPROVAL',
+                hasOrganizations: true,
+                organizationsCount: activeMemberships.length,
+                activeOrgId: selectedOrg.id,
+                organizations: activeMemberships.map(m => m.organization),
+                userRole: profile.role,
+                isAutoProvisioned
+            };
+        }
 
         return {
-            hasOrganizations: activeMemberships.length > 0,
+            status: 'ORG_ACTIVE_SELECTED',
+            hasOrganizations: true,
             organizationsCount: activeMemberships.length,
             activeOrgId,
             organizations: activeMemberships.map(m => m.organization),
-            userRole: profile?.role,
-            isAutoProvisioned,
-            error: isRecovered ? 'Workspace Recovered' : undefined
+            userRole: profile.role,
+            isAutoProvisioned
         };
 
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    } catch (error: any) {
         console.error('[WorkspaceResolver] CRITICAL ERROR:', error);
         return {
+            status: 'WORKSPACE_ERROR',
             hasOrganizations: false,
             organizationsCount: 0,
             activeOrgId: null,
             organizations: [],
-            error: errorMessage
+            error: error.message || 'Error resolviendo workspace'
         };
     }
 }

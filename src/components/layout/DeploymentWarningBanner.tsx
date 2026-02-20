@@ -35,7 +35,7 @@ export function DeploymentWarningBanner() {
             <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <span>
-                    <strong className="font-bold">Deployment URL:</strong> Estás en un entorno de previsualización. Las cookies de sesión no se comparten con el dominio principal.
+                    <strong className="font-bold">Aviso de Dominio:</strong> Estás en una URL de despliegue. Tus cookies de organización pueden no existir aquí.
                 </span>
             </div>
             <a

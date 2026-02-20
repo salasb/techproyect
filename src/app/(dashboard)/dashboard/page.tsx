@@ -53,10 +53,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     let opportunitiesRes: any = { data: [] };
     let tasksRes: any = { data: [] };
     let dollarRate = { value: 855 }; // Safe default
+    let isDataTimeout = false;
 
-    if (orgId) {
+    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
         try {
-            const results = await Promise.all([
+            const fetchPromises = Promise.all([
                 supabase.from('Settings').select('*').eq('organizationId', orgId).maybeSingle(),
                 supabase.from('Project')
                     .select(`
@@ -79,6 +80,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 getDollarRate()
             ]);
 
+            const timeoutPromise = new Promise<any[]>((resolve) =>
+                setTimeout(() => {
+                    isDataTimeout = true;
+                    resolve([{ data: null }, { data: [] }, { data: [] }, { data: [] }, { value: 855 }]);
+                }, 6000)
+            );
+
+            const results = await Promise.race([fetchPromises, timeoutPromise]);
+
             settingsRes = { data: results[0].data };
             projectsRes = { data: results[1].data };
             opportunitiesRes = { data: results[2].data };
@@ -100,15 +110,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     // 2. Trigger Sentinel Analysis (Proactive Layer)
     let sentinelAlerts: any[] = [];
-    if (orgId) {
+    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED' && !isDataTimeout) {
         try {
-            await Promise.all([
+            const sentinelPromises = Promise.all([
                 SentinelService.runAnalysis(orgId, isSentinelForce),
                 SentinelService.updateOrgStats(orgId),
                 import("@/services/activation-service").then(({ ActivationService }) =>
                     ActivationService.trackFirst('ORG_CREATED', orgId)
                 )
             ]);
+
+            // Timeout to prevent hanging dashboard on sentinel logic
+            await Promise.race([
+                sentinelPromises,
+                new Promise((resolve) => setTimeout(resolve, 4000))
+            ]);
+
+            // Assuming getActiveAlerts is fast enough
             const { data } = await SentinelService.getActiveAlerts(orgId);
             sentinelAlerts = data || [];
         } catch (error) {
@@ -151,7 +169,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     let subscription = null;
     let org = null;
 
-    if (orgId) {
+    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
         [orgStats, subscription, org] = await Promise.all([
             prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
             prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
@@ -176,18 +194,65 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
-            {!orgId && !workspace.hasOrganizations && !isExplore ? (
-                <WorkspaceSetupBanner />
-            ) : !orgId && workspace.hasOrganizations && !isExplore ? (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
-                    <h2 className="text-xl font-bold text-amber-700 dark:text-amber-500 mb-2">Selecciona tu espacio de trabajo</h2>
-                    <p className="text-muted-foreground mb-4">Tienes acceso a {workspace.organizationsCount} {workspace.organizationsCount === 1 ? 'organización' : 'organizaciones'}, pero en este dominio no hay una organización activa seleccionada.</p>
-                    <p className="text-sm text-muted-foreground mb-6">Selecciona tu espacio de trabajo para cargar tus proyectos y métricas.</p>
-                    <Link href="/org/select" className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
-                        Ir al Selector de Organización
+            {isDataTimeout && (
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between shadow-sm animate-in slide-in-from-top-4 gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div>
+                            <h4 className="font-bold text-orange-900 dark:text-orange-400">Demora en la carga de datos</h4>
+                            <p className="text-sm text-orange-700 dark:text-orange-300">Algunos problemas de red interrumpieron la carga completa. Mostrando panel parcial.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {workspace.status === 'WORKSPACE_ERROR' && (
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-6 text-center shadow-sm animate-in slide-in-from-top-4 mb-6">
+                    <h2 className="text-xl font-bold text-orange-900 dark:text-orange-400 mb-2">Conexión interrumpida</h2>
+                    <p className="text-orange-700 dark:text-orange-300 mb-4">{workspace.error || 'No pudimos cargar tu entorno de trabajo en el tiempo esperado. Por favor, intenta de nuevo.'}</p>
+                    <button className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block" onClick={() => window.location.reload()}>
+                        Reintentar conexión
+                    </button>
+                </div>
+            )}
+
+            {workspace.status === 'PROFILE_MISSING' && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
+                    <h2 className="text-xl font-bold text-red-700 dark:text-red-500 mb-2">Perfil de usuario incompleto</h2>
+                    <p className="text-red-900/80 dark:text-red-400/80 mb-4 max-w-xl mx-auto">
+                        Tu sesión está activa, pero no logramos resolver tu perfil de aplicación. Si este error persiste, ejecuta el diagnóstico para reparar tu cuenta.
+                    </p>
+                    <Link href="/api/_debug/workspace-doctor" className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
+                        Ejecutar autodiagnóstico
                     </Link>
                 </div>
-            ) : isExplore && !orgId ? (
+            )}
+
+            {workspace.status === 'NO_ORG' && !isExplore && (
+                <WorkspaceSetupBanner />
+            )}
+
+            {workspace.status === 'ORG_MULTI_NO_SELECTION' && !isExplore && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
+                    <h2 className="text-xl font-bold text-amber-700 dark:text-amber-500 mb-2">Sesión de trabajo no especificada</h2>
+                    <p className="text-amber-900/80 dark:text-amber-400/80 mb-4 max-w-xl mx-auto">
+                        Perteneces a múltiples organizaciones, pero no has seleccionado ninguna para esta sesión. Por favor, indica con qué organización deseas operar.
+                    </p>
+                    <Link href="/org/select" className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
+                        Seleccionar organización
+                    </Link>
+                </div>
+            )}
+
+            {workspace.status === 'ORG_PENDING_APPROVAL' && !isExplore && (
+                <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
+                    <h2 className="text-xl font-bold text-blue-800 dark:text-blue-400 mb-2">Cuenta en evaluación comercial</h2>
+                    <p className="text-blue-900/80 dark:text-blue-300/80 mb-4 max-w-xl mx-auto">
+                        Hemos recibido la solicitud para tu espacio de trabajo y nuestro equipo comercial la está evaluando. Te notificaremos pronto en cuanto tu entorno sea activado.
+                    </p>
+                </div>
+            )}
+
+            {isExplore && workspace.status !== 'ORG_ACTIVE_SELECTED' && (
                 <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between shadow-sm animate-in slide-in-from-top-4 gap-4 mb-6">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-500/20 p-2 rounded-lg">
@@ -195,27 +260,27 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         </div>
                         <div>
                             <h4 className="font-bold text-blue-900 dark:text-blue-400">Modo Exploración</h4>
-                            <p className="text-sm text-blue-700 dark:text-blue-300">Estás viendo datos de demostración de solo lectura. Crea un espacio de trabajo para gestionar tu propia información.</p>
+                            <p className="text-sm text-blue-700 dark:text-blue-300">Estás viendo datos de demostración. Crea un espacio de trabajo real para gestionar tu información.</p>
                         </div>
                     </div>
                     <Link href="/start" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all whitespace-nowrap">
                         Crear Organización
                     </Link>
                 </div>
-            ) : (
-                workspace.isAutoProvisioned && (
-                    <div className="bg-blue-600 rounded-xl p-6 text-white shadow-lg space-y-4 animate-in slide-in-from-top-4 duration-500">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-white/20 p-2 rounded-lg">
-                                <Building2 className="w-5 h-5 text-white" />
-                            </div>
-                            <h3 className="text-xl font-bold">¡Bienvenido a TechProyect!</h3>
+            )}
+
+            {workspace.status === 'ORG_ACTIVE_SELECTED' && workspace.isAutoProvisioned && (
+                <div className="bg-blue-600 rounded-xl p-6 text-white shadow-lg space-y-4 animate-in slide-in-from-top-4 duration-500 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white/20 p-2 rounded-lg">
+                            <Building2 className="w-5 h-5 text-white" />
                         </div>
-                        <p className="text-blue-50 opacity-90 max-w-2xl">
-                            Hemos creado un espacio de trabajo inicial llamado "Mi Organización" para que puedas empezar de inmediato. Puedes cambiarle el nombre en la configuración en cualquier momento.
-                        </p>
+                        <h3 className="text-xl font-bold">¡Bienvenido a TechProyect!</h3>
                     </div>
-                )
+                    <p className="text-blue-50 opacity-90 max-w-2xl">
+                        Hemos creado un espacio de trabajo inicial llamado "Mi Organización" de forma automática.
+                    </p>
+                </div>
             )}
 
             {/* Header */}
@@ -252,57 +317,80 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {/* Activation Checklist (Only if org exists) */}
             {orgId && <ActivationChecklist stats={orgStats} orgMode={orgMode} />}
 
-            {/* 1. KPIs Section */}
-            <DashboardKPIs data={kpis as any} />
-
-            {/* 2. Proactive Layer */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-3">
-                    <NextBestAction action={nextBestAction as any} />
-                </div>
-                <div className="hidden lg:block lg:col-span-1">
-                    <div className="bg-zinc-900 rounded-xl p-6 text-white h-full flex flex-col justify-center">
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Estado General</h4>
-                        <div className="text-3xl font-bold">{orgId ? 'Saludable' : 'Configura tu Espacio'}</div>
-                        <p className="text-[10px] text-zinc-500 mt-2">
-                            {orgId ? 'Sentinel monitorizando 5 parámetros críticos.' : 'Crea una organización para activar Sentinel.'}
-                        </p>
+            {/* Main Content Areas */}
+            {workspace.status === 'ORG_ACTIVE_SELECTED' && projects.length === 0 && !isExplore ? (
+                <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl p-12 text-center shadow-sm animate-in fade-in max-w-3xl mx-auto mt-12">
+                    <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <QrCode className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-foreground mb-3">Tu sistema está listo para operar</h3>
+                    <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+                        Comienza a estructurar tus operaciones creando tu primer proyecto o registrando un cliente en la base de datos. Los indicadores financieros se activarán automáticamente una vez que tengas flujo de datos.
+                    </p>
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                        <Link href="/projects/new" className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg font-medium transition-all shadow-md">
+                            Crear primer proyecto
+                        </Link>
+                        <Link href="/clients" className="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-foreground px-6 py-3 rounded-lg font-medium transition-all border border-border">
+                            Registrar clientes
+                        </Link>
                     </div>
                 </div>
-            </div>
+            ) : (
+                <>
+                    {/* 1. KPIs Section */}
+                    <DashboardKPIs data={kpis as any} />
 
-            {/* 3. Main Grid Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                <div className="lg:col-span-2 space-y-6 flex flex-col">
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
-                        <div className="mb-6 flex justify-between items-center">
-                            <div>
-                                <h3 className="text-lg font-semibold text-foreground">Tendencias Financieras</h3>
-                                <p className="text-sm text-muted-foreground">Ingresos vs Costos ({periodLabels[period] || period})</p>
+                    {/* 2. Proactive Layer */}
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div className="lg:col-span-3">
+                            <NextBestAction action={nextBestAction as any} />
+                        </div>
+                        <div className="hidden lg:block lg:col-span-1">
+                            <div className="bg-zinc-900 rounded-xl p-6 text-white h-full flex flex-col justify-center">
+                                <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Estado General</h4>
+                                <div className="text-3xl font-bold">{orgId ? 'Saludable' : 'Configura tu Espacio'}</div>
+                                <p className="text-[10px] text-zinc-500 mt-2">
+                                    {orgId ? 'Sentinel monitorizando 5 parámetros críticos.' : 'Crea una organización para activar Sentinel.'}
+                                </p>
                             </div>
                         </div>
-                        {orgId ? <RevenueChart data={chartData} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
                     </div>
 
-                    <div className="flex-1">
-                        <TasksWidget tasks={sortedActions.slice(0, 15) as any} />
+                    {/* 3. Main Grid Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                        <div className="lg:col-span-2 space-y-6 flex flex-col">
+                            <div className="bg-card rounded-xl border border-border shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
+                                <div className="mb-6 flex justify-between items-center">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-foreground">Tendencias Financieras</h3>
+                                        <p className="text-sm text-muted-foreground">Ingresos vs Costos ({periodLabels[period] || period})</p>
+                                    </div>
+                                </div>
+                                {orgId ? <RevenueChart data={chartData} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
+                            </div>
+
+                            <div className="flex-1">
+                                <TasksWidget tasks={sortedActions.slice(0, 15) as any} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-6 flex flex-col">
+                            <SentinelAlertsPanel alerts={sentinelAlerts as any || []} />
+                            <InventoryAlertsWidget />
+                            <BillingAlertsWidget alerts={billingAlerts} />
+                            <ClientRankingWidget clients={topClients} />
+                        </div>
                     </div>
-                </div>
 
-                <div className="space-y-6 flex flex-col">
-                    <SentinelAlertsPanel alerts={sentinelAlerts as any || []} />
-                    <InventoryAlertsWidget />
-                    <BillingAlertsWidget alerts={billingAlerts} />
-                    <ClientRankingWidget clients={topClients} />
-                </div>
-            </div>
-
-            {/* 4. Gantt Chart Section */}
-            <div className="mt-6">
-                <div className="bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
-                    <ProjectGantt projects={projects as any} />
-                </div>
-            </div>
+                    {/* 4. Gantt Chart Section */}
+                    <div className="mt-6">
+                        <div className="bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
+                            <ProjectGantt projects={projects as any} />
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Debug Panel (Superadmin Only) */}
             {isSuperadmin && isDebugWorkspace && (

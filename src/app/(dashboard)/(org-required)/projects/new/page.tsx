@@ -3,18 +3,25 @@ import { CreateProjectForm } from "@/components/projects/CreateProjectForm";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { getClients } from "@/actions/clients";
+import { getOrganizationId } from "@/lib/current-org";
 
 export default async function NewProjectPage() {
     const supabase = await createClient();
+    const orgId = await getOrganizationId();
 
     // Fetch companies using Supabase SDK
-    const { data: companiesData } = await supabase
-        .from('Company')
-        .select('*')
-        .order('name', { ascending: true });
+    let companiesData: any[] = [];
+    if (orgId) {
+        const { data } = await supabase
+            .from('Company')
+            .select('*')
+            .eq('organizationId', orgId)
+            .order('name', { ascending: true });
+        companiesData = data || [];
+    }
 
     // Ensure array even if fetch fails slightly
-    const companies = companiesData || [];
+    const companies = companiesData;
     const clients = await getClients();
 
     return (
