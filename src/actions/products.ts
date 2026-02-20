@@ -3,9 +3,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+
 export async function getProducts(query?: string) {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
-    let q = supabase.from('Product').select('*').order('name');
+    let q = supabase.from('Product').select('*').eq('organizationId', scope.orgId).order('name');
 
     if (query) {
         q = q.or(`name.ilike.%${query}%,sku.ilike.%${query}%`);
@@ -21,13 +25,10 @@ export async function getProducts(query?: string) {
     return data;
 }
 
-import { getOrganizationId } from "@/lib/current-org";
-import { ensureNotPaused } from "@/lib/guards/subscription-guard";
-
 export async function createProduct(data: FormData) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
         let sku = (data.get('sku') as string)?.trim();
@@ -61,7 +62,7 @@ export async function createProduct(data: FormData) {
         // 1. Create Product (Stock 0 initially)
         const { error } = await supabase.from('Product').insert({
             id: productId,
-            organizationId: orgId,
+            organizationId: scope.orgId,
             sku,
             name,
             description,
@@ -85,7 +86,7 @@ export async function createProduct(data: FormData) {
             const { data: defaultLoc } = await supabase
                 .from("Location")
                 .select("id")
-                .eq("organizationId", orgId)
+                .eq("organizationId", scope.orgId)
                 .eq("isDefault", true)
                 .single();
 
@@ -114,8 +115,8 @@ export async function createProduct(data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
         let sku = (data.get('sku') as string)?.trim();
@@ -147,7 +148,7 @@ export async function updateProduct(id: string, data: FormData) {
             type,
             min_stock: minStock,
             updatedAt: new Date().toISOString()
-        }).eq('id', id);
+        }).eq('id', id).eq('organizationId', scope.orgId);
 
         if (error) {
             console.error("Supabase Error updating product:", error);
@@ -164,10 +165,10 @@ export async function updateProduct(id: string, data: FormData) {
 
 export async function deleteProduct(id: string) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
-        const { error } = await supabase.from('Product').delete().eq('id', id);
+        const { error } = await supabase.from('Product').delete().eq('id', id).eq('organizationId', scope.orgId);
 
         if (error) {
             console.error("Supabase Error deleting product:", error);

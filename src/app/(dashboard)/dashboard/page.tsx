@@ -261,26 +261,41 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             )}
 
             {workspace.status === 'NO_ORG' && !isExplore && isSuperadmin && (
-                <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
-                    <h2 className="text-xl font-bold text-blue-800 dark:text-blue-400 mb-2">Modo Administrador Activo</h2>
-                    <p className="text-blue-900/80 dark:text-blue-400/80 mb-4 max-w-xl mx-auto">
-                        Eres Superadmin. Selecciona una organización para operar o crea una nueva si deseas participar activamente en un entorno.
+                <div className="bg-blue-900/5 dark:bg-blue-900/10 border border-blue-500/20 rounded-xl p-8 text-center shadow-lg animate-in zoom-in duration-300 mb-6">
+                    <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-4">
+                        <Shield className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-blue-800 dark:text-blue-300 mb-2">Modo Administrador Global Activo</h2>
+                    <p className="text-blue-900/70 dark:text-blue-400/80 mb-6 max-w-lg mx-auto">
+                        Tienes acceso global al sistema. Actualmente no tienes ninguna organización seleccionada para operar. Puedes ir al panel general o entrar a tu área local.
                     </p>
-                    <Link href="/org/select" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
-                        Seleccionar o Crear Organización
-                    </Link>
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                        <Link href="/admin/orgs" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-sm font-bold shadow-md transition-all">
+                            Panel Global de Organizaciones
+                        </Link>
+                        <Link href="/org/select" className="bg-white hover:bg-slate-50 text-blue-700 border border-blue-200 px-6 py-3 rounded-lg text-sm font-bold shadow-sm transition-all">
+                            Seleccionar o Crear Organización Local
+                        </Link>
+                    </div>
                 </div>
             )}
 
             {workspace.status === 'ORG_MULTI_NO_SELECTION' && !isExplore && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
-                    <h2 className="text-xl font-bold text-amber-700 dark:text-amber-500 mb-2">Sesión de trabajo no especificada</h2>
-                    <p className="text-amber-900/80 dark:text-amber-400/80 mb-4 max-w-xl mx-auto">
-                        Perteneces a múltiples organizaciones, pero no has seleccionado ninguna para esta sesión. Por favor, indica con qué organización deseas operar.
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-8 text-center shadow-md animate-in zoom-in duration-300 mb-6">
+                    <h2 className="text-2xl font-bold text-amber-700 dark:text-amber-500 mb-2">Sesión de trabajo no especificada</h2>
+                    <p className="text-amber-900/80 dark:text-amber-400/80 mb-6 max-w-xl mx-auto">
+                        Tus permisos globales están intactos, pero no has seleccionado ninguna organización para operar en esta sesión de dashboard.
                     </p>
-                    <Link href="/org/select" className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
-                        Seleccionar organización
-                    </Link>
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                        {isSuperadmin && (
+                            <Link href="/admin/orgs" className="bg-white hover:bg-slate-50 text-amber-700 border border-amber-200 px-6 py-3 rounded-lg text-sm font-bold shadow-sm transition-all">
+                                Panel Global
+                            </Link>
+                        )}
+                        <Link href="/org/select" className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
+                            Seleccionar organización para operar
+                        </Link>
+                    </div>
                 </div>
             )}
 

@@ -57,7 +57,14 @@ export async function GET(request: Request) {
 
         // Si hay cookie, revisamos conteos de esa org
         let activeOrgCounts = null;
+        let activeOrgName = null;
         if (activeOrgFromCookie) {
+            const orgInfo = await prisma.organization.findUnique({
+                where: { id: activeOrgFromCookie },
+                select: { name: true }
+            });
+            activeOrgName = orgInfo?.name || null;
+
             const projects = await prisma.project.count({ where: { organizationId: activeOrgFromCookie } });
             const quotes = await prisma.quote.count({ where: { project: { organizationId: activeOrgFromCookie } } });
             const invoices = await prisma.invoice.count({ where: { organizationId: activeOrgFromCookie } });
@@ -67,6 +74,14 @@ export async function GET(request: Request) {
         // Obtener estado real del resolver
         const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
         const workspaceState = await getWorkspaceState();
+
+        // Determine scopeStatus
+        let scopeStatus = 'missing';
+        if (workspaceState.activeOrgId) {
+            if (workspaceState.isSuperadmin) scopeStatus = 'valid'; // Superadmin assumes valid if id exists (already validated by set)
+            else if (memberships.some(m => m.organizationId === workspaceState.activeOrgId)) scopeStatus = 'valid';
+            else scopeStatus = 'invalid';
+        }
 
         return NextResponse.json({
             status: 'OK',
@@ -84,6 +99,16 @@ export async function GET(request: Request) {
                 profileRole: profile?.role || null,
                 workspaceStatus: workspaceState.status,
                 activeOrgResolved: workspaceState.activeOrgId
+            },
+            operatingContext: {
+                activeOrgId: workspaceState.activeOrgId,
+                activeOrgName: activeOrgName,
+                scopeStatus: scopeStatus,
+                commercialScopeReady: scopeStatus === 'valid' && !!workspaceState.activeOrgId,
+                orgContextSource: activeOrgFromCookie ? 'cookie' : (profile?.organizationId ? 'profile_fallback' : 'none'),
+                hasOrganizations: memberships.length > 0,
+                workspaceStatus: workspaceState.status,
+                isSuperadmin: workspaceState.isSuperadmin
             },
             bootstrap: workspaceState.bootstrapDebug || null,
             database: {

@@ -1,6 +1,5 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import prisma from "@/lib/prisma"; // Assuming you have a prisma client instance
+import { requireOperationalScope } from '@/lib/auth/server-resolver';
+import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
     const { projectId } = await req.json();
@@ -10,28 +9,17 @@ export async function POST(req: Request) {
     }
 
     try {
-        const cookieStore = await cookies();
-        const supabase = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                cookies: {
-                    getAll() { return cookieStore.getAll() },
-                    setAll(cookiesToSet) {
-                        try {
-                            cookiesToSet.forEach(({ name, value, options }) =>
-                                cookieStore.set(name, value, options)
-                            )
-                        } catch { }
-                    },
-                },
-            }
-        );
+        // Enforce Multi-Org Scope Isolation
+        const scope = await requireOperationalScope();
 
-        // Check Auth
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        // Ensure projectId belongs to the operating organization
+        const projectVerification = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { organizationId: true }
+        });
+
+        if (!projectVerification || projectVerification.organizationId !== scope.orgId) {
+            return Response.json({ error: 'Project not found or outside active scope' }, { status: 403 });
         }
 
         // Check if note already exists

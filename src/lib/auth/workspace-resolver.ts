@@ -13,6 +13,7 @@ export type WorkspaceStatus =
 
 export interface WorkspaceState {
     status: WorkspaceStatus;
+    userId: string | null;
     hasOrganizations: boolean;
     organizationsCount: number;
     activeOrgId: string | null;
@@ -54,6 +55,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         if (!user) {
             return {
                 status: 'NOT_AUTHENTICATED',
+                userId: null,
                 hasOrganizations: false,
                 organizationsCount: 0,
                 activeOrgId: null,
@@ -78,6 +80,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         if (!profile) {
             return {
                 status: 'PROFILE_MISSING',
+                userId: user.id,
                 hasOrganizations: false,
                 organizationsCount: 0,
                 activeOrgId: null,
@@ -175,6 +178,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             } else {
                 return {
                     status: 'NO_ORG',
+                    userId: user.id,
                     hasOrganizations: false,
                     organizationsCount: 0,
                     activeOrgId: null,
@@ -233,6 +237,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         if (!activeOrgId && activeMemberships.length > 0) {
             return {
                 status: 'ORG_MULTI_NO_SELECTION',
+                userId: user.id,
                 hasOrganizations: true,
                 organizationsCount: activeMemberships.length,
                 activeOrgId: null,
@@ -249,6 +254,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         if (selectedOrg?.status === 'PENDING') {
             return {
                 status: 'ORG_PENDING_APPROVAL',
+                userId: user.id,
                 hasOrganizations: true,
                 organizationsCount: activeMemberships.length,
                 activeOrgId: selectedOrg.id,
@@ -262,6 +268,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
 
         return {
             status: 'ORG_ACTIVE_SELECTED',
+            userId: user.id,
             hasOrganizations: true,
             organizationsCount: activeMemberships.length,
             activeOrgId,
@@ -276,6 +283,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         console.error('[WorkspaceResolver] CRITICAL ERROR:', error);
         return {
             status: 'WORKSPACE_ERROR',
+            userId: null,
             hasOrganizations: false,
             organizationsCount: 0,
             activeOrgId: null,

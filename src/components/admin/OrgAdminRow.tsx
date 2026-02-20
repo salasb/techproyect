@@ -4,6 +4,7 @@ import { useState } from "react";
 import { updateOrganizationStatus, updateOrganizationPlan } from "@/app/actions/admin";
 import { compSubscriptionAction, extendTrialAction } from "@/app/actions/admin-actions";
 import { useToast } from "@/components/ui/Toast";
+import { switchWorkspaceContext } from "@/actions/workspace";
 import { Building2, Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert, Zap, Globe, CalendarPlus, Gift } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -71,6 +72,23 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
         } catch (e: any) {
             toast({ type: 'error', message: e.message || "Error al extender trial" });
         } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSwitchContext = async () => {
+        setIsLoading(true);
+        try {
+            const res = await switchWorkspaceContext(org.id);
+            if (res.success) {
+                toast({ type: 'success', message: `Entrando a ${org.name}...` });
+                window.location.href = '/dashboard';
+            } else {
+                toast({ type: 'error', message: res.error || "No se pudo cambiar el contexto" });
+                setIsLoading(false);
+            }
+        } catch (error: any) {
+            toast({ type: 'error', message: "Error al cambiar contexto" });
             setIsLoading(false);
         }
     };
@@ -165,6 +183,10 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
                             <DropdownMenuItem onClick={handleExtendTrial} className="cursor-pointer flex items-center gap-2">
                                 <CalendarPlus className="w-4 h-4 text-amber-500" />
                                 <span>Extender Trial</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleSwitchContext} className="cursor-pointer flex items-center gap-2">
+                                <Globe className="w-4 h-4 text-blue-500" />
+                                <span className="font-bold text-blue-600">Operar en esta Org</span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

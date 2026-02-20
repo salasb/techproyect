@@ -3,16 +3,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRut, cleanRut, formatRut } from "@/lib/rut";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
 
 export async function getClients() {
-    const orgId = await getOrganizationId();
-    if (!orgId) return [];
+    const scope = await requireOperationalScope();
 
     const supabase = await createClient();
-    const { data, error } = await supabase.from('Client').select('*').eq('organizationId', orgId).order('name');
+    const { data, error } = await supabase.from('Client').select('*').eq('organizationId', scope.orgId).order('name');
 
     if (error) {
         console.error("[getClients] error:", error.message);
@@ -22,8 +21,8 @@ export async function getClients() {
 }
 
 export async function createClientAction(formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -47,7 +46,7 @@ export async function createClientAction(formData: FormData) {
 
     const { error: clientError } = await supabase.from('Client').insert({
         id: clientId,
-        organizationId: orgId,
+        organizationId: scope.orgId,
         name,
         email,
         phone,
@@ -61,7 +60,7 @@ export async function createClientAction(formData: FormData) {
     if (clientError) throw new Error(clientError.message);
 
     // [Activation] Track Milestone
-    await ActivationService.trackFirst('FIRST_CLIENT_CREATED', orgId, undefined, clientId);
+    await ActivationService.trackFirst('FIRST_CLIENT_CREATED', scope.orgId, undefined, clientId);
 
     // Handle multiple contacts if provided
     if (contactsJson) {
@@ -71,7 +70,7 @@ export async function createClientAction(formData: FormData) {
                 const contactsToInsert = contactsList.map((c: any) => ({
                     id: crypto.randomUUID(),
                     clientId,
-                    organizationId: orgId,
+                    organizationId: scope.orgId,
                     name: c.name || '',
                     role: c.role || '',
                     email: c.email || '',
@@ -92,8 +91,8 @@ export async function createClientAction(formData: FormData) {
 }
 
 export async function updateClientAction(clientId: string, formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -121,7 +120,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
         taxId,
         contactName,
         updatedAt: new Date().toISOString()
-    }).eq('id', clientId);
+    }).eq('id', clientId).eq('organizationId', scope.orgId);
 
     if (clientError) throw new Error(clientError.message);
 
@@ -138,7 +137,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
                     const contactsToInsert = contactsList.map((c: any) => ({
                         id: crypto.randomUUID(),
                         clientId,
-                        organizationId: orgId,
+                        organizationId: scope.orgId,
                         name: c.name || '',
                         role: c.role || '',
                         email: c.email || '',
@@ -160,17 +159,17 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 }
 
 export async function deleteClientAction(clientId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
-    const { error } = await supabase.from('Client').delete().eq('id', clientId);
+    const { error } = await supabase.from('Client').delete().eq('id', clientId).eq('organizationId', scope.orgId);
     if (error) throw new Error(error.message);
     revalidatePath('/clients');
 }
 
 export async function createQuickClient(formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -182,7 +181,7 @@ export async function createQuickClient(formData: FormData) {
 
     const { data, error } = await supabase.from('Client').insert({
         id: clientId,
-        organizationId: orgId,
+        organizationId: scope.orgId,
         name,
         email,
         phone,
@@ -194,7 +193,7 @@ export async function createQuickClient(formData: FormData) {
     if (error) return { success: false, error: error.message };
 
     // [Activation] Track Milestone
-    await ActivationService.trackFirst('FIRST_CLIENT_CREATED', orgId, undefined, clientId);
+    await ActivationService.trackFirst('FIRST_CLIENT_CREATED', scope.orgId, undefined, clientId);
 
     // Handle multiple contacts if provided
     if (contactsJson) {
@@ -204,7 +203,7 @@ export async function createQuickClient(formData: FormData) {
                 const contactsToInsert = contactsList.map((c: any) => ({
                     id: crypto.randomUUID(),
                     clientId,
-                    organizationId: orgId,
+                    organizationId: scope.orgId,
                     name: c.name || '',
                     role: c.role || '',
                     email: c.email || '',

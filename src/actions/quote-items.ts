@@ -3,13 +3,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function addQuoteItem(projectId: string, data: FormData) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
         const sku = data.get('sku') as string;
@@ -21,7 +21,7 @@ export async function addQuoteItem(projectId: string, data: FormData) {
 
         const { error } = await supabase.from('QuoteItem').insert({
             id: crypto.randomUUID(),
-            organizationId: orgId,
+            organizationId: scope.orgId,
             projectId,
             sku,
             detail,
@@ -50,12 +50,12 @@ import { AuditService } from "@/services/auditService";
 
 export async function removeQuoteItem(itemId: string, projectId: string) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
-        // 1. Delete Item
-        const { error } = await supabase.from('QuoteItem').delete().eq('id', itemId);
+        // 1. Delete Item -> Make sure it belongs to the active scope via a nested or direct check if organizationId exists on QuoteItem, or just eq project.organizationId if we had it. QuoteItem *has* organizationId in our schema thankfully.
+        const { error } = await supabase.from('QuoteItem').delete().eq('id', itemId).eq('organizationId', scope.orgId);
 
         if (error) {
             console.error("Error deleting quote item:", error);
@@ -74,8 +74,8 @@ export async function removeQuoteItem(itemId: string, projectId: string) {
 
 export async function updateQuoteItem(itemId: string, projectId: string, data: FormData) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
         const sku = data.get('sku') as string;
@@ -92,7 +92,7 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
             unit,
             priceNet,
             costNet
-        }).eq('id', itemId);
+        }).eq('id', itemId).eq('organizationId', scope.orgId);
 
         if (error) {
             console.error("Error updating quote item:", error);
@@ -112,13 +112,13 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
 
 export async function toggleQuoteItemSelection(itemId: string, projectId: string, isSelected: boolean) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
         const { error } = await supabase.from('QuoteItem').update({
             isSelected
-        }).eq('id', itemId);
+        }).eq('id', itemId).eq('organizationId', scope.orgId);
 
         if (error) {
             console.error("Error toggling item selection:", error);
@@ -135,13 +135,13 @@ export async function toggleQuoteItemSelection(itemId: string, projectId: string
 
 export async function toggleAllQuoteItems(projectId: string, isSelected: boolean) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
         const { error } = await supabase.from('QuoteItem').update({
             isSelected
-        }).eq('projectId', projectId);
+        }).eq('projectId', projectId).eq('organizationId', scope.orgId);
 
         if (error) {
             console.error("Error toggling all items:", error);
@@ -157,14 +157,14 @@ export async function toggleAllQuoteItems(projectId: string, isSelected: boolean
 
 export async function addQuoteItemsBulk(projectId: string, items: any[]) {
     try {
-        const orgId = await getOrganizationId();
-        await ensureNotPaused(orgId);
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
         // Map items to match DB schema
         const itemsToInsert = items.map(item => ({
             id: crypto.randomUUID(),
-            organizationId: orgId,
+            organizationId: scope.orgId,
             projectId,
             sku: item.sku || '',
             detail: item.detail,

@@ -6,18 +6,18 @@ import { createClient } from "@/lib/supabase/server";
 
 import { validateProject } from "@/lib/validators";
 import { AuditService } from "@/services/auditService";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 
 import { checkSubscriptionLimit } from "@/lib/subscriptions";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
 
 export async function createProject(formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
 
     // 0. Check Subscription Limits
-    const limitCheck = await checkSubscriptionLimit(orgId, 'projects');
+    const limitCheck = await checkSubscriptionLimit(scope.orgId, 'projects');
     if (!limitCheck.allowed) {
         throw new Error(limitCheck.message);
     }
@@ -59,7 +59,7 @@ export async function createProject(formData: FormData) {
                     .insert({
                         id: crypto.randomUUID(),
                         name: clientName,
-                        organizationId: orgId
+                        organizationId: scope.orgId
                     })
                     .select()
                     .single();
@@ -81,7 +81,7 @@ export async function createProject(formData: FormData) {
             .insert({
                 id: crypto.randomUUID(),
                 name: newCompanyName,
-                organizationId: orgId
+                organizationId: scope.orgId
                 // createdAt/updatedAt removed as they don't exist in Company model
             })
             .select()
@@ -109,7 +109,7 @@ export async function createProject(formData: FormData) {
         .from('Project')
         .insert({
             id: projectId,
-            organizationId: orgId,
+            organizationId: scope.orgId,
             name,
             companyId: finalCompanyId,
             clientId: finalClientId,
@@ -136,7 +136,7 @@ export async function createProject(formData: FormData) {
     await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${name}" creado para ${project.clientId ? 'Client' : 'Company'}: ${finalCompanyId}`);
 
     // [Activation] Track Milestone
-    await ActivationService.trackFirst('FIRST_PROJECT_CREATED', orgId, undefined, project.id);
+    await ActivationService.trackFirst('FIRST_PROJECT_CREATED', scope.orgId, undefined, project.id);
 
     revalidatePath("/projects");
     revalidatePath("/projects");
@@ -144,8 +144,8 @@ export async function createProject(formData: FormData) {
 }
 
 export async function deleteProject(projectId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     try {
@@ -166,7 +166,8 @@ export async function deleteProject(projectId: string) {
         const { error } = await supabase
             .from('Project')
             .delete()
-            .eq('id', projectId);
+            .eq('id', projectId)
+            .eq('organizationId', scope.orgId);
 
         if (error) {
             console.error("Error deleting project:", error);
@@ -186,7 +187,7 @@ export async function deleteProject(projectId: string) {
 }
 
 export async function closeProject(projectId: string) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     // 1. Update Project Status
@@ -196,7 +197,8 @@ export async function closeProject(projectId: string) {
             status: 'CERRADO',
             updatedAt: new Date().toISOString()
         })
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('organizationId', scope.orgId);
 
     if (error) {
         throw new Error(`Error closing project: ${error.message}`);
@@ -206,7 +208,7 @@ export async function closeProject(projectId: string) {
     await supabase.from('ProjectLog').insert({
         id: crypto.randomUUID(),
         projectId,
-        organizationId: orgId,
+        organizationId: scope.orgId,
         type: 'STATUS_CHANGE',
         content: 'El proyecto ha sido cerrado automáticamente tras el pago total.',
         createdAt: new Date().toISOString()
@@ -218,7 +220,7 @@ export async function closeProject(projectId: string) {
 }
 
 export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string, closeReason?: string) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     const updateData: any = {
@@ -236,7 +238,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
     // Special logic for Quote Sent (W0: Validate Customer)
     if (status === 'EN_ESPERA' && stage === 'COTIZACION') {
         // Fetch project to check customer
-        const { data: project } = await supabase.from('Project').select('companyId, clientId').eq('id', projectId).single();
+        const { data: project } = await supabase.from('Project').select('companyId, clientId').eq('id', projectId).eq('organizationId', scope.orgId).single();
         if (!project?.companyId && !project?.clientId) {
             throw new Error("Debe asignar un cliente antes de enviar la cotización");
         }
@@ -263,7 +265,8 @@ export async function updateProjectStatus(projectId: string, status: string, sta
     const { error } = await supabase
         .from('Project')
         .update(updateData)
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('organizationId', scope.orgId);
 
 
     if (error) {
@@ -314,7 +317,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
     await supabase.from('ProjectLog').insert({
         id: crypto.randomUUID(),
         projectId,
-        organizationId: orgId,
+        organizationId: scope.orgId,
         type: 'STATUS_CHANGE',
         content: `Estado actualizado a ${readableStatus} ${readableStage ? `(${readableStage})` : ''}`,
         createdAt: new Date().toISOString()
@@ -325,14 +328,15 @@ export async function updateProjectStatus(projectId: string, status: string, sta
 }
 
 export async function associateProjectToClient(projectId: string, clientId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const { error } = await supabase
         .from('Project')
         .update({ clientId })
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('organizationId', scope.orgId);
 
     if (error) throw new Error("Error al asociar el cliente al proyecto");
 

@@ -3,22 +3,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { AuditService } from "@/services/auditService";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
 import { QuoteService } from "@/services/quoteService";
 import prisma from "@/lib/prisma";
 
 export async function sendQuote(projectId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';
 
     // 1. Fetch current project and client
     const project = await prisma.project.findUnique({
-        where: { id: projectId },
+        where: { id: projectId, organizationId: scope.orgId },
         include: { client: true }
     });
 
@@ -29,7 +29,8 @@ export async function sendQuote(projectId: string) {
         const { error: promoError } = await supabase
             .from('Client')
             .update({ status: 'CLIENT' })
-            .eq('id', project.clientId);
+            .eq('id', project.clientId)
+            .eq('organizationId', scope.orgId);
 
         if (promoError) console.error("Error promoting client:", promoError);
     }
@@ -37,20 +38,20 @@ export async function sendQuote(projectId: string) {
     // 3. Ensure Draft Quote exists from Project Items
     // Check if there is a DRAFT quote
     let draftQuote = await prisma.quote.findFirst({
-        where: { projectId, status: 'DRAFT' }
+        where: { projectId, status: 'DRAFT', project: { organizationId: scope.orgId } }
     });
 
     if (!draftQuote) {
         // If no draft, create one from project items (Snapshot v1 or vN)
-        draftQuote = await QuoteService.createFromProject(projectId, userId, orgId);
+        draftQuote = await QuoteService.createFromProject(projectId, userId, scope.orgId);
     }
 
     // 4. Send Quote via Service
-    const sentQuote = await QuoteService.sendQuote(draftQuote.id, userId, orgId);
+    const sentQuote = await QuoteService.sendQuote(draftQuote.id, userId, scope.orgId);
 
     // 5. Update Project Status (Legacy orchestration)
     await prisma.project.update({
-        where: { id: projectId },
+        where: { id: projectId, organizationId: scope.orgId },
         data: {
             status: 'EN_ESPERA',
             stage: 'COTIZACION',
@@ -66,7 +67,7 @@ export async function sendQuote(projectId: string) {
 
     await prisma.task.create({
         data: {
-            organizationId: orgId,
+            organizationId: scope.orgId,
             projectId,
             title: `Seguimiento Cotización: ${project.name}`,
             description: `Se envió la cotización v${sentQuote.version}. Llamar al cliente para confirmar recepción y resolver dudas.`,
@@ -78,7 +79,7 @@ export async function sendQuote(projectId: string) {
     });
 
     // Milestone: First Quote Sent
-    await ActivationService.trackFirst('FIRST_QUOTE_SENT', orgId, undefined, sentQuote.id);
+    await ActivationService.trackFirst('FIRST_QUOTE_SENT', scope.orgId, undefined, sentQuote.id);
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/quote`);
@@ -86,15 +87,15 @@ export async function sendQuote(projectId: string) {
 }
 
 export async function createQuoteRevision(projectId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';
 
     // 1. Get latest quote to revise
     const latestQuote = await prisma.quote.findFirst({
-        where: { projectId },
+        where: { projectId, project: { organizationId: scope.orgId } },
         orderBy: { version: 'desc' }
     });
 
@@ -102,15 +103,15 @@ export async function createQuoteRevision(projectId: string) {
     if (latestQuote.status === 'DRAFT') return { success: true, quoteId: latestQuote.id }; // Already has a draft
 
     // 2. Revise via Service
-    const newQuote = await QuoteService.reviseQuote(latestQuote.id, userId, orgId);
+    const newQuote = await QuoteService.reviseQuote(latestQuote.id, userId, scope.orgId);
 
     revalidatePath(`/projects/${projectId}/quote`);
     return { success: true, quoteId: newQuote.id };
 }
 
 export async function toggleQuoteAcceptance(projectId: string, isAccepted: boolean) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';
@@ -119,21 +120,21 @@ export async function toggleQuoteAcceptance(projectId: string, isAccepted: boole
 
     // Update Project
     await prisma.project.update({
-        where: { id: projectId },
+        where: { id: projectId, organizationId: scope.orgId },
         data: { acceptedAt }
     });
 
     // Update Quote status using Service
     const latestQuote = await prisma.quote.findFirst({
-        where: { projectId },
+        where: { projectId, project: { organizationId: scope.orgId } },
         orderBy: { version: 'desc' }
     });
 
     if (latestQuote) {
         if (isAccepted) {
-            await QuoteService.acceptQuote(latestQuote.id, userId, orgId);
+            await QuoteService.acceptQuote(latestQuote.id, userId, scope.orgId);
         } else {
-            await QuoteService.revokeAcceptance(latestQuote.id, userId, orgId);
+            await QuoteService.revokeAcceptance(latestQuote.id, userId, scope.orgId);
         }
     }
 

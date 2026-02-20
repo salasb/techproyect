@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { AuditService } from "@/services/auditService";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
@@ -13,15 +13,15 @@ import prisma from "@/lib/prisma";
  * Creates an invoice based on the accepted quote of a project.
  */
 export async function createInvoiceFromProject(projectId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';
 
     // 1. Find Accepted Quote
     const acceptedQuote = await prisma.quote.findFirst({
-        where: { projectId, status: 'ACCEPTED' },
+        where: { projectId, status: 'ACCEPTED', project: { organizationId: scope.orgId } },
         orderBy: { version: 'desc' }
     });
 
@@ -30,11 +30,11 @@ export async function createInvoiceFromProject(projectId: string) {
     }
 
     // 2. Generate Invoice via Service
-    const invoice = await InvoiceService.generateFromQuote(acceptedQuote.id, userId, orgId);
+    const invoice = await InvoiceService.generateFromQuote(acceptedQuote.id, userId, scope.orgId);
 
     // 3. Update Project Next Action if needed
     await prisma.project.update({
-        where: { id: projectId },
+        where: { id: projectId, organizationId: scope.orgId },
         data: {
             nextAction: 'Enviar Factura',
             nextActionDate: new Date()
@@ -42,7 +42,7 @@ export async function createInvoiceFromProject(projectId: string) {
     });
 
     // Milestone
-    await ActivationService.trackFirst('FIRST_INVOICE_CREATED', orgId);
+    await ActivationService.trackFirst('FIRST_INVOICE_CREATED', scope.orgId);
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/dashboard`);
@@ -53,8 +53,8 @@ export async function createInvoiceFromProject(projectId: string) {
  * Creates a manual invoice with a specific amount.
  */
 export async function createInvoice(projectId: string, formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const amount = parseFloat(formData.get('amount') as string);
@@ -68,7 +68,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
     const { error } = await supabase.from('Invoice').insert({
         id: invoiceId,
         projectId: projectId,
-        organizationId: orgId,
+        organizationId: scope.orgId,
         amountInvoicedGross: amount,
         amountPaidGross: 0,
         sent: false,
@@ -79,18 +79,18 @@ export async function createInvoice(projectId: string, formData: FormData) {
     if (error) throw new Error(`Error creando factura: ${error.message}`);
 
     await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura manual creada por $${amount.toLocaleString()}`);
-    await ActivationService.trackFirst('FIRST_INVOICE_CREATED', orgId);
+    await ActivationService.trackFirst('FIRST_INVOICE_CREATED', scope.orgId);
 
     revalidatePath(`/projects/${projectId}`);
     return { success: true, invoiceId };
 }
 
 export async function deleteInvoice(projectId: string, invoiceId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
-    const { error } = await supabase.from('Invoice').delete().eq('id', invoiceId);
+    const { error } = await supabase.from('Invoice').delete().eq('id', invoiceId).eq('organizationId', scope.orgId);
     if (error) throw new Error(`Error eliminando factura: ${error.message}`);
 
     await AuditService.logAction(projectId, 'INVOICE_DELETE', `Factura eliminada`);
@@ -99,13 +99,14 @@ export async function deleteInvoice(projectId: string, invoiceId: string) {
 }
 
 export async function markInvoiceSent(projectId: string, invoiceId: string, sentDate: string) {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     const { error } = await supabase.from('Invoice').update({
         sent: true,
         sentDate: new Date(sentDate).toISOString(),
         updatedAt: new Date().toISOString()
-    }).eq('id', invoiceId);
+    }).eq('id', invoiceId).eq('organizationId', scope.orgId);
 
     if (error) throw new Error(`Error actualizando factura: ${error.message}`);
 
@@ -115,7 +116,7 @@ export async function markInvoiceSent(projectId: string, invoiceId: string, sent
     await supabase.from('Project').update({
         nextAction: 'Seguimiento Pago',
         nextActionDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // Check in 7 days
-    }).eq('id', projectId);
+    }).eq('id', projectId).eq('organizationId', scope.orgId);
 
     revalidatePath(`/projects/${projectId}`);
     return { success: true };
@@ -123,8 +124,8 @@ export async function markInvoiceSent(projectId: string, invoiceId: string, sent
 
 
 export async function registerPayment(projectId: string, invoiceId: string, amount: number) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';
@@ -132,7 +133,7 @@ export async function registerPayment(projectId: string, invoiceId: string, amou
     // Call Service
     // method is hardcoded 'MANUAL' or passed? Existing fn signature only has amount.
     // 'reference' is null.
-    await InvoiceService.registerPayment(invoiceId, amount, 'MANUAL', null, userId, orgId);
+    await InvoiceService.registerPayment(invoiceId, amount, 'MANUAL', null, userId, scope.orgId);
 
     // Check if Project is Fully Paid logic could go here or be handled by logic inside component calling closeProject
     return { success: true, isFullyPaid: true };

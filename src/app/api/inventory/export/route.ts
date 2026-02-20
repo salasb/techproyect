@@ -1,18 +1,14 @@
-import { resolveActiveOrganization } from "@/lib/auth/server-resolver";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import prisma from "@/lib/prisma";
 import { generateCsv } from "@/lib/security/csv";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-    // This is an API Route / Route Handler
-    // We need to resolve auth manually or use the helper if it works in generic Context?
-    // server-resolver uses `cookies()`, so it works in App Router Route Handlers.
-
     try {
-        const orgId = await resolveActiveOrganization();
+        const scope = await requireOperationalScope();
 
         const products = await prisma.product.findMany({
-            where: { organizationId: orgId },
+            where: { organizationId: scope.orgId },
             include: { stockEntries: true }
         });
 

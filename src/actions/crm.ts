@@ -3,10 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Database } from "@/types/supabase";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function getClientDetails(clientId: string) {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     // Fetch Client
@@ -14,6 +15,7 @@ export async function getClientDetails(clientId: string) {
         .from('Client')
         .select('*')
         .eq('id', clientId)
+        .eq('organizationId', scope.orgId)
         .single();
 
     if (clientError) throw new Error(clientError.message);
@@ -23,6 +25,7 @@ export async function getClientDetails(clientId: string) {
         .from('Contact')
         .select('*')
         .eq('clientId', clientId)
+        .eq('organizationId', scope.orgId)
         .order('createdAt', { ascending: false });
 
     if (contactsError) throw new Error(contactsError.message);
@@ -32,6 +35,7 @@ export async function getClientDetails(clientId: string) {
         .from('Interaction')
         .select('*, project:Project(name)')
         .eq('clientId', clientId)
+        .eq('organizationId', scope.orgId)
         .order('date', { ascending: false });
 
     if (interactionsError) throw new Error(interactionsError.message);
@@ -41,6 +45,7 @@ export async function getClientDetails(clientId: string) {
         .from('Project')
         .select('*')
         .eq('clientId', clientId)
+        .eq('organizationId', scope.orgId)
         .order('updatedAt', { ascending: false });
 
     if (projectsError) throw new Error(projectsError.message);
@@ -54,8 +59,8 @@ export async function getClientDetails(clientId: string) {
 }
 
 export async function addContact(clientId: string, formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -65,7 +70,7 @@ export async function addContact(clientId: string, formData: FormData) {
 
     const { error } = await supabase.from('Contact').insert({
         id: crypto.randomUUID(),
-        organizationId: orgId,
+        organizationId: scope.orgId,
         clientId,
         name,
         email,
@@ -78,8 +83,8 @@ export async function addContact(clientId: string, formData: FormData) {
 }
 
 export async function addInteraction(clientId: string, formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const type = formData.get('type') as Database['public']['Enums']['InteractionType'];
@@ -89,7 +94,7 @@ export async function addInteraction(clientId: string, formData: FormData) {
 
     const { error } = await supabase.from('Interaction').insert({
         id: crypto.randomUUID(),
-        organizationId: orgId,
+        organizationId: scope.orgId,
         clientId,
         type,
         notes,
@@ -102,13 +107,15 @@ export async function addInteraction(clientId: string, formData: FormData) {
 }
 
 export async function updateClientStatus(clientId: string, status: Database['public']['Enums']['ClientStatus']) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const { error } = await supabase.from('Client').update({
         status
-    }).eq('id', clientId);
+    })
+        .eq('id', clientId)
+        .eq('organizationId', scope.orgId);
 
     if (error) throw new Error(error.message);
     revalidatePath(`/clients/${clientId}`);
@@ -116,12 +123,14 @@ export async function updateClientStatus(clientId: string, status: Database['pub
 }
 
 export async function getPipelineProjects() {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     // Fetch all projects that are not archived/closed if we want active pipeline
     const { data, error } = await supabase
         .from('Project')
         .select('*, client:Client(name)')
+        .eq('organizationId', scope.orgId)
         .not('status', 'in', '("CANCELADO","CERRADO")')
         .order('updatedAt', { ascending: false });
 
@@ -130,14 +139,16 @@ export async function getPipelineProjects() {
 }
 
 export async function updateProjectStage(projectId: string, stage: Database['public']['Enums']['ProjectStage']) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const { error } = await supabase.from('Project').update({
         stage,
         updatedAt: new Date().toISOString()
-    }).eq('id', projectId);
+    })
+        .eq('id', projectId)
+        .eq('organizationId', scope.orgId);
 
     if (error) throw new Error(error.message);
     revalidatePath('/crm/pipeline');
