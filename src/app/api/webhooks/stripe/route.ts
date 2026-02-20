@@ -76,6 +76,16 @@ export async function POST(req: Request) {
 
                     // [Funnel] Checkout Completed
                     await ActivationService.trackFunnelEvent('CHECKOUT_COMPLETED', orgId, `checkout_${event.id}`, session.customer as string);
+
+                    // Add Audit Log
+                    await prisma.auditLog.create({
+                        data: {
+                            organizationId: orgId,
+                            action: 'STRIPE_WEBHOOK_PROCESSED',
+                            details: `Processed checkout.session.completed for customer ${session.customer}`,
+                            userName: 'Stripe Webhook'
+                        }
+                    });
                 }
 
                 // Handle One-Time Invoice Payment
@@ -167,6 +177,16 @@ export async function POST(req: Request) {
                     if ((status === SubscriptionStatus.PAST_DUE || status === SubscriptionStatus.PAUSED) && oldSubscription?.status === SubscriptionStatus.ACTIVE) {
                         await ActivationService.trackFunnelEvent('PAUSED_ENTERED', orgId, `paused_enter_${event.id}`);
                     }
+
+                    // Add Audit Log
+                    await prisma.auditLog.create({
+                        data: {
+                            organizationId: orgId,
+                            action: 'STRIPE_WEBHOOK_PROCESSED',
+                            details: `Processed customer.subscription.updated (New Status: ${status})`,
+                            userName: 'Stripe Webhook'
+                        }
+                    });
                 }
                 break;
             }
@@ -194,6 +214,16 @@ export async function POST(req: Request) {
                     if (oldSub?.status === SubscriptionStatus.TRIALING) {
                         await ActivationService.trackFunnelEvent('TRIAL_EXPIRED', orgId, `trial_exp_${event.id}`);
                     }
+
+                    // Add Audit Log
+                    await prisma.auditLog.create({
+                        data: {
+                            organizationId: orgId,
+                            action: 'STRIPE_WEBHOOK_PROCESSED',
+                            details: `Processed customer.subscription.deleted`,
+                            userName: 'Stripe Webhook'
+                        }
+                    });
                 }
                 break;
             }

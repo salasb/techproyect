@@ -1,0 +1,41 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - region "Notifications alt+T"
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - img [ref=e5]
+      - heading "TechProyect" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Gestión inteligente de cotizaciones y proyectos
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - button "Iniciar Sesión" [ref=e11]
+        - button "Crear Cuenta" [ref=e12]
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - heading "Bienvenido de nuevo" [level=2] [ref=e15]
+          - paragraph [ref=e16]: Ingresa tus credenciales para acceder al dashboard.
+        - generic [ref=e17]:
+          - img [ref=e18]
+          - text: Database error querying schema
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - generic [ref=e22]:
+              - img [ref=e23]
+              - textbox "tunombre@empresa.com" [ref=e26]
+            - generic [ref=e27]:
+              - img [ref=e28]
+              - textbox "********" [ref=e31]
+              - button [ref=e32] [cursor=pointer]:
+                - img [ref=e33]
+          - link "¿Olvidaste tu contraseña?" [ref=e37] [cursor=pointer]:
+            - /url: "#"
+          - button "Ingresar" [active] [ref=e38]:
+            - text: Ingresar
+            - img [ref=e39]
+    - paragraph [ref=e41]: © 2026 TechProyect Inc. Todos los derechos reservados.
+  - button "Open Next.js Dev Tools" [ref=e47] [cursor=pointer]:
+    - img [ref=e48]
+  - alert [ref=e51]
+```

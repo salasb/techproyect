@@ -58,6 +58,7 @@ export async function GET(request: Request) {
         // Si hay cookie, revisamos conteos de esa org
         let activeOrgCounts = null;
         let activeOrgName = null;
+        let billingInfo = null;
         if (activeOrgFromCookie) {
             const orgInfo = await prisma.organization.findUnique({
                 where: { id: activeOrgFromCookie },
@@ -69,6 +70,19 @@ export async function GET(request: Request) {
             const quotes = await prisma.quote.count({ where: { project: { organizationId: activeOrgFromCookie } } });
             const invoices = await prisma.invoice.count({ where: { organizationId: activeOrgFromCookie } });
             activeOrgCounts = { projects, quotes, invoices };
+
+            const subscription = await prisma.subscription.findUnique({
+                where: { organizationId: activeOrgFromCookie },
+                select: { status: true, providerCustomerId: true, planCode: true, currentPeriodEnd: true }
+            });
+
+            billingInfo = {
+                hasSubscriptionRecord: !!subscription,
+                status: subscription?.status || null,
+                hasProviderCustomer: !!subscription?.providerCustomerId,
+                planCode: subscription?.planCode || null,
+                currentPeriodEnd: subscription?.currentPeriodEnd || null,
+            };
         }
 
         // Obtener estado real del resolver
@@ -110,6 +124,7 @@ export async function GET(request: Request) {
                 workspaceStatus: workspaceState.status,
                 isSuperadmin: workspaceState.isSuperadmin
             },
+            billing: billingInfo,
             bootstrap: workspaceState.bootstrapDebug || null,
             database: {
                 profileFound: !!profile,

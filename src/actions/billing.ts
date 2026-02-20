@@ -50,6 +50,16 @@ export async function createCheckoutSession(priceId: string) {
 
     if (!session.url) throw new Error("Could not create checkout session");
 
+    await prisma.auditLog.create({
+        data: {
+            organizationId: orgId,
+            userId: user.id,
+            action: 'BILLING_CHECKOUT_CREATED',
+            details: `Checkout session created for price ${priceId}`,
+            userName: user.email
+        }
+    });
+
     redirect(session.url);
 }
 
@@ -60,6 +70,9 @@ export async function createPortalSession() {
     const stripe = getStripe();
     const scope = await requireOperationalScope();
     const orgId = scope.orgId;
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
     const subscription = await prisma.subscription.findUnique({
         where: { organizationId: orgId }
@@ -72,6 +85,16 @@ export async function createPortalSession() {
     const session = await stripe.billingPortal.sessions.create({
         customer: subscription.providerCustomerId,
         return_url: `${APP_URL}/settings/billing`,
+    });
+
+    await prisma.auditLog.create({
+        data: {
+            organizationId: orgId,
+            userId: user?.id,
+            action: 'BILLING_PORTAL_ACCESSED',
+            details: `Customer portal accessed for customer ${subscription.providerCustomerId}`,
+            userName: user?.email
+        }
     });
 
     redirect(session.url);
