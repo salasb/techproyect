@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Database } from "@/types/supabase";
 
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 type InteractionType = Database['public']['Enums']['InteractionType'];
@@ -16,8 +16,8 @@ export async function logInteraction(data: {
     date?: string; // ISO string, defaults to now
     nextFollowUpDate?: string; // ISO string, optional
 }) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     // 1. Get Organization ID (implicitly handled by RLS but good to be explicit if creating new records)
@@ -79,8 +79,8 @@ export async function logInteraction(data: {
 }
 
 export async function scheduleFollowUp(opportunityId: string, date: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const { error } = await supabase

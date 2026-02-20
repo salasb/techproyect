@@ -9,11 +9,12 @@ type CostCategory = Database['public']['Enums']['CostCategory'];
 
 import { validateCost } from "@/lib/validators";
 
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function addCost(projectId: string, formData: FormData) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
     await ensureNotPaused(orgId);
     const description = formData.get("description") as string;
     const amount = parseFloat(formData.get("amount") as string);
@@ -53,7 +54,8 @@ export async function addCost(projectId: string, formData: FormData) {
 }
 
 export async function deleteCost(projectId: string, costId: string) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
     await ensureNotPaused(orgId);
     const supabase = await createClient();
 

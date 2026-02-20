@@ -1,12 +1,15 @@
 'use server'
 
 import { ExperimentService } from "@/services/experiment-service";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 
 export async function getExperimentVariant(experimentKey: string) {
-    const orgId = await getOrganizationId();
-    if (!orgId) return 'CONTROL';
-    return ExperimentService.getVariant(orgId, experimentKey);
+    try {
+        const scope = await requireOperationalScope();
+        return ExperimentService.getVariant(scope.orgId, experimentKey);
+    } catch (e) {
+        return 'CONTROL';
+    }
 }
 
 /**

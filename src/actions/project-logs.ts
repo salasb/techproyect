@@ -2,15 +2,14 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { getOrganizationId } from "@/lib/current-org";
-
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 export async function addLog(projectId: string, content: string, type: 'INFO' | 'BLOCKER' | 'MILESTONE' | 'STATUS_CHANGE' = 'INFO') {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     const { error } = await supabase.from('ProjectLog').insert({
         id: crypto.randomUUID(),
-        organizationId: orgId,
+        organizationId: scope.orgId,
         projectId,
         content,
         type
@@ -26,12 +25,14 @@ export async function addLog(projectId: string, content: string, type: 'INFO' | 
 }
 
 export async function getLogs(projectId: string) {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     const { data, error } = await supabase
         .from('ProjectLog')
         .select('*')
         .eq('projectId', projectId)
+        .eq('organizationId', scope.orgId)
         .order('createdAt', { ascending: false });
 
     if (error) {

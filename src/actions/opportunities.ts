@@ -13,6 +13,7 @@ type OpportunityInsert = Database['public']['Tables']['Opportunity']['Insert'];
 export type OpportunityStage = 'LEAD' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'WON' | 'LOST';
 
 export async function getOpportunities() {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     // Fetch opportunities with client data
@@ -24,6 +25,7 @@ export async function getOpportunities() {
                 id, name, contactName, email, phone
             )
         `)
+        .eq('organizationId', scope.orgId)
         .order('createdAt', { ascending: false });
 
     if (error) {
@@ -35,6 +37,7 @@ export async function getOpportunities() {
 }
 
 export async function getOpportunitiesByClient(clientId: string) {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -46,6 +49,7 @@ export async function getOpportunitiesByClient(clientId: string) {
             )
         `)
         .eq('clientId', clientId)
+        .eq('organizationId', scope.orgId)
         .order('createdAt', { ascending: false });
 
     if (error) {
@@ -56,13 +60,13 @@ export async function getOpportunitiesByClient(clientId: string) {
     return data;
 }
 
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 
 import { createQuickClient } from "@/actions/clients";
 
 export async function createOpportunity(formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const title = formData.get('title') as string;
@@ -106,7 +110,7 @@ export async function createOpportunity(formData: FormData) {
 
     const newOpp: OpportunityInsert = {
         id: crypto.randomUUID(),
-        organizationId: orgId,
+        organizationId: scope.orgId,
         title,
         clientId,
         value,
@@ -133,8 +137,8 @@ export async function createOpportunity(formData: FormData) {
 }
 
 export async function updateOpportunityStage(id: string, stage: OpportunityStage) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     // Calculate probability based on stage
@@ -155,7 +159,8 @@ export async function updateOpportunityStage(id: string, stage: OpportunityStage
             probability,
             updatedAt: new Date().toISOString()
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('organizationId', scope.orgId);
 
     if (error) {
         console.error('Error updating opportunity stage:', error);
@@ -167,8 +172,8 @@ export async function updateOpportunityStage(id: string, stage: OpportunityStage
 }
 
 export async function updateOpportunity(id: string, formData: FormData) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     const title = formData.get('title') as string;
@@ -187,7 +192,8 @@ export async function updateOpportunity(id: string, formData: FormData) {
             nextInteractionDate: nextInteractionDate || null,
             updatedAt: new Date().toISOString()
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('organizationId', scope.orgId);
 
     if (error) {
         console.error('Error updating opportunity:', error);
@@ -201,11 +207,11 @@ export async function updateOpportunity(id: string, formData: FormData) {
 }
 
 export async function deleteOpportunity(id: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
-    const { error } = await supabase.from('Opportunity').delete().eq('id', id);
+    const { error } = await supabase.from('Opportunity').delete().eq('id', id).eq('organizationId', scope.orgId);
 
     if (error) {
         console.error('Error deleting opportunity:', error);
@@ -218,8 +224,8 @@ export async function deleteOpportunity(id: string) {
 }
 
 export async function convertOpportunityToProject(opportunityId: string) {
-    const orgId = await getOrganizationId();
-    await ensureNotPaused(orgId);
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
     // 1. Fetch Opportunity with Client
@@ -230,6 +236,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
             Client:clientId (*)
         `)
         .eq('id', opportunityId)
+        .eq('organizationId', scope.orgId)
         .single();
 
     if (fetchError || !opp) {
@@ -252,7 +259,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
         .from('Company')
         .select('id')
         .eq('name', clientName)
-        .eq('organizationId', orgId)
+        .eq('organizationId', scope.orgId)
         .maybeSingle();
 
     if (existingCompany) {
@@ -263,7 +270,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
             .insert({
                 id: crypto.randomUUID(),
                 name: clientName,
-                organizationId: orgId,
+                organizationId: scope.orgId,
                 email: opp.Client?.email,
                 phone: opp.Client?.phone,
                 contactName: opp.Client?.contactName,
@@ -287,7 +294,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
         .from('Project')
         .insert({
             id: projectId,
-            organizationId: orgId,
+            organizationId: scope.orgId,
             name: opp.title,
             companyId: companyId,
             clientId: opp.clientId,
@@ -310,7 +317,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
     }
 
     // Milestone
-    await ActivationService.trackFirst('FIRST_PROJECT_CREATED', orgId);
+    await ActivationService.trackFirst('FIRST_PROJECT_CREATED', scope.orgId);
 
     // 4. Update Interaction to link to New Project
     await supabase

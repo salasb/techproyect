@@ -2,12 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { isAdmin } from "@/lib/permissions";
 
 export async function updateOrganization(formData: FormData) {
     const supabase = await createClient();
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
 
     // Security check
     const { data: { user } } = await supabase.auth.getUser();

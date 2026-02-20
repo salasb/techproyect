@@ -1,12 +1,12 @@
 'use server'
 
 import { createClient } from "@/lib/supabase/server";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function requestUpgrade(planId: string) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     // 1. Get User Info
@@ -20,7 +20,7 @@ export async function requestUpgrade(planId: string) {
     // 3. Log the Request (In a real app, this would email Sales/Admin)
     // For now, we'll insert into a 'ContactRequest' or just AuditLog
     await supabase.from('AuditLog').insert({
-        organizationId: orgId,
+        organizationId: scope.orgId,
         actorId: user.id || null, // Ensure actorId is not undefined if user exists
         action: 'SUBSCRIPTION_UPGRADE_REQUEST',
         details: `Solicitud de actualización a Plan ${plan.name} (${planId})`,
@@ -28,18 +28,18 @@ export async function requestUpgrade(planId: string) {
     });
 
     // 4. Create Notification Implementation (Placeholder for now)
-    console.log(`[SUBSCRIPTION] Upgrade requested for Org ${orgId} to ${planId} by ${user.email}`);
+    console.log(`[SUBSCRIPTION] Upgrade requested for Org ${scope.orgId} to ${planId} by ${user.email}`);
 
     return { success: true, message: "Solicitud enviada. Un ejecutivo te contactará en breve." };
 }
 
 export async function createCustomerPortalSession() {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
     const prisma = (await import("@/lib/prisma")).default;
     const { getStripe } = await import("@/lib/stripe");
 
     const subscription = await prisma.subscription.findUnique({
-        where: { organizationId: orgId }
+        where: { organizationId: scope.orgId }
     });
 
     if (!subscription?.providerCustomerId) {

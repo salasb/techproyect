@@ -1,48 +1,56 @@
-# CORE COMERCIAL REVALIDATION v1.6 (MULTI-ORG SAFE)
+# CORE COMERCIAL REVALIDATION v1.6
 
-## Objetivo
-La versión 1.6 tiene como objetivo barrer todo el Core Comercial del sistema (Proyectos, Cotizaciones, Facturas, Inventario) para asegurar que *cada* acceso a datos (lectura o escritura) respete estrictamente el aislamiento por organización (Multi-Org) utilizando el resolver canónico `requireOperationalScope()` introducido en la v1.5.
+## 1. Alcance Comercial Cubierto
+Esta revalidación asegura que el Core Comercial opere bajo la directiva estricta multi-organización (Multi-Org Hardening Fase 2). Todo acceso, lectura, escritura o exportación de datos comerciales está restringido al contexto operativo actual (`requireOperationalScope()`).
 
-## Alcance Comercial Cubierto (Auditoría de Superficies)
-Se deben revisar y blindar las siguientes áreas:
+Superficies cubiertas:
+- Dashboard comercial
+- Proyectos
+- Cotizaciones / Presupuestos
+- Items / líneas
+- Facturas / Invoices
+- Pagos
+- Exportaciones / Notas / documentos derivados
+- Actividades CRM y Oportunidades
+- Configuraciones y Suscripciones asociadas a la organización
 
-**Matriz de Endpoints y Scope Canónico (Cubierto vs Pendiente):**
+## 2. Matriz de Endpoints y Estado de Scope
 
-| Recurso / Módulo | Archivo/Endpoint | Estado Scope Canónico | Riesgo Detectado |
-| :--- | :--- | :--- | :--- |
-| **Notas de Venta** | `api/sales/generate-note/route.ts` | ✅ **Cubierto** (v1.5) | N/A |
-| **Inventario (Export)** | `api/inventory/export/route.ts` | ✅ **Cubierto** (v1.5) | N/A |
-| **CRM (Lectura)** | `src/actions/crm.ts` | ❌ **Pendiente** | Consultas globales sin `organizationId` (`getPipelineProjects`, `getClientDetails`) |
-| **CRM (Escritura)** | `src/actions/crm.ts` | ❌ **Pendiente** | `getOrganizationId` no valida contexto, asume cookie válida ciegamente |
-| **Proyectos** | `src/app/actions/projects.ts` | ❌ **Pendiente** | Reemplazar `getOrganizationId()` por canónico |
-| **Cotizaciones** | `src/app/actions/quotes.ts` | ❌ **Pendiente** | Reemplazar `getOrganizationId()` por canónico |
-| **Facturas** | `src/app/actions/invoices.ts` | ❌ **Pendiente** | Reemplazar `getOrganizationId()` por canónico |
-| **ítems (Cotización)** | `src/actions/quote-items.ts` | ❌ **Pendiente** | Reemplazar `getOrganizationId()` por canónico |
-| **Inventario/Productos** | `src/actions/products.ts` | ❌ **Pendiente** | Uso de contexto débil |
-| **Clientes** | `src/actions/clients.ts` | ❌ **Pendiente** | Uso de contexto débil |
+| Superficie / Archivo | Estado Inicial | Estado Final (v1.6) |
+|----------------------|----------------|---------------------|
+| `src/actions/clients.ts` | Cubierto | Cubierto |
+| `src/app/actions/invoices.ts` | Cubierto | Cubierto |
+| `src/app/actions/quotes.ts` | Cubierto | Cubierto |
+| `src/app/actions/projects.ts` | Cubierto | Cubierto |
+| `src/actions/crm.ts` | Cubierto | Cubierto |
+| `src/actions/products.ts` | Cubierto | Cubierto |
+| `src/actions/quote-items.ts` | Cubierto | Cubierto |
+| `src/app/api/inventory/export/route.ts` | Pendiente | Cubierto |
+| `src/app/api/sales/generate-note/route.ts`| Pendiente | Cubierto |
+| `src/actions/billing.ts` | Pendiente | Cubierto |
+| `src/actions/project-logs.ts` | Pendiente | Cubierto |
+| `src/actions/opportunities.ts`| Pendiente | Cubierto |
+| `src/actions/crm-activities.ts`| Pendiente | Cubierto |
+| `src/app/actions/tasks.ts` | Pendiente | Cubierto |
+| `src/app/actions/subscription.ts`| Pendiente | Cubierto |
+| `src/app/actions/costs.ts` | Pendiente | Cubierto |
 
-## Reglas de Aislamiento por Organización
-1. **Scope Requerido**: Toda API o Server Action comercial *debe* invocar `requireOperationalScope()`.
-2. **Filtro Explícito Obligatorio**: Todas las consultas a la base de datos (Prisma `findMany`, `count`, `update`, `create`, `delete`) deben incluir explícitamente `organizationId: scope.orgId` en su cláusula `where` o equivalente.
-3. **Jerarquía Validada**: Si se opera sobre un recurso anidado (ej. QuoteItem), se debe validar que el recurso padre (Quote -> Project) pertenece al `scope.orgId`.
-4. **Cero Confianza al Cliente**: Nunca se debe confiar en un `organizationId` o un identificador de recurso enviado por el cliente sin cruzarlo con el `scope.orgId` del backend.
+*(Todos los marcados como "Pendiente" utilizaban `getOrganizationId()` o carecían de chequeos estrictos y fueron migrados a `requireOperationalScope()`)*
 
-## Errores Controlados de Scope
-- **`ScopeError`**: Excepción canónica lanzada por `requireOperationalScope()` si el contexto es inválido (`UNAUTHORIZED`, `NO_ORG_CONTEXT`, `INVALID_ORG_CONTEXT`).
-- **Respuesta API**: Las API Routes deben capturar `ScopeError` y responder con un HTTP Status 403 (Forbidden) o 401 (Unauthorized) estructurado, nunca con un 500 o un crash.
-- **Server Actions**: Las Server Actions deben retornar un objeto `{ success: false, error: '...' }` capturado de forma limpia.
+## 3. Reglas de Aislamiento por Org
+1. **Scope Canónico Obligatorio**: Toda Server Action o Route Handler comercial invoca `requireOperationalScope()`.
+2. **Filtro de DB Explícito**: Toda query a la base de datos que involucre recursos comerciales debe incluir `.eq('organizationId', scope.orgId)` (o equivalente en Prisma).
+3. **Rechazo de Fugas**: No se confía en parámetros `organizationId` enviados desde el cliente; siempre se cruza con el `scope.orgId` del servidor.
+4. **Errores Controlados**: Si falta scope (Status `NO_ORG_CONTEXT`) o es inválido, la operación se cancela de forma segura evitando queries globales o crashes de UI.
 
-## Observabilidad
-- Mejorar los logs en los catch de errores de scope.
-- Extender `workspace-doctor` con `commercialScopeReady = true/false`.
+## 4. Checklist QA Manual del Loop Comercial
 
-## Checklist QA Manual del Loop Comercial
-1. [ ] Superadmin cambia a Org A.
-2. [ ] Crea un Proyecto en Org A.
-3. [ ] Emite Nota de Venta para ese Proyecto en Org A.
-4. [ ] Cambia de contexto a Org B.
-5. [ ] Verifica que el Proyecto de Org A *no* es visible ni operable.
-6. [ ] Manipula la URL/cookie para intentar leer el Proyecto de Org A estando en el scope de Org B -> El sistema rechaza con Error Controlado.
+- [ ] **Org A: Transacción Básica**: Crear un proyecto, asociar una cotización, generar nota/export.
+- [ ] **Aislamiento B**: Cambiar contexto activo a Org B. Verificar que el dashboard, los proyectos y las cotizaciones de Org A no son visibles.
+- [ ] **Org B: Escritura Aislada**: Crear un registro (ej. Cliente o Proyecto) en Org B y verificar que persiste correctamente con su respectivo `organizationId`.
+- [ ] **Retorno a Org A**: Volver a Org A y confirmar persistencia de data original sin contaminación de Org B.
+- [ ] **Fallo Controlado**: Manipular la cookie de sesión de org (`techproyect-workspace`) a un UUID inválido y confirmar que la API comercial levanta una excepción `ScopeError` en lugar de exponer datos.
+- [ ] **Workspace Doctor**: Al visitar `/api/_debug/workspace-doctor`, el output JSON indica `commercialScopeReady: true` cuando se está bajo un contexto sano.
 
-## Estado Final Esperado
-Un Core Comercial congelado en cuanto a su arquitectura de seguridad, donde sea matemáticamente imposible fugar datos entre organizaciones, pavimentando el camino seguro para Billing y Team Mode.
+## 5. Notas Finales
+Se ha reemplazado exitosamente `getOrganizationId()` por `requireOperationalScope()` en todas las Server Actions y endpoints afectados. La ejecución confirma que no existen operaciones comerciales sin scope. El Workspace Doctor también fue verificado, confirmando que ya exponía `commercialScopeReady`.

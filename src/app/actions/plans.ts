@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getOrganizationId } from "@/lib/current-org";
 import { isSuperAdmin } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 

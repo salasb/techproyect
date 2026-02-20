@@ -1,7 +1,7 @@
 'use server'
 
 import prisma from "@/lib/prisma";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { revalidatePath } from "next/cache";
 import { CancellationReason, CancelOutcome, SubscriptionStatus } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
@@ -15,11 +15,12 @@ export async function logCancelIntent(data: {
     comment?: string;
     variant?: string;
 }) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!orgId || !user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Unauthorized");
 
     await prisma.cancelIntent.create({
         data: {
@@ -39,8 +40,8 @@ export async function logCancelIntent(data: {
  * Pauses a subscription for 30 days (Read-only mode).
  */
 export async function pauseSubscriptionAction() {
-    const orgId = await getOrganizationId();
-    if (!orgId) throw new Error("Unauthorized");
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
 
     await prisma.subscription.update({
         where: { organizationId: orgId },
@@ -70,8 +71,8 @@ export async function pauseSubscriptionAction() {
  * Downgrades a TEAM organization to SOLO.
  */
 export async function downgradeToSoloAction() {
-    const orgId = await getOrganizationId();
-    if (!orgId) throw new Error("Unauthorized");
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
 
     await prisma.organization.update({
         where: { id: orgId },

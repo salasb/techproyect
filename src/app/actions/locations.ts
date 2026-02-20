@@ -1,12 +1,13 @@
 'use server'
 
 import { createClient } from "@/lib/supabase/server";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { revalidatePath } from "next/cache";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function createLocation(data: { name: string; address?: string; type?: string }) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
     await ensureNotPaused(orgId);
     const supabase = await createClient();
 
@@ -33,7 +34,8 @@ export async function createLocation(data: { name: string; address?: string; typ
 
 export async function getLocations() {
     const supabase = await createClient();
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
 
     if (!orgId) return [];
 

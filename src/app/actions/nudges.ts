@@ -1,7 +1,7 @@
 'use server';
 
 import { NudgeService } from "@/services/nudge-service";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -9,26 +9,30 @@ import { revalidatePath } from "next/cache";
  * Fetches active nudges for the current user and organization.
  */
 export async function getActiveNudgesAction() {
-    const orgId = await getOrganizationId();
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+        const scope = await requireOperationalScope();
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-    if (!orgId || !user) return [];
+        if (!user) return [];
 
-    return NudgeService.getActiveNudges(orgId, user.id);
+        return NudgeService.getActiveNudges(scope.orgId, user.id);
+    } catch (e) {
+        return [];
+    }
 }
 
 /**
  * Dismisses a nudge.
  */
 export async function dismissNudgeAction(dedupeKey: string, snoozeHours?: number) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!orgId || !user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Unauthorized");
 
-    await NudgeService.dismissNudge(orgId, user.id, dedupeKey, snoozeHours);
+    await NudgeService.dismissNudge(scope.orgId, user.id, dedupeKey, snoozeHours);
     revalidatePath('/dashboard');
     return { success: true };
 }

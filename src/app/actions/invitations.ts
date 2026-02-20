@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getOrganizationId } from "@/lib/current-org";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ActivationService } from "@/services/activation-service";
 
 export async function inviteUser(formData: FormData) {
-    const orgId = await getOrganizationId();
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
 
     // 0. Check Subscription Limits
     const { checkSubscriptionLimit } = await import("@/lib/subscriptions");

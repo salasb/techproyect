@@ -1,7 +1,7 @@
 'use server';
 
 import { getStripe } from '@/lib/stripe';
-import { getOrganizationId } from '@/lib/current-org';
+import { requireOperationalScope } from '@/lib/auth/server-resolver';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { redirect } from 'next/navigation';
@@ -13,8 +13,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
  */
 export async function createCheckoutSession(priceId: string) {
     const stripe = getStripe();
-    const orgId = await getOrganizationId();
-    if (!orgId) throw new Error("No organization selected");
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -58,8 +58,8 @@ export async function createCheckoutSession(priceId: string) {
  */
 export async function createPortalSession() {
     const stripe = getStripe();
-    const orgId = await getOrganizationId();
-    if (!orgId) throw new Error("No organization selected");
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
 
     const subscription = await prisma.subscription.findUnique({
         where: { organizationId: orgId }
