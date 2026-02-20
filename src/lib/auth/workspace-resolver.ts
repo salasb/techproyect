@@ -18,8 +18,16 @@ export interface WorkspaceState {
     activeOrgId: string | null;
     organizations: { id: string; name: string; rut?: string | null; status?: string | null }[];
     userRole?: string;
+    isSuperadmin: boolean;
     error?: string;
     isAutoProvisioned?: boolean;
+    bootstrapDebug?: {
+        enabled: boolean;
+        allowlistMatched: boolean;
+        attempted: boolean;
+        promotedThisRequest: boolean;
+        error: string | null;
+    };
 }
 
 /**
@@ -49,7 +57,8 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 hasOrganizations: false,
                 organizationsCount: 0,
                 activeOrgId: null,
-                organizations: []
+                organizations: [],
+                isSuperadmin: false
             };
         }
 
@@ -61,7 +70,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
 
         const profilePromise = prisma.profile.findUnique({
             where: { id: user.id },
-            select: { role: true, organizationId: true }
+            select: { role: true, organizationId: true, name: true }
         });
 
         const [memberships, profile] = await fetchWithTimeout(Promise.all([membershipsPromise, profilePromise]));
@@ -73,8 +82,57 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 organizationsCount: 0,
                 activeOrgId: null,
                 organizations: [],
+                isSuperadmin: false,
                 error: 'Tu cuenta existe, pero el perfil interno no está listo.'
             };
+        }
+
+        let isSuperadmin = profile.role === 'SUPERADMIN';
+
+        let bootstrapDebug = {
+            enabled: process.env.SUPERADMIN_BOOTSTRAP_ENABLED === 'true',
+            allowlistMatched: false,
+            attempted: false,
+            promotedThisRequest: false,
+            error: null as string | null
+        };
+
+        // 2. Automagic Bootstrap Strategy
+        if (!isSuperadmin && user.email) {
+            bootstrapDebug.attempted = true;
+            if (bootstrapDebug.enabled) {
+                const allowlistEntry = process.env.SUPERADMIN_ALLOWLIST || '';
+                const allowedEmails = allowlistEntry.split(',').filter(Boolean).map(e => e.trim().toLowerCase());
+                if (allowedEmails.includes(user.email.toLowerCase())) {
+                    bootstrapDebug.allowlistMatched = true;
+                    try {
+                        await prisma.$transaction(async (tx) => {
+                            await tx.profile.update({
+                                where: { id: user.id },
+                                data: { role: 'SUPERADMIN' }
+                            });
+                            await tx.auditLog.create({
+                                data: {
+                                    userId: user.id,
+                                    action: 'SUPERADMIN_AUTO_BOOTSTRAP',
+                                    details: `User ${user.email} promoted automatically via resolver bootstrap.`,
+                                    userName: profile.name || user.email
+                                }
+                            });
+                        });
+                        isSuperadmin = true;
+                        // Actualizamos memoria local
+                        profile.role = 'SUPERADMIN';
+                        bootstrapDebug.promotedThisRequest = true;
+                        console.log(`[WorkspaceResolver] User ${user.email} naturally promoted to SUPERADMIN via ALLOWLIST.`);
+                    } catch (err: any) {
+                        console.error('[WorkspaceResolver] Failed to bootstrap superadmin:', err);
+                        bootstrapDebug.error = err.message;
+                    }
+                }
+            } else {
+                bootstrapDebug.error = "Bootstrap disabled by env flag";
+            }
         }
 
         let activeMemberships = memberships;
@@ -121,7 +179,9 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                     organizationsCount: 0,
                     activeOrgId: null,
                     organizations: [],
-                    userRole: profile.role
+                    userRole: profile.role,
+                    isSuperadmin,
+                    bootstrapDebug
                 };
             }
         }
@@ -178,7 +238,9 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 activeOrgId: null,
                 organizations: activeMemberships.map(m => m.organization),
                 userRole: profile.role,
-                isAutoProvisioned
+                isSuperadmin,
+                isAutoProvisioned,
+                bootstrapDebug
             };
         }
 
@@ -192,7 +254,9 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 activeOrgId: selectedOrg.id,
                 organizations: activeMemberships.map(m => m.organization),
                 userRole: profile.role,
-                isAutoProvisioned
+                isSuperadmin,
+                isAutoProvisioned,
+                bootstrapDebug
             };
         }
 
@@ -203,7 +267,9 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             activeOrgId,
             organizations: activeMemberships.map(m => m.organization),
             userRole: profile.role,
-            isAutoProvisioned
+            isSuperadmin,
+            isAutoProvisioned,
+            bootstrapDebug
         };
 
     } catch (error: any) {
@@ -214,6 +280,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             organizationsCount: 0,
             activeOrgId: null,
             organizations: [],
+            isSuperadmin: false,
             error: error.message || 'Error resolviendo workspace'
         };
     }

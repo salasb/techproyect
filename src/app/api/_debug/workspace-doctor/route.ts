@@ -64,6 +64,10 @@ export async function GET(request: Request) {
             activeOrgCounts = { projects, quotes, invoices };
         }
 
+        // Obtener estado real del resolver
+        const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+        const workspaceState = await getWorkspaceState();
+
         return NextResponse.json({
             status: 'OK',
             environment: {
@@ -75,8 +79,13 @@ export async function GET(request: Request) {
             },
             auth: {
                 userId: user.id,
-                email: user.email
+                email: user.email,
+                isSuperadmin: workspaceState.isSuperadmin,
+                profileRole: profile?.role || null,
+                workspaceStatus: workspaceState.status,
+                activeOrgResolved: workspaceState.activeOrgId
             },
+            bootstrap: workspaceState.bootstrapDebug || null,
             database: {
                 profileFound: !!profile,
                 profileData: profile,

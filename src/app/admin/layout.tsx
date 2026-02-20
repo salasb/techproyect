@@ -15,14 +15,11 @@ export default async function AdminLayout({
 
     if (!user) redirect("/login");
 
-    // Role check
-    const { data: profile } = await supabase
-        .from("Profile")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    // Role check via Workspace Resolver (Decoupled Identity)
+    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+    const workspace = await getWorkspaceState();
 
-    if (profile?.role !== "SUPERADMIN") {
+    if (!workspace.isSuperadmin) {
         redirect("/dashboard");
     }
 

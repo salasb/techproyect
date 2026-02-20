@@ -18,8 +18,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Unauthorized: No active session" }, { status: 401 });
         }
 
-        const allowlist = process.env.SUPERADMIN_ALLOWLIST?.split(',').map(e => e.trim()) || [];
-        if (!user.email || !allowlist.includes(user.email)) {
+        if (process.env.SUPERADMIN_BOOTSTRAP_ENABLED !== 'true') {
+            return NextResponse.json({ error: "Forbidden: Bootstrap mechanism is disabled by env flag" }, { status: 403 });
+        }
+
+        const allowlist = process.env.SUPERADMIN_ALLOWLIST?.split(',').filter(Boolean).map(e => e.trim().toLowerCase()) || [];
+        if (!user.email || !allowlist.includes(user.email.toLowerCase())) {
             return NextResponse.json({ error: "Forbidden: User email not in superadmin allowlist" }, { status: 403 });
         }
 

@@ -2,6 +2,40 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+
+export async function bootstrapSuperadminAction() {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user || !user.email) {
+            return { success: false, error: 'No user authenticated' };
+        }
+
+        const allowlistEntry = process.env.SUPERADMIN_ALLOWLIST;
+        if (!allowlistEntry) {
+            return { success: false, error: 'Bootstrap disabled: No allowlist configured' };
+        }
+
+        const allowedEmails = allowlistEntry.split(',').map(e => e.trim().toLowerCase());
+
+        if (!allowedEmails.includes(user.email.toLowerCase())) {
+            return { success: false, error: 'Unauthorized: Email not in allowlist' };
+        }
+
+        await prisma.profile.update({
+            where: { id: user.id },
+            data: { role: 'SUPERADMIN' }
+        });
+
+        revalidatePath('/dashboard');
+        revalidatePath('/admin');
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
 
 export async function approveOrgAction(organizationId: string) {
     try {

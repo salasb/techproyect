@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import Link from "next/link";
-import { QrCode, Building2 } from "lucide-react";
+import { QrCode, Building2, Shield } from "lucide-react";
 import { DashboardService } from "@/services/dashboardService";
 import { getDollarRate } from "@/services/currency";
 import { DEFAULT_VAT_RATE, DEFAULT_PAYMENT_TERMS_DAYS, YELLOW_THRESHOLD_DAYS, DEFAULT_CURRENCY } from "@/lib/constants";
@@ -46,6 +46,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const orgId = workspace.activeOrgId;
     const isSuperadmin = workspace.userRole === 'SUPERADMIN';
     const isDebugWorkspace = process.env.DEBUG_WORKSPACE === '1';
+
+    const allowlistEntry = process.env.SUPERADMIN_ALLOWLIST || '';
+    const allowedEmails = allowlistEntry.split(',').filter(Boolean).map(e => e.trim().toLowerCase());
+    const isBootstrapEnabled = process.env.SUPERADMIN_BOOTSTRAP_ENABLED === 'true';
+
+    let isEligibleForBootstrap = false;
+    if (!isSuperadmin && workspace.status !== 'NOT_AUTHENTICATED' && isBootstrapEnabled) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email && allowedEmails.includes(user.email.toLowerCase())) {
+            isEligibleForBootstrap = true;
+        }
+    }
 
     // 1. Fetch Data (Server Side)
     let settingsRes: any = { data: null };
@@ -194,6 +206,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
+            {isSuperadmin && (
+                <div className="bg-blue-600 rounded-xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 mb-6 animate-in slide-in-from-top-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white/20 rounded-lg">
+                            <Shield className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg">Panel de Control Global</h3>
+                            <p className="text-blue-100 text-sm">Gestiona organizaciones, licencias comp y aprobaciones comerciales.</p>
+                        </div>
+                    </div>
+                    <Link href="/admin/orgs" className="bg-white text-blue-700 hover:bg-blue-50 px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all whitespace-nowrap">
+                        Ir al Portal Admin
+                    </Link>
+                </div>
+            )}
+
             {isDataTimeout && (
                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between shadow-sm animate-in slide-in-from-top-4 gap-4 mb-6">
                     <div className="flex items-center gap-3">
@@ -227,8 +256,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
             )}
 
-            {workspace.status === 'NO_ORG' && !isExplore && (
+            {workspace.status === 'NO_ORG' && !isExplore && !isSuperadmin && (
                 <WorkspaceSetupBanner />
+            )}
+
+            {workspace.status === 'NO_ORG' && !isExplore && isSuperadmin && (
+                <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
+                    <h2 className="text-xl font-bold text-blue-800 dark:text-blue-400 mb-2">Modo Administrador Activo</h2>
+                    <p className="text-blue-900/80 dark:text-blue-400/80 mb-4 max-w-xl mx-auto">
+                        Eres Superadmin. Selecciona una organización para operar o crea una nueva si deseas participar activamente en un entorno.
+                    </p>
+                    <Link href="/org/select" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
+                        Seleccionar o Crear Organización
+                    </Link>
+                </div>
             )}
 
             {workspace.status === 'ORG_MULTI_NO_SELECTION' && !isExplore && (
