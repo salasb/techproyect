@@ -61,7 +61,7 @@ export async function login(formData: FormData) {
         if (profile?.role === 'SUPERADMIN') {
             redirect('/admin')
         } else {
-            redirect('/dashboard') // Explicitly go to dashboard for tenants
+            redirect('/dashboard')
         }
     }
 

@@ -5,9 +5,11 @@ export default async function Home() {
   const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
   const workspace = await getWorkspaceState();
   
-  if (workspace.isSuperadmin && !workspace.activeOrgId) {
+  // Superadmin always lands on Global Cockpit by default
+  if (workspace.isSuperadmin) {
     redirect('/admin');
   }
   
+  // Tenants go to dashboard (which handles its own context resolution)
   redirect('/dashboard');
 }

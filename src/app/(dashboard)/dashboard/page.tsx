@@ -59,11 +59,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const orgId = workspace.activeOrgId;
     const isSuperadmin = workspace.userRole === 'SUPERADMIN';
 
-    // Canonical landing for Superadmin without context
-    if (isSuperadmin && !orgId && !isExplore) {
-        console.log("[Dashboard] Superadmin without org context. Redirecting to /admin...");
-        const { redirect } = await import("next/navigation");
-        redirect('/admin');
+    // 0.5 Strict Context Guard
+    if (!orgId && !isExplore) {
+        if (isSuperadmin) {
+            console.log("[DashboardGuard] Superadmin without context at /dashboard. Redirecting to /admin.");
+            const { redirect } = await import("next/navigation");
+            redirect('/admin');
+        } else {
+            console.log("[DashboardGuard] Tenant without context at /dashboard. Redirecting to /start.");
+            const { redirect } = await import("next/navigation");
+            redirect('/start');
+        }
     }
 
     const isDebugWorkspace = process.env.DEBUG_WORKSPACE === '1';
