@@ -1,0 +1,180 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - region "Notifications alt+T"
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - img "TechWise" [ref=e6]
+          - generic [ref=e7]:
+            - generic [ref=e8]: v1.0.194
+            - generic [ref=e9]: "Updated: 20-02-2026"
+        - navigation [ref=e10]:
+          - generic [ref=e11]:
+            - heading "Command Center" [level=3] [ref=e12]
+            - link "Ir a Dashboard" [ref=e13] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [ref=e14]:
+                - img [ref=e15]
+                - text: Dashboard
+          - generic [ref=e20]:
+            - heading "Vender" [level=3] [ref=e21]
+            - link "Ir a Oportunidades" [ref=e22] [cursor=pointer]:
+              - /url: /crm/pipeline
+              - generic [ref=e23]:
+                - img [ref=e24]
+                - text: Oportunidades
+            - link "Ir a Cotizaciones" [ref=e27] [cursor=pointer]:
+              - /url: /quotes
+              - generic [ref=e28]:
+                - img [ref=e29]
+                - text: Cotizaciones
+            - link "Ir a Clientes" [ref=e32] [cursor=pointer]:
+              - /url: /clients
+              - generic [ref=e33]:
+                - img [ref=e34]
+                - text: Clientes
+          - generic [ref=e39]:
+            - heading "Ejecutar" [level=3] [ref=e40]
+            - link "Ir a Proyectos" [ref=e41] [cursor=pointer]:
+              - /url: /projects
+              - generic [ref=e42]:
+                - img [ref=e43]
+                - text: Proyectos
+            - link "Ir a Calendario" [ref=e45] [cursor=pointer]:
+              - /url: /crm/calendar
+              - generic [ref=e46]:
+                - img [ref=e47]
+                - text: Calendario
+          - generic [ref=e49]:
+            - heading "Cobrar" [level=3] [ref=e50]
+            - link "Ir a Facturación" [ref=e51] [cursor=pointer]:
+              - /url: /invoices
+              - generic [ref=e52]:
+                - img [ref=e53]
+                - text: Facturación
+          - generic [ref=e56]:
+            - heading "Inventario" [level=3] [ref=e57]
+            - link "Ir a Catálogo" [ref=e58] [cursor=pointer]:
+              - /url: /catalog
+              - generic [ref=e59]:
+                - img [ref=e60]
+                - text: Catálogo
+            - link "Ir a Ubicaciones" [ref=e64] [cursor=pointer]:
+              - /url: /inventory/locations
+              - generic [ref=e65]:
+                - img [ref=e66]
+                - text: Ubicaciones
+            - link "Ir a Escáner QR" [ref=e69] [cursor=pointer]:
+              - /url: /inventory/scan
+              - generic [ref=e70]:
+                - img [ref=e71]
+                - text: Escáner QR
+          - generic [ref=e77]:
+            - heading "Reportes" [level=3] [ref=e78]
+            - link "Ir a Análisis" [ref=e79] [cursor=pointer]:
+              - /url: /reports
+              - generic [ref=e80]:
+                - img [ref=e81]
+                - text: Análisis
+        - button "US Usuario" [ref=e84]:
+          - generic [ref=e85]: US
+          - generic [ref=e86]:
+            - paragraph [ref=e87]: Usuario
+            - paragraph
+          - img [ref=e88]
+    - generic [ref=e90]:
+      - banner [ref=e91]:
+        - generic [ref=e94]:
+          - img [ref=e95]
+          - textbox "Buscar proyectos o clientes..." [ref=e98]
+        - generic [ref=e99]:
+          - button "E2E Test Org (ac8406ae) PRO" [ref=e100]:
+            - generic [ref=e101]:
+              - img [ref=e103]
+              - generic [ref=e107]:
+                - generic [ref=e108]: E2E Test Org (ac8406ae)
+                - generic [ref=e111]: PRO
+            - img [ref=e112]
+          - button "Toggle theme" [ref=e114]:
+            - img [ref=e116]
+            - generic [ref=e122]: Toggle theme
+          - button "1" [ref=e124]:
+            - img [ref=e125]
+            - generic [ref=e128]: "1"
+      - main [ref=e129]:
+        - generic [ref=e131]:
+          - generic [ref=e132]:
+            - generic [ref=e133]:
+              - heading "Command Center" [level=2] [ref=e134]
+              - paragraph [ref=e135]: Visión estratégica y operativa en tiempo real.
+            - generic [ref=e136]:
+              - link "QR" [ref=e137] [cursor=pointer]:
+                - /url: /inventory/scan
+                - button "QR" [ref=e138]:
+                  - img [ref=e139]
+                  - text: QR
+              - button "Exportar Reporte" [ref=e146]:
+                - img [ref=e147]
+                - text: Exportar Reporte
+                - img [ref=e150]
+              - generic [ref=e152]:
+                - button "Últimos 30 días" [ref=e153]
+                - button "Últimos 6 Meses" [ref=e154]
+                - button "Último Año" [ref=e155]
+                - button "Todo" [ref=e156]
+              - link "+ Nuevo Proyecto" [ref=e157] [cursor=pointer]:
+                - /url: /projects/new
+                - button "+ Nuevo Proyecto" [ref=e158]:
+                  - generic [ref=e159]: +
+                  - text: Nuevo Proyecto
+          - generic [ref=e160]:
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - img [ref=e164]
+                - generic [ref=e167]:
+                  - heading "Guía de Activación" [level=3] [ref=e168]
+                  - paragraph [ref=e169]: Completa estos pasos para dominar TechWise.
+              - generic [ref=e172]: 0% Completado
+            - generic [ref=e173]:
+              - generic [ref=e177]:
+                - generic [ref=e178]:
+                  - heading "Crea tu primer proyecto" [level=4] [ref=e179]
+                  - link "Crear Proyecto" [ref=e180] [cursor=pointer]:
+                    - /url: /projects/new
+                    - button "Crear Proyecto" [ref=e181]:
+                      - text: Crear Proyecto
+                      - img [ref=e182]
+                - paragraph [ref=e184]: Define el nombre y presupuesto para organizar tus costos.
+                - paragraph [ref=e185]: ✨ Importante para centralizar toda la documentación comercial.
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic:
+                    - heading "Crea un borrador de cotización" [level=4]
+                  - paragraph: Agrega ítems, materiales o servicios a tu proyecto.
+                  - paragraph: ✨ Permite proyectar márgenes y utilidades antes de enviar.
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic:
+                    - heading "Envía la primera cotización" [level=4]
+                  - paragraph: Descarga el PDF o envíalo directamente al cliente.
+                  - paragraph: ✨ Acelera el cierre de negocios con formatos profesionales.
+          - generic [ref=e186]:
+            - img [ref=e188]
+            - heading "Tu sistema está listo para operar" [level=3] [ref=e194]
+            - paragraph [ref=e195]: Comienza a estructurar tus operaciones creando tu primer proyecto o registrando un cliente en la base de datos. Los indicadores financieros se activarán automáticamente una vez que tengas flujo de datos.
+            - generic [ref=e196]:
+              - link "Crear primer proyecto" [ref=e197] [cursor=pointer]:
+                - /url: /projects/new
+              - link "Registrar clientes" [ref=e198] [cursor=pointer]:
+                - /url: /clients
+  - button "Open Next.js Dev Tools" [ref=e204] [cursor=pointer]:
+    - img [ref=e205]
+  - alert [ref=e208]
+```

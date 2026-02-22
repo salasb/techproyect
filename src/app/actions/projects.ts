@@ -33,7 +33,7 @@ export async function createProject(formData: FormData) {
         throw new Error(validation.errors.join(", "));
     }
 
-    const supabase = await createClient();
+    const prisma = (await import("@/lib/prisma")).default;
 
     let finalCompanyId = companyId;
     let finalClientId: string | null = null;
@@ -44,25 +44,23 @@ export async function createProject(formData: FormData) {
         finalClientId = selectedClientId;
 
         // Fetch Client Name to sync/find Company
-        const { data: clientData } = await supabase.from('Client').select('name').eq('id', selectedClientId).single();
+        const clientData = await prisma.client.findUnique({ where: { id: selectedClientId } });
         if (clientData) {
             const clientName = clientData.name;
             // Check if company exists with same name
-            const { data: existingCompany } = await supabase.from('Company').select('id').eq('name', clientName).single();
+            const existingCompany = await prisma.company.findFirst({ where: { name: clientName, organizationId: scope.orgId } });
 
             if (existingCompany) {
                 finalCompanyId = existingCompany.id;
             } else {
                 // Create Company for this Client (Sync)
-                const { data: newCompany, error: createError } = await supabase
-                    .from('Company')
-                    .insert({
+                const newCompany = await prisma.company.create({
+                    data: {
                         id: crypto.randomUUID(),
                         name: clientName,
                         organizationId: scope.orgId
-                    })
-                    .select()
-                    .single();
+                    }
+                });
 
                 if (newCompany) {
                     finalCompanyId = newCompany.id;
@@ -75,23 +73,18 @@ export async function createProject(formData: FormData) {
 
     // Si seleccionó crear nueva empresa (legacy/direct flow)
     if (companyId === "new" && newCompanyName) {
-        // Create company with Supabase
-        const { data: newCompany, error: companyError } = await supabase
-            .from('Company')
-            .insert({
+        // Create company with Prisma
+        const newCompany = await prisma.company.create({
+            data: {
                 id: crypto.randomUUID(),
                 name: newCompanyName,
                 organizationId: scope.orgId
-                // createdAt/updatedAt removed as they don't exist in Company model
-            })
-            .select()
-            .single();
+            }
+        });
 
-        if (companyError || !newCompany) {
-            throw new Error(`Error creating company: ${companyError?.message}`);
+        if (newCompany) {
+            finalCompanyId = newCompany.id;
         }
-
-        finalCompanyId = newCompany.id;
     }
 
     // W0: Allow empty/no customer selected
@@ -105,30 +98,28 @@ export async function createProject(formData: FormData) {
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
     const projectId = `PRJ-${dateStr}-${randomSuffix}`;
-    const { data: project, error: projectError } = await supabase
-        .from('Project')
-        .insert({
-            id: projectId,
-            organizationId: scope.orgId,
-            name,
-            companyId: finalCompanyId,
-            clientId: finalClientId,
-            status: "EN_ESPERA",
-            stage: "LEVANTAMIENTO",
-            startDate: new Date(startDate).toISOString(),
-            plannedEndDate: formData.get("plannedEndDate") ? new Date(formData.get("plannedEndDate") as string).toISOString() : new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1)).toISOString(),
-            budgetNet: budget,
-            responsible: "TBD",
-            scopeDetails: formData.get("scopeDetails") as string || null,
-            nextAction: formData.get("nextAction") as string || 'Preparar Cotización',
-            nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : new Date(startDate).toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdAt: new Date().toISOString()
-        })
-        .select()
-        .single();
 
-    if (projectError || !project) {
+    let project;
+    try {
+        project = await prisma.project.create({
+            data: {
+                id: projectId,
+                organizationId: scope.orgId,
+                name,
+                companyId: finalCompanyId,
+                clientId: finalClientId,
+                status: "EN_ESPERA",
+                stage: "LEVANTAMIENTO",
+                startDate: new Date(startDate).toISOString(),
+                plannedEndDate: formData.get("plannedEndDate") ? new Date(formData.get("plannedEndDate") as string).toISOString() : new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1)).toISOString(),
+                budgetNet: budget,
+                responsible: "TBD",
+                scopeDetails: formData.get("scopeDetails") as string || null,
+                nextAction: formData.get("nextAction") as string || 'Preparar Cotización',
+                nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : new Date(startDate).toISOString(),
+            }
+        });
+    } catch (projectError: any) {
         throw new Error(`Error creating project: ${projectError?.message}`);
     }
 

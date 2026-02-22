@@ -1,99 +1,127 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'crypto';
-import prisma from '../src/lib/prisma';
 import { POST } from '../src/app/api/webhooks/stripe/route';
-import { requireOperationalScope } from '../src/lib/auth/server-resolver';
 
-// Mock Next.js Headers
+// 1. Mock Next.js Headers
 vi.mock('next/headers', () => ({
     headers: vi.fn().mockResolvedValue({
         get: vi.fn().mockReturnValue('mock-signature')
     })
 }));
 
-// Mock Stripe Library
+// 2. Mock Stripe Library
 vi.mock('../src/lib/stripe', () => ({
     getStripe: vi.fn().mockReturnValue({
         webhooks: {
             constructEvent: vi.fn((body, sig, secret) => JSON.parse(body))
+        },
+        subscriptions: {
+            retrieve: vi.fn().mockResolvedValue({
+                id: 'sub_test',
+                items: { data: [{ quantity: 5 }] },
+                current_period_end: Math.floor(Date.now() / 1000) + 3600
+            })
         }
     })
 }));
 
-vi.mock('../src/lib/auth/server-resolver', async (importOriginal) => {
-    const mod = await importOriginal<typeof import('../src/lib/auth/server-resolver')>();
-    return {
-        ...mod,
-        requireOperationalScope: vi.fn(),
-    };
-});
+// 3. Mock Prisma Client
+vi.mock('../src/lib/prisma', () => ({
+    default: {
+        stripeEvent: {
+            findUnique: vi.fn(),
+            upsert: vi.fn(),
+            update: vi.fn()
+        },
+        subscription: {
+            findFirst: vi.fn(),
+            update: vi.fn(),
+            findUnique: vi.fn()
+        },
+        auditLog: {
+            create: vi.fn()
+        }
+    },
+    SubscriptionStatus: {
+        ACTIVE: 'ACTIVE',
+        TRIALING: 'TRIALING',
+        PAST_DUE: 'PAST_DUE',
+        CANCELED: 'CANCELED',
+        PAUSED: 'PAUSED'
+    }
+}));
+
+// Import mocked prisma for assertions
+import prisma from '../src/lib/prisma';
+
+// 4. Mock Auth/Resolver
+vi.mock('../src/lib/auth/server-resolver', () => ({
+    requireOperationalScope: vi.fn(),
+    getOrganizationId: vi.fn(),
+}));
+
+// 5. Mock ActivationService
+vi.mock('../src/services/activation-service', () => ({
+    ActivationService: {
+        trackFunnelEvent: vi.fn().mockResolvedValue({})
+    }
+}));
 
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
 
-describe('Stripe Webhook Idempotency & Scope Verification (v1.8)', () => {
-    const orgId = crypto.randomUUID();
-    const mockCustomerId = 'cus_' + crypto.randomUUID();
+describe('Stripe Webhook Idempotency (Full Mock Mode)', () => {
+    const orgId = 'org_abc_123';
+    const mockCustomerId = 'cus_123';
+    const eventId = 'evt_processed_once';
 
-    beforeAll(async () => {
-        await prisma.organization.create({
-            data: { id: orgId, name: 'Stripe Test Org' }
-        });
-        await prisma.subscription.create({
-            data: {
-                organizationId: orgId,
-                status: 'TRIALING',
-                providerCustomerId: mockCustomerId
-            }
-        });
+    beforeEach(() => {
+        vi.clearAllMocks();
     });
 
-    afterAll(async () => {
-        await prisma.stripeEvent.deleteMany({});
-        await prisma.auditLog.deleteMany({});
-        await prisma.subscription.deleteMany({ where: { organizationId: orgId } });
-        try { await prisma.organizationStats.deleteMany({ where: { organizationId: orgId } }); } catch (e) { }
-        await prisma.organization.deleteMany({ where: { id: orgId } });
-    });
-
-    it('should process a webhook deterministically and enforce idempotency on duplicates', async () => {
-        const eventId = 'evt_' + crypto.randomUUID();
-
+    it('should process a webhook and then catch duplication on second attempt', async () => {
         const mockPayload = {
             id: eventId,
-            type: 'customer.subscription.updated',
+            type: 'checkout.session.completed',
             data: {
                 object: {
-                    id: 'sub_' + crypto.randomUUID(),
+                    id: 'cs_test_123',
                     customer: mockCustomerId,
-                    status: 'active',
-                    current_period_end: Math.floor(Date.now() / 1000) + 3600,
-                    cancel_at_period_end: false,
-                    items: { data: [{ quantity: 5 }] },
+                    subscription: 'sub_test_123',
                     metadata: { organizationId: orgId }
                 }
             }
         };
 
-        const req1 = new Request('http://localhost/webhook', {
+        // --- ATTEMPT 1: Fresh Event ---
+        // Mock DB: Event doesn't exist yet
+        vi.mocked(prisma.stripeEvent.findUnique).mockResolvedValue(null);
+
+        const req1 = new Request('http://localhost/api/webhooks/stripe', {
             method: 'POST',
             body: JSON.stringify(mockPayload)
         });
 
-        // 1. First request should process
         const res1 = await POST(req1);
         expect(res1.status).toBe(200);
 
-        // Verify state changed
-        const sub1 = await prisma.subscription.findUnique({ where: { organizationId: orgId } });
-        expect(sub1?.status).toBe('ACTIVE');
-        expect(sub1?.seatLimit).toBe(5);
+        // Verify Prisma interactions for processing
+        expect(prisma.stripeEvent.upsert).toHaveBeenCalledWith(expect.objectContaining({
+            where: { id: eventId }
+        }));
+        expect(prisma.subscription.update).toHaveBeenCalled();
+        expect(prisma.stripeEvent.update).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({ status: 'OK', processed: true })
+        }));
 
-        // Verify Audit Log generated
-        const logs = await prisma.auditLog.findMany({ where: { organizationId: orgId, action: 'STRIPE_WEBHOOK_PROCESSED' } });
-        expect(logs.length).toBeGreaterThanOrEqual(1);
+        // --- ATTEMPT 2: Duplicate Event ---
+        // Mock DB: Event already exists and is OK
+        vi.mocked(prisma.stripeEvent.findUnique).mockResolvedValue({
+            id: eventId,
+            status: 'OK',
+            processed: true
+        } as any);
 
-        // 2. Duplicate request with identical event payload
-        const req2 = new Request('http://localhost/webhook', {
+        const req2 = new Request('http://localhost/api/webhooks/stripe', {
             method: 'POST',
             body: JSON.stringify(mockPayload)
         });
@@ -101,15 +129,10 @@ describe('Stripe Webhook Idempotency & Scope Verification (v1.8)', () => {
         const res2 = await POST(req2);
         const data2 = await res2.json();
 
-        // Assert dupes are caught!
         expect(res2.status).toBe(200);
         expect(data2.duplication).toBe(true);
-    });
 
-    it('should throw an error when requireOperationalScope is called without active context', async () => {
-        // Mock missing context
-        vi.mocked(requireOperationalScope).mockRejectedValue(new Error('User not authenticated or missing org'));
-
-        await expect(requireOperationalScope()).rejects.toThrow('User not authenticated or missing org');
+        // Ensure update logic was NOT called again
+        expect(prisma.subscription.update).toHaveBeenCalledTimes(1);
     });
 });

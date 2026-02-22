@@ -170,7 +170,7 @@ export async function deleteClientAction(clientId: string) {
 export async function createQuickClient(formData: FormData) {
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
-    const supabase = await createClient();
+    const prisma = (await import("@/lib/prisma")).default;
 
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
@@ -179,47 +179,51 @@ export async function createQuickClient(formData: FormData) {
 
     const clientId = crypto.randomUUID();
 
-    const { data, error } = await supabase.from('Client').insert({
-        id: clientId,
-        organizationId: scope.orgId,
-        name,
-        email,
-        phone,
-        status: 'PROSPECT', // Default for quick creation
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString()
-    }).select().single();
-
-    if (error) return { success: false, error: error.message };
-
-    // [Activation] Track Milestone
-    await ActivationService.trackFirst('FIRST_CLIENT_CREATED', scope.orgId, undefined, clientId);
-
-    // Handle multiple contacts if provided
-    if (contactsJson) {
-        try {
-            const contactsList = JSON.parse(contactsJson);
-            if (Array.isArray(contactsList) && contactsList.length > 0) {
-                const contactsToInsert = contactsList.map((c: any) => ({
-                    id: crypto.randomUUID(),
-                    clientId,
-                    organizationId: scope.orgId,
-                    name: c.name || '',
-                    role: c.role || '',
-                    email: c.email || '',
-                    phone: c.phone || '',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                }));
-
-                const { error: contactsError } = await supabase.from('Contact').insert(contactsToInsert);
-                if (contactsError) console.error("Error inserting contacts in quick create:", contactsError);
+    try {
+        const newClient = await prisma.client.create({
+            data: {
+                id: clientId,
+                organizationId: scope.orgId,
+                name,
+                email: email || null,
+                phone: phone || null,
+                status: 'PROSPECT',
             }
-        } catch (e) {
-            console.error("Failed to parse contacts JSON in quick create:", e);
-        }
-    }
+        });
 
-    revalidatePath('/clients');
-    return { success: true, client: data };
+        // [Activation] Track Milestone
+        await ActivationService.trackFirst('FIRST_CLIENT_CREATED', scope.orgId, undefined, clientId);
+
+        // Handle multiple contacts if provided
+        if (contactsJson) {
+            try {
+                const contactsList = JSON.parse(contactsJson);
+                if (Array.isArray(contactsList) && contactsList.length > 0) {
+                    const contactsToInsert = contactsList.map((c: any) => ({
+                        id: crypto.randomUUID(),
+                        clientId,
+                        organizationId: scope.orgId,
+                        name: c.name || '',
+                        role: c.role || '',
+                        email: c.email || '',
+                        phone: c.phone || '',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    }));
+
+                    await prisma.contact.createMany({
+                        data: contactsToInsert
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to parse/insert contacts JSON in quick create:", e);
+            }
+        }
+
+        revalidatePath('/clients');
+        return { success: true, client: newClient };
+    } catch (error: any) {
+        console.error("Error en createQuickClient:", error);
+        return { success: false, error: error.message || "Error al crear cliente" };
+    }
 }

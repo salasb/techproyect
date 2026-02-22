@@ -6,8 +6,8 @@ test.describe('Domain Hop Workspace Resolution (Smoke)', () => {
         // En un test real habría que sembrar la Base de datos con usuario de exactamente 1 Org y Profile.organizationId 
         // y NO mandar la cookie app-org-id (simulando que venimos de otro subdominio)
 
-        // Simular borrado de cookie de la URL principal
-        await page.context().clearCookies();
+        // Simular borrado de cookie de session de org (NO de autenticación)
+        await page.context().clearCookies({ name: 'app-org-id' });
 
         await page.goto('/dashboard');
 
@@ -18,11 +18,11 @@ test.describe('Domain Hop Workspace Resolution (Smoke)', () => {
         await expect(setupBanner).toHaveCount(0);
 
         // Debería ver el dashboard normal de su única empresa
-        await expect(page.locator('button', { hasText: 'Seleccionar Org' }).or(page.locator('button:has(.lucide-building-2)'))).toBeVisible();
+        await expect(page.locator('h2', { hasText: 'Command Center' })).toBeVisible();
     });
 
     test('Usuario con N Orgs que pierde cookie y NO tiene LastActiveOrg congruente -> Pide Seleccion', async ({ page }) => {
-        await page.context().clearCookies();
+        await page.context().clearCookies({ name: 'app-org-id' });
         await page.goto('/dashboard');
 
         // El Resolver en Node Runtime al ver activeMemberships.length > 1 y sin cookie válida,

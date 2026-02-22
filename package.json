@@ -1,6 +1,6 @@
 {
   "name": "tech-proyect",
-  "version": "1.0.194",
+  "version": "1.0.195",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -55,6 +55,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.16.0",

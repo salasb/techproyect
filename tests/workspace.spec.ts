@@ -54,6 +54,6 @@ test.describe('Workspace Resolution & Onboarding (Smoke)', () => {
         await expect(page.locator('text=Sesión de trabajo no especificada')).toHaveCount(0);
 
         // Debería ver los widgets vacíos o el Command Center global
-        await expect(page.locator('text=Command Center')).toBeVisible();
+        await expect(page.locator('h2', { hasText: 'Command Center' })).toBeVisible();
     });
 });

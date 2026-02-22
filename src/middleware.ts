@@ -42,8 +42,8 @@ export async function updateSession(request: NextRequest) {
         return response;
     }
 
-    // 1.5 Bypass for forensics
-    if (request.nextUrl.pathname.startsWith('/api/forensics')) {
+    // 1.5 Bypass for forensics and E2E endpoints
+    if (request.nextUrl.pathname.startsWith('/api/forensics') || request.nextUrl.pathname.startsWith('/api/e2e')) {
         return response;
     }
 
