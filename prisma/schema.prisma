@@ -360,6 +360,7 @@ model Organization {
   purchaseOrderItems PurchaseOrderItem[]
   poCounter          Int                  @default(0)
   purchaseOrderReceipts PurchaseOrderReceipt[]
+  superadminAlerts   SuperadminAlert[]
 
   @@schema("public")
 }
@@ -1005,6 +1006,69 @@ model ShareLink {
 enum ShareLinkType {
   QUOTE
   INVOICE
+
+  @@schema("public")
+}
+
+model SuperadminAlert {
+  id             String                @id @default(uuid())
+  organizationId String?               @db.Uuid
+  type           SuperadminAlertType
+  severity       SuperadminAlertSeverity
+  title          String
+  description    String
+  reasonCodes    String[]              // Array of strings/codes
+  status         SuperadminAlertStatus  @default(ACTIVE)
+  metadata       Json?                 @default("{}")
+  fingerprint    String                @unique // OrgId:Type or Global:Type
+  detectedAt     DateTime              @default(now())
+  resolvedAt     DateTime?
+  updatedAt      DateTime              @updatedAt
+  organization   Organization?         @relation(fields: [organizationId], references: [id])
+  notifications  SuperadminNotification[]
+
+  @@schema("public")
+}
+
+model SuperadminNotification {
+  id          String    @id @default(uuid())
+  alertId     String?
+  actorTarget String    @default("SUPERADMIN") // Global or specific
+  kind        String    // ALERT_OPEN, INFO, etc.
+  title       String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+  metadata    Json?     @default("{}")
+  alert       SuperadminAlert? @relation(fields: [alertId], references: [id])
+
+  @@schema("public")
+}
+
+enum SuperadminAlertType {
+  BILLING_PAST_DUE
+  TRIAL_ENDING_SOON
+  BILLING_NOT_CONFIGURED
+  NO_ADMINS_ASSIGNED
+  INACTIVE_ORG
+  WEBHOOK_ERRORS_RECENT
+  SYSTEM_INFO
+
+  @@schema("public")
+}
+
+enum SuperadminAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+
+  @@schema("public")
+}
+
+enum SuperadminAlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
 
   @@schema("public")
 }
