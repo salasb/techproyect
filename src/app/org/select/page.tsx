@@ -43,6 +43,7 @@ export default async function SelectOrgPage() {
                             }}>
                                 <button
                                     type="submit"
+                                    data-testid={`org-select-${member.organization.name}`}
                                     className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group"
                                 >
                                     <div className="flex items-center">

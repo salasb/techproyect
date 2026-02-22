@@ -51,7 +51,7 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild data-testid="org-switcher-trigger">
                 <Button variant="ghost" className="h-auto py-2 px-3 group flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-800 rounded-xl">
                     <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm ring-1 ring-white/20">
@@ -89,7 +89,7 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                     <ChevronDown className="h-4 w-4 text-slate-400 ml-1 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-72 p-2 shadow-2xl border-slate-200 dark:border-slate-800">
+            <DropdownMenuContent align="start" data-testid="org-switcher-content" className="w-72 p-2 shadow-2xl border-slate-200 dark:border-slate-800">
                 <DropdownMenuLabel className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
                     Tus Organizaciones
                 </DropdownMenuLabel>
@@ -103,6 +103,7 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                     ) : organizations.map((org) => (
                         <DropdownMenuItem
                             key={org.id}
+                            data-testid={`org-item-${org.name}`}
                             className={cn(
                                 "flex items-center justify-between px-3 py-2.5 cursor-pointer rounded-lg transition-colors",
                                 org.id === currentOrgId ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"

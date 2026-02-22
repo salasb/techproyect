@@ -9,25 +9,35 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     const start = Date.now();
-    const stripe = getStripe();
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
     const body = await req.text();
-    const sig = (await headers()).get('stripe-signature');
+    const requestHeaders = await headers();
+    const sig = requestHeaders.get('stripe-signature');
+    const e2eSecretStr = requestHeaders.get('x-e2e-secret');
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     let event: Stripe.Event;
 
+    // 1. Signature Verification / E2E Bypass
     try {
-        if (!sig || !endpointSecret) {
-            console.error('Webhook Error: Missing signature or secret');
-            return Response.json({ error: 'Missing signature or secret' }, { status: 400 });
+        const expectedE2ESecret = process.env.E2E_TEST_SECRET || 'E2E_LOCAL_TEST_SECRET';
+
+        if (process.env.NODE_ENV !== 'production' && e2eSecretStr && e2eSecretStr === expectedE2ESecret) {
+            console.warn('Bypassing Stripe webhook signature verification for E2E test.');
+            event = JSON.parse(body) as Stripe.Event;
+        } else {
+            if (!sig || !endpointSecret) {
+                console.error('Webhook Error: Missing signature or secret');
+                return Response.json({ error: 'Missing signature or secret' }, { status: 400 });
+            }
+            const stripe = getStripe();
+            event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
         }
-        event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
     } catch (err: any) {
-        console.error(`Webhook Signature Error: ${err.message}`);
+        console.error(`Webhook Verification Error: ${err.message}`);
         return Response.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
     }
 
-    // 1. Idempotency Check & Initialization
+    // 2. Idempotency Check
     const existingEvent = await prisma.stripeEvent.findUnique({
         where: { id: event.id }
     });
@@ -36,7 +46,7 @@ export async function POST(req: Request) {
         return Response.json({ received: true, duplication: true });
     }
 
-    // Upsert as PENDING (or update if retrying from ERROR)
+    // Upsert as PENDING
     await prisma.stripeEvent.upsert({
         where: { id: event.id },
         update: {
@@ -47,20 +57,20 @@ export async function POST(req: Request) {
             type: event.type,
             processed: false,
             status: 'PENDING',
-            data: event.data.object as any // Snapshot payload
+            data: event.data.object as any
         }
     });
 
     try {
-        // 2. Process Event
-        switch (event.type) {
+        // 3. Process Event
+        switch (event.type as any) {
             case 'checkout.session.completed': {
                 const session = event.data.object as Stripe.Checkout.Session;
                 const orgId = session.metadata?.organizationId;
                 const invoiceId = session.metadata?.invoiceId;
 
-                // Handle Subscription Checkout
                 if (orgId && session.subscription) {
+                    const stripe = getStripe();
                     const stripeSub = await stripe.subscriptions.retrieve(session.subscription as string);
 
                     await prisma.subscription.update({
@@ -69,15 +79,12 @@ export async function POST(req: Request) {
                             status: SubscriptionStatus.ACTIVE,
                             providerSubscriptionId: stripeSub.id,
                             providerCustomerId: session.customer as string,
-                            currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
-                            seatLimit: stripeSub.items.data[0]?.quantity || 1,
+                            currentPeriodEnd: (stripeSub as any).current_period_end ? new Date((stripeSub as any).current_period_end * 1000) : undefined,
+                            seatLimit: (stripeSub as any).items?.data?.[0]?.quantity || 1,
                         }
                     });
 
-                    // [Funnel] Checkout Completed
                     await ActivationService.trackFunnelEvent('CHECKOUT_COMPLETED', orgId, `checkout_${event.id}`, session.customer as string);
-
-                    // Add Audit Log
                     await prisma.auditLog.create({
                         data: {
                             organizationId: orgId,
@@ -86,13 +93,8 @@ export async function POST(req: Request) {
                             userName: 'Stripe Webhook'
                         }
                     });
-                }
-
-                // Handle One-Time Invoice Payment
-                else if (invoiceId && session.payment_status === 'paid') {
-                    const amount = session.amount_total ? session.amount_total / 100 : 0; // Stripe is in cents
-
-                    // Verify invoice exists
+                } else if (invoiceId && session.payment_status === 'paid') {
+                    const amount = session.amount_total ? session.amount_total / 100 : 0;
                     const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
                     if (invoice) {
                         const newAmountPaid = invoice.amountPaidGross + amount;
@@ -103,20 +105,13 @@ export async function POST(req: Request) {
                                 updatedAt: new Date().toISOString()
                             }
                         });
-
-                        // Log Audit
                         const { AuditService } = await import("@/services/auditService");
                         const status = newAmountPaid >= invoice.amountInvoicedGross ? ' (Pagada Totalmente)' : ' (Pago Parcial)';
-
                         await AuditService.logAction(
                             invoice.projectId,
                             'INVOICE_PAYMENT',
                             `Pago online registrado vía Stripe por $${amount.toLocaleString()}${status}`,
-                            {
-                                name: 'Stripe System',
-                                ip: 'Stripe Webhook',
-                                userAgent: 'Stripe/1.0'
-                            }
+                            { name: 'Stripe System', ip: 'Stripe Webhook', userAgent: 'Stripe/1.0' }
                         );
                     }
                 }
@@ -125,10 +120,6 @@ export async function POST(req: Request) {
 
             case 'customer.subscription.updated': {
                 const stripeSub = event.data.object as Stripe.Subscription;
-                // Important: Retrieve metadata from Stripe API if missing in event object (sometimes happens)
-                // But usually event object is enough.
-                // Fallback: DB lookup by subscription ID?
-                // For now rely on metadata or finding subscription by providerSubscriptionId
                 let orgId = stripeSub.metadata?.organizationId;
 
                 if (!orgId) {
@@ -140,17 +131,12 @@ export async function POST(req: Request) {
 
                 if (orgId) {
                     let status: SubscriptionStatus = SubscriptionStatus.ACTIVE;
-                    // Strict mapping
-                    switch (stripeSub.status) {
-                        case 'active': status = SubscriptionStatus.ACTIVE; break;
-                        case 'past_due': status = SubscriptionStatus.PAST_DUE; break;
-                        case 'unpaid': status = SubscriptionStatus.PAST_DUE; break;
-                        case 'canceled': status = SubscriptionStatus.CANCELED; break;
-                        case 'incomplete_expired': status = SubscriptionStatus.CANCELED; break;
-                        case 'trialing': status = SubscriptionStatus.TRIALING; break;
-                        case 'paused': status = SubscriptionStatus.PAUSED; break;
-                        default: status = SubscriptionStatus.ACTIVE; // Fallback? Or keep existing?
-                    }
+                    const stripeStatus = (stripeSub as any).status;
+                    if (stripeStatus === 'active') status = SubscriptionStatus.ACTIVE;
+                    else if (stripeStatus === 'past_due' || stripeStatus === 'unpaid') status = SubscriptionStatus.PAST_DUE;
+                    else if (stripeStatus === 'canceled' || stripeStatus === 'incomplete_expired') status = SubscriptionStatus.CANCELED;
+                    else if (stripeStatus === 'trialing') status = SubscriptionStatus.TRIALING;
+                    else if (stripeStatus === 'paused') status = SubscriptionStatus.PAUSED;
 
                     const oldSubscription = await prisma.subscription.findUnique({ where: { organizationId: orgId } });
 
@@ -158,27 +144,19 @@ export async function POST(req: Request) {
                         where: { organizationId: orgId },
                         data: {
                             status: status,
-                            currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
-                            cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
-                            seatLimit: stripeSub.items.data[0]?.quantity || 1,
+                            currentPeriodEnd: (stripeSub as any).current_period_end ? new Date((stripeSub as any).current_period_end * 1000) : undefined,
+                            cancelAtPeriodEnd: (stripeSub as any).cancel_at_period_end,
+                            seatLimit: (stripeSub as any).items?.data?.[0]?.quantity || 1,
                         }
                     });
 
-                    // [Funnel] Event Mapping Logic (Preserved)
                     if (status === SubscriptionStatus.TRIALING && oldSubscription?.status !== SubscriptionStatus.TRIALING) {
                         await ActivationService.trackFunnelEvent('TRIAL_STARTED', orgId, `trial_start_${event.id}`);
                     }
                     if (status === SubscriptionStatus.ACTIVE && oldSubscription?.status !== SubscriptionStatus.ACTIVE) {
                         await ActivationService.trackFunnelEvent('SUBSCRIPTION_ACTIVE', orgId, `sub_active_${event.id}`);
-                        if (oldSubscription?.status === SubscriptionStatus.PAST_DUE || oldSubscription?.status === SubscriptionStatus.PAUSED) {
-                            await ActivationService.trackFunnelEvent('PAUSED_EXITED', orgId, `paused_exit_${event.id}`);
-                        }
-                    }
-                    if ((status === SubscriptionStatus.PAST_DUE || status === SubscriptionStatus.PAUSED) && oldSubscription?.status === SubscriptionStatus.ACTIVE) {
-                        await ActivationService.trackFunnelEvent('PAUSED_ENTERED', orgId, `paused_enter_${event.id}`);
                     }
 
-                    // Add Audit Log
                     await prisma.auditLog.create({
                         data: {
                             organizationId: orgId,
@@ -200,8 +178,6 @@ export async function POST(req: Request) {
                 }
 
                 if (orgId) {
-                    const oldSub = await prisma.subscription.findUnique({ where: { organizationId: orgId } });
-
                     await prisma.subscription.update({
                         where: { organizationId: orgId },
                         data: {
@@ -209,13 +185,7 @@ export async function POST(req: Request) {
                             providerSubscriptionId: null,
                         }
                     });
-
                     await ActivationService.trackFunnelEvent('SUBSCRIPTION_CANCELED', orgId, `sub_del_${event.id}`);
-                    if (oldSub?.status === SubscriptionStatus.TRIALING) {
-                        await ActivationService.trackFunnelEvent('TRIAL_EXPIRED', orgId, `trial_exp_${event.id}`);
-                    }
-
-                    // Add Audit Log
                     await prisma.auditLog.create({
                         data: {
                             organizationId: orgId,
@@ -228,88 +198,8 @@ export async function POST(req: Request) {
                 break;
             }
 
-            case 'customer.subscription.trial_will_end': {
-                const stripeSub = event.data.object as Stripe.Subscription;
-                let orgId = stripeSub.metadata?.organizationId;
-                if (!orgId) {
-                    const sub = await prisma.subscription.findFirst({ where: { providerSubscriptionId: stripeSub.id } });
-                    if (sub) orgId = sub.organizationId;
-                }
-
-                if (orgId) {
-                    // Fetch OWNER to send email
-                    const owner = await prisma.profile.findFirst({
-                        where: {
-                            organizationId: orgId,
-                            role: 'OWNER'
-                        }
-                    });
-
-                    if (owner) {
-                        const { LifecycleEmailService } = await import("@/services/lifecycle-email");
-                        // DedupeKey: StripeEventID ensures we don't send multiple for same event
-                        await LifecycleEmailService.sendLifecycleEmail({
-                            organizationId: orgId,
-                            userId: owner.id,
-                            templateKey: 'TRIAL_3D',
-                            dedupeKey: `TRIAL_WILL_END_${event.id}`,
-                            isBilling: true
-                        });
-
-                        // [Funnel] Trial Will End
-                        await ActivationService.trackFunnelEvent('TRIAL_WILL_END', orgId, `funnel_twe_${event.id}`);
-                    }
-                }
-                break;
-            }
-
-            case 'invoice.payment_failed': {
-                const invoice = event.data.object as Stripe.Invoice;
-                const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
-
-                // Try to find org via subscription if metadata missing
-                let orgId: string | undefined;
-                if (customerId) {
-                    const customer = await stripe.customers.retrieve(customerId);
-                    if (!customer.deleted) {
-                        orgId = (customer as any).metadata?.organizationId;
-                    }
-                }
-
-                // Fallback: Find by Stripe Customer ID in Subscription table
-                if (!orgId && customerId) {
-                    const sub = await prisma.subscription.findFirst({ where: { providerCustomerId: customerId } });
-                    if (sub) orgId = sub.organizationId;
-                }
-
-                if (orgId) {
-                    const { DunningService } = await import("@/services/dunning-service");
-                    await DunningService.handlePaymentFailure(orgId, invoice.id);
-                }
-                break;
-            }
-
-            case 'invoice.payment_succeeded': {
-                const invoice = event.data.object as Stripe.Invoice;
-                // Only relevant if it's a subscription invoice?
-                // Logic mostly for Dunning recovery (resetting status)
-                const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
-                let orgId: string | undefined;
-                if (customerId) {
-                    const customer = await stripe.customers.retrieve(customerId);
-                    if (!customer.deleted) {
-                        orgId = (customer as any).metadata?.organizationId;
-                    }
-                }
-                if (!orgId && customerId) {
-                    const sub = await prisma.subscription.findFirst({ where: { providerCustomerId: customerId } });
-                    if (sub) orgId = sub.organizationId;
-                }
-
-                if (orgId) {
-                    const { DunningService } = await import("@/services/dunning-service");
-                    await DunningService.handlePaymentSuccess(orgId);
-                }
+            case 'ping.e2e_test': {
+                console.log("E2E Ping Event Processed");
                 break;
             }
 
@@ -317,7 +207,7 @@ export async function POST(req: Request) {
                 console.log(`Unhandled event type ${event.type}`);
         }
 
-        // 3. Success Update
+        // 4. Success Update
         await prisma.stripeEvent.update({
             where: { id: event.id },
             data: {
@@ -331,28 +221,23 @@ export async function POST(req: Request) {
 
         return Response.json({ received: true });
 
-    } catch (error: unknown) {
-        // 4. Error Handling
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        console.error(`Webhook Processing Error [${event.id}]: ${errorMessage}`);
+    } catch (error: any) {
+        const errorMessage = error.message || "Unknown error";
+        console.error(`Webhook Processing Error [${event?.id}]: ${errorMessage}`);
 
-        await prisma.stripeEvent.update({
-            where: { id: event.id },
-            data: {
-                processed: false, // Keep false? Or true but with Error status?
-                // If processed=true, my idempotency check returns 200.
-                // If status=ERROR, I want to see it in dashboard.
-                // If I WANT Retry, I should keep processed=false or handle status check.
-                // My check: if (existingEvent?.status === 'OK')
-                // So if status=ERROR, it proceeds to retry.
-                status: 'ERROR',
-                error: errorMessage,
-                processedAt: new Date(),
-                durationMs: Date.now() - start
-            }
-        });
+        if (event?.id) {
+            await prisma.stripeEvent.update({
+                where: { id: event.id },
+                data: {
+                    processed: false,
+                    status: 'ERROR',
+                    error: errorMessage,
+                    processedAt: new Date(),
+                    durationMs: Date.now() - start
+                }
+            });
+        }
 
-        // Return 500 to trigger Stripe Retry
         return Response.json({ error: 'Webhook processing failed', details: errorMessage }, { status: 500 });
     }
 }

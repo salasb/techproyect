@@ -1,6 +1,7 @@
 import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { ShieldAlert, LogOut, ArrowLeft } from "lucide-react";
 
 export async function OperatingContextBanner() {
     const workspace = await getWorkspaceState();
@@ -14,23 +15,40 @@ export async function OperatingContextBanner() {
 
     const org = await prisma.organization.findUnique({
         where: { id: workspace.activeOrgId },
-        select: { name: true, mode: true }
+        select: { name: true }
     });
 
     return (
-        <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 animate-in slide-in-from-top-2 mx-4 md:mx-6 mt-4 md:mt-6">
-            <div className="flex items-center gap-2">
-                <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                </span>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Operando contexto: <span className="font-bold text-slate-900 dark:text-white capitalize">{org?.name || 'Comercial'}</span> <span className="text-slate-400 font-normal">({workspace.activeOrgId.substring(0, 8)}...)</span>
-                </p>
+        <div className="bg-zinc-900 border-b border-white/5 px-4 py-2.5 flex items-center justify-between sticky top-0 z-[60] shadow-lg animate-in slide-in-from-top duration-500">
+            <div className="flex items-center gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <ShieldAlert className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                        Modo Superadmin
+                    </p>
+                    <span className="hidden sm:inline text-zinc-700">•</span>
+                    <p className="text-xs font-medium text-white">
+                        Operando en: <span className="font-bold text-blue-400">{org?.name || 'Comercial'}</span>
+                        <span className="text-zinc-500 ml-1.5 hidden md:inline">({workspace.activeOrgId.substring(0, 8)})</span>
+                    </p>
+                </div>
             </div>
+
             <div className="flex items-center gap-2">
-                <Link href="/org/select" className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors">
-                    Cambiar Contexto
+                <Link
+                    href="/admin"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold text-white uppercase tracking-wider transition-all hover:scale-105 active:scale-95"
+                >
+                    <ArrowLeft className="w-3 h-3" />
+                    Volver al Cockpit
+                </Link>
+                <Link
+                    href="/org/select"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-md text-[10px] font-bold text-white uppercase tracking-wider transition-all shadow-lg shadow-blue-950/20"
+                >
+                    Cambiar
                 </Link>
             </div>
         </div>

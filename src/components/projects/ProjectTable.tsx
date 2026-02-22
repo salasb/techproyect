@@ -96,13 +96,17 @@ export function ProjectTable({ projects, settings }: Props) {
                         return (
                             <tr
                                 key={project.id}
+                                data-testid="project-row"
                                 onClick={() => router.push(`/projects/${project.id}`)}
                                 className="group cursor-pointer border-b border-border hover:bg-muted/50 transition-colors"
                             >
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col gap-0.5">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center gap-2">
+                                            <span
+                                                data-testid={`project-name-${project.name}`}
+                                                className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center gap-2"
+                                            >
                                                 {project.name}
                                             </span>
                                             {risk.level !== 'LOW' && (

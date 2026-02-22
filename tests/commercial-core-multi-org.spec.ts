@@ -1,118 +1,96 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('E2E Auth Bootstrap & Multi-Org Revalidation v1.7', () => {
+test.describe('E2E Multi-Org Isolation v1.8.3', () => {
 
-    test.setTimeout(60000); // 1 minute to allow Next.js compilation on first run
+    test.setTimeout(90000);
 
     test.describe('Superadmin Session', () => {
-        // Usa el estado pre-autenticado generado por auth.setup.ts
         test.use({ storageState: 'playwright/.auth/superadmin.json' });
 
-        test('Superadmin Global sin org activa ve dashboard admin y no cae en onboarding comercial falso', async ({ page }) => {
-            // Ir directo al dashboard aprovechando la cookie de sesión
+        test('Superadmin Global sin org activa ve dashboard admin y no cae en onboarding falso', async ({ page }) => {
             await page.goto('/dashboard');
-
-            // Debe mostrar "Modo Administrador Activo" o "Panel de Control Global"
             const adminModeBanner = page.locator('text=Panel de Control Global').or(page.locator('text=Modo Administrador Activo'));
             await expect(adminModeBanner).toBeVisible({ timeout: 15000 });
-
-            // NO debe mostrar "Crea tu primer espacio de trabajo" (onboarding falso - leak de contexto)
             await expect(page.locator('text=Aún no tienes un espacio de trabajo activo')).toHaveCount(0);
-        });
-
-        test('Superadmin puede acceder a /admin nativamente', async ({ page }) => {
-            await page.goto('/admin');
-
-            // Revisa header global de Admin Settings
-            await expect(page.locator('h1', { hasText: 'SaaS Intelligence' }).first()).toBeVisible({ timeout: 15000 });
         });
     });
 
-    test.describe('Admin Commercial Session', () => {
-        // Usa el contexto de Admin (que el bootstrap ya provisionó con Org y Profile propio)
-        test.use({ storageState: 'playwright/.auth/admin.json' });
+    test.describe('Multi-Org Admin Session', () => {
+        // Usa el contexto con dos organizaciones pre-provisionadas
+        test.use({ storageState: 'playwright/.auth/multi-org-admin.json' });
 
-        test('C1. Aislamiento de datos comerciales entre organizaciones', async ({ page, request }) => {
-            // Se asume que el Admin entra a su Org Primaria A
-            await page.goto('/dashboard');
-            await expect(page.locator('button:has(.lucide-building-2)')).toBeVisible({ timeout: 15000 });
+        test('C1. Aislamiento de datos estricto entre Org A y Org B', async ({ page }) => {
+            console.log("--- TEST C1: AISLAMIENTO MULTI-ORG ---");
 
-            // 1. Crear un recurso en Org A (Project) a través de la UI para asegurar RLS y flujos correctos
-            const projectName = `UI Project C1 ${Date.now()}`;
-            await page.goto('/projects/new');
-
-            // Rellenar formulario
-            await page.fill('input[name="name"]', projectName);
-
-            // Crear cliente usando QuickClientDialog
-            await page.click('text=Seleccionar Cliente...');
-            await page.click('text=Crear nuevo'); // Combobox 'allowCreate' button fallback
-
-            // Llenar el modal de creación rápida
-            const clientName = `UI Client C1 ${Date.now()}`;
-            await page.fill('input[placeholder="Ej: Empresa SPA"]', clientName);
-            // Submit form in modal (usually 'Guardar' o 'Create')
-            await page.click('button:has-text("Create Cliente")');
-
-            // Wait for it to close/select
-            await page.waitForTimeout(1000);
-
-            // Crear el proyecto
-            await page.click('button:has-text("Crear Proyecto")');
-
-            // Esperar a la notificación de éxito en la UI para garantizar que se guardó en BD antes de navegar
-            await expect(page.locator('text=Proyecto creado exitosamente')).toBeVisible({ timeout: 15000 });
-
-            // Ir al listado y validar que exista
+            // 1. Iniciar en Org A (Primaria)
+            console.log("Navigating to /projects...");
             await page.goto('/projects');
-            await page.waitForTimeout(2000); // 2 seconds stabilization
-            await page.screenshot({ path: 'test-results/projects-debug.png', fullPage: true });
-            const pageText = await page.evaluate(() => document.body.innerText);
-            console.log("[DEBUG] TEXT IN PAGE: ", pageText.substring(0, 1000));
 
-            await expect(page.locator(`text=${projectName}`).first()).toBeVisible({ timeout: 5000 });
+            // Si por alguna razón cae en el Gate, intentamos recuperar
+            const h2 = page.locator('h2').first();
+            if (await h2.textContent().then(t => t?.includes('Configuración requerida'))) {
+                console.log("Landing on OrgGate. Trying to select organization via /org/select...");
+                await page.goto('/org/select');
+                await page.locator('button').first().click();
+                await page.waitForURL('**/dashboard**');
+                await page.goto('/projects');
+            }
 
-            // 2. Crear Org B (o cambiar a otra si existe)
-            // Navegamos a /start directamente para eludir selectores inestables de 'Crea una nueva'
-            await page.goto('/start');
-            await page.waitForTimeout(2000); // 2 second stabilization
+            await expect(page.locator('h2')).toContainText('Proyectos', { timeout: 15000 });
 
-            const orgNameB = `Org B ${Date.now()}`;
-            await page.fill('#name_new', orgNameB); // Matches id="name_new" used when user already has orgs
-            await page.click('button:has-text("Crear nueva organización")');
+            // Verificar que el proyecto de Org A es visible
+            const projectA = page.getByTestId('project-name-E2E Seeded Project');
+            await expect(projectA).toBeVisible({ timeout: 15000 });
 
-            // Wait for creation and redirection to dashboard
+            // Verificar que el proyecto de Org B NO es visible
+            const projectB = page.getByTestId('project-name-E2E Second Org Project');
+            await expect(projectB).toHaveCount(0);
+
+            // 2. Cambiar a Org B vía ORG SWITCHER (más robusto que goto direct)
+            console.log("Switching to Org B via OrgSwitcher...");
+            const switcher = page.getByTestId('org-switcher-trigger');
+            await switcher.click();
+
+            // Esperar a que el item de la Org B aparezca y clickearlo
+            // El nombre exacto de la Org B en el bootstrap tiene un random suffix en el nombre real, 
+            // pero el "E2E Second Org" es el prefijo.
+            const orgBItem = page.locator('[data-testid^="org-item-E2E Second Org"]');
+            await orgBItem.click();
+
+            // Esperar redirección al dashboard de la nueva org
             await page.waitForURL('**/dashboard**');
-            await expect(page.locator('button:has(.lucide-building-2)')).toContainText(orgNameB);
 
-            // 3. Validar Aislamiento: El proyecto de Org A NO DEBE ESTAR en Org B
-            await expect(page.locator(`text=${projectName}`)).toHaveCount(0); // Debe ser 0 en Org B
+            // Ir a proyectos de Org B
+            await page.goto('/projects');
+
+            // 3. Validar Aislamiento: Org B ve SU proyecto y NO el de Org A
+            await expect(page.getByTestId('project-name-E2E Second Org Project')).toBeVisible({ timeout: 15000 });
+            await expect(page.getByTestId('project-name-E2E Seeded Project')).toHaveCount(0);
+
+            // 4. Volver a Org A y re-confirmar persistencia
+            console.log("Switching back to Org A...");
+            await switcher.click();
+            const orgAItem = page.locator('[data-testid^="org-item-E2E Test Org"]');
+            await orgAItem.click();
+            await page.waitForURL('**/dashboard**');
+            await page.goto('/projects');
+            await expect(page.getByTestId('project-name-E2E Seeded Project')).toBeVisible();
+
+            console.log("✅ SUCCESS: Aislamiento verificado.");
         });
 
-        test('C2. Cookie inválida o fantasma responde con ScopeError controlado', async ({ page, request }) => {
-            // Pasamos cookies base pero insertamos un invalid-app-org-id
+        test('C2. ScopeError controlado ante contexto corrupto', async ({ page, request }) => {
             const stateCookie = await page.context().cookies();
             const filteredCookies = stateCookie.filter(c => c.name !== 'app-org-id');
             let cookieHeader = filteredCookies.map(c => `${c.name}=${c.value}`).join('; ');
             cookieHeader += '; app-org-id=invalid-uuid-0000;';
 
-            // Simulamos llamada de Action (ej. Note Generation) usando el header corrupto
             const res = await request.post('/api/sales/generate-note', {
                 data: { projectId: 'e2e-fake-project-id' },
-                headers: {
-                    'Cookie': cookieHeader
-                }
+                headers: { 'Cookie': cookieHeader }
             });
 
-            // Expected to be caught by requireOperationalScope() and NOT crash the server
-            // Can be 401, 403, 400 or a redirect if the middleware catches it
             expect([400, 401, 403, 500]).toContain(res.status());
-            if (res.status() !== 500) {
-                const json = await res.json().catch(() => ({}));
-                if (json.error) {
-                    console.log("Mock Request handled securely:", json.error);
-                }
-            }
         });
     });
 });

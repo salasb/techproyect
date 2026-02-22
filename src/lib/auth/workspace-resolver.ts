@@ -141,8 +141,23 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         let activeMemberships = memberships;
         let isAutoProvisioned = false;
 
-        // Auto-provision if absolute NO_ORG
-        if (activeMemberships.length === 0) {
+        const cookieStore = await cookies();
+        const cookieOrgId = cookieStore.get('app-org-id')?.value;
+        let activeOrgId = null;
+
+        // God-mode for Superadmins: Allow context even without explicit membership
+        if (isSuperadmin && cookieOrgId) {
+            const orgExists = await prisma.organization.findUnique({
+                where: { id: cookieOrgId },
+                select: { id: true, name: true, status: true }
+            });
+            if (orgExists) {
+                activeOrgId = cookieOrgId;
+            }
+        }
+
+        // Auto-provision or NO_ORG check - Skip if Superadmin already resolved an activeOrgId
+        if (activeMemberships.length === 0 && !activeOrgId) {
             if (process.env.AUTO_PROVISION === '1') {
                 const requireManualApproval = process.env.MANUAL_APPROVAL_REQUIRED === '1';
                 console.log('[WorkspaceResolver] Auto-provisioning new organization...');
@@ -190,32 +205,30 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             }
         }
 
-        // We have memberships. Let's resolve the cookie.
-        const cookieStore = await cookies();
-        const cookieOrgId = cookieStore.get('app-org-id')?.value;
-
-        let activeOrgId = null;
+        // Resolve activeOrgId for non-superadmin or if not already resolved
         let setCookieId = null;
 
-        if (cookieOrgId && activeMemberships.some(m => m.organizationId === cookieOrgId)) {
-            activeOrgId = cookieOrgId;
-        } else if (activeMemberships.length === 1) {
-            activeOrgId = activeMemberships[0].organizationId;
-            setCookieId = activeOrgId;
-            // Sync fallback
-            if (profile.organizationId !== activeOrgId) {
-                await prisma.profile.update({
-                    where: { id: user.id },
-                    data: { organizationId: activeOrgId }
-                }).catch(() => { });
-            }
-        } else if (activeMemberships.length > 1) {
-            const lastActiveOrgId = profile.organizationId;
-            if (lastActiveOrgId && activeMemberships.some(m => m.organizationId === lastActiveOrgId)) {
-                activeOrgId = lastActiveOrgId;
+        if (!activeOrgId) {
+            if (cookieOrgId && activeMemberships.some(m => m.organizationId === cookieOrgId)) {
+                activeOrgId = cookieOrgId;
+            } else if (activeMemberships.length === 1) {
+                activeOrgId = activeMemberships[0].organizationId;
                 setCookieId = activeOrgId;
-            } else {
-                activeOrgId = null; // Forces Multi Selection State
+                // Sync fallback
+                if (profile.organizationId !== activeOrgId) {
+                    await prisma.profile.update({
+                        where: { id: user.id },
+                        data: { organizationId: activeOrgId }
+                    }).catch(() => { });
+                }
+            } else if (activeMemberships.length > 1) {
+                const lastActiveOrgId = profile.organizationId;
+                if (lastActiveOrgId && activeMemberships.some(m => m.organizationId === lastActiveOrgId)) {
+                    activeOrgId = lastActiveOrgId;
+                    setCookieId = activeOrgId;
+                } else {
+                    activeOrgId = null; // Forces Multi Selection State
+                }
             }
         }
 

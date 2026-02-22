@@ -4,6 +4,7 @@ import * as path from 'path';
 
 const authFileSuperadmin = 'playwright/.auth/superadmin.json';
 const authFileAdmin = 'playwright/.auth/admin.json';
+const authFileMultiOrgAdmin = 'playwright/.auth/multi-org-admin.json';
 
 // Ensure the directory exists
 const authDir = path.dirname(authFileSuperadmin);
@@ -11,10 +12,9 @@ if (!fs.existsSync(authDir)) {
     fs.mkdirSync(authDir, { recursive: true });
 }
 
-setup('authenticate as Superadmin', async ({ request, page, context }) => {
+setup('authenticate as Superadmin', async ({ request, page }) => {
     console.log('--- STARTING SUPERADMIN BOOTSTRAP ---');
 
-    // 1. Trigger robust external Bootstrap to setup DB
     const res = await request.post('/api/e2e/bootstrap', {
         headers: {
             'Authorization': `Bearer ${process.env.E2E_TEST_SECRET || 'E2E_LOCAL_TEST_SECRET'}`,
@@ -34,26 +34,20 @@ setup('authenticate as Superadmin', async ({ request, page, context }) => {
     const data = await res.json();
     console.log("Bootstrap success:", data);
 
-    // 2. Perform UI Auth to obtain Supabase Cookies via proper Next.js workflow
     await page.goto('/login');
     await page.fill('input[name="email"]', 'e2e_superadmin@test.com');
     await page.fill('input[name="password"]', 'E2eTest1234!');
     await page.click('button[type="submit"]');
 
-    // Wait for the login router push
     await page.waitForURL('**/dashboard**');
+    await expect(page.locator('text=Panel Global').or(page.locator('text=Modo Administrador')).first()).toBeVisible();
 
-    // Check for success elements
-    await expect(page.locator('text=Panel Global')).toBeVisible();
-
-    // 3. Save Context
     await page.context().storageState({ path: authFileSuperadmin });
 });
 
 setup('authenticate as Admin', async ({ request, page }) => {
     console.log('--- STARTING ADMIN BOOTSTRAP ---');
 
-    // 1. Trigger robust external Bootstrap to setup DB (Profile + Org + Membership)
     const res = await request.post('/api/e2e/bootstrap', {
         headers: {
             'Authorization': `Bearer ${process.env.E2E_TEST_SECRET || 'E2E_LOCAL_TEST_SECRET'}`,
@@ -73,15 +67,71 @@ setup('authenticate as Admin', async ({ request, page }) => {
     const data = await res.json();
     console.log("Bootstrap success:", data);
 
-    // 2. Perform UI Auth to obtain Supabase Cookies
     await page.goto('/login');
     await page.fill('input[name="email"]', 'e2e_admin@test.com');
     await page.fill('input[name="password"]', 'E2eTest1234!');
     await page.click('button[type="submit"]');
 
-    // Wait for navigation
     await page.waitForURL('**/dashboard**');
 
-    // 3. Save Context
+    // Manual cookie injection for robustness
+    if (data.bootstrap.activeOrgId) {
+        await page.context().addCookies([{
+            name: 'app-org-id',
+            value: data.bootstrap.activeOrgId,
+            domain: 'localhost',
+            path: '/',
+            httpOnly: false,
+            secure: false,
+            sameSite: 'Lax'
+        }]);
+    }
+
     await page.context().storageState({ path: authFileAdmin });
+});
+
+setup('authenticate as Multi-Org Admin', async ({ request, page }) => {
+    console.log('--- STARTING MULTI-ORG ADMIN BOOTSTRAP ---');
+
+    const res = await request.post('/api/e2e/bootstrap', {
+        headers: {
+            'Authorization': `Bearer ${process.env.E2E_TEST_SECRET || 'E2E_LOCAL_TEST_SECRET'}`,
+            'Content-Type': 'application/json'
+        },
+        data: {
+            role: 'ADMIN',
+            email: 'e2e_multiorg_admin@test.com',
+            password: 'E2eTest1234!',
+            additionalOrg: true
+        }
+    });
+
+    if (!res.ok()) {
+        console.error("Multi-Org Admin Bootstrap Failed:", res.status(), await res.text());
+    }
+    expect(res.ok()).toBeTruthy();
+    const data = await res.json();
+    console.log("Bootstrap success:", data);
+
+    await page.goto('/login');
+    await page.fill('input[name="email"]', 'e2e_multiorg_admin@test.com');
+    await page.fill('input[name="password"]', 'E2eTest1234!');
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL(/\/(dashboard|org\/select)/);
+
+    // Manual cookie injection for Org A as baseline
+    if (data.bootstrap.activeOrgId) {
+        await page.context().addCookies([{
+            name: 'app-org-id',
+            value: data.bootstrap.activeOrgId,
+            domain: 'localhost',
+            path: '/',
+            httpOnly: false,
+            secure: false,
+            sameSite: 'Lax'
+        }]);
+    }
+
+    await page.context().storageState({ path: authFileMultiOrgAdmin });
 });

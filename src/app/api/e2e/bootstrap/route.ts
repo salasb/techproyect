@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { role, email, password } = body;
+        const { role, email, password, additionalOrg } = body;
 
         if (!role || !['SUPERADMIN', 'ADMIN'].includes(role)) {
             return NextResponse.json({ error: 'Rol inválido o faltante' }, { status: 400 });
@@ -52,7 +52,6 @@ export async function POST(req: Request) {
         // 3. Ensure Auth User (Idempotent)
         let userId: string;
 
-        // Try to create the user directly to bypass listUsers() which can return 500
         const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: targetEmail,
             password: targetPassword,
@@ -61,14 +60,12 @@ export async function POST(req: Request) {
 
         if (createError) {
             if (createError.message.toLowerCase().includes('already registered') || createError.status === 422) {
-                // User exists. Resolve ID through Prisma profile (created in previous test runs)
                 const existingProfile = await prisma.profile.findFirst({ where: { email: targetEmail } });
                 if (!existingProfile) {
-                    throw new Error("User exists in Auth but not in Profile. Could not resolve ID because listUsers() is failing.");
+                    throw new Error("User exists in Auth but not in Profile.");
                 }
                 userId = existingProfile.id;
 
-                // Force update password to guarantee access
                 const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
                     password: targetPassword,
                     email_confirm: true
@@ -82,7 +79,7 @@ export async function POST(req: Request) {
         }
 
         // 4. Ensure Application Profile (Prisma)
-        let finalRole: MembershipRole = role === 'SUPERADMIN' ? MembershipRole.SUPERADMIN : MembershipRole.MEMBER; // Canónico a DB
+        let finalRole: MembershipRole = role === 'SUPERADMIN' ? MembershipRole.SUPERADMIN : MembershipRole.MEMBER;
         await prisma.profile.upsert({
             where: { id: userId },
             update: { role: finalRole },
@@ -96,10 +93,11 @@ export async function POST(req: Request) {
 
         // 5. Build Workspace if ADMIN
         let orgId: string | null = null;
-        if (role === 'ADMIN') {
-            const orgName = `E2E Test Org (${crypto.randomBytes(4).toString('hex')})`; // Evita colisiones si hay purgas parciales
+        let additionalOrgId: string | null = null;
 
-            // Verificamos si ya pertenece a alguna organización comercial
+        if (role === 'ADMIN') {
+            const orgName = `E2E Test Org (${crypto.randomBytes(2).toString('hex')})`;
+
             const existingMember = await prisma.organizationMember.findFirst({
                 where: { userId: userId },
                 include: { organization: true }
@@ -108,7 +106,6 @@ export async function POST(req: Request) {
             if (existingMember) {
                 orgId = existingMember.organizationId;
             } else {
-                // Generar nueva org
                 const org = await prisma.organization.create({
                     data: {
                         name: orgName,
@@ -122,7 +119,6 @@ export async function POST(req: Request) {
                 });
                 orgId = org.id;
 
-                // Optionally, add a canonical test subscription
                 await prisma.subscription.create({
                     data: {
                         organizationId: orgId,
@@ -131,10 +127,14 @@ export async function POST(req: Request) {
                         planCode: 'E2E_PRO'
                     }
                 });
-
             }
 
-            // Seed a canonical project to test C1 Multi-Org Isolation idempotently
+            // Always ensure profile points to THE organization to avoid multi-org selection hurdle
+            await prisma.profile.update({
+                where: { id: userId },
+                data: { organizationId: orgId }
+            });
+
             const existingCompany = await prisma.company.findFirst({ where: { name: 'E2E Isolated Company', organizationId: orgId } });
             const company = existingCompany || await prisma.company.create({ data: { name: 'E2E Isolated Company', organizationId: orgId } });
 
@@ -154,6 +154,55 @@ export async function POST(req: Request) {
                     }
                 });
             }
+
+            // If additionalOrg flag is true, create a second organization for the user
+            if (additionalOrg) {
+                const memberships = await prisma.organizationMember.findMany({
+                    where: { userId: userId }
+                });
+
+                if (memberships.length < 2) {
+                    const additionalOrgName = `E2E Second Org (${crypto.randomBytes(2).toString('hex')})`;
+                    const secondOrg = await prisma.organization.create({
+                        data: {
+                            name: additionalOrgName,
+                            OrganizationMember: {
+                                create: {
+                                    userId: userId,
+                                    role: MembershipRole.OWNER
+                                }
+                            }
+                        }
+                    });
+                    additionalOrgId = secondOrg.id;
+
+                    await prisma.subscription.create({
+                        data: {
+                            organizationId: additionalOrgId,
+                            status: 'ACTIVE',
+                            seatLimit: 5,
+                            planCode: 'E2E_BASIC'
+                        }
+                    });
+
+                    const secondOrgCompany = await prisma.company.create({ data: { name: 'E2E Second Org Company', organizationId: additionalOrgId } });
+                    await prisma.project.create({
+                        data: {
+                            id: crypto.randomUUID(),
+                            name: 'E2E Second Org Project',
+                            companyId: secondOrgCompany.id,
+                            organizationId: additionalOrgId,
+                            status: 'EN_CURSO',
+                            stage: 'COTIZACION',
+                            responsible: 'E2E Admin',
+                            startDate: new Date(),
+                            plannedEndDate: new Date()
+                        }
+                    });
+                } else {
+                    additionalOrgId = memberships.find(m => m.organizationId !== orgId)?.organizationId || null;
+                }
+            }
         }
 
         // 6. Audit Trail
@@ -162,19 +211,19 @@ export async function POST(req: Request) {
                 userId,
                 organizationId: orgId,
                 action: 'BOOTSTRAP_E2E_USER_ENSURED',
-                details: `E2E Bootstrap completado para el rol ${role}`,
+                details: `E2E Bootstrap completado para el rol ${role}. AdditionalOrg: ${!!additionalOrg}`,
                 userName: targetEmail
             }
         });
 
-        // Retornamos sin secretos (solo metadata útil para los tests)
         return NextResponse.json({
             status: 'SUCCESS',
             bootstrap: {
                 userId,
                 email: targetEmail,
                 role: role,
-                activeOrgId: orgId
+                activeOrgId: orgId,
+                additionalOrgId: additionalOrgId
             }
         });
 
