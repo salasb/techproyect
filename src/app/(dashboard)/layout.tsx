@@ -45,7 +45,6 @@ export default async function DashboardLayout({
                         subscription={subscription as any}
                         paywallVariant={paywallVariant === 'EMOTIONAL' ? 'B' : 'A'}
                     />
-                    <OperatingContextBanner />
                     <main className="flex-1 p-4 md:p-6 overflow-auto print:p-0 print:overflow-visible">
                         <div className="w-full space-y-6 print:max-w-none print:space-y-0">
                             {children}

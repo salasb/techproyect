@@ -193,7 +193,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         [orgStats, subscription, org] = await Promise.all([
             prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
             prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
-            prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true } })
+            prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } })
         ]);
     }
 
