@@ -67,10 +67,10 @@ export default async function AdminLayout({
             <main className="flex-1 overflow-y-auto">
                 <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-slate-500 font-medium">Panel de Control Global</h2>
+                        <h2 className="text-slate-500 font-medium italic">Global Cockpit v2.0</h2>
                         <span 
                             className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm"
-                            data-testid="global-mode-badge"
+                            data-testid="superadmin-mode-badge"
                         >
                             Modo Global
                         </span>
@@ -92,9 +92,6 @@ export default async function AdminLayout({
                         </div>
                         <OrgSwitcher currentOrgId={workspace.activeOrgId || undefined} />
                         <ThemeToggle />
-                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden border border-slate-300 dark:border-slate-700">
-                            {/* Avatar placeholder */}
-                        </div>
                     </div>
                 </header>
                 <div className="p-8">

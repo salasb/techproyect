@@ -51,14 +51,14 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild data-testid="org-switcher-trigger">
+            <DropdownMenuTrigger asChild data-testid="context-selector-trigger">
                 <Button variant="ghost" className="h-auto py-2 px-3 group flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-800 rounded-xl">
                     <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm ring-1 ring-white/20">
                             <Building2 className="h-4 w-4" />
                         </div>
                         <div className="flex flex-col items-start leading-none gap-1">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest" data-testid="org-active-label">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest" data-testid="context-active-label">
                                 {currentOrg ? 'Organización Activa' : 'Seleccionar Contexto'}
                             </span>
                             <span className="text-sm font-black truncate max-w-[130px] text-slate-900 dark:text-slate-100">

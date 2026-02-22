@@ -46,15 +46,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     try {
         const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
         workspace = await getWorkspaceState();
-    } catch (e) {
-        console.error("[Dashboard] Workspace Resolution CRASHED:", e);
-        return (
-            <div className="p-8 text-center bg-orange-50 border border-orange-200 rounded-xl">
-                <h2 className="text-xl font-bold text-orange-800 mb-2">Error de resolución de entorno</h2>
-                <p className="text-orange-600 mb-4">No pudimos determinar tu contexto de trabajo de forma segura.</p>
-                <button className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold" onClick={() => window.location.reload()}>Reintentar</button>
-            </div>
-        );
+    } catch (e: any) {
+        console.error("[Dashboard] FATAL: Workspace Resolution CRASHED:", e.message);
+        throw e; // Let error.tsx handle the boundary
     }
 
     if (workspace.status === 'NOT_AUTHENTICATED') {
@@ -67,25 +61,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     // Canonical landing for Superadmin without context
     if (isSuperadmin && !orgId && !isExplore) {
+        console.log("[Dashboard] Superadmin without org context. Redirecting to /admin...");
         const { redirect } = await import("next/navigation");
         redirect('/admin');
     }
 
     const isDebugWorkspace = process.env.DEBUG_WORKSPACE === '1';
 
-    const allowlistEntry = process.env.SUPERADMIN_ALLOWLIST || '';
-    const allowedEmails = allowlistEntry.split(',').filter(Boolean).map(e => e.trim().toLowerCase());
-    const isBootstrapEnabled = process.env.SUPERADMIN_BOOTSTRAP_ENABLED === 'true';
-
     // Fetch user for bootstrap check - Defensive
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
 
-    let isEligibleForBootstrap = false;
-    if (!isSuperadmin && workspace.status !== 'NOT_AUTHENTICATED' && isBootstrapEnabled && user) {
-        if (user.email && allowedEmails.includes(user.email.toLowerCase())) {
-            isEligibleForBootstrap = true;
-        }
-    }
+    console.log(`[Dashboard] Context: User=${user?.email || 'unknown'}, Role=${workspace.userRole}, Org=${orgId || 'none'}, Status=${workspace.status}`);
 
     // 1. Fetch Data (Server Side)
     let settingsRes: any = { data: null };
@@ -94,8 +81,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     let tasksRes: any = { data: [] };
     let dollarRate = { value: 855 }; // Safe default
     let isDataTimeout = false;
-
-    console.log(`[Dashboard] Rendering for user ${user?.id} in org ${orgId}. Workspace Status: ${workspace.status}`);
 
     if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
         try {
@@ -142,6 +127,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             dollarRate = results[4] || { value: 855 };
         } catch (error: any) {
             console.error("[Dashboard] Critical data fetch error:", error.message);
+            // Non-fatal: the UI will handle empty states
         }
     }
 
@@ -166,36 +152,40 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 )
             ]);
 
-            // Timeout to prevent hanging dashboard on sentinel logic
             await Promise.race([
                 sentinelPromises,
                 new Promise((resolve) => setTimeout(resolve, 4000))
             ]);
 
-            // Assuming getActiveAlerts is fast enough
             const { data } = await SentinelService.getActiveAlerts(orgId);
             sentinelAlerts = data || [];
-        } catch (error) {
-            console.error("[Dashboard] Sentinel analysis failed:", error);
+        } catch (error: any) {
+            console.error("[Dashboard] Sentinel analysis failed:", error.message);
         }
     }
 
-    // 3. Calculate Dashboard Data
-    const kpis = (orgId && !isExplore)
-        ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
-        : isExplore ? {
-            billing: { value: 7500000, previous: 5000000, trend: 50 },
-            margin: { value: 3200000, previous: 2800000, trend: 14.2 },
-            earnedMargin: 0.42,
-            projectedMargin: 0.45,
-            pipeline: { value: 12000000, count: 5 }
-        } : {
-            billing: { value: 0, previous: 0, trend: 0 },
-            margin: { value: 0, previous: 0, trend: 0 },
-            earnedMargin: 0,
-            projectedMargin: 0,
-            pipeline: { value: 0, count: 0 }
-        };
+    // 3. Calculate Dashboard Data - Extremely Defensive
+    let kpis;
+    try {
+        kpis = (orgId && !isExplore)
+            ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
+            : isExplore ? {
+                billing: { value: 7500000, previous: 5000000, trend: 50 },
+                margin: { value: 3200000, previous: 2800000, trend: 14.2 },
+                earnedMargin: 0.42,
+                projectedMargin: 0.45,
+                pipeline: { value: 12000000, count: 5 }
+            } : {
+                billing: { value: 0, previous: 0, trend: 0 },
+                margin: { value: 0, previous: 0, trend: 0 },
+                earnedMargin: 0,
+                projectedMargin: 0,
+                pipeline: { value: 0, count: 0 }
+            };
+    } catch (e: any) {
+        console.error("[Dashboard] KPI calculation CRASHED:", e.message);
+        kpis = { billing: { value: 0, previous: 0, trend: 0 }, margin: { value: 0, previous: 0, trend: 0 }, earnedMargin: 0, projectedMargin: 0, pipeline: { value: 0, count: 0 } };
+    }
 
     const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects as any, period) :
         isExplore ? [
@@ -216,26 +206,40 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     let org = null;
 
     if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
-        [orgStats, subscription, org] = await Promise.all([
-            prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
-            prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
-            prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } })
-        ]);
+        try {
+            [orgStats, subscription, org] = await Promise.all([
+                prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
+                prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
+                prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } })
+            ]);
+        } catch (e: any) {
+            console.error("[Dashboard] Supplementary data fetch failed:", e.message);
+        }
     }
 
     const isTrialing = subscription?.status === 'TRIALING';
     const orgMode = (org?.mode as 'SOLO' | 'TEAM') || 'SOLO';
 
-    const { actions: sortedActions, nextBestAction } = DashboardService.getActionCenterData(
-        projects as any,
-        settings,
-        opportunities as any,
-        tasksRes.data || [],
-        sentinelAlerts || [],
-        orgStats,
-        isTrialing
-    );
-    const deadlines = DashboardService.getUpcomingDeadlines(projects as any, settings);
+    let sortedActions: any[] = [];
+    let nextBestAction: any = null;
+
+    try {
+        const centerData = DashboardService.getActionCenterData(
+            projects as any,
+            settings,
+            opportunities as any,
+            tasksRes.data || [],
+            sentinelAlerts || [],
+            orgStats,
+            isTrialing
+        );
+        sortedActions = centerData.actions;
+        nextBestAction = centerData.nextBestAction;
+    } catch (e: any) {
+        console.error("[Dashboard] Action Center calculation failed:", e.message);
+    }
+
+    const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects as any, settings) : [];
     const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
 
     return (
