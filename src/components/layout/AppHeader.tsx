@@ -196,6 +196,23 @@ export function AppHeader({
                 </div>
 
                 <div className="flex items-center space-x-4">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm" data-testid="user-identity-chip">
+                        <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white uppercase">
+                            {displayedName.substring(0, 2)}
+                        </div>
+                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 max-w-[120px] truncate">
+                            {displayedName}
+                        </span>
+                        {userProfile?.role === 'SUPERADMIN' && (
+                            <span 
+                                className="text-[9px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter border border-blue-200/50 dark:border-blue-800/50 shadow-sm"
+                                data-testid="user-role-badge"
+                            >
+                                SuperAdmin
+                            </span>
+                        )}
+                    </div>
+
                     {userProfile?.role === 'SUPERADMIN' && (
                         <Link
                             href="/admin"

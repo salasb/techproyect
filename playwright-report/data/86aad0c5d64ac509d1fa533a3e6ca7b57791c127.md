@@ -9,7 +9,7 @@
         - generic [ref=e5]:
           - img "TechWise" [ref=e6]
           - generic [ref=e7]:
-            - generic [ref=e8]: v1.0.199
+            - generic [ref=e8]: v1.0.200
             - generic [ref=e9]: "Updated: 22-02-2026"
         - navigation [ref=e10]:
           - generic [ref=e11]:
@@ -91,19 +91,21 @@
           - img [ref=e95]
           - textbox "Buscar proyectos o clientes..." [ref=e98]
         - generic [ref=e99]:
-          - button "E2E Test Org (ac8406ae) PRO" [ref=e100]:
-            - generic [ref=e101]:
-              - img [ref=e103]
-              - generic [ref=e107]:
-                - generic [ref=e108]: E2E Test Org (ac8406ae)
-                - generic [ref=e111]: PRO
-            - img [ref=e112]
-          - button "Toggle theme" [ref=e114]:
-            - img [ref=e116]
-            - generic [ref=e122]: Toggle theme
-          - button "1" [ref=e124]:
-            - img [ref=e125]
-            - generic [ref=e128]: "1"
+          - generic [ref=e100]:
+            - generic [ref=e101]: e2
+            - generic [ref=e102]: e2e_superadmin@test.com
+          - button "Seleccionar Contexto Ninguna" [ref=e103]:
+            - generic [ref=e104]:
+              - img [ref=e106]
+              - generic [ref=e110]:
+                - generic [ref=e111]: Seleccionar Contexto
+                - generic [ref=e112]: Ninguna
+            - img [ref=e113]
+          - button "Toggle theme" [ref=e115]:
+            - img [ref=e117]
+            - generic [ref=e123]: Toggle theme
+          - button [ref=e125]:
+            - img [ref=e126]
       - main [ref=e129]:
         - generic [ref=e131]:
           - generic [ref=e132]:
@@ -174,5 +176,21 @@
                 - /url: /projects/new
               - link "Registrar clientes" [ref=e198] [cursor=pointer]:
                 - /url: /clients
-  - alert [ref=e199]
+          - generic [ref=e199]:
+            - heading "Superadmin Debug Console" [level=3] [ref=e202]
+            - generic [ref=e203]:
+              - generic [ref=e204]:
+                - text: "Workspace Status:"
+                - generic [ref=e205]: CONNECTED
+              - generic [ref=e206]:
+                - text: "Active Org:"
+                - generic "d6061e0a-0538-4dff-9185-01ef64bfbaf1" [ref=e207]
+              - generic [ref=e208]:
+                - text: "Total Orgs:"
+                - generic [ref=e209]: "2"
+              - link "Full Diagnostic API →" [ref=e211] [cursor=pointer]:
+                - /url: /api/debug/workspace
+  - button "Open Next.js Dev Tools" [ref=e217] [cursor=pointer]:
+    - img [ref=e218]
+  - alert [ref=e221]
 ```

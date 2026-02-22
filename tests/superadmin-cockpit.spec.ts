@@ -12,18 +12,23 @@ test.describe('Superadmin Global Cockpit v2.0', () => {
 
         await page.goto('/admin');
 
-        // 1. Verify Cockpit v2.0 Header
+        // 1. Verify Identity & Role Badge
+        await expect(page.getByTestId('user-identity-chip')).toBeVisible();
+        await expect(page.getByTestId('user-role-badge')).toBeVisible();
+        await expect(page.getByTestId('global-mode-badge')).toBeVisible();
+
+        // 2. Verify Cockpit v2.0 Header
         await expect(page.locator('h1:has-text("Global Cockpit v2.0")')).toBeVisible();
         await expect(page.locator('text=Gestión proactiva')).toBeVisible();
 
-        // 2. Verify v2.0 Specific Components
+        // 3. Verify v2.0 Specific Components
         // Notification Bell
         await expect(page.locator('button.relative:has(.lucide-bell)')).toBeVisible();
 
         // Metrics Chart Title
         await expect(page.locator('text=Rendimiento Mensual TechWise')).toBeVisible();
 
-        // 3. Verify organizations list still renders
+        // 4. Verify organizations list still renders
         const orgRows = page.locator('table tbody tr');
         await expect(orgRows.first()).toBeVisible();
     });
@@ -37,7 +42,7 @@ test.describe('Superadmin Global Cockpit v2.0', () => {
         await page.locator('button.relative:has(.lucide-bell)').click();
 
         // Check content
-        await expect(page.locator('h3:has-text("Notificaciones")')).toBeVisible();
+        await expect(page.locator('h4:has-text("Notificaciones")')).toBeVisible();
     });
 
     test('Superadmin can safely enter organization context and return to v2.0', async ({ page }) => {
@@ -61,14 +66,15 @@ test.describe('Superadmin Global Cockpit v2.0', () => {
         // Redirect to dashboard
         await page.waitForURL('**/dashboard**', { timeout: 15000 });
 
-        // Validate Banner
-        await expect(page.locator('text=Modo Superadmin')).toBeVisible();
-        await expect(page.locator('div.bg-zinc-900:has-text("Operando en:")')).toContainText(firstOrgName);
+        // Validate Banner and Context Identity
+        await expect(page.getByTestId('local-context-banner')).toBeVisible();
+        await expect(page.getByTestId('local-context-org-name')).toContainText(firstOrgName);
+        await expect(page.getByTestId('user-role-badge')).toBeVisible();
 
         // Return to Cockpit
-        await page.getByRole('link', { name: 'Volver al Cockpit' }).click();
+        await page.getByTestId('back-to-cockpit-button').click();
         await page.waitForURL('**/admin');
-        await expect(page.locator('h1:has-text("Global Cockpit v2.0")')).toBeVisible();
+        await expect(page.getByTestId('global-mode-badge')).toBeVisible();
     });
 
     test('Non-Superadmin is restricted from v2.0 cockpit', async ({ page }) => {

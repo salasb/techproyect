@@ -19,6 +19,7 @@ import { SentinelAlertsPanel } from "@/components/dashboard/SentinelAlertsPanel"
 import { NextBestAction } from "@/components/dashboard/NextBestAction";
 import { ActivationChecklist } from "@/components/dashboard/ActivationChecklist";
 import { WorkspaceSetupBanner } from "@/components/dashboard/WorkspaceSetupBanner";
+import { OperatingContextBanner } from "@/components/layout/OperatingContextBanner";
 import prisma from "@/lib/prisma";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -45,6 +46,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const workspace = await getWorkspaceState();
     const orgId = workspace.activeOrgId;
     const isSuperadmin = workspace.userRole === 'SUPERADMIN';
+
+    // Canonical landing for Superadmin without context
+    if (isSuperadmin && !orgId && !isExplore) {
+        const { redirect } = await import("next/navigation");
+        redirect('/admin');
+    }
+
     const isDebugWorkspace = process.env.DEBUG_WORKSPACE === '1';
 
     const allowlistEntry = process.env.SUPERADMIN_ALLOWLIST || '';
@@ -205,8 +213,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
-            {isSuperadmin && (
+        <div className={`space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto relative ${isSuperadmin && orgId ? 'pt-12' : ''}`}>
+            {isSuperadmin && orgId && org?.name && (
+                <div className="fixed top-0 left-0 right-0 z-[100] md:left-64 print:hidden">
+                    <OperatingContextBanner 
+                        orgName={org.name} 
+                        isSuperadmin={true} 
+                    />
+                </div>
+            )}
+
+            {isSuperadmin && !orgId && !isExplore && (
                 <div className="bg-blue-600 rounded-xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 mb-6 animate-in slide-in-from-top-4">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-white/20 rounded-lg">
@@ -245,18 +262,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             )}
 
             {workspace.status === 'PROFILE_MISSING' && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6">
-                    <h2 className="text-xl font-bold text-red-700 dark:text-red-500 mb-2">Perfil de usuario incompleto</h2>
-                    <p className="text-red-900/80 dark:text-red-400/80 mb-4 max-w-xl mx-auto">
-                        Tu sesión está activa, pero no logramos resolver tu perfil de aplicación. Si este error persiste, ejecuta el diagnóstico para reparar tu cuenta.
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center shadow-sm animate-in zoom-in duration-300 mb-6" data-testid="profile-incomplete-alert">
+                    <h2 className="text-xl font-bold text-red-700 dark:text-red-500 mb-2">Sincronización de perfil pendiente</h2>
+                    <p className="text-red-900/80 dark:text-red-400/80 mb-4 max-w-xl mx-auto italic font-medium">
+                        Tu sesión de autenticación es correcta, pero estamos terminando de configurar tu perfil de aplicación. 
+                        Si este mensaje persiste tras recargar, por favor ejecuta el diagnóstico.
                     </p>
-                    <Link 
-                        href="/api/debug/workspace-doctor" 
-                        data-testid="workspace-doctor-cta"
-                        className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block"
-                    >
-                        Ejecutar autodiagnóstico
-                    </Link>
+                    <div className="flex justify-center gap-4">
+                        <button className="bg-white hover:bg-slate-50 text-red-700 border border-red-200 px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all" onClick={() => window.location.reload()}>
+                            Recargar página
+                        </button>
+                        <Link 
+                            href="/api/debug/workspace-doctor" 
+                            data-testid="workspace-doctor-cta"
+                            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block"
+                        >
+                            Ejecutar autodiagnóstico
+                        </Link>
+                    </div>
                 </div>
             )}
 

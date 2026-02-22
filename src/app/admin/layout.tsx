@@ -66,11 +66,32 @@ export default async function AdminLayout({
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto">
                 <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
-                    <h2 className="text-slate-500 font-medium">Panel de Control Global</h2>
                     <div className="flex items-center gap-4">
+                        <h2 className="text-slate-500 font-medium">Panel de Control Global</h2>
+                        <span 
+                            className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm"
+                            data-testid="global-mode-badge"
+                        >
+                            Modo Global
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm" data-testid="user-identity-chip">
+                            <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white uppercase">
+                                {user.email?.substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 max-w-[120px] truncate">
+                                {user.email}
+                            </span>
+                            <span 
+                                className="text-[9px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter border border-blue-200/50 dark:border-blue-800/50 shadow-sm"
+                                data-testid="user-role-badge"
+                            >
+                                SuperAdmin
+                            </span>
+                        </div>
                         <OrgSwitcher currentOrgId={workspace.activeOrgId || undefined} />
                         <ThemeToggle />
-                        <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded font-bold uppercase">SuperAdmin</span>
                         <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden border border-slate-300 dark:border-slate-700">
                             {/* Avatar placeholder */}
                         </div>

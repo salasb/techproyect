@@ -1,55 +1,54 @@
-import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
+"use client";
+
+import React from "react";
+import { Shield, ArrowRight, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
-import prisma from "@/lib/prisma";
-import { ShieldAlert, LogOut, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export async function OperatingContextBanner() {
-    const workspace = await getWorkspaceState();
+interface OperatingContextBannerProps {
+    orgName: string;
+    isSuperadmin: boolean;
+}
 
-    // Only show the banner if: 
-    // - it's a superadmin 
-    // - operating in a specific org context
-    if (!workspace.isSuperadmin || workspace.status !== 'ORG_ACTIVE_SELECTED' || !workspace.activeOrgId) {
-        return null;
-    }
-
-    const org = await prisma.organization.findUnique({
-        where: { id: workspace.activeOrgId },
-        select: { name: true }
-    });
+/**
+ * High-visibility banner for Superadmins operating within a specific organization context.
+ */
+export function OperatingContextBanner({ orgName, isSuperadmin }: OperatingContextBannerProps) {
+    if (!isSuperadmin) return null;
 
     return (
-        <div className="bg-zinc-900 border-b border-white/5 px-4 py-2.5 flex items-center justify-between sticky top-0 z-[60] shadow-lg animate-in slide-in-from-top duration-500">
+        <div 
+            className="bg-zinc-900 border-b border-white/5 px-4 py-2.5 flex items-center justify-between sticky top-0 z-[60] shadow-lg animate-in slide-in-from-top duration-500"
+            data-testid="local-context-banner"
+        >
             <div className="flex items-center gap-3">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <ShieldAlert className="w-3.5 h-3.5 text-blue-400" />
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-600 rounded text-[10px] font-black text-white uppercase tracking-wider shadow-sm shadow-blue-500/20">
+                    <Shield className="w-3 h-3" />
+                    Modo Superadmin
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
-                        Modo Superadmin
-                    </p>
-                    <span className="hidden sm:inline text-zinc-700">•</span>
-                    <p className="text-xs font-medium text-white">
-                        Operando en: <span className="font-bold text-blue-400">{org?.name || 'Comercial'}</span>
-                        <span className="text-zinc-500 ml-1.5 hidden md:inline">({workspace.activeOrgId.substring(0, 8)})</span>
-                    </p>
+                <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-white">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Operando en:</span>
+                    <span className="text-sm font-black italic text-blue-400 truncate max-w-[200px]" data-testid="local-context-org-name">
+                        {orgName}
+                    </span>
                 </div>
             </div>
 
             <div className="flex items-center gap-2">
-                <Link
-                    href="/admin"
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold text-white uppercase tracking-wider transition-all hover:scale-105 active:scale-95"
+                <Button 
+                    asChild 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/5 transition-all gap-2"
+                    data-testid="back-to-cockpit-button"
                 >
-                    <ArrowLeft className="w-3 h-3" />
-                    Volver al Cockpit
-                </Link>
-                <Link
-                    href="/org/select"
-                    className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-md text-[10px] font-bold text-white uppercase tracking-wider transition-all shadow-lg shadow-blue-950/20"
-                >
-                    Cambiar
-                </Link>
+                    <Link href="/admin">
+                        <LayoutDashboard className="w-3.5 h-3.5" />
+                        Volver al Cockpit
+                        <ArrowRight className="w-3 h-3 opacity-50" />
+                    </Link>
+                </Button>
             </div>
         </div>
     );

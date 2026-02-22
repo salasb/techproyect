@@ -58,8 +58,11 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                             <Building2 className="h-4 w-4" />
                         </div>
                         <div className="flex flex-col items-start leading-none gap-1">
-                            <span className="text-sm font-bold truncate max-w-[130px] text-slate-900 dark:text-slate-100">
-                                {currentOrg?.name || 'Seleccionar Org'}
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest" data-testid="org-active-label">
+                                {currentOrg ? 'Organización Activa' : 'Seleccionar Contexto'}
+                            </span>
+                            <span className="text-sm font-black truncate max-w-[130px] text-slate-900 dark:text-slate-100">
+                                {currentOrg?.name || 'Ninguna'}
                             </span>
                             {currentOrg?.subscription && (
                                 <div className="flex items-center gap-1.5">

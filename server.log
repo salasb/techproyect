@@ -1,0 +1,34 @@
+
+> tech-proyect@1.0.200 dev
+> next dev
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/christiansalas/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/christiansalas/Proyectos/techproyect/package-lock.json
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.7:3000
+- Environments: .env.local, .env
+
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 722ms
+E2E Bootstrap: Asegurando identidad y entorno para e2e_superadmin@test.com (Rol: SUPERADMIN)
+ POST /api/e2e/bootstrap 200 in 3.6s (compile: 377ms, proxy.ts: 67ms, render: 3.2s)
+ GET /login 200 in 1722ms (compile: 1558ms, proxy.ts: 5ms, render: 159ms)
+ POST /dashboard 200 in 1161ms (compile: 2ms, proxy.ts: 279ms, render: 879ms)
+ POST /dashboard 200 in 1373ms (compile: 3ms, proxy.ts: 738ms, render: 632ms)
+ GET /dashboard 200 in 9.1s (compile: 2.4s, proxy.ts: 237ms, render: 6.4s)
+ POST /login 303 in 9.9s (compile: 4ms, proxy.ts: 4ms, render: 9.9s)
+E2E Bootstrap: Asegurando identidad y entorno para e2e_superadmin@test.com (Rol: SUPERADMIN)
+ POST /api/e2e/bootstrap 200 in 2.5s (compile: 6ms, proxy.ts: 6ms, render: 2.5s)
+ GET /login 200 in 45ms (compile: 4ms, proxy.ts: 5ms, render: 36ms)
+ POST /dashboard 200 in 897ms (compile: 2ms, proxy.ts: 265ms, render: 630ms)
+ POST /dashboard 200 in 868ms (compile: 4ms, proxy.ts: 228ms, render: 636ms)
+ GET /dashboard 200 in 6.7s (compile: 8ms, proxy.ts: 307ms, render: 6.3s)
+ POST /login 303 in 7.6s (compile: 2ms, proxy.ts: 4ms, render: 7.6s)
+✓ Compiled in 117ms
