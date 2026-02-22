@@ -630,20 +630,27 @@ export class DashboardService {
                 // If we don't have itemized invoice cost, we use Project Margin % * Invoice Amount.
 
                 // Calculate Project Margin %
-                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
-                const marginPct = fin.priceNet > 0 ? fin.marginAmountNet / fin.priceNet : 0;
+                let marginPct = 0;
+                try {
+                    const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
+                    marginPct = (fin?.priceNet > 0) ? (fin.marginAmountNet / fin.priceNet) : 0;
+                } catch (e) {
+                    console.warn(`[DashboardService] Financial calculation failed for project ${p.id}:`, e);
+                }
 
-                p.invoices?.forEach(inv => {
-                    if (inv.sent && inv.sentDate) {
-                        const d = new Date(inv.sentDate);
-                        if (d >= start && d < end) {
-                            // Net Billing approx (assuming VAT included in Gross)
-                            const vatRate = settings.vatRate || 0.19;
-                            const amountNet = inv.amountInvoicedGross / (1 + vatRate);
-                            margin += (amountNet * marginPct * rate);
+                if (p.invoices) {
+                    p.invoices.forEach(inv => {
+                        if (inv.sent && inv.sentDate) {
+                            const d = new Date(inv.sentDate);
+                            if (d >= start && d < end) {
+                                // Net Billing approx (assuming VAT included in Gross)
+                                const vatRate = settings?.vatRate || 0.19;
+                                const amountNet = (inv.amountInvoicedGross || 0) / (1 + vatRate);
+                                margin += (amountNet * marginPct * rate);
+                            }
                         }
-                    }
-                });
+                    });
+                }
             });
 
             return { billing, margin };
@@ -654,26 +661,30 @@ export class DashboardService {
 
         // Opportunities (Pipeline)
         // 1. From Opportunity Table (if exists/used)
-        let pipelineValue = opportunities
-            .filter(op => op.stage !== 'WON' && op.stage !== 'LOST')
+        let pipelineValue = (opportunities || [])
+            .filter(op => op && op.stage !== 'WON' && op.stage !== 'LOST')
             .reduce((acc, op) => acc + (op.value || 0), 0);
 
-        let pipelineCount = opportunities.filter(op => op.stage !== 'WON' && op.stage !== 'LOST').length;
+        let pipelineCount = (opportunities || []).filter(op => op && op.stage !== 'WON' && op.stage !== 'LOST').length;
 
         // 2. From Projects in "EN_ESPERA" (Waiting for Quote Acceptance)
         // This ensures the dashboard shows value even if Opportunity table is empty
-        const pendingProjects = projects.filter(p => p.status === 'EN_ESPERA');
+        const pendingProjects = (projects || []).filter(p => p.status === 'EN_ESPERA');
 
         pendingProjects.forEach(p => {
             const isUsd = p.currency === 'USD';
             const rate = isUsd ? dollarValue : 1;
 
             // Calculate project value (Quote Price)
-            const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
-            // Default to using Net Price (Revenue potential)
-            // If project is generic (no items), might be 0.
-            if (fin.priceNet > 0) {
-                pipelineValue += (fin.priceNet * rate); // Or Gross? Standard is usually Deal Value (likely Net or Gross depending on org). Let's use Net for consistency with Margin.
+            try {
+                const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
+                // Default to using Net Price (Revenue potential)
+                // If project is generic (no items), might be 0.
+                if (fin && fin.priceNet > 0) {
+                    pipelineValue += (fin.priceNet * rate); // Or Gross? Standard is usually Deal Value (likely Net or Gross depending on org). Let's use Net for consistency with Margin.
+                }
+            } catch (e) {
+                console.error(`[DashboardService] Pipeline calculation failed for project ${p.id}:`, e);
             }
         });
 
@@ -689,22 +700,26 @@ export class DashboardService {
         let projectedMargin = 0;
         let earnedMargin = 0;
 
-        projects.forEach(p => {
+        (projects || []).forEach(p => {
             const isUsd = p.currency === 'USD';
             const rate = isUsd ? dollarValue : 1;
 
-            const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
-            const margin = (fin.marginAmountNet || 0) * rate;
+            try {
+                const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
+                const marginVal = (fin?.marginAmountNet || 0) * rate;
 
-            // Projected: All non-cancelled projects contribute to potential/projected margin
-            if (p.status !== 'CANCELADO') {
-                projectedMargin += margin;
-            }
+                // Projected: All non-cancelled projects contribute to potential/projected margin
+                if (p.status !== 'CANCELADO') {
+                    projectedMargin += marginVal;
+                }
 
-            // Earned: Only projects that are effectively "Won" (En Curso, Finalizado)
-            // Casting to string to avoid TS error if types are stale (FINALIZADO vs CERRADO)
-            if (p.status === 'EN_CURSO' || (p.status as string) === 'CERRADO') {
-                earnedMargin += margin;
+                // Earned: Only projects that are effectively "Won" (En Curso, Finalizado)
+                // Casting to string to avoid TS error if types are stale (FINALIZADO vs CERRADO)
+                if (p.status === 'EN_CURSO' || (p.status as string) === 'CERRADO') {
+                    earnedMargin += marginVal;
+                }
+            } catch (e) {
+                // Silently skip corrupted projects for global totals
             }
         });
 

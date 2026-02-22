@@ -17,21 +17,46 @@ export default async function DashboardLayout({
 
     let profile = null;
     if (user) {
-        const { data } = await supabase.from('Profile').select('*, organization:Organization(plan)').eq('id', user.id).single();
-        profile = data;
+        try {
+            const profileRes = await supabase.from('Profile').select('*, organization:Organization(plan)').eq('id', user.id).maybeSingle();
+            if (profileRes.error) throw profileRes.error;
+            profile = profileRes.data;
+        } catch (e) {
+            console.error("[DashboardLayout] Profile fetch failed:", e);
+        }
     }
 
-    const { data: settings } = await supabase.from('Settings').select('*').single();
-    const currentOrgId = await getOrganizationId();
-    const subscription = currentOrgId
-        ? await prisma.subscription.findUnique({ where: { organizationId: currentOrgId } })
-        : null;
+    let settings = null;
+    try {
+        const settingsRes = await supabase.from('Settings').select('*').maybeSingle();
+        if (settingsRes.error) throw settingsRes.error;
+        settings = settingsRes.data;
+    } catch (e) {
+        console.error("[DashboardLayout] Settings fetch failed:", e);
+    }
 
-    // Fetch Experiment Variant
-    const { ExperimentService } = await import("@/services/experiment-service");
-    const paywallVariant = currentOrgId
-        ? await ExperimentService.getVariant(currentOrgId, 'EX_PAYWALL_COPY')
-        : 'A';
+    const currentOrgId = await getOrganizationId().catch(() => null);
+    
+    let subscription = null;
+    if (currentOrgId) {
+        try {
+            subscription = await prisma.subscription.findUnique({ where: { organizationId: currentOrgId } });
+        } catch (e) {
+            console.error("[DashboardLayout] Subscription fetch failed:", e);
+        }
+    }
+
+    // Fetch Experiment Variant - Defensive
+    let paywallVariant: 'A' | 'B' = 'A';
+    if (currentOrgId) {
+        try {
+            const { ExperimentService } = await import("@/services/experiment-service");
+            const variant = await ExperimentService.getVariant(currentOrgId, 'EX_PAYWALL_COPY');
+            paywallVariant = variant === 'EMOTIONAL' ? 'B' : 'A';
+        } catch (e) {
+            console.warn("[DashboardLayout] ExperimentService failed, falling back to variant A");
+        }
+    }
 
     return (
         <PaywallProvider>
@@ -40,10 +65,10 @@ export default async function DashboardLayout({
                 <MobileNav profile={profile} settings={settings} />
                 <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
                     <AppHeader
-                        profile={profile}
-                        currentOrgId={currentOrgId}
+                        profile={profile as any}
+                        currentOrgId={currentOrgId || undefined}
                         subscription={subscription as any}
-                        paywallVariant={paywallVariant === 'EMOTIONAL' ? 'B' : 'A'}
+                        paywallVariant={paywallVariant}
                     />
                     <main className="flex-1 p-4 md:p-6 overflow-auto print:p-0 print:overflow-visible">
                         <div className="w-full space-y-6 print:max-w-none print:space-y-0">

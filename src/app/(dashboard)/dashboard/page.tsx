@@ -42,8 +42,26 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const supabase = await createClient();
 
     // 0. Resolve Workspace State (Node Runtime)
-    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
-    const workspace = await getWorkspaceState();
+    let workspace;
+    try {
+        const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+        workspace = await getWorkspaceState();
+    } catch (e) {
+        console.error("[Dashboard] Workspace Resolution CRASHED:", e);
+        return (
+            <div className="p-8 text-center bg-orange-50 border border-orange-200 rounded-xl">
+                <h2 className="text-xl font-bold text-orange-800 mb-2">Error de resolución de entorno</h2>
+                <p className="text-orange-600 mb-4">No pudimos determinar tu contexto de trabajo de forma segura.</p>
+                <button className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold" onClick={() => window.location.reload()}>Reintentar</button>
+            </div>
+        );
+    }
+
+    if (workspace.status === 'NOT_AUTHENTICATED') {
+        const { redirect } = await import("next/navigation");
+        redirect('/login');
+    }
+
     const orgId = workspace.activeOrgId;
     const isSuperadmin = workspace.userRole === 'SUPERADMIN';
 
@@ -59,10 +77,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const allowedEmails = allowlistEntry.split(',').filter(Boolean).map(e => e.trim().toLowerCase());
     const isBootstrapEnabled = process.env.SUPERADMIN_BOOTSTRAP_ENABLED === 'true';
 
+    // Fetch user for bootstrap check - Defensive
+    const { data: { user } } = await supabase.auth.getUser();
+
     let isEligibleForBootstrap = false;
-    if (!isSuperadmin && workspace.status !== 'NOT_AUTHENTICATED' && isBootstrapEnabled) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email && allowedEmails.includes(user.email.toLowerCase())) {
+    if (!isSuperadmin && workspace.status !== 'NOT_AUTHENTICATED' && isBootstrapEnabled && user) {
+        if (user.email && allowedEmails.includes(user.email.toLowerCase())) {
             isEligibleForBootstrap = true;
         }
     }
@@ -74,6 +94,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     let tasksRes: any = { data: [] };
     let dollarRate = { value: 855 }; // Safe default
     let isDataTimeout = false;
+
+    console.log(`[Dashboard] Rendering for user ${user?.id} in org ${orgId}. Workspace Status: ${workspace.status}`);
 
     if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
         try {
@@ -97,25 +119,29 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     .order('priority', { ascending: false })
                     .order('dueDate', { ascending: true })
                     .limit(20),
-                getDollarRate()
+                getDollarRate().catch(e => {
+                    console.warn("[Dashboard] Currency service failed:", e.message);
+                    return { value: 855 };
+                })
             ]);
 
             const timeoutPromise = new Promise<any[]>((resolve) =>
                 setTimeout(() => {
                     isDataTimeout = true;
+                    console.warn("[Dashboard] Data fetch TIMEOUT (6s) for org:", orgId);
                     resolve([{ data: null }, { data: [] }, { data: [] }, { data: [] }, { value: 855 }]);
                 }, 6000)
             );
 
             const results = await Promise.race([fetchPromises, timeoutPromise]);
 
-            settingsRes = { data: results[0].data };
-            projectsRes = { data: results[1].data };
-            opportunitiesRes = { data: results[2].data };
-            tasksRes = { data: results[3].data };
-            dollarRate = results[4];
-        } catch (error) {
-            console.error("[Dashboard] Initial data fetch failed:", error);
+            settingsRes = { data: results[0]?.data || null };
+            projectsRes = { data: results[1]?.data || [] };
+            opportunitiesRes = { data: results[2]?.data || [] };
+            tasksRes = { data: results[3]?.data || [] };
+            dollarRate = results[4] || { value: 855 };
+        } catch (error: any) {
+            console.error("[Dashboard] Critical data fetch error:", error.message);
         }
     }
 
