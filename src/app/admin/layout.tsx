@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard, TrendingUp } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { logout } from "@/app/login/actions";
+import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 
 export default async function AdminLayout({
     children,
@@ -67,6 +68,7 @@ export default async function AdminLayout({
                 <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
                     <h2 className="text-slate-500 font-medium">Panel de Control Global</h2>
                     <div className="flex items-center gap-4">
+                        <OrgSwitcher currentOrgId={workspace.activeOrgId || undefined} />
                         <ThemeToggle />
                         <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded font-bold uppercase">SuperAdmin</span>
                         <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden border border-slate-300 dark:border-slate-700">

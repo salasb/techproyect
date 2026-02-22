@@ -40,7 +40,17 @@ setup('authenticate as Superadmin', async ({ request, page }) => {
     await page.click('button[type="submit"]');
 
     await page.waitForURL('**/dashboard**');
-    await expect(page.locator('text=Panel Global').or(page.locator('text=Modo Administrador')).first()).toBeVisible();
+    
+    // Wait for the page to be fully loaded and role to be resolved
+    await page.waitForLoadState('networkidle');
+    
+    // Check for either the NO_ORG superadmin banner or the Global Control Panel banner
+    const superadminIndicator = page.locator('text=Panel de Control Global')
+        .or(page.locator('text=Modo Administrador Global'))
+        .or(page.locator('text=Portal Admin'))
+        .first();
+        
+    await expect(superadminIndicator).toBeVisible({ timeout: 10000 });
 
     await page.context().storageState({ path: authFileSuperadmin });
 });

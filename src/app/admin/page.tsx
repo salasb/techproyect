@@ -57,7 +57,7 @@ export default async function AdminDashboard() {
     ];
 
     return (
-        <div className="space-y-10 animate-in fade-in duration-700 pb-12">
+        <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
             {/* Header with Notification Center */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/50 pb-6">
                 <div>

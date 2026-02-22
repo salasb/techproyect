@@ -36,7 +36,7 @@ test.describe('Workspace & Onboarding Flow (v2)', () => {
     });
 
     test('Debug endpoint debe mostrar el estado del Workspace en Node runtime', async ({ page }) => {
-        await page.goto('/api/_debug/org-resolution');
+        await page.goto('/api/debug/org-resolution');
         const content = await page.textContent('body');
         const json = JSON.parse(content || '{}');
 

@@ -154,7 +154,7 @@ export default async function StartPage({
                                 <CardDescription>Configura tu espacio de trabajo en segundos.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form action={createOrganizationAction} className="space-y-6">
+                                <form action={createOrganizationAction} className="space-y-6" data-testid="start-form">
                                     <div className="space-y-2">
                                         <Label htmlFor="name">Nombre de la Organización</Label>
                                         <Input
@@ -163,6 +163,7 @@ export default async function StartPage({
                                             placeholder="Ej: Mi Consultora Tech"
                                             required
                                             className="h-11"
+                                            data-testid="org-name-input"
                                         />
                                     </div>
 
@@ -212,7 +213,7 @@ export default async function StartPage({
                                         </div>
                                     </div>
 
-                                    <Button type="submit" className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-[0.98]">
+                                    <Button type="submit" data-testid="create-org-submit" className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-[0.98]">
                                         Crear y comenzar prueba
                                     </Button>
 

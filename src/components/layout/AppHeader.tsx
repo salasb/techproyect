@@ -124,9 +124,9 @@ export function AppHeader({
     }
 
 
-    const displayedName = (userProfile?.name || user?.email || 'Usuario');
-    displayedName
-        .replace(/testUSER/i, 'Test') // Specific fix for reported case
+    const rawName = userProfile?.name || user?.email || 'Usuario';
+    const displayedName = rawName
+        .replace(/testUSER/i, 'Test')
         .replace(/\s*User$/i, '')
         .replace(/^\s*User\s*/i, '')
         .replace(/\s*USER$/i, '')

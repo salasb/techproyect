@@ -92,7 +92,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
 
         let isSuperadmin = profile.role === 'SUPERADMIN';
 
-        let bootstrapDebug = {
+        const bootstrapDebug = {
             enabled: process.env.SUPERADMIN_BOOTSTRAP_ENABLED === 'true',
             allowlistMatched: false,
             attempted: false,
@@ -106,8 +106,11 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             if (bootstrapDebug.enabled) {
                 const allowlistEntry = process.env.SUPERADMIN_ALLOWLIST || '';
                 const allowedEmails = allowlistEntry.split(',').filter(Boolean).map(e => e.trim().toLowerCase());
-                if (allowedEmails.includes(user.email.toLowerCase())) {
+                const userEmail = user.email.toLowerCase();
+                
+                if (allowedEmails.includes(userEmail)) {
                     bootstrapDebug.allowlistMatched = true;
+                    console.log(`[WorkspaceResolver] User ${userEmail} matched ALLOWLIST. Promoting...`);
                     try {
                         await prisma.$transaction(async (tx) => {
                             await tx.profile.update({
@@ -118,8 +121,8 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                                 data: {
                                     userId: user.id,
                                     action: 'SUPERADMIN_AUTO_BOOTSTRAP',
-                                    details: `User ${user.email} promoted automatically via resolver bootstrap.`,
-                                    userName: profile.name || user.email
+                                    details: `User ${userEmail} promoted automatically via resolver bootstrap.`,
+                                    userName: profile.name || userEmail
                                 }
                             });
                         });
@@ -127,11 +130,13 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                         // Actualizamos memoria local
                         profile.role = 'SUPERADMIN';
                         bootstrapDebug.promotedThisRequest = true;
-                        console.log(`[WorkspaceResolver] User ${user.email} naturally promoted to SUPERADMIN via ALLOWLIST.`);
+                        console.log(`[WorkspaceResolver] User ${userEmail} successfully promoted to SUPERADMIN.`);
                     } catch (err: any) {
-                        console.error('[WorkspaceResolver] Failed to bootstrap superadmin:', err);
+                        console.error(`[WorkspaceResolver] Failed to bootstrap superadmin for ${userEmail}:`, err);
                         bootstrapDebug.error = err.message;
                     }
+                } else {
+                    console.log(`[WorkspaceResolver] User ${userEmail} NOT in allowlist. Skipping bootstrap.`);
                 }
             } else {
                 bootstrapDebug.error = "Bootstrap disabled by env flag";

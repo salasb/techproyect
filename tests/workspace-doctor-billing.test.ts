@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { GET } from '../src/app/api/_debug/workspace-doctor/route';
+import { GET } from '../src/app/api/debug/workspace-doctor/route';
 import prisma from '../src/lib/prisma';
 import { createClient } from '../src/lib/supabase/server';
 import { cookies, headers } from 'next/headers';
@@ -63,7 +63,7 @@ describe('Workspace Doctor Billing Diagnostic (D4)', () => {
         vi.mocked(prisma.organization.findUnique).mockResolvedValue({ name: 'Test Org' } as any);
 
         // Execute Request
-        const req = new Request('http://localhost/api/_debug/workspace-doctor');
+        const req = new Request('http://localhost/api/debug/workspace-doctor');
         const res = await GET(req);
         const data = await res.json();
 

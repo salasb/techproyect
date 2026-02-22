@@ -63,7 +63,7 @@ test.describe('Superadmin Global Cockpit v2.0', () => {
 
         // Validate Banner
         await expect(page.locator('text=Modo Superadmin')).toBeVisible();
-        await expect(page.locator('div:has-text("Operando en:")')).toContainText(firstOrgName);
+        await expect(page.locator('div.bg-zinc-900:has-text("Operando en:")')).toContainText(firstOrgName);
 
         // Return to Cockpit
         await page.getByRole('link', { name: 'Volver al Cockpit' }).click();

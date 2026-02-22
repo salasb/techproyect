@@ -150,7 +150,11 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                 </div>
                 <DropdownMenuSeparator className="my-2" />
                 <DropdownMenuItem asChild className="p-0">
-                    <Link href="/start" className="w-full flex items-center gap-3 px-3 py-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-all group">
+                    <Link 
+                        href="/start" 
+                        data-testid="new-org-link"
+                        className="w-full flex items-center gap-3 px-3 py-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-all group"
+                    >
                         <div className="h-8 w-8 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">
                             <PlusCircle className="h-4 w-4" />
                         </div>

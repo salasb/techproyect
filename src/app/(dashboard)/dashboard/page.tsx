@@ -250,7 +250,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     <p className="text-red-900/80 dark:text-red-400/80 mb-4 max-w-xl mx-auto">
                         Tu sesión está activa, pero no logramos resolver tu perfil de aplicación. Si este error persiste, ejecuta el diagnóstico para reparar tu cuenta.
                     </p>
-                    <Link href="/api/_debug/workspace-doctor" className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block">
+                    <Link 
+                        href="/api/debug/workspace-doctor" 
+                        data-testid="workspace-doctor-cta"
+                        className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all inline-block"
+                    >
                         Ejecutar autodiagnóstico
                     </Link>
                 </div>
@@ -469,7 +473,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                             <div className="font-bold">{workspace.organizationsCount}</div>
                         </div>
                         <div className="space-y-1 flex items-end">
-                            <Link href="/api/_debug/workspace" className="text-primary hover:underline">Full Diagnostic API →</Link>
+                            <Link href="/api/debug/workspace" className="text-primary hover:underline">Full Diagnostic API →</Link>
                         </div>
                     </div>
                 </div>

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET() {
-    if (process.env.DEBUG_ORG !== '1') {
+    if (process.env.DEBUG_WORKSPACE !== '1' && process.env.DEBUG_ORG !== '1') {
         return new NextResponse('Not Found', { status: 404 });
     }
 

@@ -24,6 +24,20 @@ export async function createOrganizationAction(formData: FormData) {
 
     const requireManualApproval = process.env.MANUAL_APPROVAL_REQUIRED === '1';
 
+    // Ensure Profile exists (Critical for foreign key in membership)
+    let profile = await prisma.profile.findUnique({ where: { id: user.id } });
+    if (!profile) {
+        console.log(`[CreateOrg] Creating missing profile for user ${user.id}`);
+        profile = await prisma.profile.create({
+            data: {
+                id: user.id,
+                email: user.email!,
+                name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
+                role: 'MEMBER'
+            }
+        });
+    }
+
     // Use Prisma for transaction to ensure atomicity
     const org = await prisma.$transaction(async (tx) => {
         // 1. Create Organization
