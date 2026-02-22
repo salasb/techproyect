@@ -13,11 +13,11 @@ export function RealRefreshButton() {
         setLoading(true);
         try {
             const res = await triggerAlertsEvaluation();
-            if (res.success) {
+            if (res.success && res.results) {
                 toast.success("Ecosistema Sincronizado", {
                     description: `${res.results.created} alertas nuevas, ${res.results.resolved} resueltas.`
                 });
-            } else {
+            } else if (!res.success) {
                 toast.error("Error de Sincronización", {
                     description: res.error
                 });
