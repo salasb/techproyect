@@ -40,11 +40,13 @@ export async function GET() {
             email: user.email,
             cookieOrgId: cookieOrgId ? `${cookieOrgId.slice(0, 8)}...` : null,
             workspace,
+            recommendedRoute: workspace.recommendedRoute,
             trace: [
                 `Auth success: ${user.email}`,
                 `Organization Count: ${workspace.organizationsCount}`,
                 `Active Org ID: ${workspace.activeOrgId}`,
-                `Is Auto-provisioned: ${workspace.isAutoProvisioned}`
+                `Is Auto-provisioned: ${workspace.isAutoProvisioned}`,
+                `Recommended Route: ${workspace.recommendedRoute}`
             ]
         });
     } catch (e: any) {

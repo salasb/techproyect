@@ -51,26 +51,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         throw e; // Let error.tsx handle the boundary
     }
 
-    if (workspace.status === 'NOT_AUTHENTICATED') {
+    // 0.5 Strict Routing Guard (Entry Policy v2.1)
+    if (workspace.recommendedRoute !== '/dashboard') {
+        console.log(`[DashboardGuard] Redirecting to recommended route: ${workspace.recommendedRoute}`);
         const { redirect } = await import("next/navigation");
-        redirect('/login');
+        redirect(workspace.recommendedRoute);
     }
 
     const orgId = workspace.activeOrgId;
     const isSuperadmin = workspace.userRole === 'SUPERADMIN';
-
-    // 0.5 Strict Context Guard
-    if (!orgId && !isExplore) {
-        if (isSuperadmin) {
-            console.log("[DashboardGuard] Superadmin without context at /dashboard. Redirecting to /admin.");
-            const { redirect } = await import("next/navigation");
-            redirect('/admin');
-        } else {
-            console.log("[DashboardGuard] Tenant without context at /dashboard. Redirecting to /start.");
-            const { redirect } = await import("next/navigation");
-            redirect('/start');
-        }
-    }
 
     const isDebugWorkspace = process.env.DEBUG_WORKSPACE === '1';
 

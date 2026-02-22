@@ -20,6 +20,7 @@ export interface WorkspaceState {
     organizations: { id: string; name: string; rut?: string | null; status?: string | null }[];
     userRole?: string;
     isSuperadmin: boolean;
+    recommendedRoute: string; // NEW: Canonical entry point
     error?: string;
     isAutoProvisioned?: boolean;
     bootstrapDebug?: {
@@ -38,6 +39,17 @@ export interface WorkspaceState {
 export async function getWorkspaceState(): Promise<WorkspaceState> {
     const supabase = await createClient();
 
+    // Default state for unauthenticated
+    const unauthBase = {
+        userId: null,
+        hasOrganizations: false,
+        organizationsCount: 0,
+        activeOrgId: null,
+        organizations: [],
+        isSuperadmin: false,
+        recommendedRoute: '/login'
+    };
+
     // Safety Wrapper for timeouts - 6 seconds max for DB ops
     const fetchWithTimeout = async <T>(promise: Promise<T>, ms = 6000): Promise<T> => {
         let timeoutId: NodeJS.Timeout;
@@ -55,12 +67,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         if (!user) {
             return {
                 status: 'NOT_AUTHENTICATED',
-                userId: null,
-                hasOrganizations: false,
-                organizationsCount: 0,
-                activeOrgId: null,
-                organizations: [],
-                isSuperadmin: false
+                ...unauthBase
             };
         }
 
@@ -86,6 +93,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 activeOrgId: null,
                 organizations: [],
                 isSuperadmin: false,
+                recommendedRoute: '/dashboard', // Fallback to let dashboard show the error UI
                 error: 'Tu cuenta existe, pero el perfil interno no está listo.'
             };
         }
@@ -205,6 +213,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                     organizations: [],
                     userRole: profile.role,
                     isSuperadmin,
+                    recommendedRoute: isSuperadmin ? '/admin' : '/start',
                     bootstrapDebug
                 };
             }
@@ -252,6 +261,12 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             }
         }
 
+        // Determine Final Recommended Route
+        let recommendedRoute = '/dashboard';
+        if (isSuperadmin && !activeOrgId) recommendedRoute = '/admin';
+        else if (!activeOrgId && activeMemberships.length > 0) recommendedRoute = '/org/select';
+        else if (!activeOrgId) recommendedRoute = '/start';
+
         if (!activeOrgId && activeMemberships.length > 0) {
             return {
                 status: 'ORG_MULTI_NO_SELECTION',
@@ -263,6 +278,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 userRole: profile.role,
                 isSuperadmin,
                 isAutoProvisioned,
+                recommendedRoute,
                 bootstrapDebug
             };
         }
@@ -280,6 +296,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 userRole: profile.role,
                 isSuperadmin,
                 isAutoProvisioned,
+                recommendedRoute: '/pending-activation',
                 bootstrapDebug
             };
         }
@@ -294,6 +311,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             userRole: profile.role,
             isSuperadmin,
             isAutoProvisioned,
+            recommendedRoute,
             bootstrapDebug
         };
 
@@ -301,12 +319,8 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         console.error('[WorkspaceResolver] CRITICAL ERROR:', error);
         return {
             status: 'WORKSPACE_ERROR',
-            userId: null,
-            hasOrganizations: false,
-            organizationsCount: 0,
-            activeOrgId: null,
-            organizations: [],
-            isSuperadmin: false,
+            ...unauthBase,
+            recommendedRoute: '/login',
             error: error.message || 'Error resolviendo workspace'
         };
     }
