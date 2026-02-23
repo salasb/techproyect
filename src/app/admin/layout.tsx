@@ -1,21 +1,14 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { 
     Shield, 
-    LayoutDashboard, 
-    Building2, 
-    Users, 
-    Settings, 
     LogOut, 
-    CreditCard, 
-    TrendingUp, 
     Fingerprint 
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { logout } from "@/app/login/actions";
 import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
-import { createClient } from "@/lib/supabase/server";
+import { AdminSidebarNav } from "@/components/admin/AdminSidebarNav";
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +17,7 @@ export default async function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    console.log("[AdminGuard] Start validation v2.4.1");
+    console.log("[AdminGuard] Start validation v2.9");
     
     const access = await resolveSuperadminAccess();
     
@@ -91,7 +84,7 @@ export default async function AdminLayout({
     return (
         <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Admin Sidebar */}
-            <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800">
+            <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0">
                 <div className="p-6 border-b border-slate-800 flex items-center gap-3">
                     <div className="p-2 bg-blue-600 rounded-lg">
                         <Shield className="w-6 h-6 text-white" />
@@ -102,15 +95,7 @@ export default async function AdminLayout({
                     </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-1">
-                    <AdminNavLink href="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" />
-                    <AdminNavLink href="/admin/orgs" icon={<Building2 className="w-4 h-4" />} label="Organizaciones" />
-                    <AdminNavLink href="/admin/plans" icon={<CreditCard className="w-4 h-4" />} label="Planes y Precios" />
-                    <AdminNavLink href="/admin/subscriptions" icon={<TrendingUp className="w-4 h-4" />} label="Métricas" />
-                    <AdminNavLink href="/admin/users" icon={<Users className="w-4 h-4" />} label="Usuarios Globales" />
-                    <div className="pt-4 pb-2 text-[10px] font-bold text-slate-500 uppercase px-3 tracking-widest">Configuración</div>
-                    <AdminNavLink href="/admin/settings" icon={<Settings className="w-4 h-4" />} label="Ajustes Sistema" />
-                </nav>
+                <AdminSidebarNav />
 
                 <div className="p-4 border-t border-slate-800 space-y-2">
                     <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all group">
@@ -131,7 +116,7 @@ export default async function AdminLayout({
             <main className="flex-1 overflow-y-auto">
                 <header className="h-16 bg-white/80 backdrop-blur-md dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v2.4.1</h2>
+                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v2.9</h2>
                         <span 
                             className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2.5 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm"
                             data-testid="superadmin-mode-badge"
@@ -163,17 +148,5 @@ export default async function AdminLayout({
                 </div>
             </main>
         </div>
-    );
-}
-
-function AdminNavLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
-    return (
-        <Link
-            href={href}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition-all group"
-        >
-            <span className="text-slate-500 group-hover:text-blue-400">{icon}</span>
-            {label}
-        </Link>
     );
 }

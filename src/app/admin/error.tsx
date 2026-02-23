@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Shield, AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -37,15 +37,10 @@ export default function AdminError({
 
                 <div className="space-y-3 mb-8">
                     <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl p-4 border border-zinc-100 dark:border-zinc-800">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Detalle Técnico</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Estado del Engine</p>
                         <p className="text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400 break-words">
-                            {error.message || 'Unknown Server Error'}
+                            {error.message || 'Error de sincronización desconocido'}
                         </p>
-                        {error.digest && (
-                            <p className="text-[9px] font-mono text-zinc-400 mt-2">
-                                Digest: {error.digest}
-                            </p>
-                        )}
                     </div>
                 </div>
 

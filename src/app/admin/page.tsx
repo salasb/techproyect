@@ -1,4 +1,4 @@
-import { Building2, Users, AlertTriangle, CreditCard, Activity, Zap } from "lucide-react";
+import { Building2, Users, AlertTriangle, CreditCard, Activity, Zap, ShieldCheck, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { CockpitService } from "@/lib/superadmin/cockpit-service";
 import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
@@ -11,57 +11,60 @@ import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-    console.log("[CockpitData] start");
+    console.log("[COCKPIT_MAIN] start");
     
-    // 0. Env Check (v2.8 Hardening)
+    // 0. Env Check (v2.9 Hardening)
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const dbUrl = process.env.DATABASE_URL;
     const isServiceRolePresent = !!serviceRoleKey;
     const isDbUrlPresent = !!dbUrl;
     
-    console.log(`[COCKPIT] env_check service_role_present=${isServiceRolePresent} db_url_present=${isDbUrlPresent}`);
+    console.log(`[COCKPIT_MAIN] env_check service_role_present=${isServiceRolePresent} db_url_present=${isDbUrlPresent}`);
 
     const configError = (!isServiceRolePresent || !isDbUrlPresent) 
         ? `CONFIG_INCOMPLETE: ${!isServiceRolePresent ? 'SUPABASE_SERVICE_ROLE_KEY ' : ''}${!isDbUrlPresent ? 'DATABASE_URL' : ''}`
         : null;
 
-    if (configError) {
-        console.error(`[CockpitData] critical_config_missing error=${configError}`);
-        if (!isServiceRolePresent) console.warn("[CockpitData] missing_env SUPABASE_SERVICE_ROLE_KEY");
-        if (!isDbUrlPresent) console.warn("[CockpitData] missing_env DATABASE_URL");
-    }
-
-    // 1. Fetch Data with granular fallbacks and structured logs
-    async function fetchSafe<T>(promise: Promise<T>, fallback: T, name: string): Promise<T> {
-        console.log(`[CockpitData] block=${name} start`);
+    // 1. Fetch Data with granular fallbacks and isolation
+    async function fetchBlock<T>(promise: Promise<T>, fallback: T, tag: string): Promise<{ data: T, error: string | null }> {
+        console.log(`[${tag}] start`);
         try {
             const res = await promise;
-            console.log(`[CockpitData] block=${name} ok`);
-            return res;
-        } catch (err: any) {
-            // CRITICAL: Re-throw Auth/Guard errors to trigger global error boundary
-            if (err.message?.includes("Unauthorized") || err.message?.includes("Not authenticated")) {
-                console.error(`[CockpitData] block=${name} FATAL_AUTH_ERROR: ${err.message}`);
+            console.log(`[${tag}] ok`);
+            return { data: res, error: null };
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            // CRITICAL: Re-throw Auth/Guard errors
+            if (message.includes("Unauthorized") || message.includes("Not authenticated")) {
+                console.error(`[${tag}] FATAL_AUTH_ERROR: ${message}`);
                 throw err;
             }
 
-            console.error(`[CockpitData] block=${name} error=${err.message} code=${err.code || 'N/A'} cause=${err.cause || 'Unknown'}`);
-            // If it's a Prisma error, we can log more
-            if (err.meta) console.error(`[CockpitData] block=${name} prisma_meta=`, err.meta);
-            return fallback;
+            console.error(`[${tag}] error=${message}`);
+            return { data: fallback, error: message };
         }
     }
 
-    const [kpis, orgs, alerts, metrics] = configError 
-        ? [null, [], [], []] 
+    const [kpisRes, orgsRes, alertsRes, metricsRes] = configError 
+        ? [
+            { data: { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }, error: 'Configuración incompleta' },
+            { data: [], error: 'Configuración incompleta' },
+            { data: [], error: 'Configuración incompleta' },
+            { data: [], error: 'Configuración incompleta' }
+          ]
         : await Promise.all([
-            fetchSafe(CockpitService.getGlobalKPIs(), null, 'KPIs'),
-            fetchSafe(CockpitService.getOrganizationsList(), [], 'OrgsList'),
-            fetchSafe(AlertsService.getGlobalAlertsSummary(), [], 'AlertsSummary'),
-            fetchSafe(MetricsService.getAggregatedMonthlyMetrics(), [], 'MonthlyMetrics')
+            fetchBlock(CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }, 'COCKPIT_KPI'),
+            fetchBlock(CockpitService.getOrganizationsList(), [], 'COCKPIT_ORGS'),
+            fetchBlock(AlertsService.getGlobalAlertsSummary(), [], 'COCKPIT_ALERTS'),
+            fetchBlock(MetricsService.getAggregatedMonthlyMetrics(), [], 'COCKPIT_METRICS')
         ]);
     
-    console.log("[CockpitData] done");
+    console.log("[COCKPIT_MAIN] done");
+
+    const kpis = kpisRes.data;
+    const orgs = orgsRes.data;
+    const alerts = alertsRes.data;
+    const metrics = metricsRes.data;
 
     // Identity context for auditing (Only if config ok)
     if (!configError) {
@@ -70,58 +73,54 @@ export default async function AdminDashboard() {
             const supabase = await createClient();
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                await CockpitService.auditAdminAction(user.id, 'SUPERADMIN_COCKPIT_VIEWED', 'Superadmin viewed global cockpit v2.8');
+                await CockpitService.auditAdminAction(user.id, 'SUPERADMIN_COCKPIT_VIEWED', 'Superadmin viewed global cockpit v2.9');
             }
-        } catch (e) {
-            console.warn("[COCKPIT] Audit log failed (non-critical)");
+        } catch {
+            console.warn("[COCKPIT_MAIN] Audit log failed (non-critical)");
         }
     }
-
-    // Prepare Stats with fallbacks
-    const safeKpis = kpis || { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0 };
-    const safeAlerts = Array.isArray(alerts) ? alerts : [];
-    const safeOrgs = Array.isArray(orgs) ? orgs : [];
-    const safeMetrics = Array.isArray(metrics) ? metrics : [];
 
     const stats = [
         {
             label: "Organizaciones",
-            value: safeKpis.totalOrgs,
+            value: kpis.totalOrgs,
             icon: Building2,
             color: "text-blue-600",
             bg: "bg-blue-50",
-            sub: "Empresas registradas"
+            sub: "Empresas registradas",
+            error: kpisRes.error
         },
         {
             label: "Alertas Críticas",
-            value: safeAlerts.filter(a => a?.severity === 'CRITICAL').length,
+            value: alerts.filter(a => a?.severity === 'CRITICAL').length,
             icon: ShieldAlertIcon,
             color: "text-red-600",
             bg: "bg-red-50",
-            sub: "Requieren acción inmediata"
+            sub: "Requieren acción inmediata",
+            error: alertsRes.error
         },
         {
             label: "Facturación / Issues",
-            value: safeKpis.issuesCount,
+            value: kpis.issuesCount,
             icon: CreditCard,
             color: "text-amber-600",
             bg: "bg-amber-50",
-            sub: "Suscripciones con problemas"
+            sub: "Suscripciones con problemas",
+            error: kpisRes.error
         },
     ];
 
-    console.log("[COCKPIT] page_render_start");
-
     return (
         <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
-            {/* 0. Diagnostic Banner (Conditional) */}
+            {/* 0. Diagnostic Banner */}
             {configError && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm animate-in slide-in-from-top-4 duration-500">
                     <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0 mt-1" />
                     <div>
-                        <h3 className="text-amber-900 dark:text-amber-100 font-black italic tracking-tight uppercase text-sm mb-1">Configuración Incompleta en Servidor</h3>
+                        <h3 className="text-amber-900 dark:text-amber-100 font-black italic tracking-tight uppercase text-sm mb-1">Modo Seguro: Configuración Incompleta</h3>
                         <p className="text-amber-700 dark:text-amber-300 text-xs leading-relaxed font-medium">
-                            El Cockpit se ha cargado en modo degradado porque faltan variables de entorno críticas: <code className="bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 rounded text-amber-900 dark:text-amber-200 font-bold">{configError.replace('CONFIG_INCOMPLETE: ', '')}</code>. Algunas funcionalidades pueden no estar disponibles.
+                            Faltan variables de entorno críticas en el servidor: <code className="bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 rounded text-amber-900 dark:text-amber-200 font-bold">{configError.replace('CONFIG_INCOMPLETE: ', '')}</code>. 
+                            Las métricas globales y la conexión con el Admin Client están desactivadas para evitar fallos críticos.
                         </p>
                     </div>
                 </div>
@@ -131,8 +130,8 @@ export default async function AdminDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/50 pb-6">
                 <div>
                     <div className="flex items-center gap-3 mb-1">
-                        <ShieldCheckIcon className="w-5 h-5 text-blue-600" />
-                        <h1 className="text-3xl font-black text-foreground tracking-tight bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic">Global Cockpit v2.8</h1>
+                        <ShieldCheck className="w-5 h-5 text-blue-600" />
+                        <h1 className="text-3xl font-black text-foreground tracking-tight bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic">Global Cockpit v2.9</h1>
                     </div>
                     <p className="text-muted-foreground font-medium underline decoration-blue-500/30 underline-offset-4 tracking-tight">Gestión proactiva y monitorización estratégica de TechWise.</p>
                 </div>
@@ -143,7 +142,13 @@ export default async function AdminDashboard() {
 
             {/* 1. Alerts Section (Isolated) */}
             <section className="min-h-[100px]">
-                <SuperadminAlertsList alerts={safeAlerts} />
+                {alertsRes.error ? (
+                    <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-xs font-bold">
+                        Error al cargar alertas: {alertsRes.error}
+                    </div>
+                ) : (
+                    <SuperadminAlertsList alerts={alerts} />
+                )}
             </section>
 
             {/* 2. Global KPI Aggregation */}
@@ -152,23 +157,23 @@ export default async function AdminDashboard() {
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Salud del Ecosistema</div>
                         <div className="flex items-center gap-3">
-                            <Activity className={`w-5 h-5 ${safeAlerts.length === 0 && !configError ? 'text-emerald-400' : 'text-amber-400'}`} />
+                            <Activity className={`w-5 h-5 ${alerts.length === 0 && !configError ? 'text-emerald-400' : 'text-amber-400'}`} />
                             <span className="text-2xl font-black italic">
-                                {configError ? 'SISTEMA DEGRADADO' : safeAlerts.length > 0 ? 'ATENCIÓN REQUERIDA' : 'SISTEMA ÓPTIMO'}
+                                {configError ? 'SISTEMA DEGRADADO' : alerts.length > 0 ? 'ATENCIÓN REQUERIDA' : 'SISTEMA ÓPTIMO'}
                             </span>
                         </div>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Facturación en Riesgo</div>
-                        <div className="text-2xl font-black text-rose-400">{safeKpis.issuesCount || 0}</div>
+                        <div className="text-2xl font-black text-rose-400">{kpis.issuesCount || 0}</div>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Alertas Activas</div>
-                        <div className="text-2xl font-black text-blue-400">{safeAlerts.length}</div>
+                        <div className="text-2xl font-black text-blue-400">{alerts.length}</div>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Total Orgs</div>
-                        <div className="text-2xl font-black text-white">{safeKpis.totalOrgs || 0}</div>
+                        <div className="text-2xl font-black text-white">{kpis.totalOrgs || 0}</div>
                     </div>
                 </div>
                 {/* Background decorative elements */}
@@ -176,14 +181,24 @@ export default async function AdminDashboard() {
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/5 rounded-full blur-[80px] -ml-32 -mb-32" />
             </div>
 
-            {/* 3. Metrics View (NEW v2.0) */}
+            {/* 3. Metrics View */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <div className="xl:col-span-2">
-                    <SuperadminMonthlyMetrics data={safeMetrics} />
+                    {metricsRes.error ? (
+                        <div className="h-full min-h-[300px] flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 border border-border rounded-3xl p-10 text-center">
+                            <div>
+                                <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-4" />
+                                <p className="text-sm font-bold text-foreground">Métricas no disponibles</p>
+                                <p className="text-xs text-muted-foreground mt-1">{metricsRes.error}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <SuperadminMonthlyMetrics data={metrics} />
+                    )}
                 </div>
                 <div className="space-y-6">
                     {stats.map((stat, i) => (
-                        <div key={i} className="bg-card p-6 rounded-3xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                        <div key={i} className={`bg-card p-6 rounded-3xl border ${stat.error ? 'border-rose-200' : 'border-border'} shadow-sm hover:shadow-md transition-all group relative overflow-hidden`}>
                             <div className="flex items-center gap-4 relative z-10">
                                 <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color} transition-transform group-hover:rotate-3`}>
                                     <stat.icon className="w-6 h-6" />
@@ -191,6 +206,7 @@ export default async function AdminDashboard() {
                                 <div>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">{stat.label}</p>
                                     <h3 className="text-2xl font-black text-foreground">{stat.value || 0}</h3>
+                                    {stat.error && <p className="text-[8px] text-rose-500 font-bold mt-1 uppercase">Error de sincronización</p>}
                                 </div>
                             </div>
                         </div>
@@ -203,7 +219,13 @@ export default async function AdminDashboard() {
 
             {/* 4. Organizations Health Detail */}
             <div className="space-y-6 p-1">
-                <SaaSHealthTable orgs={safeOrgs} />
+                {orgsRes.error ? (
+                    <div className="p-10 text-center border-2 border-dashed border-border rounded-3xl">
+                        <p className="text-muted-foreground text-sm font-medium">No se pudo cargar el directorio de organizaciones.</p>
+                    </div>
+                ) : (
+                    <SaaSHealthTable orgs={orgs} />
+                )}
             </div>
 
             {/* 5. Navigation Quick Links */}
@@ -223,17 +245,5 @@ function AdminLink({ href, label, icon }: { href: string; label: string; icon: R
             <span className="text-muted-foreground group-hover:text-blue-500 transition-colors">{icon}</span>
             <span className="text-[10px] font-black text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-widest">{label}</span>
         </Link>
-    );
-}
-
-function ShieldCheckIcon({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
-    );
-}
-
-function ShieldAlertIcon({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
     );
 }
