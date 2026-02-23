@@ -46,7 +46,7 @@ export async function triggerAlertsEvaluation(): Promise<OperationalActionResult
         }
 
         console.log(`[${traceId}] Starting ecosystem-wide health evaluation for ${access.email}`);
-        const results = await AlertsService.runAlertsEvaluation();
+        const results = await AlertsService.runAlertsEvaluation(traceId);
         
         // Count organizations for the summary
         const orgCount = await prisma.organization.count();
@@ -78,7 +78,73 @@ export async function triggerAlertsEvaluation(): Promise<OperationalActionResult
 }
 
 /**
- * Acknowledge an alert
+ * Acknowledge an alert by fingerprint
+ * v4.5.0: Actionable Remediation
+ */
+export async function acknowledgeCockpitAlert(fingerprint: string): Promise<OperationalActionResult> {
+    const traceId = `ACK-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.acknowledgeAlert(fingerprint);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: "Alerta reconocida correctamente.", meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
+ * Snooze an alert by fingerprint
+ * v4.5.0: Actionable Remediation
+ */
+export async function snoozeCockpitAlert(fingerprint: string, preset: "1h" | "24h" | "7d"): Promise<OperationalActionResult> {
+    const traceId = `SNOOZE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    const snoozeMap = { "1h": 1, "24h": 24, "7d": 168 };
+    const hours = snoozeMap[preset] || 1;
+
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.snoozeAlert(fingerprint, hours);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: `Alerta pospuesta por ${preset}.`, meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
+ * Resolve an alert by fingerprint
+ * v4.5.0: Actionable Remediation
+ */
+export async function resolveCockpitAlert(fingerprint: string, note?: string): Promise<OperationalActionResult> {
+    const traceId = `RESOLVE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.resolveAlert(fingerprint, note);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: "Incidente marcado como RESUELTO.", meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
+ * Acknowledge an alert (Legacy/ID based)
  */
 export async function acknowledgeAlert(alertId: string): Promise<OperationalActionResult> {
     const traceId = `ACK-${Math.random().toString(36).substring(7).toUpperCase()}`;
@@ -87,7 +153,13 @@ export async function acknowledgeAlert(alertId: string): Promise<OperationalActi
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Sesión sin privilegios suficientes.", meta: { traceId } };
 
-        await AlertsService.acknowledgeAlert(alertId);
+        // Attempt by ID if ID is provided, else fallback to service (this might need alertId -> fingerprint mapping)
+        // For simplicity in v4.5 we'll keep ID based if needed but encourage fingerprint
+        const existing = await prisma.superadminAlert.findUnique({ where: { id: alertId } });
+        if (existing) {
+            await AlertsService.acknowledgeAlert(existing.fingerprint);
+        }
+        
         revalidatePath("/admin");
         return { ok: true, code: "OK", message: "Alerta reconocida.", meta: { traceId } };
     } catch (error: unknown) {

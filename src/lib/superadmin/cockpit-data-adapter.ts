@@ -46,7 +46,7 @@ export interface OperationalActionResult<T = undefined> {
 }
 
 export type AlertSeverity = "info" | "warning" | "critical";
-export type AlertState = "open" | "acknowledged" | "resolved";
+export type AlertState = "open" | "acknowledged" | "snoozed" | "resolved";
 
 export interface CockpitOperationalAlert {
   id: string;
@@ -60,6 +60,8 @@ export interface CockpitOperationalAlert {
   href?: string;
   detectedAt: string;
   traceId: string;
+  fingerprint: string;
+  snoozedUntil?: string | null;
   organization?: { name: string } | null;
 }
 
@@ -76,13 +78,14 @@ export interface CockpitDataPayloadV42 {
 
 /**
  * Robust adapter to fetch all Cockpit data with high-fidelity status reporting.
- * v4.4.0: Actionable Operation + Enhanced Telemetry
+ * v4.5.0: Actionable Operation + Remediation Loop
  */
 export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     const startTime = Date.now();
     const config = getServerRuntimeConfig();
     const traceId = `CKP-${Math.random().toString(36).substring(7).toUpperCase()}`;
-    const now = new Date().toISOString();
+    const nowISO = new Date().toISOString();
+    const now = new Date();
     
     console.log(`[CockpitAdapter][${traceId}] Start Aggregated Fetch (Mode: ${config.mode})`);
 
@@ -100,7 +103,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
                 data: fallback, 
                 code: 'MISSING_ADMIN_CONFIG',
                 message: 'Disponible al completar configuración del servidor (SERVICE_ROLE)',
-                meta: { durationMs: 0, traceId, lastUpdatedAt: now }
+                meta: { durationMs: 0, traceId, lastUpdatedAt: nowISO }
             };
         }
 
@@ -119,7 +122,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
                 data: data ?? fallback,
                 message: status === 'ok' ? 'Datos sincronizados correctamente.' : 'Sin datos disponibles en este bloque.',
                 code: status === 'ok' ? 'SYNC_OK' : 'EMPTY_RESULT',
-                meta: { durationMs, rowCount, traceId, lastUpdatedAt: now }
+                meta: { durationMs, rowCount, traceId, lastUpdatedAt: nowISO }
             };
         } catch (err: unknown) {
             const durationMs = Date.now() - blockStart;
@@ -132,7 +135,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
                 data: fallback, 
                 code: normalized.code,
                 message: normalized.message,
-                meta: { durationMs, traceId, lastUpdatedAt: now }
+                meta: { durationMs, traceId, lastUpdatedAt: nowISO }
             };
         }
     }
@@ -143,18 +146,29 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
         fetchBlockSafe('Orgs', CockpitService.getOrganizationsList(), []),
         fetchBlockSafe('Alerts', AlertsService.getGlobalAlertsSummary().then(items => items.map(item => {
             const meta = (item.metadata || {}) as Record<string, unknown>;
+            
+            // Map status to operational states v4.5
+            let state: AlertState = 'open';
+            if (item.status === 'ACKNOWLEDGED') state = 'acknowledged';
+            if (item.status === 'RESOLVED') state = 'resolved';
+            if (item.status === 'ACTIVE' && meta.snoozedUntil && new Date(meta.snoozedUntil as string) > now) {
+                state = 'snoozed';
+            }
+
             return {
                 id: item.id,
                 title: item.title,
                 description: item.description,
                 severity: item.severity.toLowerCase() as AlertSeverity,
-                state: item.status.toLowerCase() as AlertState,
+                state,
                 ruleCode: String(meta.ruleCode || item.type),
                 entityType: 'organization',
                 entityId: item.organizationId || undefined,
                 href: typeof meta.href === 'string' ? meta.href : undefined,
                 detectedAt: item.detectedAt.toISOString(),
-                traceId: typeof meta.traceId === 'string' ? meta.traceId : 'N/A',
+                traceId: typeof meta.lastTraceId === 'string' ? meta.lastTraceId : 'N/A',
+                fingerprint: item.fingerprint,
+                snoozedUntil: typeof meta.snoozedUntil === 'string' ? meta.snoozedUntil : null,
                 organization: item.organization
             } as CockpitOperationalAlert;
         })), []),

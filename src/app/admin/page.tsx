@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Users, CreditCard, Activity, Zap, ShieldCheck, ShieldAlert, AlertTriangle } from "lucide-react";
+import { Building2, Users, CreditCard, Activity, Zap, ShieldCheck, ShieldAlert, AlertTriangle, CheckCheck } from "lucide-react";
 import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
 import { SuperadminNotificationCenter } from "@/components/admin/SuperadminNotificationCenter";
 import { SuperadminAlertsList, SuperadminMonthlyMetrics } from "@/components/admin/SuperadminV2Components";
@@ -8,38 +8,59 @@ import { getCockpitDataSafe, OperationalBlockStatus } from "@/lib/superadmin/coc
 import { CockpitService } from "@/lib/superadmin/cockpit-service";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import prisma from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-    console.log("[COCKPIT_V4.4.0] Rendering Operación Accionable Dashboard");
+    console.log("[COCKPIT_V4.5.0] Rendering Remediación Dashboard");
     
     // 0. Unified Data Fetch (Isolated Blocks)
     const { blocks, systemStatus, loadTimeMs } = await getCockpitDataSafe();
     const isSafeMode = systemStatus === 'safe_mode';
 
-    // 1. Audit Entry & Last Evaluation Recovery
+    // 1. Audit Entry & Operational Recovery
     let lastEval: { executedAt: string; traceId: string; details: string } | null = null;
+    let lastOp: { executedAt: string; action: string; details: string; actor: string } | null = null;
+
     if (systemStatus === 'operational') {
         try {
             const { createClient } = await import('@/lib/supabase/server');
             const supabase = await createClient();
             const { data: authData } = await supabase.auth.getUser();
             if (authData.user) {
-                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.4.0 Actionable (load: ${loadTimeMs}ms)`);
+                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.5.0 Actionable (load: ${loadTimeMs}ms)`);
             }
 
-            // Recovery of last evaluation from audit logs
-            const lastLog = await prisma.auditLog.findFirst({
-                where: { action: 'SUPERADMIN_ALERTS_EVALUATED' },
-                orderBy: { createdAt: 'desc' }
-            });
-            if (lastLog && lastLog.createdAt && lastLog.details) {
+            // Recovery of last evaluation and operations
+            const [lastEvalLog, lastOpLog] = await Promise.all([
+                prisma.auditLog.findFirst({
+                    where: { action: 'SUPERADMIN_ALERTS_EVALUATED' },
+                    orderBy: { createdAt: 'desc' }
+                }),
+                prisma.auditLog.findFirst({
+                    where: { 
+                        action: { in: ['SUPERADMIN_ALERT_ACKNOWLEDGED', 'SUPERADMIN_ALERT_SNOOZED', 'SUPERADMIN_ALERT_RESOLVED'] } 
+                    },
+                    orderBy: { createdAt: 'desc' }
+                })
+            ]);
+
+            if (lastEvalLog && lastEvalLog.createdAt && lastEvalLog.details) {
                 lastEval = {
-                    executedAt: lastLog.createdAt.toISOString(),
-                    traceId: lastLog.details.match(/RECALC-[A-Z0-9]+/)?.[0] || 'N/A',
-                    details: lastLog.details
+                    executedAt: lastEvalLog.createdAt.toISOString(),
+                    traceId: lastEvalLog.details.match(/\[RECALC-[A-Z0-9]+\]/)?.[0]?.replace(/[\[\]]/g, '') || 'N/A',
+                    details: lastEvalLog.details
+                };
+            }
+
+            if (lastOpLog && lastOpLog.createdAt && lastOpLog.details) {
+                lastOp = {
+                    executedAt: lastOpLog.createdAt.toISOString(),
+                    action: lastOpLog.action.replace('SUPERADMIN_ALERT_', ''),
+                    details: lastOpLog.details,
+                    actor: lastOpLog.userName || 'Superadmin'
                 };
             }
         } catch {
@@ -59,8 +80,8 @@ export default async function AdminDashboard() {
         },
         {
             id: "cockpit-kpi-alerts",
-            label: "Alertas Críticas",
-            value: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter((a) => a?.severity === 'critical').length : 0,
+            label: "Incidentes Críticos",
+            value: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter((a) => a?.severity === 'critical' && a.state === 'open').length : 0,
             icon: ShieldAlert,
             color: "text-red-600",
             bg: "bg-red-50",
@@ -114,9 +135,9 @@ export default async function AdminDashboard() {
                             <div className={cn("w-1.5 h-1.5 rounded-full", isSafeMode ? "bg-amber-500" : "bg-emerald-500 animate-pulse")} />
                             {isSafeMode ? 'Safe Mode' : 'Operational'}
                         </div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.4.0</h1>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.5.0</h1>
                     </div>
-                    <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Consola de Operaciones Accionables y Gobernanza Maestro.</p>
+                    <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Panel de Remediación y Control Operacional Maestro.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <SuperadminNotificationCenter />
@@ -131,35 +152,54 @@ export default async function AdminDashboard() {
                     </BlockContainer>
                 </section>
                 
-                <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-slate-50/30 dark:bg-zinc-900/10 p-8 flex flex-col justify-between">
-                    <div>
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 flex items-center gap-2">
-                            <Activity className="w-3.5 h-3.5 text-blue-500" />
-                            Última Evaluación de Salud
-                        </h3>
-                        {lastEval ? (
-                            <div className="space-y-4">
-                                <div>
-                                    <p className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white italic">
-                                        {new Date(lastEval.executedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase">{new Date(lastEval.executedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                <div className="space-y-6">
+                    <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-slate-50/30 dark:bg-zinc-900/10 p-8 flex flex-col justify-between">
+                        <div>
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 flex items-center gap-2">
+                                <Activity className="w-3.5 h-3.5 text-blue-500" />
+                                Última Evaluación de Salud
+                            </h3>
+                            {lastEval ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white italic">
+                                            {new Date(lastEval.executedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase">{new Date(lastEval.executedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-2xl shadow-sm">
+                                        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">{lastEval.details.split(']: ')[1] || lastEval.details}</p>
+                                    </div>
+                                    <p className="text-[8px] font-mono text-slate-400 uppercase tracking-widest opacity-60">Trace: {lastEval.traceId}</p>
                                 </div>
-                                <div className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-2xl shadow-sm">
-                                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">{lastEval.details.replace('Evaluation completed: ', '')}</p>
+                            ) : (
+                                <div className="py-10 text-center">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 italic">Sin ejecuciones detectadas</p>
                                 </div>
-                                <p className="text-[8px] font-mono text-slate-400 uppercase tracking-widest opacity-60">Trace: {lastEval.traceId}</p>
+                            )}
+                        </div>
+                        <div className="pt-6">
+                            <RealRefreshButton />
+                        </div>
+                    </Card>
+
+                    {lastOp && (
+                        <Card className="rounded-[2.5rem] border border-border bg-white dark:bg-zinc-900/50 p-8">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 flex items-center gap-2">
+                                <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                Última Acción Operativa
+                            </h3>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Badge variant="outline" className="text-[8px] font-black uppercase border-emerald-200 text-emerald-700 bg-emerald-50">{lastOp.action}</Badge>
+                                    <span className="text-[9px] font-bold text-slate-400">{new Date(lastOp.executedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed italic">&quot;{lastOp.details.replace('[Superadmin Cockpit] ', '')}&quot;</p>
+                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter pt-1">Por: {lastOp.actor}</p>
                             </div>
-                        ) : (
-                            <div className="py-10 text-center">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 italic">Sin ejecuciones detectadas</p>
-                            </div>
-                        )}
-                    </div>
-                    <div className="pt-6">
-                        <RealRefreshButton />
-                    </div>
-                </Card>
+                        </Card>
+                    )}
+                </div>
             </div>
 
             {/* 2. Global KPI Aggregation */}

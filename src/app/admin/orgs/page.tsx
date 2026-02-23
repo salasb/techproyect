@@ -6,8 +6,8 @@ import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 import { CockpitService, OrgCockpitSummary } from "@/lib/superadmin/cockpit-service";
 
 export default async function AdminOrgsPage() {
-    const traceId = "ORG-PAGE-V440";
-    console.log(`[ADMIN_ORGS][${traceId}] Loading start v4.4.0`);
+    const traceId = "ORG-PAGE-V450";
+    console.log(`[ADMIN_ORGS][${traceId}] Loading start v4.5.0`);
     
     let orgs: OrgCockpitSummary[] = [];
     let plans: { id: string; name: string }[] = [];
@@ -72,7 +72,7 @@ export default async function AdminOrgsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase">Directorio Maestro</h1>
-                    <p className="text-slate-500 font-medium text-sm italic">Gobernanza de Ecosistemas v4.4.0</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Gobernanza de Ecosistemas v4.5.0</p>
                 </div>
                 <div className="bg-white dark:bg-zinc-950 px-6 py-3 rounded-2xl border border-border shadow-sm flex items-center gap-8">
                     <div>

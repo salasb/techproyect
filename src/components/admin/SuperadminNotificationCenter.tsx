@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Bell, Info, AlertTriangle, ShieldAlert, Check, ExternalLink } from "lucide-react";
+import { Bell, Info, AlertTriangle, ShieldAlert, Check, ExternalLink, Loader2 } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -11,10 +11,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { markNotificationRead, getCockpitV2Data } from "@/app/actions/superadmin-v2";
+import { markNotificationRead, getCockpitV2Data, resolveCockpitAlert } from "@/app/actions/superadmin-v2";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import Link from "next/link";
+import { toast } from "sonner";
+import type { OperationalActionResult } from "@/lib/superadmin/cockpit-data-adapter";
 
 interface NotificationItem {
     id: string;
@@ -25,12 +27,14 @@ interface NotificationItem {
         severity?: string;
         href?: string;
         ruleCode?: string;
+        fingerprint?: string;
     };
 }
 
 export function SuperadminNotificationCenter() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [actingId, setActingId] = useState<string | null>(null);
 
     const loadData = useCallback(async (isMountedRef: { current: boolean }, skipLoadingState = false) => {
         if (isMountedRef.current && !skipLoadingState) setLoading(true);
@@ -62,6 +66,25 @@ export function SuperadminNotificationCenter() {
             }
         } catch (_error) {
             console.error("Failed to mark notification as read");
+        }
+    };
+
+    const handleOperationalAction = async (notifId: string, fingerprint: string, actionFn: (fp: string) => Promise<OperationalActionResult<unknown>>) => {
+        setActingId(notifId);
+        try {
+            const res = await actionFn(fingerprint);
+            if (res.ok) {
+                toast.success("Acción completada", { description: res.message });
+                // Also mark as read automatically when acted upon
+                await markNotificationRead(notifId);
+                setNotifications(prev => prev.filter(n => n.id !== notifId));
+            } else {
+                toast.error("Error", { description: res.message });
+            }
+        } catch {
+            toast.error("Fallo técnico al procesar acción");
+        } finally {
+            setActingId(null);
         }
     };
 
@@ -109,49 +132,70 @@ export function SuperadminNotificationCenter() {
                             <p className="text-[10px] text-muted-foreground mt-1">Todo el ecosistema está bajo control.</p>
                         </div>
                     ) : (
-                        notifications.map((n) => (
-                            <DropdownMenuItem key={n.id} className="p-4 focus:bg-muted/50 cursor-default block border-b border-border/50 last:border-0 transition-colors">
-                                <div className="flex gap-3">
-                                    <div className="mt-0.5 shrink-0">
-                                        {getIcon(n.metadata)}
-                                    </div>
-                                    <div className="flex-1 min-w-0 space-y-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex flex-col min-w-0">
-                                                <p className="text-[11px] font-black leading-none text-foreground truncate">{n.title}</p>
-                                                {n.metadata?.ruleCode && (
-                                                    <span className="text-[7px] font-mono uppercase opacity-40 mt-0.5">{n.metadata.ruleCode}</span>
-                                                )}
+                        notifications.map((n) => {
+                            const isActing = actingId === n.id;
+                            return (
+                                <DropdownMenuItem key={n.id} className="p-4 focus:bg-muted/50 cursor-default block border-b border-border/50 last:border-0 transition-colors">
+                                    <div className="flex gap-3">
+                                        <div className="mt-0.5 shrink-0">
+                                            {isActing ? <Loader2 className="w-4 h-4 animate-spin text-blue-500" /> : getIcon(n.metadata)}
+                                        </div>
+                                        <div className="flex-1 min-w-0 space-y-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex flex-col min-w-0">
+                                                    <p className="text-[11px] font-black leading-none text-foreground truncate">{n.title}</p>
+                                                    {n.metadata?.ruleCode && (
+                                                        <span className="text-[7px] font-mono uppercase opacity-40 mt-0.5">{n.metadata.ruleCode}</span>
+                                                    )}
+                                                </div>
+                                                <span className="text-[8px] font-bold text-muted-foreground/60 uppercase shrink-0">
+                                                    {formatDistanceToNow(new Date(n.createdAt), { addSuffix: false, locale: es })}
+                                                </span>
                                             </div>
-                                            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase shrink-0">
-                                                {formatDistanceToNow(new Date(n.createdAt), { addSuffix: false, locale: es })}
-                                            </span>
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{n.body}</p>
-                                        <div className="flex items-center justify-between pt-2">
-                                            {n.metadata?.href ? (
-                                                <Link href={n.metadata.href}>
-                                                    <span className="text-[9px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer">
-                                                        <ExternalLink className="w-2 h-2" />
-                                                        Ver objeto
-                                                    </span>
-                                                </Link>
-                                            ) : <div />}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleMarkRead(n.id);
-                                                }}
-                                                className="text-[9px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-tight transition-colors"
-                                            >
-                                                Archivar
-                                            </button>
+                                            <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{n.body}</p>
+                                            
+                                            <div className="flex items-center justify-between pt-2">
+                                                <div className="flex items-center gap-2">
+                                                    {n.metadata?.href && (
+                                                        <Link href={n.metadata.href}>
+                                                            <span className="text-[9px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer">
+                                                                <ExternalLink className="w-2 h-2" />
+                                                                Ver
+                                                            </span>
+                                                        </Link>
+                                                    )}
+                                                    {n.metadata?.fingerprint && (
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                const note = prompt("Nota de resolución:");
+                                                                if (note !== null) handleOperationalAction(n.id, n.metadata!.fingerprint!, (fp) => resolveCockpitAlert(fp, note));
+                                                            }}
+                                                            disabled={isActing}
+                                                            className="text-[9px] font-black text-emerald-600 hover:underline uppercase disabled:opacity-50"
+                                                        >
+                                                            Resolver
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        handleMarkRead(n.id);
+                                                    }}
+                                                    disabled={isActing}
+                                                    className="text-[9px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-tight transition-colors disabled:opacity-50"
+                                                >
+                                                    Archivar
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </DropdownMenuItem>
-                        ))
+                                </DropdownMenuItem>
+                            );
+                        })
                     )}
                 </div>
 

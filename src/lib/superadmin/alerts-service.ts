@@ -8,6 +8,13 @@ import {
 interface AlertMetadata {
     href?: string;
     ruleCode?: string;
+    snoozedUntil?: string; // ISO
+    acknowledgedBy?: string;
+    acknowledgedAt?: string;
+    resolvedBy?: string;
+    resolutionNote?: string;
+    reopenCount?: number;
+    lastTraceId?: string;
 }
 
 interface NotificationMetadata {
@@ -15,6 +22,7 @@ interface NotificationMetadata {
     severity: string;
     href?: string;
     ruleCode?: string;
+    fingerprint?: string;
 }
 
 export class AlertsService {
@@ -40,11 +48,12 @@ export class AlertsService {
 
     /**
      * Run evaluation for all organizations.
-     * v4.4.0: Deterministic Operational Alerts
+     * v4.5.0: Actionable Remediation Loop + Automatic Reopening
      */
-    static async runAlertsEvaluation() {
+    static async runAlertsEvaluation(providedTraceId?: string) {
         const adminUser = await this.ensureSuperadmin();
         const startTime = Date.now();
+        const traceId = providedTraceId || `EVAL-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
         const organizations = await prisma.organization.findMany({
             include: {
@@ -61,7 +70,7 @@ export class AlertsService {
 
         for (const org of organizations) {
             const activeAlerts = await prisma.superadminAlert.findMany({
-                where: { organizationId: org.id, status: { in: ['ACTIVE', 'ACKNOWLEDGED'] } }
+                where: { organizationId: org.id, status: { in: ['ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'] } }
             });
 
             // Rule 1: BILLING_PAST_DUE (CRITICAL)
@@ -78,7 +87,8 @@ export class AlertsService {
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,
-                results
+                results,
+                traceId
             );
 
             // Rule 2: TRIAL_ENDING_SOON (WARNING)
@@ -100,10 +110,11 @@ export class AlertsService {
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,
-                results
+                results,
+                traceId
             );
 
-            // Rule 3: PENDING_ACTIVATION_STALE (WARNING) - Mapping to SYSTEM_INFO for DB compatibility
+            // Rule 3: PENDING_ACTIVATION_STALE (WARNING)
             const isStalePending = org.status === 'PENDING' && (now.getTime() - new Date(org.createdAt).getTime() > 48 * 60 * 60 * 1000);
             await this.evaluateRule(
                 org.id,
@@ -117,7 +128,8 @@ export class AlertsService {
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,
-                results
+                results,
+                traceId
             );
 
             // Rule 4: NO_ADMINS_ASSIGNED (CRITICAL)
@@ -134,7 +146,8 @@ export class AlertsService {
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,
-                results
+                results,
+                traceId
             );
 
             // Rule 5: INACTIVE_PRO_ORG (INFO)
@@ -160,7 +173,8 @@ export class AlertsService {
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,
-                results
+                results,
+                traceId
             );
         }
 
@@ -170,7 +184,7 @@ export class AlertsService {
             data: {
                 userId: adminUser.id,
                 action: 'SUPERADMIN_ALERTS_EVALUATED',
-                details: `v4.4.0 Engine: ${results.created} created, ${results.updated} updated, ${results.resolved} resolved in ${durationMs}ms.`,
+                details: `v4.5.0 Engine [${traceId}]: ${results.created} created, ${results.updated} updated, ${results.resolved} resolved in ${durationMs}ms.`,
                 createdAt: new Date()
             }
         });
@@ -184,7 +198,8 @@ export class AlertsService {
         condition: boolean,
         data: { severity: SuperadminAlertSeverity, title: string, description: string, reasonCodes: string[], href?: string },
         activeAlerts: SuperadminAlert[],
-        results: { created: number, updated: number, resolved: number }
+        results: { created: number, updated: number, resolved: number },
+        traceId: string
     ) {
         // Unique fingerprint per rule even if base type is shared (e.g. SYSTEM_INFO)
         const ruleIdentifier = data.reasonCodes[0] || type;
@@ -194,8 +209,7 @@ export class AlertsService {
         if (condition) {
             if (!existingAlert) {
                 // Create Alert
-                // Metadata used to store extra actionable context if needed
-                const metadata: AlertMetadata = { href: data.href, ruleCode: type };
+                const metadata: AlertMetadata = { href: data.href, ruleCode: ruleIdentifier, lastTraceId: traceId };
                 
                 const alert = await prisma.superadminAlert.create({
                     data: {
@@ -214,7 +228,13 @@ export class AlertsService {
 
                 // Create Notification for CRITICAL/WARNING
                 if (data.severity !== 'INFO') {
-                    const notifMetadata: NotificationMetadata = { orgId, severity: data.severity, href: data.href, ruleCode: type };
+                    const notifMetadata: NotificationMetadata = { 
+                        orgId, 
+                        severity: data.severity, 
+                        href: data.href, 
+                        ruleCode: ruleIdentifier,
+                        fingerprint: fingerprint 
+                    };
                     await prisma.superadminNotification.create({
                         data: {
                             alertId: alert.id,
@@ -228,30 +248,54 @@ export class AlertsService {
                 }
                 results.created++;
             } else {
-                // Update existing if description/severity changed
-                if (existingAlert.severity !== data.severity || existingAlert.description !== data.description) {
-                    const updatedMetadata: AlertMetadata = { ...((existingAlert.metadata as Record<string, unknown>) || {}), href: data.href, ruleCode: type };
+                // Handle transitions for existing alert
+                const meta = (existingAlert.metadata as unknown as AlertMetadata) || {};
+                let statusToSet = existingAlert.status;
+                const updatedMeta: AlertMetadata = { ...meta, lastTraceId: traceId };
+
+                // Re-open if RESOLVED but condition still true
+                if (existingAlert.status === 'RESOLVED') {
+                    statusToSet = 'ACTIVE';
+                    updatedMeta.reopenCount = (meta.reopenCount || 0) + 1;
+                    console.log(`[AlertsService] REOPENING alert ${fingerprint} (Count: ${updatedMeta.reopenCount})`);
+                }
+
+                // Check Snooze expiration
+                if (meta.snoozedUntil && new Date(meta.snoozedUntil) < new Date()) {
+                    delete updatedMeta.snoozedUntil;
+                    console.log(`[AlertsService] SNOOZE EXPIRED for alert ${fingerprint}`);
+                }
+
+                if (
+                    statusToSet !== existingAlert.status ||
+                    existingAlert.severity !== data.severity || 
+                    existingAlert.description !== data.description ||
+                    updatedMeta.lastTraceId !== meta.lastTraceId
+                ) {
                     await prisma.superadminAlert.update({
                         where: { id: existingAlert.id },
                         data: {
+                            status: statusToSet,
                             severity: data.severity,
                             description: data.description,
                             reasonCodes: data.reasonCodes,
                             updatedAt: new Date(),
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            metadata: updatedMetadata as any
+                            metadata: { ...updatedMeta, href: data.href, ruleCode: ruleIdentifier } as any
                         }
                     });
                     results.updated++;
                 }
             }
-        } else if (existingAlert) {
-            // Resolve Alert
+        } else if (existingAlert && existingAlert.status !== 'RESOLVED') {
+            // Resolve Alert automatically if condition is no longer met
             await prisma.superadminAlert.update({
                 where: { id: existingAlert.id },
                 data: {
                     status: 'RESOLVED',
-                    resolvedAt: new Date()
+                    resolvedAt: new Date(),
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    metadata: { ...(existingAlert.metadata as any || {}), resolutionNote: 'Saneado automáticamente por motor de reglas.', lastTraceId: traceId } as any
                 }
             });
             results.resolved++;
@@ -260,13 +304,26 @@ export class AlertsService {
 
     static async getGlobalAlertsSummary() {
         await this.ensureSuperadmin();
-        return prisma.superadminAlert.findMany({
-            where: { status: { in: ['ACTIVE', 'ACKNOWLEDGED'] } },
+        const now = new Date();
+
+        const alerts = await prisma.superadminAlert.findMany({
+            where: { 
+                status: { in: ['ACTIVE', 'ACKNOWLEDGED'] }
+            },
             include: { organization: { select: { name: true } } },
             orderBy: [
                 { severity: 'desc' },
                 { detectedAt: 'desc' }
             ]
+        });
+
+        // Filter SNOOZED alerts in application logic to avoid schema changes
+        return alerts.filter(a => {
+            const meta = (a.metadata as unknown as AlertMetadata) || {};
+            if (meta.snoozedUntil && new Date(meta.snoozedUntil) > now) {
+                return false; // Skip snoozed
+            }
+            return true;
         });
     }
 
@@ -279,18 +336,97 @@ export class AlertsService {
         });
     }
 
-    static async acknowledgeAlert(alertId: string) {
+    static async acknowledgeAlert(fingerprint: string) {
         const user = await this.ensureSuperadmin();
+        const existing = await prisma.superadminAlert.findUnique({ where: { fingerprint } });
+        if (!existing) throw new Error("Alert not found");
+
+        const meta = (existing.metadata as unknown as AlertMetadata) || {};
+        const updatedMeta: AlertMetadata = {
+            ...meta,
+            acknowledgedBy: user.email || 'unknown',
+            acknowledgedAt: new Date().toISOString()
+        };
+
         const alert = await prisma.superadminAlert.update({
-            where: { id: alertId },
-            data: { status: 'ACKNOWLEDGED' }
+            where: { fingerprint },
+            data: { 
+                status: 'ACKNOWLEDGED',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                metadata: updatedMeta as any
+            }
         });
 
         await prisma.auditLog.create({
             data: {
                 userId: user.id,
                 action: 'SUPERADMIN_ALERT_ACKNOWLEDGED',
-                details: `Alert ${alertId} (${alert.type}) acknowledged.`,
+                details: `Alert ${fingerprint} acknowledged by ${user.email}.`,
+                createdAt: new Date()
+            }
+        });
+        return alert;
+    }
+
+    static async snoozeAlert(fingerprint: string, durationHours: number) {
+        const user = await this.ensureSuperadmin();
+        const existing = await prisma.superadminAlert.findUnique({ where: { fingerprint } });
+        if (!existing) throw new Error("Alert not found");
+
+        const snoozedUntil = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+        const meta = (existing.metadata as unknown as AlertMetadata) || {};
+        const updatedMeta: AlertMetadata = {
+            ...meta,
+            snoozedUntil: snoozedUntil.toISOString()
+        };
+
+        const alert = await prisma.superadminAlert.update({
+            where: { fingerprint },
+            data: { 
+                // Keep status ACTIVE but hide via metadata in summary
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                metadata: updatedMeta as any
+            }
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'SUPERADMIN_ALERT_SNOOZED',
+                details: `Alert ${fingerprint} snoozed until ${snoozedUntil.toISOString()} by ${user.email}.`,
+                createdAt: new Date()
+            }
+        });
+        return alert;
+    }
+
+    static async resolveAlert(fingerprint: string, note?: string) {
+        const user = await this.ensureSuperadmin();
+        const existing = await prisma.superadminAlert.findUnique({ where: { fingerprint } });
+        if (!existing) throw new Error("Alert not found");
+
+        const meta = (existing.metadata as unknown as AlertMetadata) || {};
+        const updatedMeta: AlertMetadata = {
+            ...meta,
+            resolvedBy: user.email || 'unknown',
+            resolutionNote: note
+        };
+
+        const alert = await prisma.superadminAlert.update({
+            where: { fingerprint },
+            data: { 
+                status: 'RESOLVED',
+                resolvedAt: new Date(),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                metadata: updatedMeta as any
+            }
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'SUPERADMIN_ALERT_RESOLVED',
+                details: `Alert ${fingerprint} resolved by ${user.email}. Note: ${note || 'None'}`,
                 createdAt: new Date()
             }
         });

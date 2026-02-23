@@ -199,8 +199,10 @@ export function OrgAdminRow({ org, availablePlans }: { org: OrgCockpitSummary, a
             <td className="px-8 py-5 text-right">
                 <div className="flex justify-end items-center gap-2">
                     <DropdownMenu>
-                        <DropdownMenuTrigger disabled={isLoading} className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all outline-none focus:ring-2 focus:ring-blue-500 shadow-sm border border-transparent hover:border-blue-200">
-                            <MoreVertical className="w-4.5 h-4.5" />
+                        <DropdownMenuTrigger disabled={isLoading} asChild>
+                            <button className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all outline-none focus:ring-2 focus:ring-blue-500 shadow-sm border border-transparent hover:border-blue-200">
+                                <MoreVertical className="w-4.5 h-4.5" />
+                            </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
                             <DropdownMenuItem onClick={() => handleStatusChange(status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')} className="rounded-xl cursor-pointer flex items-center gap-3 p-3">
