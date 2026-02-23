@@ -6,61 +6,89 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { logout } from "@/app/login/actions";
 import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard, TrendingUp, AlertCircle, Fingerprint } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { logout } from "@/app/login/actions";
+import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
+import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
+
 export default async function AdminLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    console.log("[AdminGuard] Start validation");
+    console.log("[AdminGuard] Start validation v2.4");
     
-    // 1. Initial Identity Check
-    const supabase = await createClient();
-    const { data: authRes } = await supabase.auth.getUser();
-    const user = authRes?.user;
+    const access = await resolveSuperadminAccess();
+    
+    // Logging for server trace
+    console.log(`[AdminGuard] user=${access.email} isSuperadmin=${access.isSuperadmin} denyReason=${access.denyReason}`);
+    console.log(`[AdminGuard] diagnostics=${JSON.stringify(access.diagnostics)}`);
 
-    if (!user) {
-        console.log("[AdminGuard] No user, redirecting to login");
-        redirect("/login");
-    }
-
-    // 2. Privilege Check via Resolver
-    let workspace;
-    try {
-        const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
-        workspace = await getWorkspaceState();
-        
-        if (!workspace.isSuperadmin) {
-            console.warn(`[AdminGuard] Access denied for ${user.email}`);
-            redirect("/dashboard");
-        }
-    } catch (e: any) {
-        // If it's a Next.js redirect error, re-throw it!
-        if (e.digest?.includes("NEXT_REDIRECT")) throw e;
-        
-        console.error("[AdminGuard] CRITICAL DB/PERM ERROR:", e);
+    if (!access.ok) {
+        // NO REDIRECT during debug phase - Show Diagnostic UI
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
-                <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border border-red-100 animate-in zoom-in duration-300">
-                    <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6">
-                        <Shield className="w-8 h-8 text-red-600" />
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans text-slate-900">
+                <div className="max-w-md w-full bg-white rounded-[2.5rem] p-10 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-500">
+                    <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mb-8 rotate-3 shadow-inner">
+                        <Shield className="w-10 h-10 text-rose-600" />
                     </div>
-                    <h1 className="text-2xl font-black text-slate-900 mb-2 italic tracking-tight">Acceso Global Protegido</h1>
-                    <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-                        El motor de base de datos ha denegado la solicitud de privilegios. Esto ocurre cuando los permisos del esquema público están desconfigurados (42501).
+                    
+                    <h1 className="text-3xl font-black italic tracking-tighter mb-2">Acceso Global Denegado</h1>
+                    <p className="text-slate-500 text-sm mb-8 leading-relaxed">
+                        Tu identidad ha sido validada, pero no posees los privilegios de <span className="font-bold text-slate-900 underline decoration-rose-500/30">Superadmin</span> necesarios para este portal.
                     </p>
-                    <div className="bg-slate-50 rounded-xl p-4 mb-6 font-mono text-[10px] text-slate-500 border border-slate-100">
-                        Error: {e.code || "DB_RESTRICTION"} - No se pudo validar rol global
+
+                    <div className="space-y-3 mb-8">
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between group">
+                            <div className="flex items-center gap-3">
+                                <Fingerprint className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Razón</span>
+                            </div>
+                            <span className="text-[11px] font-mono font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">{access.denyReason || 'unknown'}</span>
+                        </div>
+                        
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2">
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <span>Identidad</span>
+                                <span className="text-slate-900 lowercase font-mono">{access.email || 'n/a'}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <span>Allowlist</span>
+                                <span className={access.diagnostics.allowlistPresent ? 'text-emerald-600' : 'text-rose-600'}>
+                                    {access.diagnostics.allowlistPresent ? 'PRESENTE' : 'FALTANTE'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <span>Role DB</span>
+                                <span className="text-slate-900">{access.diagnostics.profileRole || 'NONE'}</span>
+                            </div>
+                        </div>
                     </div>
-                    <Link href="/dashboard" className="block w-full py-3.5 bg-slate-900 text-white text-center rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl active:scale-95">
-                        Volver al Dashboard Local
-                    </Link>
+
+                    <div className="grid grid-cols-1 gap-3">
+                        <Link href="/dashboard" className="w-full py-4 bg-slate-900 text-white text-center rounded-2xl font-black uppercase tracking-[0.15em] text-xs hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98]">
+                            Volver al Dashboard
+                        </Link>
+                        <button 
+                            onClick={() => window.location.reload()}
+                            className="w-full py-4 bg-white text-slate-400 text-center rounded-2xl font-bold uppercase tracking-widest text-[10px] border border-slate-100 hover:bg-slate-50 transition-all"
+                        >
+                            Reintentar Validación
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // 3. Render Dashboard
-    console.log("[AdminGuard] Access OK for Superadmin");
+    // Access Granted
+    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+    const workspace = await getWorkspaceState();
+
     return (
         <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Admin Sidebar */}
@@ -104,7 +132,7 @@ export default async function AdminLayout({
             <main className="flex-1 overflow-y-auto">
                 <header className="h-16 bg-white/80 backdrop-blur-md dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v2.3</h2>
+                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v2.4</h2>
                         <span 
                             className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2.5 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm"
                             data-testid="superadmin-mode-badge"
@@ -115,10 +143,10 @@ export default async function AdminLayout({
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm" data-testid="user-identity-chip">
                             <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white uppercase">
-                                {user.email?.substring(0, 2).toUpperCase()}
+                                {access.email?.substring(0, 2).toUpperCase()}
                             </div>
                             <span className="text-xs font-black text-zinc-700 dark:text-zinc-300 max-w-[120px] truncate">
-                                {user.email}
+                                {access.email}
                             </span>
                             <span 
                                 className="text-[9px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter border border-blue-200/50 dark:border-blue-800/50 shadow-sm"
