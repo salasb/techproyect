@@ -1,16 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Building2, AlertTriangle, Search } from "lucide-react";
+import { Building2, AlertTriangle, Search, ShieldCheck } from "lucide-react";
 import { OrgAdminRow } from "@/components/admin/OrgAdminRow";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 
 export default async function AdminOrgsPage() {
-    console.log("[ADMIN_ORGS] Loading start");
+    console.log("[ADMIN_ORGS] Loading start v4.1");
     
-    let orgs: any[] = [];
+    let orgs: Record<string, unknown>[] = [];
     let plans: { id: string; name: string }[] = [];
     let isDegraded = false;
-    let errorMsg = null;
+    let errorState: { message: string; code: string } | null = null;
 
     try {
         const isAdminConfigured = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,62 +42,76 @@ export default async function AdminOrgsPage() {
 
         if (orgsRes.error) throw orgsRes.error;
         
-        orgs = orgsRes.data || [];
-        plans = plansRes.data || [];
+        orgs = (orgsRes.data as Record<string, unknown>[]) || [];
+        plans = (plansRes.data as { id: string; name: string }[]) || [];
 
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("[ADMIN_ORGS] Fetch failed:", message);
-        errorMsg = message;
+        const normalized = normalizeOperationalError(err);
+        console.error("[ADMIN_ORGS] Fetch failed:", normalized.code);
+        errorState = { message: normalized.message, code: normalized.code };
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            {isDegraded && (
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3 text-amber-800 text-xs font-medium">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    <span>Modo Seguro: El listado de organizaciones puede estar limitado por las políticas RLS actuales.</span>
+        <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+            
+            {/* Hardening: Error State (No more [object Object]) */}
+            {errorState && (
+                <div className="bg-rose-50 border border-rose-200 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm animate-in zoom-in duration-300">
+                    <div className="bg-rose-100 p-2 rounded-xl">
+                        <AlertTriangle className="w-5 h-5 text-rose-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Error de Sincronización</h3>
+                        <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1">CODE: {errorState.code}</p>
+                    </div>
                 </div>
             )}
 
-            {errorMsg && (
-                <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl text-rose-700 text-xs font-bold shadow-sm">
-                    Error en Sincronización Global: {errorMsg}
+            {/* Hardening: Degraded Config Warning */}
+            {isDegraded && !errorState && (
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm">
+                    <div className="bg-amber-100 p-2 rounded-xl">
+                        <ShieldCheck className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-amber-900 font-black uppercase text-[10px] tracking-widest mb-1">Aislamiento Activo (Safe Mode)</h3>
+                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Sin Admin Key, la visibilidad de organizaciones está limitada por las políticas de seguridad RLS.</p>
+                    </div>
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase">Directorio Maestro</h1>
-                    <p className="text-slate-500 font-medium">Control total de organizaciones y ecosistemas TechWise.</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Gobernanza centralizada de ecosistemas TechWise.</p>
                 </div>
-                <div className="bg-white dark:bg-zinc-900 px-6 py-3 rounded-2xl border border-border shadow-sm flex items-center gap-6">
+                <div className="bg-white dark:bg-zinc-950 px-6 py-3 rounded-2xl border border-border shadow-sm flex items-center gap-8">
                     <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Total Ecosistemas</span>
-                        <div className="text-2xl font-black text-blue-600">{orgs.length}</div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Total Nodos</span>
+                        <div className="text-2xl font-black text-blue-600 tracking-tighter">{orgs.length}</div>
                     </div>
-                    <div className="w-px h-8 bg-border hidden md:block" />
+                    <div className="w-px h-10 bg-border hidden md:block" />
                     <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Planes Activos</span>
-                        <div className="text-2xl font-black text-indigo-600">{plans.length}</div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Planes Activos</span>
+                        <div className="text-2xl font-black text-indigo-600 tracking-tighter">{plans.length}</div>
                     </div>
                 </div>
             </div>
 
-            <Card className="rounded-[2.5rem] border-border shadow-2xl overflow-hidden bg-card">
+            <Card className="rounded-[2.5rem] border-border shadow-2xl overflow-hidden bg-card transition-all hover:shadow-blue-500/5">
                 <CardHeader className="bg-slate-50/50 dark:bg-zinc-900/50 border-b border-border p-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-3 text-slate-500">
                             <Building2 className="w-5 h-5 text-blue-500" />
                             Control de Organizaciones
                         </CardTitle>
-                        {/* Future search/filter bar */}
-                        <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                        <div className="relative group max-w-sm w-full">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                             <input 
                                 type="text" 
-                                placeholder="Filtrar organizaciones..." 
-                                className="pl-9 pr-4 py-2 bg-white dark:bg-zinc-800 border border-border rounded-full text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none transition-all w-full md:w-64 shadow-inner"
+                                placeholder="Filtrar por nombre o ID..." 
+                                className="pl-11 pr-6 py-2.5 bg-white dark:bg-zinc-800 border border-border rounded-2xl text-xs font-bold focus:ring-4 focus:ring-blue-500/10 outline-none transition-all w-full shadow-inner"
                             />
                         </div>
                     </div>
@@ -106,24 +121,27 @@ export default async function AdminOrgsPage() {
                         <table data-testid="cockpit-orgs-table" className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-zinc-50/30 dark:bg-zinc-900/30 border-b border-border">
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Organización / ID</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado Vital</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Configuración Plan</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Métricas</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Acciones</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Empresa / Master ID</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Salud Vital</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Nivel Comercial</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actividad</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Mando</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {orgs.map((org) => (
-                                    <OrgAdminRow key={org.id} org={org} availablePlans={plans} />
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    <OrgAdminRow key={(org as any).id as string} org={org as any} availablePlans={plans} />
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    {orgs.length === 0 && !errorMsg && (
-                        <div className="p-24 text-center">
-                            <Building2 className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                            <p className="text-slate-400 font-bold italic">No se han detectado organizaciones en el sistema.</p>
+                    {orgs.length === 0 && !errorState && (
+                        <div className="p-32 text-center">
+                            <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner border border-border">
+                                <Building2 className="w-10 h-10 text-slate-200" />
+                            </div>
+                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic">Cero nodos detectados en el motor global</p>
                         </div>
                     )}
                 </CardContent>

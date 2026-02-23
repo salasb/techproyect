@@ -13,28 +13,33 @@ export function RealRefreshButton() {
         setLoading(true);
         try {
             const res = await triggerAlertsEvaluation();
-            if (res.success && res.results) {
-                toast.success("Ecosistema Sincronizado", {
-                    description: `${res.results.created} alertas nuevas, ${res.results.resolved} resueltas.`
+            
+            if (res.ok) {
+                toast.success("Motor Sincronizado", {
+                    description: res.message
                 });
-            } else if (!res.success) {
-                // High-fidelity error handling based on unified guard
+            } else {
+                // High-fidelity error handling based on v4.1 codes
                 if (res.code === 'DEGRADED_CONFIG') {
                     toast.warning("Modo Seguro Activo", {
-                        description: res.error
+                        description: res.message
                     });
                 } else if (res.code === 'UNAUTHORIZED') {
-                    toast.error("Acceso Denegado", {
-                        description: res.error
+                    toast.error("Acceso Maestro Denegado", {
+                        description: res.message
+                    });
+                } else if (res.code === 'PREVIEW_LOCKED') {
+                    toast.info("Entorno de Lectura", {
+                        description: res.message
                     });
                 } else {
-                    toast.error("Error de Sincronización", {
-                        description: res.error
+                    toast.error("Fallo Operacional", {
+                        description: res.message
                     });
                 }
             }
         } catch {
-            toast.error("Error inesperado en el motor");
+            toast.error("Error inesperado en el túnel de comandos");
         } finally {
             setLoading(false);
         }

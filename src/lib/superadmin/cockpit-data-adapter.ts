@@ -2,38 +2,38 @@ import { getServerRuntimeConfig } from "@/lib/config/server-runtime";
 import { CockpitService, OrgCockpitSummary } from "./cockpit-service";
 import { AlertsService } from "./alerts-service";
 import { MetricsService, MonthlyMetrics } from "./metrics-service";
+import { normalizeOperationalError } from "./error-normalizer";
 
-export type BlockStatus = 'ok' | 'empty' | 'degraded_config' | 'degraded_service';
+export type OperationalBlockStatus = 'ok' | 'empty' | 'degraded_config' | 'degraded_service';
 
-export interface CockpitBlockMeta {
-    durationMs: number;
-    rowCount?: number;
-    source?: string;
-}
-
-export interface CockpitBlock<T> {
-    status: BlockStatus;
+export interface OperationalBlockResult<T> {
+    status: OperationalBlockStatus;
     data: T;
     message?: string;
-    meta?: CockpitBlockMeta;
+    code?: string;
+    meta: {
+        durationMs: number;
+        rowCount?: number;
+        source?: string;
+    };
 }
 
-export interface CockpitDataPayloadV32 {
+export interface CockpitDataPayloadV4 {
     systemStatus: 'operational' | 'safe_mode';
     loadTimeMs: number;
     blocks: {
-        kpis: CockpitBlock<{ totalOrgs: number; issuesCount: number; activeTrials: number; inactiveOrgs: number; timestamp: Date }>;
-        orgs: CockpitBlock<OrgCockpitSummary[]>;
-        alerts: CockpitBlock<Record<string, unknown>[]>;
-        metrics: CockpitBlock<MonthlyMetrics[]>;
+        kpis: OperationalBlockResult<{ totalOrgs: number; issuesCount: number; activeTrials: number; inactiveOrgs: number; timestamp: Date }>;
+        orgs: OperationalBlockResult<OrgCockpitSummary[]>;
+        alerts: OperationalBlockResult<Record<string, unknown>[]>;
+        metrics: OperationalBlockResult<MonthlyMetrics[]>;
     };
 }
 
 /**
  * Robust adapter to fetch all Cockpit data with high-fidelity status reporting.
- * v3.2: Operational Ready + Metadata
+ * v4.1: Phase 2 Real Hardening + Error Normalization
  */
-export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV32> {
+export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV4> {
     const startTime = Date.now();
     const config = getServerRuntimeConfig();
     
@@ -44,7 +44,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV32> {
         promise: Promise<T>,
         fallback: T,
         requiresAdmin: boolean = true
-    ): Promise<CockpitBlock<T>> {
+    ): Promise<OperationalBlockResult<T>> {
         const blockStart = Date.now();
         
         if (requiresAdmin && !config.isAdminClientEnabled) {
@@ -52,6 +52,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV32> {
             return { 
                 status: 'degraded_config', 
                 data: fallback, 
+                code: 'MISSING_ADMIN_CONFIG',
                 message: 'Disponible al completar configuración del servidor',
                 meta: { durationMs: 0 }
             };
@@ -70,18 +71,19 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV32> {
             return { 
                 status, 
                 data: data ?? fallback,
-                meta: { durationMs, rowCount }
+                meta: { durationMs, rowCount, source: 'service' }
             };
         } catch (err: unknown) {
             const durationMs = Date.now() - blockStart;
-            const message = err instanceof Error ? err.message : 'Unknown Service Error';
+            const normalized = normalizeOperationalError(err);
             
-            console.error(`[CockpitAdapter][Block:${name}] Status: degraded_service Error: ${message} Duration: ${durationMs}ms`);
+            console.error(`[CockpitAdapter][Block:${name}] Status: degraded_service Code: ${normalized.code} Message: ${normalized.message} Duration: ${durationMs}ms`);
             
             return { 
                 status: 'degraded_service', 
                 data: fallback, 
-                message: 'Servicio temporalmente no disponible',
+                code: normalized.code,
+                message: normalized.message,
                 meta: { durationMs }
             };
         }
@@ -99,7 +101,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV32> {
     console.log(`[CockpitAdapter] Aggregated Load: ${totalDuration}ms`);
 
     return {
-        systemStatus: config.mode,
+        systemStatus: config.mode === 'operational' ? 'operational' : 'safe_mode',
         loadTimeMs: totalDuration,
         blocks: { kpis, orgs, alerts, metrics }
     };
