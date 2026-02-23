@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default async function AdminOrgsPage() {
     console.log("[ADMIN_ORGS] Loading start");
     
-    let orgs: Record<string, unknown>[] = [];
+    let orgs: any[] = [];
     let plans: { id: string; name: string }[] = [];
     let isDegraded = false;
     let errorMsg = null;
@@ -41,8 +41,8 @@ export default async function AdminOrgsPage() {
 
         if (orgsRes.error) throw orgsRes.error;
         
-        orgs = (orgsRes.data as Record<string, unknown>[]) || [];
-        plans = (plansRes.data as { id: string; name: string }[]) || [];
+        orgs = orgsRes.data || [];
+        plans = plansRes.data || [];
 
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
@@ -115,8 +115,7 @@ export default async function AdminOrgsPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {orgs.map((org) => (
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    <OrgAdminRow key={(org as any).id} org={org as any} availablePlans={plans} />
+                                    <OrgAdminRow key={org.id} org={org} availablePlans={plans} />
                                 ))}
                             </tbody>
                         </table>

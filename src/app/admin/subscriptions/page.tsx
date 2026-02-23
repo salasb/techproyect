@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SUBSCRIPTION_PLANS, PLAN_LABELS, PlanTier } from "@/config/subscription-plans";
+import { SUBSCRIPTION_PLANS, PLAN_LABELS, PlanTier, PlanFeatures } from "@/config/subscription-plans";
 import { Building2, CreditCard, Users, TrendingUp, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ export default async function AdminSubscriptionsPage() {
         currentPlan: string; 
         userCount: number; 
         projectCount: number; 
-        limits: Record<string, unknown>; 
+        limits: PlanFeatures; 
         isNearLimit: boolean; 
         isOverLimit: boolean;
     }[] = [];

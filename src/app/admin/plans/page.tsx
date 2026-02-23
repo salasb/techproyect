@@ -31,7 +31,7 @@ export default async function AdminPlansPage() {
             .order('price', { ascending: true });
 
         if (error) throw error;
-        plans = data || [];
+        plans = (data as any[]) || [];
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("[ADMIN_PLANS] Fetch failed:", message);
