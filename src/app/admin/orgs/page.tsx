@@ -103,7 +103,7 @@ export default async function AdminOrgsPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table data-testid="cockpit-orgs-table" className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-zinc-50/30 dark:bg-zinc-900/30 border-b border-border">
                                     <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Organización / ID</th>
@@ -114,12 +114,10 @@ export default async function AdminOrgsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {orgs.map((org) => {
-                                    const o = org as any;
-                                    return (
-                                        <OrgAdminRow key={o.id} org={o} availablePlans={plans} />
-                                    );
-                                })}
+                                {orgs.map((org) => (
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    <OrgAdminRow key={(org as any).id} org={org as any} availablePlans={plans} />
+                                ))}
                             </tbody>
                         </table>
                     </div>

@@ -79,7 +79,7 @@ export default async function AdminUsersPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
-                        <Table>
+                        <Table data-testid="cockpit-users-table">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent border-b border-border">
                                     <TableHead className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Usuario</TableHead>
