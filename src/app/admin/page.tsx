@@ -11,51 +11,70 @@ import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-    console.log("[COCKPIT] page_start");
+    console.log("[CockpitData] start");
     
-    // 0. Env Check (v2.7 Hardening)
+    // 0. Env Check (v2.8 Hardening)
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const dbUrl = process.env.DATABASE_URL;
     const isServiceRolePresent = !!serviceRoleKey;
+    const isDbUrlPresent = !!dbUrl;
     
-    console.log(`[COCKPIT] env_check service_role_present=${isServiceRolePresent} db_url_present=${!!dbUrl}`);
+    console.log(`[COCKPIT] env_check service_role_present=${isServiceRolePresent} db_url_present=${isDbUrlPresent}`);
 
-    if (!isServiceRolePresent || !dbUrl) {
-        console.error("[COCKPIT] error: ENV_CONFIG_MISSING");
-        // We throw here because without ENV, the whole admin page is non-functional
-        throw new Error(`ADMIN_ENV_MISSING: ${!isServiceRolePresent ? 'SERVICE_ROLE ' : ''}${!dbUrl ? 'DATABASE_URL' : ''}`);
+    const configError = (!isServiceRolePresent || !isDbUrlPresent) 
+        ? `CONFIG_INCOMPLETE: ${!isServiceRolePresent ? 'SUPABASE_SERVICE_ROLE_KEY ' : ''}${!isDbUrlPresent ? 'DATABASE_URL' : ''}`
+        : null;
+
+    if (configError) {
+        console.error(`[CockpitData] critical_config_missing error=${configError}`);
+        if (!isServiceRolePresent) console.warn("[CockpitData] missing_env SUPABASE_SERVICE_ROLE_KEY");
+        if (!isDbUrlPresent) console.warn("[CockpitData] missing_env DATABASE_URL");
     }
 
-    // 1. Fetch Data with granular fallbacks
+    // 1. Fetch Data with granular fallbacks and structured logs
     async function fetchSafe<T>(promise: Promise<T>, fallback: T, name: string): Promise<T> {
-        console.log(`[COCKPIT] widget:${name} start`);
+        console.log(`[CockpitData] block=${name} start`);
         try {
             const res = await promise;
-            console.log(`[COCKPIT] widget:${name} ok`);
+            console.log(`[CockpitData] block=${name} ok`);
             return res;
         } catch (err: any) {
-            console.error(`[COCKPIT] widget:${name} error:`, err.message);
+            // CRITICAL: Re-throw Auth/Guard errors to trigger global error boundary
+            if (err.message?.includes("Unauthorized") || err.message?.includes("Not authenticated")) {
+                console.error(`[CockpitData] block=${name} FATAL_AUTH_ERROR: ${err.message}`);
+                throw err;
+            }
+
+            console.error(`[CockpitData] block=${name} error=${err.message} code=${err.code || 'N/A'} cause=${err.cause || 'Unknown'}`);
+            // If it's a Prisma error, we can log more
+            if (err.meta) console.error(`[CockpitData] block=${name} prisma_meta=`, err.meta);
             return fallback;
         }
     }
 
-    const [kpis, orgs, alerts, metrics] = await Promise.all([
-        fetchSafe(CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }, 'KPIs'),
-        fetchSafe(CockpitService.getOrganizationsList(), [], 'OrgsList'),
-        fetchSafe(AlertsService.getGlobalAlertsSummary(), [], 'AlertsSummary'),
-        fetchSafe(MetricsService.getAggregatedMonthlyMetrics(), [], 'MonthlyMetrics')
-    ]);
+    const [kpis, orgs, alerts, metrics] = configError 
+        ? [null, [], [], []] 
+        : await Promise.all([
+            fetchSafe(CockpitService.getGlobalKPIs(), null, 'KPIs'),
+            fetchSafe(CockpitService.getOrganizationsList(), [], 'OrgsList'),
+            fetchSafe(AlertsService.getGlobalAlertsSummary(), [], 'AlertsSummary'),
+            fetchSafe(MetricsService.getAggregatedMonthlyMetrics(), [], 'MonthlyMetrics')
+        ]);
+    
+    console.log("[CockpitData] done");
 
-    // Identity context for auditing
-    try {
-        const { createClient } = await import('@/lib/supabase/server');
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            await CockpitService.auditAdminAction(user.id, 'SUPERADMIN_COCKPIT_VIEWED', 'Superadmin viewed global cockpit v2.7');
+    // Identity context for auditing (Only if config ok)
+    if (!configError) {
+        try {
+            const { createClient } = await import('@/lib/supabase/server');
+            const supabase = await createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await CockpitService.auditAdminAction(user.id, 'SUPERADMIN_COCKPIT_VIEWED', 'Superadmin viewed global cockpit v2.8');
+            }
+        } catch (e) {
+            console.warn("[COCKPIT] Audit log failed (non-critical)");
         }
-    } catch (e) {
-        console.warn("[COCKPIT] Audit log failed (non-critical)");
     }
 
     // Prepare Stats with fallbacks
@@ -95,12 +114,25 @@ export default async function AdminDashboard() {
 
     return (
         <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
+            {/* 0. Diagnostic Banner (Conditional) */}
+            {configError && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm animate-in slide-in-from-top-4 duration-500">
+                    <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0 mt-1" />
+                    <div>
+                        <h3 className="text-amber-900 dark:text-amber-100 font-black italic tracking-tight uppercase text-sm mb-1">Configuración Incompleta en Servidor</h3>
+                        <p className="text-amber-700 dark:text-amber-300 text-xs leading-relaxed font-medium">
+                            El Cockpit se ha cargado en modo degradado porque faltan variables de entorno críticas: <code className="bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 rounded text-amber-900 dark:text-amber-200 font-bold">{configError.replace('CONFIG_INCOMPLETE: ', '')}</code>. Algunas funcionalidades pueden no estar disponibles.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Header with Notification Center */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/50 pb-6">
                 <div>
                     <div className="flex items-center gap-3 mb-1">
                         <ShieldCheckIcon className="w-5 h-5 text-blue-600" />
-                        <h1 className="text-3xl font-black text-foreground tracking-tight bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic">Global Cockpit v2.7</h1>
+                        <h1 className="text-3xl font-black text-foreground tracking-tight bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic">Global Cockpit v2.8</h1>
                     </div>
                     <p className="text-muted-foreground font-medium underline decoration-blue-500/30 underline-offset-4 tracking-tight">Gestión proactiva y monitorización estratégica de TechWise.</p>
                 </div>
@@ -120,9 +152,9 @@ export default async function AdminDashboard() {
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Salud del Ecosistema</div>
                         <div className="flex items-center gap-3">
-                            <Activity className={`w-5 h-5 ${safeAlerts.length === 0 ? 'text-emerald-400' : 'text-amber-400'}`} />
+                            <Activity className={`w-5 h-5 ${safeAlerts.length === 0 && !configError ? 'text-emerald-400' : 'text-amber-400'}`} />
                             <span className="text-2xl font-black italic">
-                                {safeAlerts.length > 0 ? 'ATENCIÓN REQUERIDA' : 'SISTEMA ÓPTIMO'}
+                                {configError ? 'SISTEMA DEGRADADO' : safeAlerts.length > 0 ? 'ATENCIÓN REQUERIDA' : 'SISTEMA ÓPTIMO'}
                             </span>
                         </div>
                     </div>
