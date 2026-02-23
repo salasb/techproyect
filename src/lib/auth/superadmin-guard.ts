@@ -18,6 +18,8 @@ export interface SuperadminAccessResult {
     diagnostics: {
         allowlistPresent: boolean;
         allowlistMatch: boolean;
+        allowlistMasked: string; // Safe debugging
+        vercelEnv: string; // Confirm environment
         profileRole: string | null;
         error: string | null;
     };
@@ -28,11 +30,13 @@ export interface SuperadminAccessResult {
  * Priority: Allowlist > Profile Role.
  */
 export async function resolveSuperadminAccess(): Promise<SuperadminAccessResult> {
-    const diagnostics = {
+    const diagnostics: SuperadminAccessResult['diagnostics'] = {
         allowlistPresent: false,
         allowlistMatch: false,
-        profileRole: null as string | null,
-        error: null as string | null
+        allowlistMasked: 'none',
+        vercelEnv: process.env.NEXT_PUBLIC_VERCEL_ENV || 'development',
+        profileRole: null,
+        error: null
     };
 
     try {
@@ -49,11 +53,17 @@ export async function resolveSuperadminAccess(): Promise<SuperadminAccessResult>
         const allowlistRaw = process.env.SUPERADMIN_ALLOWLIST || '';
         diagnostics.allowlistPresent = allowlistRaw.length > 0;
         
+        // Robust parsing: handles comma, semicolon, newline
+        // We use a safe regex without literal newlines inside the character set
         const allowedEmails = allowlistRaw
-            .split(/[,
-;]/)
+            .split(/[,\n;]+/)
             .map(e => e.trim().toLowerCase())
             .filter(Boolean);
+        
+        // Mask allowlist for diagnostic UI
+        diagnostics.allowlistMasked = allowedEmails
+            .map(e => e.replace(/^(..)(.*)(@.*)$/, '$1***$3'))
+            .join(', ') || 'empty';
         
         if (email && allowedEmails.includes(email)) {
             diagnostics.allowlistMatch = true;

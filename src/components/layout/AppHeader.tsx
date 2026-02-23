@@ -36,17 +36,25 @@ export function AppHeader({
 
     useEffect(() => {
         async function getUser() {
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
+            try {
+                const supabase = createClient();
+                const { data: { user } } = await supabase.auth.getUser();
+                setUser(user);
 
-            if (user) {
-                const { data: profileData } = await supabase
-                    .from('Profile')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single();
-                setUserProfile(profileData);
+                if (user) {
+                    // Use maybeSingle() to prevent exceptions on 406/404
+                    const { data: profileData } = await supabase
+                        .from('Profile')
+                        .select('*')
+                        .eq('id', user.id)
+                        .maybeSingle();
+                    
+                    if (profileData) {
+                        setUserProfile(profileData);
+                    }
+                }
+            } catch (e) {
+                console.warn("[AppHeader] Non-blocking identity resolve failed:", e);
             }
         }
 

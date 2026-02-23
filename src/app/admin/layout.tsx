@@ -1,40 +1,41 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard, TrendingUp } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { logout } from "@/app/login/actions";
-import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
-
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Shield, LayoutDashboard, Building2, Users, Settings, LogOut, CreditCard, TrendingUp, AlertCircle, Fingerprint } from "lucide-react";
+import { 
+    Shield, 
+    LayoutDashboard, 
+    Building2, 
+    Users, 
+    Settings, 
+    LogOut, 
+    CreditCard, 
+    TrendingUp, 
+    Fingerprint 
+} from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { logout } from "@/app/login/actions";
 import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    console.log("[AdminGuard] Start validation v2.4");
+    console.log("[AdminGuard] Start validation v2.4.1");
     
     const access = await resolveSuperadminAccess();
     
     // Logging for server trace
     console.log(`[AdminGuard] user=${access.email} isSuperadmin=${access.isSuperadmin} denyReason=${access.denyReason}`);
-    console.log(`[AdminGuard] diagnostics=${JSON.stringify(access.diagnostics)}`);
 
     if (!access.ok) {
-        // NO REDIRECT during debug phase - Show Diagnostic UI
+        // Diagnostic UI for access denied
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans text-slate-900">
                 <div className="max-w-md w-full bg-white rounded-[2.5rem] p-10 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-500">
-                    <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mb-8 rotate-3 shadow-inner">
-                        <Shield className="w-10 h-10 text-rose-600" />
+                    <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mb-8 rotate-3 shadow-inner text-rose-600">
+                        <Shield className="w-10 h-10" />
                     </div>
                     
                     <h1 className="text-3xl font-black italic tracking-tighter mb-2">Acceso Global Denegado</h1>
@@ -57,10 +58,12 @@ export default async function AdminLayout({
                                 <span className="text-slate-900 lowercase font-mono">{access.email || 'n/a'}</span>
                             </div>
                             <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <span>Entorno</span>
+                                <span className="text-slate-900 uppercase">{access.diagnostics.vercelEnv}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                 <span>Allowlist</span>
-                                <span className={access.diagnostics.allowlistPresent ? 'text-emerald-600' : 'text-rose-600'}>
-                                    {access.diagnostics.allowlistPresent ? 'PRESENTE' : 'FALTANTE'}
-                                </span>
+                                <span className="text-slate-900 max-w-[150px] truncate text-right font-mono text-[9px]">{access.diagnostics.allowlistMasked}</span>
                             </div>
                             <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                 <span>Role DB</span>
@@ -73,12 +76,6 @@ export default async function AdminLayout({
                         <Link href="/dashboard" className="w-full py-4 bg-slate-900 text-white text-center rounded-2xl font-black uppercase tracking-[0.15em] text-xs hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98]">
                             Volver al Dashboard
                         </Link>
-                        <button 
-                            onClick={() => window.location.reload()}
-                            className="w-full py-4 bg-white text-slate-400 text-center rounded-2xl font-bold uppercase tracking-widest text-[10px] border border-slate-100 hover:bg-slate-50 transition-all"
-                        >
-                            Reintentar Validación
-                        </button>
                     </div>
                 </div>
             </div>
@@ -132,7 +129,7 @@ export default async function AdminLayout({
             <main className="flex-1 overflow-y-auto">
                 <header className="h-16 bg-white/80 backdrop-blur-md dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v2.4</h2>
+                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v2.4.1</h2>
                         <span 
                             className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2.5 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm"
                             data-testid="superadmin-mode-badge"
