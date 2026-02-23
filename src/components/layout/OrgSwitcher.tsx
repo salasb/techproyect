@@ -152,29 +152,29 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                     ))}
                 </div>
                 <DropdownMenuSeparator className="my-2" />
-                <DropdownMenuItem asChild className="p-0">
-                    <Link 
-                        href="/start" 
-                        data-testid="new-org-link"
-                        className="w-full flex items-center gap-3 px-3 py-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-all group"
-                    >
-                        <div className="h-8 w-8 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <PlusCircle className="h-4 w-4" />
-                        </div>
-                        <span>Nueva Organización</span>
-                    </Link>
+                <DropdownMenuItem
+                    onSelect={() => router.push('/start')}
+                    className="w-full flex items-center gap-3 px-3 py-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-all group cursor-pointer"
+                    data-testid="new-org-link"
+                >
+                    <div className="h-8 w-8 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <PlusCircle className="h-4 w-4" />
+                    </div>
+                    <span>Nueva Organización</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild className="p-0">
-                    <Link 
-                        href="/admin" 
-                        data-testid="go-cockpit-link"
-                        className="w-full flex items-center gap-3 px-3 py-3 text-indigo-600 dark:text-indigo-400 font-bold text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-lg transition-all group border-t border-slate-100 dark:border-slate-800 mt-1"
-                    >
-                        <div className="h-8 w-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Shield className="h-4 w-4" />
-                        </div>
-                        <span>Ir al Cockpit Global</span>
-                    </Link>
+                <DropdownMenuItem
+                    onSelect={() => {
+                        console.log('[ORG_SWITCHER] go_global_clicked');
+                        console.log('[ORG_SWITCHER] navigating_to=/admin');
+                        router.push('/admin');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-3 text-indigo-600 dark:text-indigo-400 font-bold text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-lg transition-all group border-t border-slate-100 dark:border-slate-800 mt-1 cursor-pointer"
+                    data-testid="go-cockpit-link"
+                >
+                    <div className="h-8 w-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Shield className="h-4 w-4" />
+                    </div>
+                    <span>Ir al Cockpit Global</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu >
