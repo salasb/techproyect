@@ -1,4 +1,4 @@
-import { Building2, Users, AlertTriangle, CreditCard, Activity, Zap, ShieldCheck, AlertCircle } from "lucide-react";
+import { Building2, Users, AlertTriangle, CreditCard, Activity, Zap, ShieldCheck, AlertCircle, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { CockpitService } from "@/lib/superadmin/cockpit-service";
 import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
@@ -93,7 +93,7 @@ export default async function AdminDashboard() {
         {
             label: "Alertas Críticas",
             value: alerts.filter(a => a?.severity === 'CRITICAL').length,
-            icon: ShieldAlertIcon,
+            icon: ShieldAlert,
             color: "text-red-600",
             bg: "bg-red-50",
             sub: "Requieren acción inmediata",
