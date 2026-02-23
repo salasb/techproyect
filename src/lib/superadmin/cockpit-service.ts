@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-export type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'INCOMPLETE';
+export type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL';
 
 export interface OrgCockpitSummary {
     id: string;
@@ -89,6 +89,7 @@ export class CockpitService {
 
     /**
      * Get the full list of organizations with health and billing context
+     * v4.4.0: Deterministic health derivation
      */
     static async getOrganizationsList(): Promise<OrgCockpitSummary[]> {
         await this.ensureSuperadmin();
@@ -102,7 +103,6 @@ export class CockpitService {
                     select: {
                         OrganizationMember: true,
                         projects: true,
-                        QuoteItem: true // Proxied for quotes
                     }
                 }
             },
@@ -119,17 +119,17 @@ export class CockpitService {
             // 1. Billing Analysis
             const sub = org.subscription;
             if (!sub) {
-                reasons.push("Sin billing configurado");
+                reasons.push("Sin billing");
                 score -= 30;
             } else {
                 if (['PAST_DUE', 'UNPAID'].includes(sub.status)) {
-                    reasons.push(`Facturación: ${sub.status}`);
-                    score -= 50;
+                    reasons.push(`Pago ${sub.status}`);
+                    score -= 60;
                 }
                 if (sub.status === 'TRIALING' && sub.trialEndsAt) {
                     const daysLeft = Math.ceil((new Date(sub.trialEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                    if (daysLeft < 3) {
-                        reasons.push(`Trial vence en ${daysLeft} días`);
+                    if (daysLeft < 3 && daysLeft >= 0) {
+                        reasons.push(`Trial vence pronto`);
                         score -= 20;
                     }
                 }
@@ -138,19 +138,19 @@ export class CockpitService {
             // 2. Activity Analysis
             const lastActivity = org.stats?.lastActivityAt ? new Date(org.stats.lastActivityAt) : null;
             if (!lastActivity) {
-                reasons.push("Sin actividad registrada");
+                reasons.push("Inactiva");
                 score -= 40;
             } else {
                 const daysInactive = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
                 if (daysInactive > 7) {
-                    reasons.push(`Inactiva por ${daysInactive} días`);
+                    reasons.push(`7+ días inactiva`);
                     score -= 30;
                 }
             }
 
             // 3. Setup Analysis
             if (org._count.OrganizationMember === 0) {
-                reasons.push("Sin administradores");
+                reasons.push("Nodo huérfano");
                 score -= 50;
             }
 
@@ -158,7 +158,6 @@ export class CockpitService {
             let status: HealthStatus = 'HEALTHY';
             if (score <= 40 || org.status === 'INACTIVE') status = 'CRITICAL';
             else if (score < 90) status = 'WARNING';
-            if (!sub && org._count.projects === 0) status = 'INCOMPLETE';
 
             return {
                 id: org.id,
@@ -170,7 +169,7 @@ export class CockpitService {
                 health: {
                     status,
                     score: Math.max(0, score),
-                    reasons: reasons.slice(0, 3),
+                    reasons: reasons.slice(0, 2),
                     lastActivityAt: lastActivity
                 },
                 billing: {

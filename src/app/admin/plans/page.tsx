@@ -15,10 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 
 export default async function AdminPlansPage() {
-    console.log("[ADMIN_PLANS] Loading start v4.2.3 (Reality Patch)");
+    const traceId = `PLN-PAGE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    console.log(`[ADMIN_PLANS][${traceId}] Loading start v4.3.0`);
     
     let plans: Record<string, unknown>[] = [];
-    let errorState: { message: string; code: string } | null = null;
+    let errorState: { message: string; code: string; traceId: string } | null = null;
 
     try {
         const isAdminConfigured = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,8 +34,8 @@ export default async function AdminPlansPage() {
         plans = (data as Record<string, unknown>[]) || [];
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
-        console.error(`[ADMIN_PLANS][${normalized.code}] ${normalized.message}`);
-        errorState = { message: normalized.message, code: normalized.code };
+        console.error(`[ADMIN_PLANS][${traceId}][${normalized.code}] ${normalized.message}`);
+        errorState = { message: normalized.message, code: normalized.code, traceId };
     }
 
     return (
@@ -49,7 +50,7 @@ export default async function AdminPlansPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Fallo de Sincronización</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Plans_Master | Code: {errorState.code} | v4.2.3</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Plans_Master | Code: {errorState.code} | Trace: {errorState.traceId} | v4.3.0</p>
                     </div>
                 </div>
             )}
@@ -57,7 +58,7 @@ export default async function AdminPlansPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h2 className="text-3xl font-black italic tracking-tight text-slate-800 dark:text-white uppercase">Planes de Oferta</h2>
-                    <p className="text-slate-500 font-medium text-sm italic">Arquitectura comercial y límites maestros v4.2.3</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Arquitectura comercial y límites maestros v4.3.0</p>
                 </div>
                 <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 px-6 font-bold uppercase text-[10px] tracking-widest h-12 transition-all active:scale-95">
                     <Plus className="w-4 h-4 mr-2" />

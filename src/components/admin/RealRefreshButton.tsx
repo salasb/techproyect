@@ -15,11 +15,16 @@ export function RealRefreshButton() {
             const res = await triggerAlertsEvaluation();
             
             if (res.ok) {
-                toast.success("Motor Sincronizado", {
-                    description: res.message
+                const data = res.data as { createdAlerts: number; resolvedAlerts: number };
+                toast.success("Sincronización v4.4 Completa", {
+                    description: `${res.message} (Nuevas: ${data.createdAlerts}, Resueltas: ${data.resolvedAlerts}, Trace: ${res.meta.traceId})`,
+                    action: {
+                        label: "Ver Alertas",
+                        onClick: () => window.location.reload()
+                    }
                 });
             } else {
-                // High-fidelity error handling based on v4.1 codes
+                // High-fidelity error handling based on v4.4 codes
                 if (res.code === 'DEGRADED_CONFIG') {
                     toast.warning("Modo Seguro Activo", {
                         description: res.message
@@ -34,7 +39,7 @@ export function RealRefreshButton() {
                     });
                 } else {
                     toast.error("Fallo Operacional", {
-                        description: res.message
+                        description: `${res.message} (ID: ${res.meta?.traceId || 'N/A'})`
                     });
                 }
             }

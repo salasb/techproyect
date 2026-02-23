@@ -19,10 +19,11 @@ interface PlanDisplay {
 }
 
 export default async function AdminSettingsPage() {
-    console.log("[ADMIN_SETTINGS] Loading start v4.2.3 (Reality Patch)");
+    const traceId = `SET-PAGE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    console.log(`[ADMIN_SETTINGS][${traceId}] Loading start v4.3.0`);
     
     let plans: PlanDisplay[] = [];
-    let errorState: { message: string; code: string } | null = null;
+    let errorState: { message: string; code: string; traceId: string } | null = null;
     
     const isPreview = process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development';
 
@@ -40,8 +41,8 @@ export default async function AdminSettingsPage() {
         plans = (data as PlanDisplay[]) || [];
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
-        console.error(`[ADMIN_SETTINGS][${normalized.code}] ${normalized.message}`);
-        errorState = { message: normalized.message, code: normalized.code };
+        console.error(`[ADMIN_SETTINGS][${traceId}][${normalized.code}] ${normalized.message}`);
+        errorState = { message: normalized.message, code: normalized.code, traceId };
     }
 
     return (
@@ -56,7 +57,7 @@ export default async function AdminSettingsPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Fallo de Configuración</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Settings_Master | Code: {errorState.code} | v4.2.3</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Settings_Master | Code: {errorState.code} | Trace: {errorState.traceId} | v4.3.0</p>
                     </div>
                 </div>
             )}
@@ -64,11 +65,17 @@ export default async function AdminSettingsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h2 className="text-3xl font-black italic tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">Parámetros Globales</h2>
-                    <p className="text-slate-500 font-medium text-sm italic">Gobernanza del ecosistema TechWise v4.2.3</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Gobernanza del ecosistema TechWise v4.3.0</p>
                 </div>
             </div>
 
-            <form action={persistGlobalSettings} className="grid gap-10">
+            <form 
+                action={async (formData) => {
+                    "use server";
+                    await persistGlobalSettings(formData);
+                }} 
+                className="grid gap-10"
+            >
                 {/* Governance Section */}
                 <Card className="rounded-[3rem] border-border shadow-2xl overflow-hidden bg-card transition-all hover:shadow-blue-500/5">
                     <CardHeader className="bg-slate-50/50 dark:bg-zinc-900/50 border-b border-border p-10">

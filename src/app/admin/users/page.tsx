@@ -16,12 +16,13 @@ interface UserProfile {
 }
 
 export default async function AdminUsersPage() {
-    console.log("[ADMIN_USERS] Loading start v4.2.3 (Reality Patch)");
+    const traceId = `USR-PAGE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    console.log(`[ADMIN_USERS][${traceId}] Loading start v4.3.0`);
     
     let profiles: UserProfile[] = [];
     let count = 0;
     let isDegraded = false;
-    let errorState: { message: string; code: string } | null = null;
+    let errorState: { message: string; code: string; traceId: string } | null = null;
 
     try {
         const isAdminConfigured = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -43,13 +44,13 @@ export default async function AdminUsersPage() {
 
         if (profilesRes.error) throw profilesRes.error;
         
-        profiles = (profilesRes.data as any[]) || [];
+        profiles = (profilesRes.data as unknown as UserProfile[]) || [];
         count = countRes.count || 0;
 
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
-        console.error(`[ADMIN_USERS][${normalized.code}] ${normalized.message}`);
-        errorState = { message: normalized.message, code: normalized.code };
+        console.error(`[ADMIN_USERS][${traceId}][${normalized.code}] ${normalized.message}`);
+        errorState = { message: normalized.message, code: normalized.code, traceId };
     }
 
     return (
@@ -64,7 +65,7 @@ export default async function AdminUsersPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Fallo de Sincronización</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Users_Master | Code: {errorState.code} | v4.2.3</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Users_Master | Code: {errorState.code} | Trace: {errorState.traceId} | v4.3.0</p>
                     </div>
                 </div>
             )}
@@ -77,7 +78,7 @@ export default async function AdminUsersPage() {
                     </div>
                     <div>
                         <h3 className="text-amber-900 font-black uppercase text-[10px] tracking-widest mb-1">Visibilidad de Modo Seguro</h3>
-                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Operando bajo RLS restringido. Solo identidades del contexto actual son visibles.</p>
+                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Operando bajo RLS restringido. Solo identidades vinculadas al contexto actual son visibles.</p>
                     </div>
                 </div>
             )}
@@ -85,7 +86,7 @@ export default async function AdminUsersPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h2 className="text-3xl font-black italic tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">Cuentas Globales</h2>
-                    <p className="text-slate-500 font-medium text-sm italic">Directorio maestro de identidades v4.2.3</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Directorio maestro de identidades v4.3.0</p>
                 </div>
                 <div className="bg-white dark:bg-zinc-950 px-8 py-4 rounded-[2rem] border border-border shadow-xl">
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1.5">Total Identidades</span>

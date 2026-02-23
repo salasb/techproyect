@@ -38,7 +38,7 @@ export function UserAdminRow({ user }: UserAdminRowProps) {
                 const errorMsg = typeof res.error === 'string' ? res.error : "Error al actualizar rol global";
                 toast({ type: 'error', message: errorMsg });
             }
-        } catch (error) {
+        } catch (_error) {
             toast({ type: 'error', message: "Fallo de red o permisos insuficientes" });
         } finally {
             setIsLoading(false);

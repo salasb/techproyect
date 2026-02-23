@@ -1,53 +1,42 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Building2, AlertTriangle, Search, ShieldCheck } from "lucide-react";
 import { OrgAdminRow } from "@/components/admin/OrgAdminRow";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
+import { CockpitService, OrgCockpitSummary } from "@/lib/superadmin/cockpit-service";
 
 export default async function AdminOrgsPage() {
-    console.log("[ADMIN_ORGS] Loading start v4.2.3 (Reality Patch)");
+    const traceId = "ORG-PAGE-V440";
+    console.log(`[ADMIN_ORGS][${traceId}] Loading start v4.4.0`);
     
-    let orgs: Record<string, unknown>[] = [];
+    let orgs: OrgCockpitSummary[] = [];
     let plans: { id: string; name: string }[] = [];
     let isDegraded = false;
-    let errorState: { message: string; code: string } | null = null;
+    let errorState: { message: string; code: string; traceId: string } | null = null;
 
     try {
         const isAdminConfigured = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-        const supabase = isAdminConfigured ? createAdminClient() : await createClient();
         
         if (!isAdminConfigured) {
             isDegraded = true;
         }
 
         const [orgsRes, plansRes] = await Promise.all([
-            supabase
-                .from("Organization")
-                .select(`
-                    *,
-                    subscription:Subscription(*),
-                    members:OrganizationMember(count),
-                    projects:Project(count),
-                    clients:Client(count)
-                `)
-                .order("createdAt", { ascending: false }),
-            supabase
+            CockpitService.getOrganizationsList(),
+            createAdminClient()
                 .from('Plan')
                 .select('id, name')
                 .eq('isActive', true)
                 .order('price', { ascending: true })
         ]);
 
-        if (orgsRes.error) throw orgsRes.error;
-        
-        orgs = (orgsRes.data as Record<string, unknown>[]) || [];
+        orgs = (orgsRes as unknown as OrgCockpitSummary[]) || [];
         plans = (plansRes.data as { id: string; name: string }[]) || [];
 
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
-        console.error(`[ADMIN_ORGS][${normalized.code}] ${normalized.message}`);
-        errorState = { message: normalized.message, code: normalized.code };
+        console.error(`[ADMIN_ORGS][${traceId}][${normalized.code}] ${normalized.message}`);
+        errorState = { message: normalized.message, code: normalized.code, traceId };
     }
 
     return (
@@ -62,7 +51,7 @@ export default async function AdminOrgsPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Fallo de Sincronización</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Orgs_Master | Code: {errorState.code} | v4.2.3</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Orgs_Master | Code: {errorState.code} | Trace: {errorState.traceId} | v4.4.0</p>
                     </div>
                 </div>
             )}
@@ -74,8 +63,8 @@ export default async function AdminOrgsPage() {
                         <ShieldCheck className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                        <h3 className="text-amber-900 font-black uppercase text-[10px] tracking-widest mb-1">Aislamiento Activo</h3>
-                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Operando sin Admin Key. La visibilidad de nodos está limitada por RLS.</p>
+                        <h3 className="text-amber-900 font-black uppercase text-[10px] tracking-widest mb-1">Aislamiento Activo (Safe Mode)</h3>
+                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Operando bajo RLS restringido por falta de credenciales maestras.</p>
                     </div>
                 </div>
             )}
@@ -83,7 +72,7 @@ export default async function AdminOrgsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase">Directorio Maestro</h1>
-                    <p className="text-slate-500 font-medium text-sm italic">Control global de ecosistemas v4.2.3</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Gobernanza de Ecosistemas v4.4.0</p>
                 </div>
                 <div className="bg-white dark:bg-zinc-950 px-6 py-3 rounded-2xl border border-border shadow-sm flex items-center gap-8">
                     <div>
@@ -103,14 +92,14 @@ export default async function AdminOrgsPage() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-3 text-slate-500">
                             <Building2 className="w-5 h-5 text-blue-500" />
-                            Gobernanza de Organizaciones
+                            Control de Organizaciones
                         </CardTitle>
                         <div className="relative group max-w-sm w-full">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                             <input 
                                 type="text" 
                                 placeholder="Filtrar ecosistemas..." 
-                                className="pl-11 pr-6 py-2.5 bg-white dark:bg-zinc-800 border border-border rounded-2xl text-xs font-bold focus:ring-4 focus:ring-blue-500/10 outline-none transition-all w-full shadow-inner"
+                                className="pl-11 pr-6 py-2.5 bg-white dark:bg-zinc-800 border border-border rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-4 focus:ring-blue-500/10 outline-none transition-all w-full shadow-inner"
                             />
                         </div>
                     </div>
@@ -121,20 +110,16 @@ export default async function AdminOrgsPage() {
                             <thead>
                                 <tr className="bg-zinc-50/30 dark:bg-zinc-900/30 border-b border-border">
                                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Empresa / Master ID</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Config Comercial</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Salud Operacional</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan & Status</th>
                                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Métricas</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Gobernanza</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {orgs.map((org) => {
-                                    const o = org as Record<string, unknown>;
-                                    return (
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        <OrgAdminRow key={o.id as string} org={o as any} availablePlans={plans} />
-                                    );
-                                })}
+                                {orgs.map((org) => (
+                                    <OrgAdminRow key={org.id} org={org} availablePlans={plans} />
+                                ))}
                             </tbody>
                         </table>
                     </div>

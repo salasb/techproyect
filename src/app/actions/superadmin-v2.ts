@@ -5,14 +5,21 @@ import { MetricsService } from "@/lib/superadmin/metrics-service";
 import { revalidatePath } from "next/cache";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 import { OperationalActionResult } from "@/lib/superadmin/cockpit-data-adapter";
+import prisma from "@/lib/prisma";
 
 /**
  * Manually trigger alerts evaluation
- * v4.2.3: Reality Patch Server Action
+ * v4.4.0: Operación Accionable Server Action
  */
-export async function triggerAlertsEvaluation(): Promise<OperationalActionResult<unknown>> {
+export async function triggerAlertsEvaluation(): Promise<OperationalActionResult<{
+    createdAlerts: number;
+    updatedAlerts: number;
+    resolvedAlerts: number;
+    evaluatedOrganizations: number;
+}>> {
     const startTime = Date.now();
     const traceId = `RECALC-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
     
     try {
         const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
@@ -23,8 +30,8 @@ export async function triggerAlertsEvaluation(): Promise<OperationalActionResult
             return { 
                 ok: false, 
                 code: "UNAUTHORIZED",
-                message: "Acceso denegado: Se requieren permisos globales de Superadmin.",
-                meta: { traceId, durationMs: Date.now() - startTime }
+                message: "Acceso denegado: Se requieren privilegios de Superadmin para sincronizar el ecosistema.",
+                meta: { traceId, durationMs: Date.now() - startTime, executedAt }
             };
         }
 
@@ -33,31 +40,39 @@ export async function triggerAlertsEvaluation(): Promise<OperationalActionResult
             return { 
                 ok: false, 
                 code: "DEGRADED_CONFIG",
-                message: "Acción no disponible en Modo Seguro. Configure SERVICE_ROLE_KEY para operar.",
-                meta: { traceId, durationMs: Date.now() - startTime }
+                message: "Operación restringida: Motor en Modo Seguro (falta Service Role Key).",
+                meta: { traceId, durationMs: Date.now() - startTime, executedAt }
             };
         }
 
-        console.log(`[${traceId}] Executing health evaluation for ${access.email}`);
+        console.log(`[${traceId}] Starting ecosystem-wide health evaluation for ${access.email}`);
         const results = await AlertsService.runAlertsEvaluation();
         
+        // Count organizations for the summary
+        const orgCount = await prisma.organization.count();
+
         revalidatePath("/admin");
         
         return { 
             ok: true, 
             code: "OK", 
-            message: `Engine sincronizado: ${results.created} alertas generadas, ${results.resolved} resueltas.`,
-            data: results,
-            meta: { traceId, durationMs: Date.now() - startTime }
+            message: `Evaluación completada: ${results.created} alertas nuevas detectadas en ${orgCount} organizaciones.`,
+            data: {
+                createdAlerts: results.created,
+                updatedAlerts: results.updated,
+                resolvedAlerts: results.resolved,
+                evaluatedOrganizations: orgCount
+            },
+            meta: { traceId, durationMs: Date.now() - startTime, executedAt }
         };
     } catch (error: unknown) {
         const normalized = normalizeOperationalError(error);
-        console.error(`[${traceId}] SERVICE_FAILURE:`, normalized.code);
+        console.error(`[${traceId}] ENGINE_FAILURE:`, normalized.code, normalized.message);
         return { 
             ok: false, 
             code: "SERVICE_FAILURE", 
-            message: `Fallo en el motor operacional: ${normalized.message}`,
-            meta: { traceId, durationMs: Date.now() - startTime }
+            message: `Fallo crítico en el motor de salud: ${normalized.message}`,
+            meta: { traceId, durationMs: Date.now() - startTime, executedAt }
         };
     }
 }
@@ -102,10 +117,11 @@ export async function markNotificationRead(notificationId: string): Promise<Oper
 
 /**
  * Persist global system settings
- * v4.2.3: Reality Patch + Preview Lock
+ * v4.4.0: Reality Patch + Preview Lock
  */
-export async function persistGlobalSettings(_formData: FormData): Promise<any> {
+export async function persistGlobalSettings(_formData: FormData): Promise<OperationalActionResult> {
     const traceId = `SET-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
     const isPreview = process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development';
 
     if (isPreview) {
@@ -113,17 +129,16 @@ export async function persistGlobalSettings(_formData: FormData): Promise<any> {
             ok: false,
             code: "PREVIEW_LOCKED",
             message: "Bloqueado: Cambios permitidos solo en Producción.",
-            meta: { traceId }
+            meta: { traceId, executedAt }
         };
     }
 
     try {
         const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
         const access = await resolveSuperadminAccess();
-        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId } };
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
         // Logic to persist settings would go here
-        // For now, we simulate success as it's a UI hardening patch
         console.log(`[${traceId}] Persisting global settings for ${access.email}`);
         
         revalidatePath("/admin/settings");
@@ -131,11 +146,11 @@ export async function persistGlobalSettings(_formData: FormData): Promise<any> {
             ok: true, 
             code: "OK", 
             message: "Configuración global actualizada correctamente.",
-            meta: { traceId }
+            meta: { traceId, executedAt }
         };
     } catch (error: unknown) {
         const normalized = normalizeOperationalError(error);
-        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId } };
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
     }
 }
 

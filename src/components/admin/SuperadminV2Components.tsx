@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { AlertCircle, ShieldAlert, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import { AlertCircle, ShieldAlert, AlertTriangle, Info, CheckCircle2, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { acknowledgeAlert } from "@/app/actions/superadmin-v2";
-import type { AlertItem } from "@/lib/superadmin/cockpit-data-adapter";
+import type { CockpitOperationalAlert } from "@/lib/superadmin/cockpit-data-adapter";
+import Link from "next/link";
 
-export function SuperadminAlertsList({ alerts }: { alerts: AlertItem[] }) {
+export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAlert[] }) {
     if (alerts.length === 0) return null;
 
     const handleAck = async (id: string) => {
@@ -19,14 +20,14 @@ export function SuperadminAlertsList({ alerts }: { alerts: AlertItem[] }) {
     };
 
     const getColors = (severity: string) => {
-        if (severity === 'CRITICAL') return 'border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-400';
-        if (severity === 'WARNING') return 'border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400';
+        if (severity === 'CRITICAL' || severity === 'critical') return 'border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-400';
+        if (severity === 'WARNING' || severity === 'warning') return 'border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400';
         return 'border-blue-500/20 bg-blue-500/5 text-blue-700 dark:text-blue-400';
     };
 
     const getIcon = (severity: string) => {
-        if (severity === 'CRITICAL') return <ShieldAlert className="w-5 h-5" />;
-        if (severity === 'WARNING') return <AlertTriangle className="w-5 h-5" />;
+        if (severity === 'CRITICAL' || severity === 'critical') return <ShieldAlert className="w-5 h-5" />;
+        if (severity === 'WARNING' || severity === 'warning') return <AlertTriangle className="w-5 h-5" />;
         return <Info className="w-5 h-5" />;
     };
 
@@ -40,24 +41,37 @@ export function SuperadminAlertsList({ alerts }: { alerts: AlertItem[] }) {
                 {alerts.map((alert, idx) => {
                     if (!alert) return null;
                     return (
-                        <Card key={alert.id || `alert-${idx}`} className={`rounded-3xl border ${getColors(alert.severity || 'INFO')} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
+                        <Card key={alert.id || `alert-${idx}`} className={`rounded-3xl border ${getColors(alert.severity || 'info')} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
                             <CardContent className="p-5 flex gap-5">
                                 <div className="shrink-0 mt-1">
-                                    {getIcon(alert.severity || 'INFO')}
+                                    {getIcon(alert.severity || 'info')}
                                 </div>
                                 <div className="flex-1 min-w-0 space-y-1.5">
                                     <div className="flex items-center justify-between gap-3">
-                                        <p className="text-[13px] font-black uppercase tracking-tight truncate">{alert.title || 'Alerta Sin Título'}</p>
+                                        <div className="flex flex-col min-w-0">
+                                            <p className="text-[13px] font-black uppercase tracking-tight truncate">{alert.title || 'Alerta Sin Título'}</p>
+                                            <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter">{alert.ruleCode}</span>
+                                        </div>
                                         <span className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded-full truncate max-w-[120px]">
                                             {alert.organization?.name || 'Sistema'}
                                         </span>
                                     </div>
                                     <p className="text-[11px] leading-relaxed opacity-80 font-medium">{alert.description || 'Sin descripción detallada.'}</p>
                                     <div className="flex items-center justify-between pt-2 border-t border-current/10 mt-3">
-                                        <span className="text-[9px] font-bold uppercase opacity-50">
-                                            Detectada {alert.detectedAt ? new Date(alert.detectedAt).toLocaleDateString() : 'n/a'}
-                                        </span>
-                                        {alert.status === 'ACTIVE' && alert.id && (
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[9px] font-bold uppercase opacity-50">
+                                                Detectada {alert.detectedAt ? new Date(alert.detectedAt).toLocaleDateString() : 'n/a'}
+                                            </span>
+                                            {alert.href && (
+                                                <Link href={alert.href}>
+                                                    <span className="text-[9px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer">
+                                                        <ExternalLink className="w-2 h-2" />
+                                                        Ver contexto
+                                                    </span>
+                                                </Link>
+                                            )}
+                                        </div>
+                                        {alert.state === 'open' && alert.id && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"

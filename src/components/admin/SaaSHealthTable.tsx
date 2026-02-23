@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Users, Activity, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight } from "lucide-react";
+import { Activity, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";

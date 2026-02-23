@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 
 export default async function AdminSubscriptionsPage() {
-    console.log("[ADMIN_SUBS] Loading start v4.2.3 (Reality Patch)");
+    const traceId = `SUB-PAGE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    console.log(`[ADMIN_SUBS][${traceId}] Loading start v4.3.0`);
     
     let orgsWithUsage: { 
         id: string; 
@@ -25,7 +26,7 @@ export default async function AdminSubscriptionsPage() {
     
     let totalMRR = 0;
     const planCounts: Record<string, number> = { FREE: 0, PRO: 0, ENTERPRISE: 0 };
-    let errorState: { message: string; code: string } | null = null;
+    let errorState: { message: string; code: string; traceId: string } | null = null;
 
     try {
         const isAdminConfigured = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -46,10 +47,16 @@ export default async function AdminSubscriptionsPage() {
 
         const mrrEstimate: Record<string, number> = { FREE: 0, PRO: 29, ENTERPRISE: 99 };
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rawOrgs = (orgs as any[]) || [];
+        const rawOrgs = (orgs as { 
+            id: string; 
+            name: string; 
+            plan: string | null; 
+            settings: unknown; 
+            members: { count: number }[]; 
+            projects: { count: number }[] 
+        }[]) || [];
         
-        orgsWithUsage = rawOrgs.map((org: any) => {
+        orgsWithUsage = rawOrgs.map((org) => {
             if (!org) return null;
             const plan: PlanTier = (org.plan as PlanTier) || (org.settings as Record<string, unknown>)?.plan as PlanTier || 'FREE';
 
@@ -73,14 +80,14 @@ export default async function AdminSubscriptionsPage() {
                 isNearLimit,
                 isOverLimit
             };
-        }).filter(Boolean) as any[];
+        }).filter((o): o is NonNullable<typeof o> => o !== null);
 
         orgsWithUsage.sort((a, b) => (b.isOverLimit ? 1 : 0) - (a.isOverLimit ? 1 : 0));
 
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
-        console.error(`[ADMIN_SUBS][${normalized.code}] ${normalized.message}`);
-        errorState = { message: normalized.message, code: normalized.code };
+        console.error(`[ADMIN_SUBS][${traceId}][${normalized.code}] ${normalized.message}`);
+        errorState = { message: normalized.message, code: normalized.code, traceId };
     }
 
     return (
@@ -95,7 +102,7 @@ export default async function AdminSubscriptionsPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Error de Cálculo</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Usage_Engine | Code: {errorState.code} | v4.2.3</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Usage_Engine | Code: {errorState.code} | Trace: {errorState.traceId} | v4.3.0</p>
                     </div>
                 </div>
             )}
@@ -103,7 +110,7 @@ export default async function AdminSubscriptionsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase">Suscripciones & Uso</h1>
-                    <p className="text-slate-500 font-medium text-sm italic">Análisis de consumo y rentabilidad v4.2.3</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Análisis de consumo y rentabilidad v4.3.0</p>
                 </div>
             </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Bell, Info, AlertTriangle, ShieldAlert, Check } from "lucide-react";
+import { Bell, Info, AlertTriangle, ShieldAlert, Check, ExternalLink } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,33 +14,44 @@ import { Badge } from "@/components/ui/badge";
 import { markNotificationRead, getCockpitV2Data } from "@/app/actions/superadmin-v2";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import Link from "next/link";
 
 interface NotificationItem {
     id: string;
     title: string;
     body: string;
     createdAt: string;
-    metadata?: { severity?: string };
+    metadata?: { 
+        severity?: string;
+        href?: string;
+        ruleCode?: string;
+    };
 }
 
 export function SuperadminNotificationCenter() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const loadData = useCallback(async (isMounted = true) => {
-        if (isMounted) setLoading(true);
+    const loadData = useCallback(async (isMountedRef: { current: boolean }, skipLoadingState = false) => {
+        if (isMountedRef.current && !skipLoadingState) setLoading(true);
         const res = await getCockpitV2Data();
-        if (isMounted && res.ok && res.data) {
+        if (isMountedRef.current && res.ok && res.data) {
             const payload = res.data as { notifications: NotificationItem[] };
             setNotifications(payload.notifications || []);
         }
-        if (isMounted) setLoading(false);
+        if (isMountedRef.current) setLoading(false);
     }, []);
 
     useEffect(() => {
-        let isMounted = true;
-        loadData(isMounted);
-        return () => { isMounted = false; };
+        const isMounted = { current: true };
+        // Defer execution to avoid synchronous state update in effect body
+        const timer = setTimeout(() => {
+            loadData(isMounted, true);
+        }, 0);
+        return () => { 
+            isMounted.current = false; 
+            clearTimeout(timer);
+        };
     }, [loadData]);
 
     const handleMarkRead = async (id: string) => {
@@ -49,17 +60,17 @@ export function SuperadminNotificationCenter() {
             if (res.ok) {
                 setNotifications(prev => prev.filter(n => n.id !== id));
             }
-        } catch (error) {
-            console.error("Failed to mark notification as read", error);
+        } catch (_error) {
+            console.error("Failed to mark notification as read");
         }
     };
 
     const unreadCount = notifications.length;
 
-    const getIcon = (metadata: any) => {
-        const severity = (metadata as { severity?: string })?.severity || "INFO";
-        if (severity === "CRITICAL") return <ShieldAlert className="w-4 h-4 text-red-500" />;
-        if (severity === "WARNING") return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+    const getIcon = (metadata: { severity?: string } | undefined) => {
+        const severity = metadata?.severity || "INFO";
+        if (severity === "CRITICAL" || severity === "critical") return <ShieldAlert className="w-4 h-4 text-red-500" />;
+        if (severity === "WARNING" || severity === "warning") return <AlertTriangle className="w-4 h-4 text-amber-500" />;
         return <Info className="w-4 h-4 text-blue-500" />;
     };
 
@@ -106,22 +117,35 @@ export function SuperadminNotificationCenter() {
                                     </div>
                                     <div className="flex-1 min-w-0 space-y-1">
                                         <div className="flex items-center justify-between gap-2">
-                                            <p className="text-[11px] font-black leading-none text-foreground truncate">{n.title}</p>
+                                            <div className="flex flex-col min-w-0">
+                                                <p className="text-[11px] font-black leading-none text-foreground truncate">{n.title}</p>
+                                                {n.metadata?.ruleCode && (
+                                                    <span className="text-[7px] font-mono uppercase opacity-40 mt-0.5">{n.metadata.ruleCode}</span>
+                                                )}
+                                            </div>
                                             <span className="text-[8px] font-bold text-muted-foreground/60 uppercase shrink-0">
                                                 {formatDistanceToNow(new Date(n.createdAt), { addSuffix: false, locale: es })}
                                             </span>
                                         </div>
                                         <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{n.body}</p>
-                                        <div className="flex items-center justify-end pt-1">
+                                        <div className="flex items-center justify-between pt-2">
+                                            {n.metadata?.href ? (
+                                                <Link href={n.metadata.href}>
+                                                    <span className="text-[9px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer">
+                                                        <ExternalLink className="w-2 h-2" />
+                                                        Ver objeto
+                                                    </span>
+                                                </Link>
+                                            ) : <div />}
                                             <button
                                                 onClick={(e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                     handleMarkRead(n.id);
                                                 }}
-                                                className="text-[9px] font-black text-blue-600 hover:text-blue-500 uppercase tracking-tight transition-colors"
+                                                className="text-[9px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-tight transition-colors"
                                             >
-                                                Marcar como leída
+                                                Archivar
                                             </button>
                                         </div>
                                     </div>
@@ -134,7 +158,7 @@ export function SuperadminNotificationCenter() {
                 <DropdownMenuSeparator className="m-0" />
                 <div className="p-2.5 text-center bg-muted/20">
                     <button
-                        onClick={() => loadData()}
+                        onClick={() => loadData({ current: true })}
                         className="text-[9px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-[0.2em]"
                     >
                         Refrescar Engine

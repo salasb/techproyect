@@ -5,9 +5,9 @@ import { updateOrganizationStatus, updateOrganizationPlan } from "@/app/actions/
 import { compSubscriptionAction, extendTrialAction } from "@/app/actions/admin-actions";
 import { useToast } from "@/components/ui/Toast";
 import { switchWorkspaceContext } from "@/actions/workspace";
-import { Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert, Globe, CalendarPlus, Gift, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert, Globe, CalendarPlus, Gift, AlertTriangle, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { OrgCockpitSummary } from "@/lib/superadmin/cockpit-service";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -15,26 +15,25 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface OrgData {
-    id: string;
-    name: string;
-    status: string;
-    plan: string;
-    rut?: string;
-    createdAt: string;
-    members: { count: number }[];
-    projects: { count: number }[];
-}
+const healthConfig = {
+    HEALTHY: { icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50", label: "Saludable" },
+    WARNING: { icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-50", label: "Riesgo" },
+    CRITICAL: { icon: AlertCircle, color: "text-red-500", bg: "bg-red-50", label: "Crítico" },
+};
 
-export function OrgAdminRow({ org, availablePlans }: { org: OrgData, availablePlans: { id: string, name: string }[] }) {
+export function OrgAdminRow({ org, availablePlans }: { org: OrgCockpitSummary, availablePlans: { id: string, name: string }[] }) {
     const [status, setStatus] = useState(org.status || 'ACTIVE');
     const [plan, setPlan] = useState(org.plan || 'FREE');
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
 
+    const hStatus = org.health?.status || 'WARNING';
+    const hConfig = healthConfig[hStatus as keyof typeof healthConfig] || healthConfig.WARNING;
+    const HealthIcon = hConfig.icon;
+
     const handleStatusChange = async (newStatus: string) => {
         setIsLoading(true);
-        const res = await updateOrganizationStatus(org.id, newStatus as any);
+        const res = await updateOrganizationStatus(org.id, newStatus as 'PENDING' | 'ACTIVE' | 'INACTIVE');
         setIsLoading(false);
         if (res.success) {
             setStatus(newStatus);
@@ -47,7 +46,7 @@ export function OrgAdminRow({ org, availablePlans }: { org: OrgData, availablePl
 
     const handlePlanChange = async (newPlan: string) => {
         setIsLoading(true);
-        const res = await updateOrganizationPlan(org.id, newPlan as any);
+        const res = await updateOrganizationPlan(org.id, newPlan as 'FREE' | 'PRO' | 'ENTERPRISE');
         setIsLoading(false);
         if (res.success) {
             setPlan(newPlan);
@@ -71,7 +70,7 @@ export function OrgAdminRow({ org, availablePlans }: { org: OrgData, availablePl
             } else {
                 toast({ type: 'error', message: res.error || "Fallo en operación COMP" });
             }
-        } catch (error: unknown) {
+        } catch (_error: unknown) {
             toast({ type: 'error', message: "Error inesperado al otorgar COMP" });
         } finally {
             setIsLoading(false);
@@ -90,7 +89,7 @@ export function OrgAdminRow({ org, availablePlans }: { org: OrgData, availablePl
             } else {
                 toast({ type: 'error', message: res.error || "Fallo al extender trial" });
             }
-        } catch (error: unknown) {
+        } catch (_error: unknown) {
             toast({ type: 'error', message: "Error inesperado en motor de trial" });
         } finally {
             setIsLoading(false);
@@ -109,106 +108,142 @@ export function OrgAdminRow({ org, availablePlans }: { org: OrgData, availablePl
                 toast({ type: 'error', message: errorMsg });
                 setIsLoading(false);
             }
-        } catch (error: unknown) {
+        } catch (_error: unknown) {
             toast({ type: 'error', message: "Error de red al cambiar contexto" });
             setIsLoading(false);
         }
     };
 
     return (
-        <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-            <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${status === 'PENDING' ? 'bg-amber-100 text-amber-600' :
+        <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group border-b border-border/50 last:border-0">
+            <td className="px-8 py-5">
+                <div className="flex items-center gap-4">
+                    <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center font-black italic text-sm shadow-sm border border-current/10 transition-all group-hover:scale-110",
+                        status === 'PENDING' ? 'bg-amber-100 text-amber-600' :
                         status === 'ACTIVE' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'
-                        }`}>
+                    )}>
                         {org.name.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                        <p className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{org.name}</p>
-                        <p className="text-xs text-slate-400 font-mono">{org.rut || "Sin RUT"}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <p className="font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors tracking-tight leading-none">{org.name}</p>
+                            {status === 'PENDING' && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-mono uppercase tracking-tighter">{org.rut || "Sin RUT"} | ID: {org.id.substring(0,8)}</p>
                     </div>
                 </div>
             </td>
-            <td className="px-6 py-4">
-                <div className="flex flex-col gap-1">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase inline-block w-fit ${status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
-                        status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                        {status}
-                    </span>
-                    <span className="text-[10px] text-zinc-400">
-                        Reg: {format(new Date(org.createdAt), 'dd/MM/yy', { locale: es })}
+            <td className="px-8 py-5">
+                <div className="space-y-1.5">
+                    <div className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-current/10",
+                        hConfig.bg, hConfig.color
+                    )}>
+                        <HealthIcon className="w-3 h-3" />
+                        {hConfig.label} ({org.health?.score || 0}%)
+                    </div>
+                    {org.health?.reasons && org.health.reasons.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                            {org.health.reasons.map((r, idx) => (
+                                <span key={idx} className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded leading-none border border-border/50">
+                                    {r}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </td>
+            <td className="px-8 py-5">
+                <div className="flex flex-col gap-1.5">
+                    <select
+                        value={plan}
+                        disabled={isLoading}
+                        onChange={(e) => handlePlanChange(e.target.value)}
+                        className="text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-inner"
+                    >
+                        {availablePlans.map((p) => (
+                            <option key={p.id} value={p.id}>
+                                {p.name}
+                            </option>
+                        ))}
+                        {!availablePlans.find(p => p.id === plan) && (
+                            <option value={plan} disabled>{plan} (Legacy)</option>
+                        )}
+                    </select>
+                    <span className="text-[9px] text-slate-400 font-bold px-1 tracking-widest uppercase italic">
+                        {status === 'ACTIVE' ? 'Operacional' : 'Restringido'}
                     </span>
                 </div>
             </td>
-            <td className="px-6 py-4">
-                <select
-                    value={plan}
-                    disabled={isLoading}
-                    onChange={(e) => handlePlanChange(e.target.value as any)}
-                    className="text-xs font-bold bg-slate-100 dark:bg-slate-800 border-none rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                >
-                    {availablePlans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.name}
-                        </option>
-                    ))}
-                    {!availablePlans.find(p => p.id === plan) && (
-                        <option value={plan} disabled>{plan} (Legacy/Inactive)</option>
-                    )}
-                </select>
-            </td>
-            <td className="px-6 py-4 text-center">
-                <div className="flex justify-center gap-4">
-                    <span className="flex items-center gap-1 text-xs text-slate-500" title="Usuarios">
-                        <Users className="w-3.5 h-3.5" />
-                        {org.members[0]?.count || 0}
-                    </span>
-                    <span className="flex items-center gap-1 text-xs text-slate-500" title="Proyectos">
-                        <FolderKanban className="w-3.5 h-3.5" />
-                        {org.projects[0]?.count || 0}
-                    </span>
+            <td className="px-8 py-5 text-center">
+                <div className="flex justify-center gap-6">
+                    <div className="text-center group/stat">
+                        <span className="flex items-center justify-center gap-1.5 text-xs font-black text-slate-600 dark:text-slate-300">
+                            <Users className="w-3 h-3 text-slate-400" />
+                            {org.metrics?.usersCount || 0}
+                        </span>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">Sedes</p>
+                    </div>
+                    <div className="text-center group/stat">
+                        <span className="flex items-center justify-center gap-1.5 text-xs font-black text-blue-600">
+                            <FolderKanban className="w-3 h-3 text-blue-400" />
+                            {org.metrics?.projectsCount || 0}
+                        </span>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">Proyectos</p>
+                    </div>
                 </div>
             </td>
-            <td className="px-6 py-4 text-right">
-                <div className="flex justify-end items-center gap-1">
-                    {status === 'ACTIVE' ? (
-                        <button
-                            onClick={() => handleStatusChange('INACTIVE')}
-                            disabled={isLoading}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Suspender Acceso"
-                        >
-                            <ShieldAlert className="w-4 h-4" />
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => handleStatusChange('ACTIVE')}
-                            disabled={isLoading}
-                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Activar Organización"
-                        >
-                            <CheckCircle2 className="w-4 h-4" />
-                        </button>
-                    )}
-
+            <td className="px-8 py-5 text-right">
+                <div className="flex justify-end items-center gap-2">
                     <DropdownMenu>
-                        <DropdownMenuTrigger disabled={isLoading} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors outline-none focus:ring-2 focus:ring-blue-500">
-                            <MoreVertical className="w-4 h-4" />
+                        <DropdownMenuTrigger disabled={isLoading} className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all outline-none focus:ring-2 focus:ring-blue-500 shadow-sm border border-transparent hover:border-blue-200">
+                            <MoreVertical className="w-4.5 h-4.5" />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onClick={handleGrantComp} className="cursor-pointer flex items-center gap-2">
+                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
+                            <DropdownMenuItem onClick={() => handleStatusChange(status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')} className="rounded-xl cursor-pointer flex items-center gap-3 p-3">
+                                {status === 'ACTIVE' ? (
+                                    <>
+                                        <ShieldAlert className="w-4 h-4 text-red-500" />
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-black uppercase text-red-700 dark:text-red-400">Suspender Acceso</span>
+                                            <span className="text-[9px] text-red-600/60 font-medium">Bloquear uso global</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400">Activar Nodo</span>
+                                            <span className="text-[9px] text-emerald-600/60 font-medium">Habilitar operación</span>
+                                        </div>
+                                    </>
+                                )}
+                            </DropdownMenuItem>
+                            <div className="h-px bg-border my-2 mx-1" />
+                            <DropdownMenuItem onClick={handleGrantComp} className="rounded-xl cursor-pointer flex items-center gap-3 p-3 focus:bg-purple-50 dark:focus:bg-purple-900/20">
                                 <Gift className="w-4 h-4 text-purple-500" />
-                                <span>Otorgar COMP</span>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-black uppercase text-purple-700 dark:text-purple-400">Otorgar COMP</span>
+                                    <span className="text-[9px] text-purple-600/60 font-medium">Acceso gratuito por 1 año</span>
+                                </div>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleExtendTrial} className="cursor-pointer flex items-center gap-2">
+                            <DropdownMenuItem onClick={handleExtendTrial} className="rounded-xl cursor-pointer flex items-center gap-3 p-3 focus:bg-amber-50 dark:focus:bg-amber-900/20">
                                 <CalendarPlus className="w-4 h-4 text-amber-500" />
-                                <span>Extender Trial</span>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-black uppercase text-amber-700 dark:text-amber-400">Extender Trial</span>
+                                    <span className="text-[9px] text-amber-600/60 font-medium">Añadir días de prueba</span>
+                                </div>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleSwitchContext} className="cursor-pointer flex items-center gap-2">
+                            <div className="h-px bg-border my-2 mx-1" />
+                            <DropdownMenuItem onClick={handleSwitchContext} className="rounded-xl cursor-pointer flex items-center gap-3 p-3 focus:bg-blue-50 dark:focus:bg-blue-900/20">
                                 <Globe className="w-4 h-4 text-blue-500" />
-                                <span className="font-bold text-blue-600">Operar en esta Org</span>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-black uppercase text-blue-700 dark:text-blue-400">Operar en Contexto</span>
+                                    <span className="text-[9px] text-blue-600/60 font-medium">Asumir identidad de esta Org</span>
+                                </div>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

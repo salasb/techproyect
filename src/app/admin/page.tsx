@@ -7,24 +7,40 @@ import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 import { getCockpitDataSafe, OperationalBlockStatus } from "@/lib/superadmin/cockpit-data-adapter";
 import { CockpitService } from "@/lib/superadmin/cockpit-service";
 import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import prisma from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-    console.log("[COCKPIT_V4.2.3] Rendering Hardened Dashboard");
+    console.log("[COCKPIT_V4.4.0] Rendering Operación Accionable Dashboard");
     
     // 0. Unified Data Fetch (Isolated Blocks)
     const { blocks, systemStatus, loadTimeMs } = await getCockpitDataSafe();
     const isSafeMode = systemStatus === 'safe_mode';
 
-    // 1. Audit Entry
+    // 1. Audit Entry & Last Evaluation Recovery
+    let lastEval: { executedAt: string; traceId: string; details: string } | null = null;
     if (systemStatus === 'operational') {
         try {
             const { createClient } = await import('@/lib/supabase/server');
             const supabase = await createClient();
             const { data: authData } = await supabase.auth.getUser();
             if (authData.user) {
-                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.2.3 Hardened (load: ${loadTimeMs}ms)`);
+                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.4.0 Actionable (load: ${loadTimeMs}ms)`);
+            }
+
+            // Recovery of last evaluation from audit logs
+            const lastLog = await prisma.auditLog.findFirst({
+                where: { action: 'SUPERADMIN_ALERTS_EVALUATED' },
+                orderBy: { createdAt: 'desc' }
+            });
+            if (lastLog && lastLog.createdAt && lastLog.details) {
+                lastEval = {
+                    executedAt: lastLog.createdAt.toISOString(),
+                    traceId: lastLog.details.match(/RECALC-[A-Z0-9]+/)?.[0] || 'N/A',
+                    details: lastLog.details
+                };
             }
         } catch {
             // Silence non-critical audit failures
@@ -44,7 +60,7 @@ export default async function AdminDashboard() {
         {
             id: "cockpit-kpi-alerts",
             label: "Alertas Críticas",
-            value: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter((a) => a?.severity === 'CRITICAL').length : 0,
+            value: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter((a) => a?.severity === 'critical').length : 0,
             icon: ShieldAlert,
             color: "text-red-600",
             bg: "bg-red-50",
@@ -76,7 +92,7 @@ export default async function AdminDashboard() {
                     <div>
                         <h3 className="text-amber-900 dark:text-amber-100 font-black italic tracking-tight uppercase text-xs mb-1">Aislamiento Activo (Safe Mode)</h3>
                         <p className="text-amber-700/80 dark:text-amber-300/80 text-[11px] leading-relaxed font-medium max-w-2xl">
-                            Falta la configuración de nivel de servicio (<code className="bg-amber-100 dark:bg-amber-950 px-1 py-0.5 rounded font-bold">SERVICE_ROLE</code>). El Cockpit está operando bajo políticas restrictivas para garantizar la seguridad.
+                            Falta la configuración de nivel de servicio (<code className="bg-amber-100 dark:bg-amber-950 px-1 py-0.5 rounded font-bold">SERVICE_ROLE</code>). El Cockpit está operando bajo políticas restrictivas para garantizar la seguridad operacional.
                         </p>
                     </div>
                 </div>
@@ -98,21 +114,53 @@ export default async function AdminDashboard() {
                             <div className={cn("w-1.5 h-1.5 rounded-full", isSafeMode ? "bg-amber-500" : "bg-emerald-500 animate-pulse")} />
                             {isSafeMode ? 'Safe Mode' : 'Operational'}
                         </div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.2.3</h1>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.4.0</h1>
                     </div>
-                    <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Centro de mando endurecido y gobernanza multi-tenant.</p>
+                    <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Consola de Operaciones Accionables y Gobernanza Maestro.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <SuperadminNotificationCenter />
                 </div>
             </div>
 
-            {/* 1. Alerts Section (Isolated) */}
-            <section className="min-h-[80px]" data-testid="cockpit-alerts-card">
-                <BlockContainer status={blocks.alerts.status} label="Alertas de Producción" message={blocks.alerts.message}>
-                    <SuperadminAlertsList alerts={blocks.alerts.data} />
-                </BlockContainer>
-            </section>
+            {/* 1. Health Status & Evaluation Recovery */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <section className="lg:col-span-2 min-h-[80px]" data-testid="cockpit-alerts-card">
+                    <BlockContainer status={blocks.alerts.status} label="Alertas Activas" message={blocks.alerts.message} traceId={blocks.alerts.meta.traceId}>
+                        <SuperadminAlertsList alerts={blocks.alerts.data} />
+                    </BlockContainer>
+                </section>
+                
+                <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-slate-50/30 dark:bg-zinc-900/10 p-8 flex flex-col justify-between">
+                    <div>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 flex items-center gap-2">
+                            <Activity className="w-3.5 h-3.5 text-blue-500" />
+                            Última Evaluación de Salud
+                        </h3>
+                        {lastEval ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white italic">
+                                        {new Date(lastEval.executedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase">{new Date(lastEval.executedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                </div>
+                                <div className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-2xl shadow-sm">
+                                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">{lastEval.details.replace('Evaluation completed: ', '')}</p>
+                                </div>
+                                <p className="text-[8px] font-mono text-slate-400 uppercase tracking-widest opacity-60">Trace: {lastEval.traceId}</p>
+                            </div>
+                        ) : (
+                            <div className="py-10 text-center">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 italic">Sin ejecuciones detectadas</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="pt-6">
+                        <RealRefreshButton />
+                    </div>
+                </Card>
+            </div>
 
             {/* 2. Global KPI Aggregation */}
             <div className="bg-zinc-950 rounded-[3rem] p-10 text-white overflow-hidden relative shadow-2xl border border-white/5 shadow-blue-500/10 group">
@@ -135,7 +183,7 @@ export default async function AdminDashboard() {
             {/* 3. Metrics & Stats Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
                 <div className="xl:col-span-2" data-testid="cockpit-metrics-card">
-                    <BlockContainer status={blocks.metrics.status} label="Rendimiento del Ecosistema" height="min-h-[400px]" message={blocks.metrics.message}>
+                    <BlockContainer status={blocks.metrics.status} label="Rendimiento del Ecosistema" height="min-h-[400px]" message={blocks.metrics.message} traceId={blocks.metrics.meta.traceId}>
                         <SuperadminMonthlyMetrics data={blocks.metrics.data} />
                     </BlockContainer>
                 </div>
@@ -161,15 +209,12 @@ export default async function AdminDashboard() {
                             </div>
                         </div>
                     ))}
-                    <div className="p-2 px-6">
-                        <RealRefreshButton />
-                    </div>
                 </div>
             </div>
 
             {/* 4. Organizations Detail */}
             <div className="space-y-6 p-1" data-testid="cockpit-orgs-table">
-                <BlockContainer status={blocks.orgs.status} label="Directorio Maestro de Empresas" message={blocks.orgs.message}>
+                <BlockContainer status={blocks.orgs.status} label="Directorio Maestro de Empresas" message={blocks.orgs.message} traceId={blocks.orgs.meta.traceId}>
                     <SaaSHealthTable orgs={blocks.orgs.data} />
                 </BlockContainer>
             </div>
@@ -186,7 +231,7 @@ export default async function AdminDashboard() {
 }
 
 // Hardened UI Components
-function BlockContainer({ children, status, label, height = "min-h-[100px]", message }: { children: React.ReactNode, status: OperationalBlockStatus, label: string, height?: string, message?: string }) {
+function BlockContainer({ children, status, label, height = "min-h-[100px]", message, traceId }: { children: React.ReactNode, status: OperationalBlockStatus, label: string, height?: string, message?: string, traceId?: string }) {
     if (status === 'degraded_config' || status === 'degraded_service') {
         return (
             <div className={cn("w-full flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-900/20 border-2 border-dashed border-border rounded-[3rem] p-12 transition-all hover:border-zinc-300 dark:hover:border-zinc-800 group/block", height)}>
@@ -199,6 +244,9 @@ function BlockContainer({ children, status, label, height = "min-h-[100px]", mes
                         <p className="text-[10px] text-muted-foreground font-medium italic max-w-sm mx-auto">
                             {message || 'Disponible al completar configuración del servidor'}
                         </p>
+                        {traceId && (
+                            <p className="text-[8px] text-zinc-400 mt-2 font-mono uppercase tracking-tighter opacity-50 group-hover/block:opacity-100 transition-opacity">Diagnostic ID: {traceId}</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -211,6 +259,9 @@ function BlockContainer({ children, status, label, height = "min-h-[100px]", mes
                 <div className="text-center">
                     <Activity className="w-8 h-8 text-zinc-200 mx-auto mb-3" />
                     <p className="text-zinc-400 text-[10px] font-black uppercase tracking-widest">{label} - Sin Datos</p>
+                    {traceId && (
+                        <p className="text-[8px] text-zinc-300 mt-2 font-mono opacity-30">Ref: {traceId}</p>
+                    )}
                 </div>
             </div>
         );
