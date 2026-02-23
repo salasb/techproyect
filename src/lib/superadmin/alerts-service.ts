@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma";
 import {
     SuperadminAlertType,
-    SuperadminAlertSeverity
+    SuperadminAlertSeverity,
+    SuperadminAlert
 } from "@prisma/client";
 
 export class AlertsService {
@@ -160,7 +161,7 @@ export class AlertsService {
         type: SuperadminAlertType,
         condition: boolean,
         data: { severity: SuperadminAlertSeverity, title: string, description: string, reasonCodes: string[] },
-        activeAlerts: Record<string, unknown>[],
+        activeAlerts: SuperadminAlert[],
         results: { created: number, updated: number, resolved: number }
     ) {
         const fingerprint = `${orgId}:${type}`;
