@@ -31,7 +31,7 @@ export default async function AdminDashboard() {
     // 1. Fetch Global Insights & Stats with Resiliency
     console.log("[COCKPIT] data_fetch_start");
     
-    const fetchSafe = async <T>(promise: Promise<T>, fallback: T, name: string): Promise<T> => {
+    async function fetchSafe<T>(promise: Promise<T>, fallback: T, name: string): Promise<T> {
         try {
             const res = await promise;
             console.log(`[COCKPIT] fetch_ok: ${name}`);
@@ -40,7 +40,7 @@ export default async function AdminDashboard() {
             console.error(`[COCKPIT] fetch_error: ${name}`, err.message);
             return fallback;
         }
-    };
+    }
 
     const [kpis, orgs, alerts, metrics] = await Promise.all([
         fetchSafe(CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }, 'KPIs'),
