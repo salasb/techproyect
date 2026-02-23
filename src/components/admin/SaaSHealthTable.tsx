@@ -36,7 +36,9 @@ const healthConfig = {
     INCOMPLETE: { icon: Activity, color: "text-blue-400", bg: "bg-blue-50", label: "Configurando" },
 };
 
-export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
+export function SaaSHealthTable({ orgs = [] }: { orgs: OrgMetric[] }) {
+    const safeOrgs = Array.isArray(orgs) ? orgs : [];
+
     return (
         <div className="bg-card rounded-2xl border border-border shadow-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="p-6 border-b border-border flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
@@ -46,13 +48,13 @@ export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
                 </h2>
                 <div className="flex gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                     <div className="flex items-center gap-1.5 border-r border-border pr-4">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> {orgs.filter(o => o.health.status === 'HEALTHY').length}
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> {safeOrgs.filter(o => o?.health?.status === 'HEALTHY').length}
                     </div>
                     <div className="flex items-center gap-1.5 border-r border-border pr-4">
-                        <span className="w-2 h-2 rounded-full bg-amber-500" /> {orgs.filter(o => o.health.status === 'WARNING').length}
+                        <span className="w-2 h-2 rounded-full bg-amber-500" /> {safeOrgs.filter(o => o?.health?.status === 'WARNING').length}
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-red-500" /> {orgs.filter(o => o.health.status === 'CRITICAL').length}
+                        <span className="w-2 h-2 rounded-full bg-red-500" /> {safeOrgs.filter(o => o?.health?.status === 'CRITICAL').length}
                     </div>
                 </div>
             </div>
@@ -69,21 +71,23 @@ export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                        {orgs.map((org) => {
-                            const config = healthConfig[org.health.status] || healthConfig.WARNING;
+                        {safeOrgs.map((org) => {
+                            if (!org) return null;
+                            const hStatus = org.health?.status || 'WARNING';
+                            const config = healthConfig[hStatus as keyof typeof healthConfig] || healthConfig.WARNING;
                             const HealthIcon = config.icon;
 
                             return (
-                                <tr key={org.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors group">
+                                <tr key={org.id || Math.random().toString()} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary font-bold shadow-inner">
-                                                {org.name.substring(0, 2).toUpperCase()}
+                                            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary font-bold shadow-inner uppercase">
+                                                {(org.name || '??').substring(0, 2)}
                                             </div>
                                             <div>
-                                                <div className="font-bold text-sm text-foreground">{org.name}</div>
+                                                <div className="font-bold text-sm text-foreground">{org.name || 'Sin nombre'}</div>
                                                 <div className="text-[10px] text-muted-foreground">
-                                                    ID: {org.id.substring(0, 8)}... • {format(new Date(org.createdAt), 'dd MMM yy', { locale: es })}
+                                                    ID: {org.id?.substring(0, 8) || 'unknown'}... • {org.createdAt ? format(new Date(org.createdAt), 'dd MMM yy', { locale: es }) : 'n/a'}
                                                 </div>
                                             </div>
                                         </div>
@@ -92,9 +96,9 @@ export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
                                         <div className="space-y-1.5">
                                             <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${config.bg} ${config.color}`}>
                                                 <HealthIcon className="w-3 h-3" />
-                                                {config.label} ({org.health.score}%)
+                                                {config.label} ({org.health?.score || 0}%)
                                             </div>
-                                            {org.health.reasons.length > 0 && (
+                                            {(org.health?.reasons || []).length > 0 && (
                                                 <div className="flex flex-wrap gap-1">
                                                     {org.health.reasons.map((reason, idx) => (
                                                         <span key={idx} className="text-[9px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/5 px-1 rounded border border-amber-500/10">
@@ -107,10 +111,10 @@ export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1">
-                                            <span className={`text-[10px] font-bold uppercase ${['active', 'trialing'].includes(org.billing.status.toLowerCase()) ? 'text-emerald-600' : 'text-zinc-500'}`}>
-                                                {org.billing.status}
+                                            <span className={`text-[10px] font-bold uppercase ${['active', 'trialing'].includes((org.billing?.status || '').toLowerCase()) ? 'text-emerald-600' : 'text-zinc-500'}`}>
+                                                {org.billing?.status || 'NONE'}
                                             </span>
-                                            {org.billing.trialEndsAt && (
+                                            {org.billing?.trialEndsAt && (
                                                 <span className="text-[9px] text-muted-foreground">
                                                     Vence: {format(new Date(org.billing.trialEndsAt), 'dd/MM/yy')}
                                                 </span>
@@ -120,23 +124,25 @@ export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
                                     <td className="px-6 py-4">
                                         <div className="flex justify-center items-center gap-4">
                                             <div className="text-center">
-                                                <div className="text-xs font-bold">{org.metrics.usersCount}</div>
+                                                <div className="text-xs font-bold">{org.metrics?.usersCount || 0}</div>
                                                 <div className="text-[8px] text-muted-foreground uppercase">Users</div>
                                             </div>
                                             <div className="text-center">
-                                                <div className="text-xs font-bold text-blue-600">{org.metrics.projectsCount}</div>
+                                                <div className="text-xs font-bold text-blue-600">{org.metrics?.projectsCount || 0}</div>
                                                 <div className="text-[8px] text-muted-foreground uppercase">Projs</div>
                                             </div>
                                             <div className="text-center">
-                                                <div className="text-xs font-bold text-purple-600">{org.metrics.quotesCount}</div>
+                                                <div className="text-xs font-bold text-purple-600">{org.metrics?.quotesCount || 0}</div>
                                                 <div className="text-[8px] text-muted-foreground uppercase">Quotes</div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <Link href={`/admin/orgs/${org.id}`} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg inline-block transition-colors">
-                                            <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-primary transition-colors" />
-                                        </Link>
+                                        {org.id && (
+                                            <Link href={`/admin/orgs/${org.id}`} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg inline-block transition-colors">
+                                                <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-primary transition-colors" />
+                                            </Link>
+                                        )}
                                     </td>
                                 </tr>
                             );
@@ -144,7 +150,7 @@ export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
                     </tbody>
                 </table>
             </div>
-            {orgs.length === 0 && (
+            {safeOrgs.length === 0 && (
                 <div className="p-12 text-center text-muted-foreground text-sm italic">
                     No hay organizaciones registradas.
                 </div>
@@ -152,4 +158,3 @@ export function SaaSHealthTable({ orgs }: { orgs: OrgMetric[] }) {
         </div>
     );
 }
-

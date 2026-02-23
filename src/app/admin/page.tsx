@@ -11,33 +11,30 @@ import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-    console.log("[ADMIN_ROUTE] start");
+    console.log("[COCKPIT] page_start");
     
-    // 0. Env Check
+    // 0. Env Check (v2.7 Hardening)
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const dbUrl = process.env.DATABASE_URL;
-    console.log(`[ADMIN_ROUTE] env_check service_role_present=${!!serviceRoleKey} db_url_present=${!!dbUrl}`);
-
-    if (!serviceRoleKey) {
-        console.error("[ADMIN_ROUTE] error: ADMIN_ENV_MISSING_SERVICE_ROLE");
-        throw new Error("ADMIN_ENV_MISSING: SUPABASE_SERVICE_ROLE_KEY is not defined in this environment.");
-    }
-
-    if (!dbUrl) {
-        console.error("[ADMIN_ROUTE] error: ADMIN_ENV_MISSING_DATABASE_URL");
-        throw new Error("ADMIN_ENV_MISSING: DATABASE_URL is not defined in this environment.");
-    }
-
-    // 1. Fetch Global Insights & Stats with Resiliency
-    console.log("[COCKPIT] data_fetch_start");
+    const isServiceRolePresent = !!serviceRoleKey;
     
+    console.log(`[COCKPIT] env_check service_role_present=${isServiceRolePresent} db_url_present=${!!dbUrl}`);
+
+    if (!isServiceRolePresent || !dbUrl) {
+        console.error("[COCKPIT] error: ENV_CONFIG_MISSING");
+        // We throw here because without ENV, the whole admin page is non-functional
+        throw new Error(`ADMIN_ENV_MISSING: ${!isServiceRolePresent ? 'SERVICE_ROLE ' : ''}${!dbUrl ? 'DATABASE_URL' : ''}`);
+    }
+
+    // 1. Fetch Data with granular fallbacks
     async function fetchSafe<T>(promise: Promise<T>, fallback: T, name: string): Promise<T> {
+        console.log(`[COCKPIT] widget:${name} start`);
         try {
             const res = await promise;
-            console.log(`[COCKPIT] fetch_ok: ${name}`);
+            console.log(`[COCKPIT] widget:${name} ok`);
             return res;
         } catch (err: any) {
-            console.error(`[COCKPIT] fetch_error: ${name}`, err.message);
+            console.error(`[COCKPIT] widget:${name} error:`, err.message);
             return fallback;
         }
     }
@@ -49,24 +46,28 @@ export default async function AdminDashboard() {
         fetchSafe(MetricsService.getAggregatedMonthlyMetrics(), [], 'MonthlyMetrics')
     ]);
 
-    console.log("[COCKPIT] data_fetch_ok");
-
-    // Audit view
+    // Identity context for auditing
     try {
         const { createClient } = await import('@/lib/supabase/server');
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-            await CockpitService.auditAdminAction(user.id, 'SUPERADMIN_COCKPIT_VIEWED', 'Superadmin viewed global cockpit v2.0');
+            await CockpitService.auditAdminAction(user.id, 'SUPERADMIN_COCKPIT_VIEWED', 'Superadmin viewed global cockpit v2.7');
         }
     } catch (e) {
-        console.error("Failed to audit cockpit view", e);
+        console.warn("[COCKPIT] Audit log failed (non-critical)");
     }
+
+    // Prepare Stats with fallbacks
+    const safeKpis = kpis || { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0 };
+    const safeAlerts = Array.isArray(alerts) ? alerts : [];
+    const safeOrgs = Array.isArray(orgs) ? orgs : [];
+    const safeMetrics = Array.isArray(metrics) ? metrics : [];
 
     const stats = [
         {
             label: "Organizaciones",
-            value: kpis.totalOrgs,
+            value: safeKpis.totalOrgs,
             icon: Building2,
             color: "text-blue-600",
             bg: "bg-blue-50",
@@ -74,7 +75,7 @@ export default async function AdminDashboard() {
         },
         {
             label: "Alertas Críticas",
-            value: (alerts as any[]).filter(a => a.severity === 'CRITICAL').length,
+            value: safeAlerts.filter(a => a?.severity === 'CRITICAL').length,
             icon: ShieldAlertIcon,
             color: "text-red-600",
             bg: "bg-red-50",
@@ -82,13 +83,15 @@ export default async function AdminDashboard() {
         },
         {
             label: "Facturación / Issues",
-            value: kpis.issuesCount,
+            value: safeKpis.issuesCount,
             icon: CreditCard,
             color: "text-amber-600",
             bg: "bg-amber-50",
             sub: "Suscripciones con problemas"
         },
     ];
+
+    console.log("[COCKPIT] page_render_start");
 
     return (
         <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
@@ -97,41 +100,43 @@ export default async function AdminDashboard() {
                 <div>
                     <div className="flex items-center gap-3 mb-1">
                         <ShieldCheckIcon className="w-5 h-5 text-blue-600" />
-                        <h1 className="text-3xl font-black text-foreground tracking-tight bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic">Global Cockpit v2.0</h1>
+                        <h1 className="text-3xl font-black text-foreground tracking-tight bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic">Global Cockpit v2.7</h1>
                     </div>
-                    <p className="text-muted-foreground font-medium underline decoration-blue-500/30 underline-offset-4">Gestión proactiva y monitorización estratégica de TechWise.</p>
+                    <p className="text-muted-foreground font-medium underline decoration-blue-500/30 underline-offset-4 tracking-tight">Gestión proactiva y monitorización estratégica de TechWise.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <SuperadminNotificationCenter />
                 </div>
             </div>
 
-            {/* 1. Alerts & Critical Info (NEW v2.0) */}
-            <SuperadminAlertsList alerts={alerts as any} />
+            {/* 1. Alerts Section (Isolated) */}
+            <section className="min-h-[100px]">
+                <SuperadminAlertsList alerts={safeAlerts} />
+            </section>
 
             {/* 2. Global KPI Aggregation */}
-            <div className="bg-zinc-900 rounded-3xl p-8 text-white overflow-hidden relative shadow-2xl border border-white/5">
+            <div className="bg-zinc-900 rounded-[2rem] p-8 text-white overflow-hidden relative shadow-2xl border border-white/5 shadow-blue-500/5">
                 <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Salud del Ecosistema</div>
                         <div className="flex items-center gap-3">
-                            <Activity className={`w-5 h-5 ${alerts.length === 0 ? 'text-emerald-400' : 'text-amber-400'}`} />
+                            <Activity className={`w-5 h-5 ${safeAlerts.length === 0 ? 'text-emerald-400' : 'text-amber-400'}`} />
                             <span className="text-2xl font-black italic">
-                                {alerts.length > 0 ? 'ATENCIÓN REQUERIDA' : 'SISTEMA ÓPTIMO'}
+                                {safeAlerts.length > 0 ? 'ATENCIÓN REQUERIDA' : 'SISTEMA ÓPTIMO'}
                             </span>
                         </div>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Facturación en Riesgo</div>
-                        <div className="text-2xl font-black text-rose-400">{kpis.issuesCount}</div>
+                        <div className="text-2xl font-black text-rose-400">{safeKpis.issuesCount || 0}</div>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Alertas Activas</div>
-                        <div className="text-2xl font-black text-blue-400">{alerts.length}</div>
+                        <div className="text-2xl font-black text-blue-400">{safeAlerts.length}</div>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Total Orgs</div>
-                        <div className="text-2xl font-black text-white">{kpis.totalOrgs}</div>
+                        <div className="text-2xl font-black text-white">{safeKpis.totalOrgs || 0}</div>
                     </div>
                 </div>
                 {/* Background decorative elements */}
@@ -142,7 +147,7 @@ export default async function AdminDashboard() {
             {/* 3. Metrics View (NEW v2.0) */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <div className="xl:col-span-2">
-                    <SuperadminMonthlyMetrics data={metrics} />
+                    <SuperadminMonthlyMetrics data={safeMetrics} />
                 </div>
                 <div className="space-y-6">
                     {stats.map((stat, i) => (
@@ -153,7 +158,7 @@ export default async function AdminDashboard() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">{stat.label}</p>
-                                    <h3 className="text-2xl font-black text-foreground">{stat.value}</h3>
+                                    <h3 className="text-2xl font-black text-foreground">{stat.value || 0}</h3>
                                 </div>
                             </div>
                         </div>
@@ -166,11 +171,11 @@ export default async function AdminDashboard() {
 
             {/* 4. Organizations Health Detail */}
             <div className="space-y-6 p-1">
-                <SaaSHealthTable orgs={orgs as any} />
+                <SaaSHealthTable orgs={safeOrgs} />
             </div>
 
             {/* 5. Navigation Quick Links */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-8">
                 <AdminLink href="/admin/orgs" label="Directorio" icon={<Building2 className="w-4 h-4" />} />
                 <AdminLink href="/admin/users" label="Usuarios" icon={<Users className="w-4 h-4" />} />
                 <AdminLink href="/admin/plans" label="Facturación" icon={<CreditCard className="w-4 h-4" />} />

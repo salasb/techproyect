@@ -36,40 +36,43 @@ export function SuperadminAlertsList({ alerts }: { alerts: any[] }) {
                 Alertas Activas del Ecosistema ({alerts.length})
             </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {alerts.map((alert) => (
-                    <Card key={alert.id} className={`rounded-3xl border ${getColors(alert.severity)} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
-                        <CardContent className="p-5 flex gap-5">
-                            <div className="shrink-0 mt-1">
-                                {getIcon(alert.severity)}
-                            </div>
-                            <div className="flex-1 min-w-0 space-y-1.5">
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-[13px] font-black uppercase tracking-tight truncate">{alert.title}</p>
-                                    <span className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded-full truncate max-w-[120px]">
-                                        {alert.organization?.name}
-                                    </span>
+                {alerts.map((alert) => {
+                    if (!alert) return null;
+                    return (
+                        <Card key={alert.id || Math.random().toString()} className={`rounded-3xl border ${getColors(alert.severity || 'INFO')} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
+                            <CardContent className="p-5 flex gap-5">
+                                <div className="shrink-0 mt-1">
+                                    {getIcon(alert.severity || 'INFO')}
                                 </div>
-                                <p className="text-[11px] leading-relaxed opacity-80 font-medium">{alert.description}</p>
-                                <div className="flex items-center justify-between pt-2 border-t border-current/10 mt-3">
-                                    <span className="text-[9px] font-bold uppercase opacity-50">
-                                        Detectada {new Date(alert.detectedAt).toLocaleDateString()}
-                                    </span>
-                                    {alert.status === 'ACTIVE' && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 px-3 text-[10px] font-black uppercase tracking-tight hover:bg-current/10 transition-colors"
-                                            onClick={() => handleAck(alert.id)}
-                                        >
-                                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                            Reconocer
-                                        </Button>
-                                    )}
+                                <div className="flex-1 min-w-0 space-y-1.5">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-[13px] font-black uppercase tracking-tight truncate">{alert.title || 'Alerta Sin Título'}</p>
+                                        <span className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                                            {alert.organization?.name || 'Sistema'}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] leading-relaxed opacity-80 font-medium">{alert.description || 'Sin descripción detallada.'}</p>
+                                    <div className="flex items-center justify-between pt-2 border-t border-current/10 mt-3">
+                                        <span className="text-[9px] font-bold uppercase opacity-50">
+                                            Detectada {alert.detectedAt ? new Date(alert.detectedAt).toLocaleDateString() : 'n/a'}
+                                        </span>
+                                        {alert.status === 'ACTIVE' && alert.id && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 px-3 text-[10px] font-black uppercase tracking-tight hover:bg-current/10 transition-colors"
+                                                onClick={() => handleAck(alert.id)}
+                                            >
+                                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                                Reconocer
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
         </div>
     );
@@ -80,7 +83,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { MonthlyMetrics } from "@/lib/superadmin/metrics-service";
 
-export function SuperadminMonthlyMetrics({ data }: { data: MonthlyMetrics[] }) {
+export function SuperadminMonthlyMetrics({ data = [] }: { data: MonthlyMetrics[] }) {
+    const safeData = Array.isArray(data) ? data : [];
     return (
         <Card className="rounded-3xl border-border shadow-xl bg-card overflow-hidden transition-all hover:shadow-2xl">
             <CardHeader className="p-6 bg-muted/20 border-b border-border flex flex-row items-center justify-between">
@@ -95,7 +99,7 @@ export function SuperadminMonthlyMetrics({ data }: { data: MonthlyMetrics[] }) {
             <CardContent className="p-8">
                 <div className="h-[280px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data} margin={{ top: 20, right: 0, left: -10, bottom: 0 }}>
+                        <BarChart data={safeData} margin={{ top: 20, right: 0, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(0,0,0,0.05)" className="dark:stroke-white/5" />
                             <XAxis
                                 dataKey="month"
@@ -117,19 +121,19 @@ export function SuperadminMonthlyMetrics({ data }: { data: MonthlyMetrics[] }) {
                                         const d = payload[0].payload as MonthlyMetrics;
                                         return (
                                             <div className="bg-zinc-900 border border-white/10 p-4 rounded-2xl shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in duration-200">
-                                                <p className="text-[10px] font-black text-white mb-3 uppercase tracking-widest border-b border-white/10 pb-2">{d.month}</p>
+                                                <p className="text-[10px] font-black text-white mb-3 uppercase tracking-widest border-b border-white/10 pb-2">{d?.month || '---'}</p>
                                                 <div className="space-y-2">
                                                     <div className="flex items-center justify-between gap-6">
                                                         <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">Venta Neta:</span>
-                                                        <span className="text-xs font-black text-emerald-400 font-mono">${d.revenue.toLocaleString()}</span>
+                                                        <span className="text-xs font-black text-emerald-400 font-mono">${(d?.revenue || 0).toLocaleString()}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between gap-6">
                                                         <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">Nuevas Orgs:</span>
-                                                        <span className="text-xs font-black text-blue-400">+{d.newOrgs}</span>
+                                                        <span className="text-xs font-black text-blue-400">+{d?.newOrgs || 0}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between gap-6">
                                                         <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">Pagos Fallidos:</span>
-                                                        <span className="text-xs font-black text-rose-500">{d.failedPayments}</span>
+                                                        <span className="text-xs font-black text-rose-500">{d?.failedPayments || 0}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -143,10 +147,10 @@ export function SuperadminMonthlyMetrics({ data }: { data: MonthlyMetrics[] }) {
                                 radius={[8, 8, 8, 8]}
                                 barSize={45}
                             >
-                                {data.map((entry, index) => (
+                                {safeData.map((entry, index) => (
                                     <Cell
                                         key={`cell-${index}`}
-                                        fill={index === data.length - 1 ? 'url(#activeGradient)' : 'url(#baseGradient)'}
+                                        fill={index === safeData.length - 1 ? 'url(#activeGradient)' : 'url(#baseGradient)'}
                                         className="transition-all duration-500"
                                     />
                                 ))}
