@@ -12,21 +12,28 @@ import { UserPreferencesForm } from "@/components/settings/UserPreferencesForm";
 export default async function SettingsPage() {
     const supabase = await createClient();
 
-    let { data: settings } = await supabase.from('Settings').select('*').single();
+    // 1. Fetch Settings with safe fallback
+    const { data: settingsRes, error: settingsError } = await supabase.from('Settings').select('*').maybeSingle();
+    let settings = settingsRes;
 
-    // Fetch Global Audit Logs
+    if (!settings || settingsError) {
+        console.warn("[SettingsPage] Settings missing or error, creating default...");
+        const { data: newSettings } = await supabase
+            .from('Settings')
+            .insert({ vatRate: 0.19, currency: 'CLP', yellowThresholdDays: 7, defaultPaymentTermsDays: 30 })
+            .select()
+            .maybeSingle();
+        settings = newSettings || { id: 0, vatRate: 0.19, currency: 'CLP', yellowThresholdDays: 7, defaultPaymentTermsDays: 30, isSoloMode: false };
+    }
+
+    // 2. Fetch Global Audit Logs
     const { data: auditLogs } = await supabase
         .from('AuditLog')
         .select('*')
         .order('createdAt', { ascending: false })
         .limit(50);
 
-    // Create if not exists (should be handled by page wrapper typically, but safe check here)
-    if (!settings) {
-        const { data: newSettings } = await supabase.from('Settings').insert({ vatRate: 0.19, currency: 'CLP' }).select().single();
-        settings = newSettings;
-    }
-
+    // 3. Update Action
     async function updateSettings(formData: FormData) {
         'use server'
         const supabase = await createClient();
@@ -36,18 +43,27 @@ export default async function SettingsPage() {
         const defaultPaymentTermsDays = parseInt(formData.get("defaultPaymentTermsDays") as string);
         const isSoloMode = formData.get("isSoloMode") === "on";
 
-        await supabase.from('Settings').update({
-            vatRate,
-            yellowThresholdDays,
-            defaultPaymentTermsDays,
-            isSoloMode
-        }).eq('id', settings!.id);
+        if (settings?.id) {
+            await supabase.from('Settings').update({
+                vatRate,
+                yellowThresholdDays,
+                defaultPaymentTermsDays,
+                isSoloMode
+            }).eq('id', settings.id);
+        }
 
         revalidatePath('/settings');
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: profile } = await supabase.from('Profile').select('*').eq('id', user?.id).single();
+    // 4. Identity Context
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    
+    let profile = null;
+    if (user) {
+        const { data } = await supabase.from('Profile').select('*').eq('id', user.id).maybeSingle();
+        profile = data;
+    }
 
     return (
         <div className="max-w-7xl mx-auto space-y-8">

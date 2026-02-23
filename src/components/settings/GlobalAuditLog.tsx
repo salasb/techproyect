@@ -31,11 +31,11 @@ const ACTION_COLORS: Record<string, string> = {
     'DEFAULT': 'text-zinc-500 bg-zinc-50 dark:bg-zinc-900/20'
 };
 
-export function GlobalAuditLog({ logs }: Props) {
+export function GlobalAuditLog({ logs = [] }: Props) {
     const [isExpanded, setIsExpanded] = useState(false);
     const MAX_ITEMS = 15;
 
-    if (logs.length === 0) {
+    if (!logs || logs.length === 0) {
         return (
             <div className="text-center p-12 text-zinc-500 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
                 <History className="w-10 h-10 mx-auto mb-3 opacity-20" />
@@ -79,7 +79,7 @@ export function GlobalAuditLog({ logs }: Props) {
                                                     </span>
                                                 </div>
                                                 <p className="text-zinc-600 dark:text-zinc-400 mt-0.5 text-xs">
-                                                    realizó: <span className="font-semibold text-blue-600 dark:text-blue-400">{log.action.replace(/_/g, ' ')}</span>
+                                                    realizó: <span className="font-semibold text-blue-600 dark:text-blue-400">{(log.action || 'ACCION').replace(/_/g, ' ')}</span>
                                                 </p>
                                                 {log.details && (
                                                     <div className="mt-2 p-2.5 bg-white dark:bg-zinc-900 rounded-lg text-[11px] font-mono text-zinc-600 dark:text-zinc-400 break-words border border-zinc-200 dark:border-zinc-800 shadow-sm leading-relaxed">

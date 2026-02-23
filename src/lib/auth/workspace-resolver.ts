@@ -273,9 +273,10 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             }
         }
 
-        // Determine Final Recommended Route (Entry Policy v2.1.2)
+        // Determine Final Recommended Route (Entry Policy v2.2.0)
+        // Superadmins always favor Global Cockpit by default
         let recommendedRoute = '/dashboard';
-        if (isSuperadmin && !activeOrgId) recommendedRoute = '/admin';
+        if (isSuperadmin) recommendedRoute = '/admin';
         else if (!activeOrgId && activeMemberships.length > 0) recommendedRoute = '/org/select';
         else if (!activeOrgId) recommendedRoute = '/start';
 
