@@ -37,6 +37,7 @@ export interface WorkspaceState {
  * Strict State Machine output.
  */
 export async function getWorkspaceState(): Promise<WorkspaceState> {
+    console.log("[WorkspaceResolver] getWorkspaceState start");
     const supabase = await createClient();
 
     // Default state for unauthenticated
@@ -62,14 +63,17 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
     };
 
     try {
-        const { data: { user } } = await fetchWithTimeout(supabase.auth.getUser(), 3000);
+        const { data: { user }, error: authError } = await fetchWithTimeout(supabase.auth.getUser(), 3000);
 
-        if (!user) {
+        if (authError || !user) {
+            console.log("[WorkspaceResolver] No user authenticated", authError);
             return {
                 status: 'NOT_AUTHENTICATED',
                 ...unauthBase
             };
         }
+
+        console.log(`[WorkspaceResolver] User identified: ${user.email}`);
 
         // 1. Fetch memberships & Profile via Prisma
         const membershipsPromise = prisma.organizationMember.findMany({
@@ -85,6 +89,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         const [memberships, profile] = await fetchWithTimeout(Promise.all([membershipsPromise, profilePromise]));
 
         if (!profile) {
+            console.warn(`[WorkspaceResolver] Profile missing for user ${user.id}`);
             return {
                 status: 'PROFILE_MISSING',
                 userId: user.id,
@@ -97,6 +102,8 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 error: 'Tu cuenta existe, pero el perfil interno no está listo.'
             };
         }
+
+        console.log(`[WorkspaceResolver] Profile resolved: role=${profile.role}`);
 
         let isSuperadmin = profile.role === 'SUPERADMIN';
 

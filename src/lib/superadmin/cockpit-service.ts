@@ -35,9 +35,14 @@ export class CockpitService {
      * Ensures the current user is a SUPERADMIN
      */
     private static async ensureSuperadmin() {
+        console.log("[CockpitService] ensureSuperadmin start");
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
+            console.error("[CockpitService] ensureSuperadmin: auth failed", authError);
+            throw new Error("Not authenticated");
+        }
 
         const profile = await prisma.profile.findUnique({
             where: { id: user.id },
@@ -45,8 +50,10 @@ export class CockpitService {
         });
 
         if (profile?.role !== 'SUPERADMIN') {
+            console.warn(`[CockpitService] ensureSuperadmin: unauthorized role=${profile?.role} for user=${user.email}`);
             throw new Error("Unauthorized: Superadmin role required");
         }
+        console.log("[CockpitService] ensureSuperadmin: success");
         return user;
     }
 

@@ -9,13 +9,36 @@ import { MetricsService } from "@/lib/superadmin/metrics-service";
 import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 
 export default async function AdminDashboard() {
+    console.log("[ADMIN_ROUTE] start");
+    
+    // 0. Env Check
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const dbUrl = process.env.DATABASE_URL;
+    console.log(`[ADMIN_ROUTE] env_check service_role_present=${!!serviceRoleKey} db_url_present=${!!dbUrl}`);
+
+    if (!serviceRoleKey) {
+        console.error("[ADMIN_ROUTE] error: ADMIN_ENV_MISSING_SERVICE_ROLE");
+        throw new Error("ADMIN_ENV_MISSING: SUPABASE_SERVICE_ROLE_KEY is not defined in this environment.");
+    }
+
+    if (!dbUrl) {
+        console.error("[ADMIN_ROUTE] error: ADMIN_ENV_MISSING_DATABASE_URL");
+        throw new Error("ADMIN_ENV_MISSING: DATABASE_URL is not defined in this environment.");
+    }
+
     // 1. Fetch Global Insights & Stats using the Cockpit & V2 Services
+    console.log("[ADMIN_ROUTE] data_loader_start");
     const [kpis, orgs, alerts, metrics] = await Promise.all([
         CockpitService.getGlobalKPIs(),
         CockpitService.getOrganizationsList(),
         AlertsService.getGlobalAlertsSummary(),
         MetricsService.getAggregatedMonthlyMetrics()
-    ]);
+    ]).catch(err => {
+        console.error("[ADMIN_ROUTE] data_fetch_failed", err);
+        throw err;
+    });
+
+    console.log("[ADMIN_ROUTE] data_loader_success");
 
     // Audit view
     try {
