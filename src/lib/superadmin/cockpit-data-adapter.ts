@@ -4,21 +4,33 @@ import { AlertsService } from "./alerts-service";
 import { MetricsService, MonthlyMetrics } from "./metrics-service";
 import { normalizeOperationalError } from "./error-normalizer";
 
-export type OperationalBlockStatus = 'ok' | 'empty' | 'degraded_config' | 'degraded_service';
+/**
+ * PHASE 2.2 HARDENED CONTRACT
+ */
+export type OperationalBlockStatus = "ok" | "empty" | "degraded_config" | "degraded_service";
+
+export type OperationalActionCode =
+  | "OK"
+  | "UNAUTHORIZED"
+  | "DEGRADED_CONFIG"
+  | "DEGRADED_SERVICE"
+  | "VALIDATION_ERROR"
+  | "NO_CHANGES"
+  | "PREVIEW_LOCKED";
 
 export interface OperationalBlockResult<T> {
-    status: OperationalBlockStatus;
-    data: T;
-    message?: string;
-    code?: string;
-    meta: {
-        durationMs: number;
-        rowCount?: number;
-        source?: string;
-    };
+  status: OperationalBlockStatus;
+  data: T;
+  message?: string;
+  code?: string;
+  meta: {
+    durationMs: number;
+    rowCount?: number;
+    traceId?: string;
+  };
 }
 
-export interface CockpitDataPayloadV4 {
+export interface CockpitDataPayloadV42 {
     systemStatus: 'operational' | 'safe_mode';
     loadTimeMs: number;
     blocks: {
@@ -31,13 +43,14 @@ export interface CockpitDataPayloadV4 {
 
 /**
  * Robust adapter to fetch all Cockpit data with high-fidelity status reporting.
- * v4.1: Phase 2 Real Hardening + Error Normalization
+ * v4.2: Phase 2.2 Hardening + Precise Traceability
  */
-export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV4> {
+export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     const startTime = Date.now();
     const config = getServerRuntimeConfig();
+    const traceId = Math.random().toString(36).substring(7).toUpperCase();
     
-    console.log(`[CockpitAdapter][Config] Mode=${config.mode} AdminClientEnabled=${config.isAdminClientEnabled}`);
+    console.log(`[CockpitAdapter][${traceId}] Start Aggregated Fetch (Mode: ${config.mode})`);
 
     async function fetchBlockSafe<T>(
         name: string,
@@ -48,13 +61,12 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV4> {
         const blockStart = Date.now();
         
         if (requiresAdmin && !config.isAdminClientEnabled) {
-            console.log(`[CockpitAdapter][Block:${name}] Status: degraded_config`);
             return { 
                 status: 'degraded_config', 
                 data: fallback, 
                 code: 'MISSING_ADMIN_CONFIG',
-                message: 'Disponible al completar configuración del servidor',
-                meta: { durationMs: 0 }
+                message: 'Disponible al completar configuración del servidor (SERVICE_ROLE)',
+                meta: { durationMs: 0, traceId }
             };
         }
 
@@ -66,30 +78,30 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV4> {
             const status = isEmpty ? 'empty' : 'ok';
             const rowCount = Array.isArray(data) ? data.length : undefined;
 
-            console.log(`[CockpitAdapter][Block:${name}] Status: ${status} Duration: ${durationMs}ms`);
+            console.log(`[CockpitAdapter][${traceId}][Block:${name}] Status: ${status} Duration: ${durationMs}ms`);
             
             return { 
                 status, 
                 data: data ?? fallback,
-                meta: { durationMs, rowCount, source: 'service' }
+                meta: { durationMs, rowCount, traceId }
             };
         } catch (err: unknown) {
             const durationMs = Date.now() - blockStart;
             const normalized = normalizeOperationalError(err);
             
-            console.error(`[CockpitAdapter][Block:${name}] Status: degraded_service Code: ${normalized.code} Message: ${normalized.message} Duration: ${durationMs}ms`);
+            console.error(`[CockpitAdapter][${traceId}][Block:${name}] FAILED: ${normalized.code} Message: ${normalized.message}`);
             
             return { 
                 status: 'degraded_service', 
                 data: fallback, 
                 code: normalized.code,
                 message: normalized.message,
-                meta: { durationMs }
+                meta: { durationMs, traceId }
             };
         }
     }
 
-    // Parallel fetch with isolation
+    // Parallel fetch with full isolation
     const [kpis, orgs, alerts, metrics] = await Promise.all([
         fetchBlockSafe('KPIs', CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }),
         fetchBlockSafe('Orgs', CockpitService.getOrganizationsList(), []),
@@ -98,7 +110,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV4> {
     ]);
 
     const totalDuration = Date.now() - startTime;
-    console.log(`[CockpitAdapter] Aggregated Load: ${totalDuration}ms`);
+    console.log(`[CockpitAdapter][${traceId}] Aggregate Completed in ${totalDuration}ms`);
 
     return {
         systemStatus: config.mode === 'operational' ? 'operational' : 'safe_mode',

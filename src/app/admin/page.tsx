@@ -1,5 +1,5 @@
-import { Building2, Users, CreditCard, Activity, Zap, ShieldCheck, ShieldAlert, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import { Building2, Users, CreditCard, Activity, Zap, ShieldCheck, ShieldAlert, AlertTriangle } from "lucide-react";
 import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
 import { SuperadminNotificationCenter } from "@/components/admin/SuperadminNotificationCenter";
 import { SuperadminAlertsList, SuperadminMonthlyMetrics } from "@/components/admin/SuperadminV2Components";
@@ -11,23 +11,23 @@ import { cn } from "@/lib/utils";
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-    console.log("[COCKPIT_V4.1] Rendering Operational Dashboard");
+    console.log("[COCKPIT_V4.2.2] Rendering Hardened Dashboard");
     
-    // 0. Unified Data Fetch
+    // 0. Unified Data Fetch (Isolated Blocks)
     const { blocks, systemStatus, loadTimeMs } = await getCockpitDataSafe();
     const isSafeMode = systemStatus === 'safe_mode';
 
-    // 1. Deterministic Audit
+    // 1. Audit Entry
     if (systemStatus === 'operational') {
         try {
             const { createClient } = await import('@/lib/supabase/server');
             const supabase = await createClient();
             const { data: authData } = await supabase.auth.getUser();
             if (authData.user) {
-                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.1 Operational (load: ${loadTimeMs}ms)`);
+                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.2.2 Hardened (load: ${loadTimeMs}ms)`);
             }
         } catch {
-            console.warn("[COCKPIT_V4.1] Audit log bypassed");
+            // Silence non-critical audit failures
         }
     }
 
@@ -64,7 +64,7 @@ export default async function AdminDashboard() {
     return (
         <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
             
-            {/* 0. Diagnostic Banner (v4.1 Hardening) */}
+            {/* 0. High-Fidelity Banner */}
             {isSafeMode && (
                 <div 
                     className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-6 rounded-[2.5rem] flex items-start gap-5 shadow-sm animate-in slide-in-from-top-4 duration-500"
@@ -74,15 +74,15 @@ export default async function AdminDashboard() {
                         <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                        <h3 className="text-amber-900 dark:text-amber-100 font-black italic tracking-tight uppercase text-xs mb-1">Operación en Modo Seguro</h3>
+                        <h3 className="text-amber-900 dark:text-amber-100 font-black italic tracking-tight uppercase text-xs mb-1">Aislamiento Activo (Safe Mode)</h3>
                         <p className="text-amber-700/80 dark:text-amber-300/80 text-[11px] leading-relaxed font-medium max-w-2xl">
-                            La clave maestro de administración (<code className="bg-amber-100 dark:bg-amber-950 px-1 py-0.5 rounded font-bold">SERVICE_ROLE</code>) no está configurada. El sistema ha activado el aislamiento multi-tenant para proteger la integridad de los datos.
+                            Falta la configuración de nivel de servicio (<code className="bg-amber-100 dark:bg-amber-950 px-1 py-0.5 rounded font-bold">SERVICE_ROLE</code>). El Cockpit está operando bajo políticas restrictivas para garantizar la seguridad.
                         </p>
                     </div>
                 </div>
             )}
 
-            {/* Header */}
+            {/* Header with Global Status Badge */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/50 pb-8">
                 <div>
                     <div className="flex items-center gap-4 mb-2">
@@ -98,41 +98,41 @@ export default async function AdminDashboard() {
                             <div className={cn("w-1.5 h-1.5 rounded-full", isSafeMode ? "bg-amber-500" : "bg-emerald-500 animate-pulse")} />
                             {isSafeMode ? 'Safe Mode' : 'Operational'}
                         </div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.1</h1>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.2.2</h1>
                     </div>
-                    <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Centro de mando estratégico y gobernanza multi-tenant.</p>
+                    <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Centro de mando endurecido y gobernanza multi-tenant.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <SuperadminNotificationCenter />
                 </div>
             </div>
 
-            {/* 1. Alerts Section */}
+            {/* 1. Alerts Section (Isolated) */}
             <section className="min-h-[80px]" data-testid="cockpit-alerts-card">
                 <BlockContainer status={blocks.alerts.status} label="Alertas de Producción" message={blocks.alerts.message}>
                     <SuperadminAlertsList alerts={blocks.alerts.data} />
                 </BlockContainer>
             </section>
 
-            {/* 2. KPIs Aggregation */}
+            {/* 2. Global KPI Aggregation */}
             <div className="bg-zinc-950 rounded-[3rem] p-10 text-white overflow-hidden relative shadow-2xl border border-white/5 shadow-blue-500/10 group">
                 <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-center md:text-left">
-                    <KPICell label="Motor Operacional" status={blocks.kpis.status}>
+                    <KPICell label="Engine Status" status={blocks.kpis.status}>
                         <div className="flex items-center justify-center md:justify-start gap-3">
                             <Activity className={cn("w-5 h-5", blocks.kpis.status === 'ok' ? 'text-emerald-400' : 'text-zinc-600')} />
                             <span className="text-2xl font-black italic uppercase tracking-tighter">
-                                {blocks.kpis.status === 'ok' ? 'Online' : 'Limited'}
+                                {blocks.kpis.status === 'ok' ? 'Online' : 'Restricted'}
                             </span>
                         </div>
                     </KPICell>
-                    <KPICell label="Riesgo Facturación" value={blocks.kpis.data.issuesCount} status={blocks.kpis.status} color="text-rose-400" />
-                    <KPICell label="Eventos Críticos" value={blocks.alerts.data.length} status={blocks.alerts.status} color="text-blue-400" />
-                    <KPICell label="Total Organizaciones" value={blocks.kpis.data.totalOrgs} status={blocks.kpis.status} />
+                    <KPICell label="Facturación Riesgo" value={blocks.kpis.data.issuesCount} status={blocks.kpis.status} color="text-rose-400" />
+                    <KPICell label="Incidentes" value={blocks.alerts.data.length} status={blocks.alerts.status} color="text-blue-400" />
+                    <KPICell label="Total Nodos" value={blocks.kpis.data.totalOrgs} status={blocks.kpis.status} />
                 </div>
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] -mr-64 -mt-64 group-hover:bg-blue-600/15 transition-all duration-1000 animate-pulse" />
             </div>
 
-            {/* 3. Metrics & Stats */}
+            {/* 3. Metrics & Stats Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
                 <div className="xl:col-span-2" data-testid="cockpit-metrics-card">
                     <BlockContainer status={blocks.metrics.status} label="Rendimiento del Ecosistema" height="min-h-[400px]" message={blocks.metrics.message}>
@@ -167,14 +167,14 @@ export default async function AdminDashboard() {
                 </div>
             </div>
 
-            {/* 4. Directory Detail */}
+            {/* 4. Organizations Detail */}
             <div className="space-y-6 p-1" data-testid="cockpit-orgs-table">
-                <BlockContainer status={blocks.orgs.status} label="Directorio de Organizaciones" message={blocks.orgs.message}>
+                <BlockContainer status={blocks.orgs.status} label="Directorio Maestro de Empresas" message={blocks.orgs.message}>
                     <SaaSHealthTable orgs={blocks.orgs.data} />
                 </BlockContainer>
             </div>
 
-            {/* 5. Navigation */}
+            {/* 5. Master Links */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-12 border-t border-border/50 pt-12">
                 <AdminLink href="/admin/orgs" label="Directorio" icon={<Building2 className="w-4 h-4" />} />
                 <AdminLink href="/admin/users" label="Usuarios" icon={<Users className="w-4 h-4" />} />
@@ -185,7 +185,7 @@ export default async function AdminDashboard() {
     );
 }
 
-// Internal UI Components
+// Hardened UI Components
 function BlockContainer({ children, status, label, height = "min-h-[100px]", message }: { children: React.ReactNode, status: OperationalBlockStatus, label: string, height?: string, message?: string }) {
     if (status === 'degraded_config' || status === 'degraded_service') {
         return (
