@@ -280,6 +280,8 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         else if (!activeOrgId && activeMemberships.length > 0) recommendedRoute = '/org/select';
         else if (!activeOrgId) recommendedRoute = '/start';
 
+        console.log(`[WorkspaceResolver] Calculated: isSuperadmin=${isSuperadmin}, activeOrgId=${activeOrgId}, recommendedRoute=${recommendedRoute}`);
+
         if (!activeOrgId && activeMemberships.length > 0) {
             return {
                 status: 'ORG_MULTI_NO_SELECTION',
