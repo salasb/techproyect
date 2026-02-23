@@ -100,6 +100,7 @@ export class CockpitService {
      */
     static async getOrganizationsList(): Promise<OrgCockpitSummary[]> {
         await this.ensureSuperadmin();
+        console.log("[CockpitService] getOrganizationsList: fetching from DB");
 
         const orgs = await prisma.organization.findMany({
             include: {
@@ -116,6 +117,7 @@ export class CockpitService {
             orderBy: { createdAt: 'desc' }
         });
 
+        console.log(`[CockpitService] getOrganizationsList: found ${orgs.length} orgs`);
         const now = new Date();
 
         return orgs.map(org => {

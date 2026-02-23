@@ -28,19 +28,28 @@ export default async function AdminDashboard() {
         throw new Error("ADMIN_ENV_MISSING: DATABASE_URL is not defined in this environment.");
     }
 
-    // 1. Fetch Global Insights & Stats using the Cockpit & V2 Services
-    console.log("[ADMIN_ROUTE] data_loader_start");
-    const [kpis, orgs, alerts, metrics] = await Promise.all([
-        CockpitService.getGlobalKPIs(),
-        CockpitService.getOrganizationsList(),
-        AlertsService.getGlobalAlertsSummary(),
-        MetricsService.getAggregatedMonthlyMetrics()
-    ]).catch(err => {
-        console.error("[ADMIN_ROUTE] data_fetch_failed", err);
-        throw err;
-    });
+    // 1. Fetch Global Insights & Stats with Resiliency
+    console.log("[COCKPIT] data_fetch_start");
+    
+    const fetchSafe = async <T>(promise: Promise<T>, fallback: T, name: string): Promise<T> => {
+        try {
+            const res = await promise;
+            console.log(`[COCKPIT] fetch_ok: ${name}`);
+            return res;
+        } catch (err: any) {
+            console.error(`[COCKPIT] fetch_error: ${name}`, err.message);
+            return fallback;
+        }
+    };
 
-    console.log("[ADMIN_ROUTE] data_loader_success");
+    const [kpis, orgs, alerts, metrics] = await Promise.all([
+        fetchSafe(CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }, 'KPIs'),
+        fetchSafe(CockpitService.getOrganizationsList(), [], 'OrgsList'),
+        fetchSafe(AlertsService.getGlobalAlertsSummary(), [], 'AlertsSummary'),
+        fetchSafe(MetricsService.getAggregatedMonthlyMetrics(), [], 'MonthlyMetrics')
+    ]);
+
+    console.log("[COCKPIT] data_fetch_ok");
 
     // Audit view
     try {
