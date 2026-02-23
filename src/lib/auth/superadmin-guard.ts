@@ -14,7 +14,10 @@ export interface SuperadminAccessResult {
     ok: boolean;
     email: string | null;
     isSuperadmin: boolean;
+    isAllowlisted: boolean;
+    isDbSuperadmin: boolean;
     denyReason: DenyReason | null;
+    userId?: string;
     diagnostics: {
         allowlistPresent: boolean;
         allowlistMatch: boolean;
@@ -44,7 +47,7 @@ export async function resolveSuperadminAccess(): Promise<SuperadminAccessResult>
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
-            return { ok: false, email: null, isSuperadmin: false, denyReason: 'no_session', diagnostics };
+            return { ok: false, email: null, isSuperadmin: false, isAllowlisted: false, isDbSuperadmin: false, denyReason: 'no_session', diagnostics };
         }
 
         const email = user.email?.toLowerCase().trim() || null;
@@ -53,55 +56,51 @@ export async function resolveSuperadminAccess(): Promise<SuperadminAccessResult>
         const allowlistRaw = process.env.SUPERADMIN_ALLOWLIST || '';
         diagnostics.allowlistPresent = allowlistRaw.length > 0;
         
-        // Robust parsing: handles comma, semicolon, newline
-        // We use a safe regex without literal newlines inside the character set
         const allowedEmails = allowlistRaw
             .split(/[,\n;]+/)
             .map(e => e.trim().toLowerCase())
             .filter(Boolean);
         
-        // Mask allowlist for diagnostic UI
         diagnostics.allowlistMasked = allowedEmails
             .map(e => e.replace(/^(..)(.*)(@.*)$/, '$1***$3'))
             .join(', ') || 'empty';
         
-        if (email && allowedEmails.includes(email)) {
+        const isAllowlisted = email ? allowedEmails.includes(email) : false;
+        if (isAllowlisted) {
             diagnostics.allowlistMatch = true;
-            return { ok: true, email, isSuperadmin: true, denyReason: null, diagnostics };
         }
 
-        // 2. Fallback to Profile Role (Database consistency)
+        // 2. Evaluate Profile Role (Database consistency)
+        let isDbSuperadmin = false;
         try {
             const profile = await prisma.profile.findUnique({
                 where: { id: user.id },
                 select: { role: true }
             });
 
-            if (!profile) {
-                return { ok: false, email, isSuperadmin: false, denyReason: 'profile_not_found', diagnostics };
+            if (profile) {
+                diagnostics.profileRole = profile.role;
+                isDbSuperadmin = profile.role === 'SUPERADMIN';
             }
-
-            diagnostics.profileRole = profile.role;
-            
-            if (profile.role === 'SUPERADMIN') {
-                return { ok: true, email, isSuperadmin: true, denyReason: null, diagnostics };
-            }
-
-            return { 
-                ok: false, 
-                email, 
-                isSuperadmin: false, 
-                denyReason: diagnostics.allowlistPresent ? 'allowlist_no_match' : 'profile_role_not_superadmin', 
-                diagnostics 
-            };
-
         } catch (dbErr: any) {
             diagnostics.error = dbErr.message;
-            return { ok: false, email, isSuperadmin: false, denyReason: 'db_permission_error', diagnostics };
         }
+
+        const ok = isAllowlisted || isDbSuperadmin;
+
+        return {
+            ok,
+            email,
+            userId: user.id,
+            isSuperadmin: ok,
+            isAllowlisted,
+            isDbSuperadmin,
+            denyReason: ok ? null : (diagnostics.allowlistPresent ? 'allowlist_no_match' : 'profile_role_not_superadmin'),
+            diagnostics
+        };
 
     } catch (err: any) {
         diagnostics.error = err.message;
-        return { ok: false, email: null, isSuperadmin: false, denyReason: 'resolver_error', diagnostics };
+        return { ok: false, email: null, isSuperadmin: false, isAllowlisted: false, isDbSuperadmin: false, denyReason: 'resolver_error', diagnostics };
     }
 }

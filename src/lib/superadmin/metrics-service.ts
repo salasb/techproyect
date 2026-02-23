@@ -1,5 +1,4 @@
 import prisma from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 
 export interface MonthlyMetrics {
     month: string;
@@ -11,27 +10,18 @@ export interface MonthlyMetrics {
 
 export class MetricsService {
     /**
-     * Ensures the current user is a SUPERADMIN
+     * Ensures the current user is a SUPERADMIN (Unified check)
      */
     private static async ensureSuperadmin() {
-        console.log("[MetricsService] ensureSuperadmin start");
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) {
-            console.error("[MetricsService] ensureSuperadmin: auth failed", authError);
-            throw new Error("Not authenticated");
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        
+        if (!access.ok) {
+            console.warn(`[MetricsService] ensureSuperadmin: unauthorized user=${access.email} reason=${access.denyReason}`);
+            throw new Error("Unauthorized: Superadmin access required");
         }
 
-        const profile = await prisma.profile.findUnique({
-            where: { id: user.id },
-            select: { role: true }
-        });
-
-        if (profile?.role !== 'SUPERADMIN') {
-            console.warn(`[MetricsService] ensureSuperadmin: unauthorized role=${profile?.role} for user=${user.email}`);
-            throw new Error("Unauthorized: Superadmin role required");
-        }
-        console.log("[MetricsService] ensureSuperadmin: success");
+        console.log(`[MetricsService] ensureSuperadmin: success for ${access.email}`);
     }
 
     /**

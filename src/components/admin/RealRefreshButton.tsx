@@ -18,12 +18,23 @@ export function RealRefreshButton() {
                     description: `${res.results.created} alertas nuevas, ${res.results.resolved} resueltas.`
                 });
             } else if (!res.success) {
-                toast.error("Error de Sincronización", {
-                    description: res.error
-                });
+                // High-fidelity error handling based on unified guard
+                if (res.code === 'DEGRADED_CONFIG') {
+                    toast.warning("Modo Seguro Activo", {
+                        description: res.error
+                    });
+                } else if (res.code === 'UNAUTHORIZED') {
+                    toast.error("Acceso Denegado", {
+                        description: res.error
+                    });
+                } else {
+                    toast.error("Error de Sincronización", {
+                        description: res.error
+                    });
+                }
             }
-        } catch (error) {
-            toast.error("Error inesperado");
+        } catch {
+            toast.error("Error inesperado en el motor");
         } finally {
             setLoading(false);
         }

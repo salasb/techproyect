@@ -1,6 +1,4 @@
 import prisma from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
-import { MembershipRole } from "@prisma/client";
 
 export type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'INCOMPLETE';
 
@@ -32,29 +30,23 @@ export interface OrgCockpitSummary {
 
 export class CockpitService {
     /**
-     * Ensures the current user is a SUPERADMIN
+     * Ensures the current user is a SUPERADMIN (Unified check)
      */
     private static async ensureSuperadmin() {
-        console.log("[CockpitService] ensureSuperadmin start");
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
         
-        if (authError || !user) {
-            console.error("[CockpitService] ensureSuperadmin: auth failed", authError);
-            throw new Error("Not authenticated");
+        if (!access.ok) {
+            console.warn(`[CockpitService] ensureSuperadmin: unauthorized user=${access.email} reason=${access.denyReason}`);
+            throw new Error("Unauthorized: Superadmin access required");
         }
 
-        const profile = await prisma.profile.findUnique({
-            where: { id: user.id },
-            select: { role: true }
-        });
-
-        if (profile?.role !== 'SUPERADMIN') {
-            console.warn(`[CockpitService] ensureSuperadmin: unauthorized role=${profile?.role} for user=${user.email}`);
-            throw new Error("Unauthorized: Superadmin role required");
+        if (access.isAllowlisted && !access.isDbSuperadmin) {
+            console.log(`[CockpitService] Superadmin authorized via ALLOWLIST for ${access.email}`);
         }
-        console.log("[CockpitService] ensureSuperadmin: success");
-        return user;
+
+        console.log(`[CockpitService] ensureSuperadmin: success for ${access.email}`);
+        return { id: access.userId, email: access.email };
     }
 
     /**

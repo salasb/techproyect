@@ -1,35 +1,28 @@
 import prisma from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 import {
     SuperadminAlertType,
-    SuperadminAlertSeverity,
-    SuperadminAlertStatus
+    SuperadminAlertSeverity
 } from "@prisma/client";
 
 export class AlertsService {
     /**
-     * Ensures the current user is a SUPERADMIN
+     * Ensures the current user is a SUPERADMIN (Unified check)
      */
     private static async ensureSuperadmin() {
-        console.log("[AlertsService] ensureSuperadmin start");
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) {
-            console.error("[AlertsService] ensureSuperadmin: auth failed", authError);
-            throw new Error("Not authenticated");
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        
+        if (!access.ok) {
+            console.warn(`[AlertsService] ensureSuperadmin: unauthorized user=${access.email} reason=${access.denyReason}`);
+            throw new Error("Unauthorized: Superadmin access required");
         }
 
-        const profile = await prisma.profile.findUnique({
-            where: { id: user.id },
-            select: { role: true }
-        });
-
-        if (profile?.role !== 'SUPERADMIN') {
-            console.warn(`[AlertsService] ensureSuperadmin: unauthorized role=${profile?.role} for user=${user.email}`);
-            throw new Error("Unauthorized: Superadmin role required");
+        if (access.isAllowlisted && !access.isDbSuperadmin) {
+            console.log(`[AlertsService] Superadmin authorized via ALLOWLIST for ${access.email} (DB sync pending)`);
         }
-        console.log("[AlertsService] ensureSuperadmin: success");
-        return user;
+
+        console.log(`[AlertsService] ensureSuperadmin: success for ${access.email}`);
+        return { id: access.userId, email: access.email };
     }
 
     /**
@@ -167,7 +160,7 @@ export class AlertsService {
         type: SuperadminAlertType,
         condition: boolean,
         data: { severity: SuperadminAlertSeverity, title: string, description: string, reasonCodes: string[] },
-        activeAlerts: any[],
+        activeAlerts: Record<string, unknown>[],
         results: { created: number, updated: number, resolved: number }
     ) {
         const fingerprint = `${orgId}:${type}`;
