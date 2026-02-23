@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, Check, Building2, PlusCircle, CreditCard, Clock, Lock } from 'lucide-react';
+import { ChevronDown, Check, Building2, PlusCircle, CreditCard, Clock, Lock, Shield } from 'lucide-react';
 import { getUserOrganizations, switchOrganizationAction } from '@/actions/organizations';
 import { Button } from '@/components/ui/button';
 import {
@@ -162,6 +162,18 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                             <PlusCircle className="h-4 w-4" />
                         </div>
                         <span>Nueva Organización</span>
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-0">
+                    <Link 
+                        href="/admin" 
+                        data-testid="go-cockpit-link"
+                        className="w-full flex items-center gap-3 px-3 py-3 text-indigo-600 dark:text-indigo-400 font-bold text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-lg transition-all group border-t border-slate-100 dark:border-slate-800 mt-1"
+                    >
+                        <div className="h-8 w-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Shield className="h-4 w-4" />
+                        </div>
+                        <span>Ir al Cockpit Global</span>
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>

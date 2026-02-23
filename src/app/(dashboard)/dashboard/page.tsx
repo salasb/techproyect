@@ -51,8 +51,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         throw e; // Let error.tsx handle the boundary
     }
 
-    // 0.5 Strict Routing Guard (Entry Policy v2.1)
-    if (workspace.recommendedRoute !== '/dashboard') {
+    // 0.5 Strict Routing Guard (Entry Policy v2.1.2)
+    if (workspace.recommendedRoute && workspace.recommendedRoute !== '/dashboard') {
         console.log(`[DashboardGuard] Redirecting to recommended route: ${workspace.recommendedRoute}`);
         const { redirect } = await import("next/navigation");
         redirect(workspace.recommendedRoute);

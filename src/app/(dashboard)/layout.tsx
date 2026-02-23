@@ -15,6 +15,23 @@ export default async function DashboardLayout({
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    if (!user) {
+        const { redirect } = await import("next/navigation");
+        redirect('/login');
+    }
+
+    // 0. Resolve Workspace State (Canonical)
+    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+    const workspace = await getWorkspaceState();
+
+    // 0.5 ENTRY GUARD: If Superadmin is trying to access local area without context, send to admin.
+    // This prevents the "Context: None" crash before it reaches the page.
+    if (workspace.isSuperadmin && !workspace.activeOrgId) {
+        console.log("[DashboardLayout] Superadmin without context detected. Redirecting to /admin portal.");
+        const { redirect } = await import("next/navigation");
+        redirect('/admin');
+    }
+
     let profile = null;
     if (user) {
         try {
@@ -35,7 +52,7 @@ export default async function DashboardLayout({
         console.error("[DashboardLayout] Settings fetch failed:", e);
     }
 
-    const currentOrgId = await getOrganizationId().catch(() => null);
+    const currentOrgId = workspace.activeOrgId;
     
     let subscription = null;
     if (currentOrgId) {

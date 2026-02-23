@@ -59,6 +59,7 @@ export async function login(formData: FormData) {
         revalidatePath('/', 'layout')
 
         if (profile?.role === 'SUPERADMIN') {
+            // Policy v2.1: Superadmin always lands on Global Cockpit to avoid "No Context" crash
             redirect('/admin')
         } else {
             redirect('/dashboard')

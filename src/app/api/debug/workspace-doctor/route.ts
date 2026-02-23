@@ -112,7 +112,8 @@ export async function GET(request: Request) {
                 isSuperadmin: workspaceState.isSuperadmin,
                 profileRole: profile?.role || null,
                 workspaceStatus: workspaceState.status,
-                activeOrgResolved: workspaceState.activeOrgId
+                activeOrgResolved: workspaceState.activeOrgId,
+                recommendedRoute: workspaceState.recommendedRoute // NEW
             },
             operatingContext: {
                 activeOrgId: workspaceState.activeOrgId,
@@ -122,7 +123,8 @@ export async function GET(request: Request) {
                 orgContextSource: activeOrgFromCookie ? 'cookie' : (profile?.organizationId ? 'profile_fallback' : 'none'),
                 hasOrganizations: memberships.length > 0,
                 workspaceStatus: workspaceState.status,
-                isSuperadmin: workspaceState.isSuperadmin
+                isSuperadmin: workspaceState.isSuperadmin,
+                bootstrap: workspaceState.bootstrapDebug // ADDED
             },
             billing: billingInfo,
             bootstrap: workspaceState.bootstrapDebug || null,

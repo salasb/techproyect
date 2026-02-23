@@ -108,46 +108,58 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             error: null as string | null
         };
 
-        // 2. Automagic Bootstrap Strategy
-        if (!isSuperadmin && user.email) {
+        // 2. Automagic Bootstrap Strategy (Policy v2.1.4)
+        if (user.email) {
             bootstrapDebug.attempted = true;
             if (bootstrapDebug.enabled) {
-                const allowlistEntry = process.env.SUPERADMIN_ALLOWLIST || '';
-                const allowedEmails = allowlistEntry.split(',').filter(Boolean).map(e => e.trim().toLowerCase());
+                const allowlistRaw = process.env.SUPERADMIN_ALLOWLIST || '';
+                // Robust parsing: split by comma, semicolon or newline and filter empty
+                const allowedEmails = allowlistRaw
+                    .split(/[,\n;]/)
+                    .map(e => e.trim().toLowerCase())
+                    .filter(Boolean);
+                
                 const userEmail = user.email.toLowerCase();
                 
                 if (allowedEmails.includes(userEmail)) {
                     bootstrapDebug.allowlistMatched = true;
-                    console.log(`[WorkspaceResolver] User ${userEmail} matched ALLOWLIST. Promoting...`);
-                    try {
-                        await prisma.$transaction(async (tx) => {
-                            await tx.profile.update({
-                                where: { id: user.id },
-                                data: { role: 'SUPERADMIN' }
+                    
+                    if (!isSuperadmin) {
+                        console.log(`[WorkspaceResolver] User ${userEmail} matched ALLOWLIST. Promoting to SUPERADMIN...`);
+                        try {
+                            await prisma.$transaction(async (tx) => {
+                                await tx.profile.update({
+                                    where: { id: user.id },
+                                    data: { role: 'SUPERADMIN' }
+                                });
+                                await tx.auditLog.create({
+                                    data: {
+                                        userId: user.id,
+                                        action: 'SUPERADMIN_BOOTSTRAP_PROMOTED',
+                                        details: `User promoted automatically via v2.1.4 policy.`,
+                                        userName: profile.name || userEmail
+                                    }
+                                });
                             });
-                            await tx.auditLog.create({
-                                data: {
-                                    userId: user.id,
-                                    action: 'SUPERADMIN_AUTO_BOOTSTRAP',
-                                    details: `User ${userEmail} promoted automatically via resolver bootstrap.`,
-                                    userName: profile.name || userEmail
-                                }
-                            });
-                        });
-                        isSuperadmin = true;
-                        // Actualizamos memoria local
-                        profile.role = 'SUPERADMIN';
-                        bootstrapDebug.promotedThisRequest = true;
-                        console.log(`[WorkspaceResolver] User ${userEmail} successfully promoted to SUPERADMIN.`);
-                    } catch (err: any) {
-                        console.error(`[WorkspaceResolver] Failed to bootstrap superadmin for ${userEmail}:`, err);
-                        bootstrapDebug.error = err.message;
+                            isSuperadmin = true;
+                            // Sync local memory profile object for subsequent logic
+                            profile.role = 'SUPERADMIN';
+                            bootstrapDebug.promotedThisRequest = true;
+                            console.log(`[WorkspaceResolver] User ${userEmail} successfully promoted.`);
+                        } catch (err: any) {
+                            console.error(`[WorkspaceResolver] FAILED promotion for ${userEmail}:`, err.message);
+                            bootstrapDebug.error = err.message;
+                        }
+                    } else {
+                        // Already superadmin, but allowlisted (stable state)
+                        bootstrapDebug.promotedThisRequest = false;
                     }
                 } else {
-                    console.log(`[WorkspaceResolver] User ${userEmail} NOT in allowlist. Skipping bootstrap.`);
+                    // Safe log for non-match
+                    if (process.env.NODE_ENV !== 'production') {
+                        console.log(`[WorkspaceResolver] User ${userEmail} not in allowlist.`);
+                    }
                 }
-            } else {
-                bootstrapDebug.error = "Bootstrap disabled by env flag";
             }
         }
 
@@ -261,7 +273,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             }
         }
 
-        // Determine Final Recommended Route
+        // Determine Final Recommended Route (Entry Policy v2.1.2)
         let recommendedRoute = '/dashboard';
         if (isSuperadmin && !activeOrgId) recommendedRoute = '/admin';
         else if (!activeOrgId && activeMemberships.length > 0) recommendedRoute = '/org/select';

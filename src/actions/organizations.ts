@@ -24,80 +24,96 @@ export async function createOrganizationAction(formData: FormData) {
 
     const requireManualApproval = process.env.MANUAL_APPROVAL_REQUIRED === '1';
 
-    // Ensure Profile exists (Critical for foreign key in membership)
+    // 0. Ensure Profile exists (Critical for foreign key in membership)
+    // We do this OUTSIDE the transaction to ensure the profile is ready for memberships
     let profile = await prisma.profile.findUnique({ where: { id: user.id } });
     if (!profile) {
         console.log(`[CreateOrg] Creating missing profile for user ${user.id}`);
-        profile = await prisma.profile.create({
-            data: {
-                id: user.id,
-                email: user.email!,
-                name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
-                role: 'MEMBER'
-            }
-        });
+        try {
+            profile = await prisma.profile.create({
+                data: {
+                    id: user.id,
+                    email: user.email!,
+                    name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
+                    role: 'MEMBER'
+                }
+            });
+        } catch (e) {
+            console.error("[CreateOrg] Failed to create profile:", e);
+            throw new Error("No se pudo inicializar tu perfil de usuario para crear la organización.");
+        }
     }
 
-    // Use Prisma for transaction to ensure atomicity
-    const org = await prisma.$transaction(async (tx) => {
-        // 1. Create Organization
-        const newOrg = await tx.organization.create({
-            data: {
-                name,
-                mode,
-                status: requireManualApproval ? 'PENDING' : 'ACTIVE',
-                plan: 'FREE',
-                settings: {
-                    country,
-                    vatRate,
-                    isSoloMode: mode === 'SOLO'
+    try {
+        // Use Prisma for transaction to ensure atomicity
+        const org = await prisma.$transaction(async (tx) => {
+            // 1. Create Organization
+            const newOrg = await tx.organization.create({
+                data: {
+                    name,
+                    mode,
+                    status: requireManualApproval ? 'PENDING' : 'ACTIVE',
+                    plan: 'FREE',
+                    settings: {
+                        country,
+                        vatRate,
+                        isSoloMode: mode === 'SOLO'
+                    }
                 }
-            }
+            });
+
+            // 2. Create Membership (Owner)
+            await tx.organizationMember.create({
+                data: {
+                    organizationId: newOrg.id,
+                    userId: user.id,
+                    role: 'OWNER',
+                    status: 'ACTIVE'
+                }
+            });
+
+            // 3. Create Subscription (Trial 14 days)
+            const trialEndsAt = new Date();
+            trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+            await tx.subscription.create({
+                data: {
+                    organizationId: newOrg.id,
+                    status: 'TRIALING',
+                    planCode: 'PRO_TRIAL',
+                    trialEndsAt,
+                    seatLimit: mode === 'SOLO' ? 1 : 5
+                }
+            });
+
+            // 4. Initialize Stats
+            await tx.organizationStats.create({
+                data: {
+                    organizationId: newOrg.id,
+                    healthScore: 100
+                }
+            });
+
+            return newOrg;
         });
 
-        // 2. Create Membership (Owner)
-        await tx.organizationMember.create({
-            data: {
-                organizationId: newOrg.id,
-                userId: user.id,
-                role: 'OWNER',
-                status: 'ACTIVE'
-            }
-        });
+        // 5. Activation Milestone (Non-blocking)
+        try {
+            await ActivationService.trackFirst('ORG_CREATED', org.id, user.id);
+        } catch (e) {
+            console.warn("[CreateOrg] Activation tracking failed:", e);
+        }
 
-        // 3. Create Subscription (Trial 14 days)
-        const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+        // Set as current organization
+        const cookieStore = await cookies();
+        cookieStore.set('app-org-id', org.id);
 
-        await tx.subscription.create({
-            data: {
-                organizationId: newOrg.id,
-                status: 'TRIALING',
-                planCode: 'PRO_TRIAL',
-                trialEndsAt,
-                seatLimit: mode === 'SOLO' ? 1 : 5
-            }
-        });
-
-        // 4. Initialize Stats
-        await tx.organizationStats.create({
-            data: {
-                organizationId: newOrg.id,
-                healthScore: 100
-            }
-        });
-
-        return newOrg;
-    });
-
-    // 5. Activation Milestone
-    await ActivationService.trackFirst('ORG_CREATED', org.id, user.id);
-
-    // Set as current organization
-    const cookieStore = await cookies();
-    cookieStore.set('app-org-id', org.id);
-
-    redirect('/dashboard');
+        redirect('/dashboard');
+    } catch (error: any) {
+        if (error.message === 'NEXT_REDIRECT') throw error;
+        console.error("[CreateOrg] FATAL ERROR:", error);
+        throw new Error("Error crítico al crear la organización. Por favor contacta a soporte o intenta de nuevo.");
+    }
 }
 
 /**
