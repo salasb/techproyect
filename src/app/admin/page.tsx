@@ -8,6 +8,8 @@ import { AlertsService } from "@/lib/superadmin/alerts-service";
 import { MetricsService } from "@/lib/superadmin/metrics-service";
 import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminDashboard() {
     console.log("[ADMIN_ROUTE] start");
     

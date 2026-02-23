@@ -17,6 +17,8 @@ import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminLayout({
     children,
 }: {
