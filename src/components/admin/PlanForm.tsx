@@ -9,10 +9,19 @@ import { Save, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 
+interface PlanData {
+    name?: string;
+    description?: string;
+    price?: number;
+    isActive?: boolean;
+    limits?: { maxUsers?: number; maxProjects?: number };
+    features?: { supportLevel?: string; canAccessAPI?: boolean; canRemoveBranding?: boolean; customDomain?: boolean };
+}
+
 interface Props {
     id: string;
     isNew: boolean;
-    plan: any;
+    plan: PlanData | null;
 }
 
 export function PlanForm({ id, isNew, plan }: Props) {
@@ -30,9 +39,10 @@ export function PlanForm({ id, isNew, plan }: Props) {
             } else {
                 toast({ type: 'error', message: "Error al guardar el plan" });
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Plan save error:", error);
-            toast({ type: 'error', message: error.message || "Error inesperado al guardar el plan" });
+            const msg = error instanceof Error ? error.message : "Error inesperado al guardar el plan";
+            toast({ type: 'error', message: msg });
         } finally {
             setIsLoading(false);
         }

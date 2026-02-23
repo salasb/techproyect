@@ -7,7 +7,7 @@ export default async function PlanEditPage({ params }: { params: Promise<{ id: s
     const { id } = await params;
 
     let plan = null;
-    let isNew = id === 'new';
+    const isNew = id === 'new';
 
     if (!isNew) {
         const supabase = await createClient();
@@ -15,8 +15,8 @@ export default async function PlanEditPage({ params }: { params: Promise<{ id: s
         if (data) {
             plan = {
                 ...data,
-                limits: data.limits as any,
-                features: data.features as any
+                limits: data.limits as Record<string, unknown>,
+                features: data.features as string[]
             };
         }
     }

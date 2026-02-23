@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SUBSCRIPTION_PLANS, PLAN_LABELS, PlanTier, PlanFeatures } from "@/config/subscription-plans";
-import { Building2, CreditCard, Users, TrendingUp, AlertTriangle } from "lucide-react";
+import { CreditCard, Users, TrendingUp, AlertTriangle, Building2 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 
 export default async function AdminSubscriptionsPage() {
-    console.log("[ADMIN_SUBS] Loading start v4.2.2");
+    console.log("[ADMIN_SUBS] Loading start v4.2.3 (Reality Patch)");
     
     let orgsWithUsage: { 
         id: string; 
@@ -47,41 +47,46 @@ export default async function AdminSubscriptionsPage() {
         const mrrEstimate: Record<string, number> = { FREE: 0, PRO: 29, ENTERPRISE: 99 };
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        orgsWithUsage = (orgs as any[])?.map((org: any) => {
+        const rawOrgs = (orgs as any[]) || [];
+        
+        orgsWithUsage = rawOrgs.map((org: any) => {
+            if (!org) return null;
             const plan: PlanTier = (org.plan as PlanTier) || (org.settings as Record<string, unknown>)?.plan as PlanTier || 'FREE';
 
             if (planCounts[plan] !== undefined) planCounts[plan]++;
             totalMRR += mrrEstimate[plan] || 0;
 
             const limits = SUBSCRIPTION_PLANS[plan] || SUBSCRIPTION_PLANS['FREE'];
-            const userCount = org.members[0]?.count || 0;
-            const projectCount = org.projects[0]?.count || 0;
+            const userCount = org.members?.[0]?.count || 0;
+            const projectCount = org.projects?.[0]?.count || 0;
 
-            const isNearLimit = (userCount >= limits.maxUsers * 0.9) || (projectCount >= limits.maxProjects * 0.9);
-            const isOverLimit = (userCount > limits.maxUsers) || (projectCount > limits.maxProjects);
+            const isNearLimit = (userCount >= (limits?.maxUsers || 1) * 0.9) || (projectCount >= (limits?.maxProjects || 1) * 0.9);
+            const isOverLimit = (userCount > (limits?.maxUsers || 0)) || (projectCount > (limits?.maxProjects || 0));
 
             return {
-                id: org.id,
-                name: org.name,
+                id: org.id || 'unknown',
+                name: org.name || 'Sin nombre',
                 currentPlan: plan,
                 userCount,
                 projectCount,
-                limits,
+                limits: limits || SUBSCRIPTION_PLANS['FREE'],
                 isNearLimit,
                 isOverLimit
             };
-        }) || [];
+        }).filter(Boolean) as any[];
 
         orgsWithUsage.sort((a, b) => (b.isOverLimit ? 1 : 0) - (a.isOverLimit ? 1 : 0));
 
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
+        console.error(`[ADMIN_SUBS][${normalized.code}] ${normalized.message}`);
         errorState = { message: normalized.message, code: normalized.code };
     }
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12">
             
+            {/* Error State Hardening (Anti-[object Object]) */}
             {errorState && (
                 <div className="bg-rose-50 border border-rose-200 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm animate-in zoom-in duration-300">
                     <div className="bg-rose-100 p-2 rounded-xl">
@@ -90,26 +95,26 @@ export default async function AdminSubscriptionsPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Error de Cálculo</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">CODE: {errorState.code}</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Usage_Engine | Code: {errorState.code} | v4.2.3</p>
                     </div>
                 </div>
             )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
-                    <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase tracking-tight">Suscripciones & Métricas</h1>
-                    <p className="text-slate-500 font-medium text-sm italic">Análisis de consumo multi-tenant v4.2.2</p>
+                    <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase">Suscripciones & Uso</h1>
+                    <p className="text-slate-500 font-medium text-sm italic">Análisis de consumo y rentabilidad v4.2.3</p>
                 </div>
             </div>
 
-            {/* Metrics Snapshot */}
+            {/* Metrics Dashboard */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="rounded-[2rem] shadow-xl border-emerald-100 dark:border-emerald-900/20 bg-emerald-50/30 dark:bg-emerald-900/10 overflow-hidden group">
                     <CardContent className="p-8">
                         <div className="flex items-center gap-5">
                             <div className="p-4 rounded-2xl bg-emerald-100 text-emerald-600 shadow-inner group-hover:scale-110 transition-transform"><CreditCard className="w-6 h-6" /></div>
                             <div>
-                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">MRR Proyectado</p>
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">MRR Estimado</p>
                                 <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter italic">${totalMRR.toLocaleString()}</h3>
                             </div>
                         </div>
@@ -139,7 +144,7 @@ export default async function AdminSubscriptionsPage() {
                 <CardHeader className="bg-slate-50/50 dark:bg-zinc-900/50 border-b border-border p-8">
                     <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-3 text-slate-500">
                         <TrendingUp className="w-5 h-5 text-blue-500" />
-                        Monitoreo de Límites por Nodo
+                        Monitoreo de Quotas por Nodo
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -149,10 +154,10 @@ export default async function AdminSubscriptionsPage() {
                                 <tr className="bg-zinc-50/30 dark:bg-zinc-900/30 border-b border-border">
                                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Organización</th>
                                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Uso Usuarios</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Uso Proyectos</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Vitalidad</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acción</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Usuarios</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Proyectos</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Detalle</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -160,7 +165,7 @@ export default async function AdminSubscriptionsPage() {
                                     <tr key={org.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors group">
                                         <td className="px-8 py-5">
                                             <div className="font-bold text-slate-900 dark:text-white uppercase tracking-tight">{org.name}</div>
-                                            <div className="text-[9px] font-mono text-muted-foreground uppercase opacity-60">ID: {org.id.substring(0,12)}...</div>
+                                            <div className="text-[9px] font-mono text-muted-foreground uppercase opacity-60">{org.id.substring(0,12)}...</div>
                                         </td>
                                         <td className="px-8 py-5">
                                             <Badge variant="outline" className={cn(
@@ -201,20 +206,20 @@ export default async function AdminSubscriptionsPage() {
                                         <td className="px-8 py-5 text-center">
                                             {org.isOverLimit ? (
                                                 <Badge className="rounded-lg bg-rose-100 text-rose-700 border-rose-200 uppercase text-[9px] font-black tracking-widest gap-1 shadow-sm">
-                                                    <AlertTriangle className="w-2.5 h-2.5" /> Excedido
+                                                    <AlertTriangle className="w-2.5 h-2.5" /> Over-Limit
                                                 </Badge>
                                             ) : org.isNearLimit ? (
                                                 <Badge className="rounded-lg bg-amber-100 text-amber-700 border-amber-200 uppercase text-[9px] font-black tracking-widest gap-1 shadow-sm">
-                                                    <TrendingUp className="w-2.5 h-2.5" /> Al Límite
+                                                    <TrendingUp className="w-2.5 h-2.5" /> Warning
                                                 </Badge>
                                             ) : (
-                                                <span className="text-emerald-500 font-black text-[10px] uppercase tracking-[0.2em] italic">Saludable</span>
+                                                <span className="text-emerald-500 font-black text-[10px] uppercase tracking-[0.2em] italic">Healthy</span>
                                             )}
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             <Link href={`/admin/orgs/${org.id}`}>
-                                                <Button variant="outline" size="sm" className="rounded-xl border-blue-500/20 text-blue-600 hover:bg-blue-50 font-black uppercase text-[9px] tracking-[0.2em] h-9 px-4 shadow-sm">
-                                                    Ver Org
+                                                <Button variant="outline" size="sm" className="rounded-xl border-blue-500/20 text-blue-600 hover:bg-blue-50 font-black uppercase text-[9px] tracking-[0.2em] h-9 px-4">
+                                                    Manage
                                                 </Button>
                                             </Link>
                                         </td>
@@ -226,7 +231,7 @@ export default async function AdminSubscriptionsPage() {
                     {orgsWithUsage.length === 0 && !errorState && (
                         <div className="p-32 text-center">
                             <Building2 className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic">Cero registros detectados</p>
+                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic opacity-60">Sin registros de consumo activos</p>
                         </div>
                     )}
                 </CardContent>

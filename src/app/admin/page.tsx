@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-    console.log("[COCKPIT_V4.2.2] Rendering Hardened Dashboard");
+    console.log("[COCKPIT_V4.2.3] Rendering Hardened Dashboard");
     
     // 0. Unified Data Fetch (Isolated Blocks)
     const { blocks, systemStatus, loadTimeMs } = await getCockpitDataSafe();
@@ -24,7 +24,7 @@ export default async function AdminDashboard() {
             const supabase = await createClient();
             const { data: authData } = await supabase.auth.getUser();
             if (authData.user) {
-                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.2.2 Hardened (load: ${loadTimeMs}ms)`);
+                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.2.3 Hardened (load: ${loadTimeMs}ms)`);
             }
         } catch {
             // Silence non-critical audit failures
@@ -35,7 +35,7 @@ export default async function AdminDashboard() {
         {
             id: "cockpit-kpi-total-orgs",
             label: "Organizaciones",
-            value: blocks.kpis.data.totalOrgs,
+            value: typeof blocks.kpis.data.totalOrgs === 'number' ? blocks.kpis.data.totalOrgs : 0,
             icon: Building2,
             color: "text-blue-600",
             bg: "bg-blue-50",
@@ -44,7 +44,7 @@ export default async function AdminDashboard() {
         {
             id: "cockpit-kpi-alerts",
             label: "Alertas Críticas",
-            value: blocks.alerts.data.filter((a: Record<string, unknown>) => a?.severity === 'CRITICAL').length,
+            value: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter((a) => a?.severity === 'CRITICAL').length : 0,
             icon: ShieldAlert,
             color: "text-red-600",
             bg: "bg-red-50",
@@ -53,7 +53,7 @@ export default async function AdminDashboard() {
         {
             id: "cockpit-kpi-risk",
             label: "Facturación en Riesgo",
-            value: blocks.kpis.data.issuesCount,
+            value: typeof blocks.kpis.data.issuesCount === 'number' ? blocks.kpis.data.issuesCount : 0,
             icon: CreditCard,
             color: "text-amber-600",
             bg: "bg-amber-50",
@@ -98,7 +98,7 @@ export default async function AdminDashboard() {
                             <div className={cn("w-1.5 h-1.5 rounded-full", isSafeMode ? "bg-amber-500" : "bg-emerald-500 animate-pulse")} />
                             {isSafeMode ? 'Safe Mode' : 'Operational'}
                         </div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.2.2</h1>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.2.3</h1>
                     </div>
                     <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Centro de mando endurecido y gobernanza multi-tenant.</p>
                 </div>

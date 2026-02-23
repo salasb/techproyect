@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Bell, Info, AlertTriangle, ShieldAlert, Check } from "lucide-react";
 import {
     DropdownMenu,
@@ -15,26 +15,38 @@ import { markNotificationRead, getCockpitV2Data } from "@/app/actions/superadmin
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
+interface NotificationItem {
+    id: string;
+    title: string;
+    body: string;
+    createdAt: string;
+    metadata?: { severity?: string };
+}
+
 export function SuperadminNotificationCenter() {
-    const [notifications, setNotifications] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const loadData = async () => {
+    const loadData = useCallback(async (isMounted = true) => {
+        if (isMounted) setLoading(true);
         const res = await getCockpitV2Data();
-        if (res.success && res.notifications) {
-            setNotifications(res.notifications);
+        if (isMounted && res.ok && res.data) {
+            const payload = res.data as { notifications: NotificationItem[] };
+            setNotifications(payload.notifications || []);
         }
-        setLoading(false);
-    };
+        if (isMounted) setLoading(false);
+    }, []);
 
     useEffect(() => {
-        loadData();
-    }, []);
+        let isMounted = true;
+        loadData(isMounted);
+        return () => { isMounted = false; };
+    }, [loadData]);
 
     const handleMarkRead = async (id: string) => {
         try {
             const res = await markNotificationRead(id);
-            if (res.success) {
+            if (res.ok) {
                 setNotifications(prev => prev.filter(n => n.id !== id));
             }
         } catch (error) {
@@ -45,7 +57,7 @@ export function SuperadminNotificationCenter() {
     const unreadCount = notifications.length;
 
     const getIcon = (metadata: any) => {
-        const severity = (metadata as any)?.severity || "INFO";
+        const severity = (metadata as { severity?: string })?.severity || "INFO";
         if (severity === "CRITICAL") return <ShieldAlert className="w-4 h-4 text-red-500" />;
         if (severity === "WARNING") return <AlertTriangle className="w-4 h-4 text-amber-500" />;
         return <Info className="w-4 h-4 text-blue-500" />;

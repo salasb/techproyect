@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 
 export default async function AdminOrgsPage() {
-    console.log("[ADMIN_ORGS] Loading start v4.2.2");
+    console.log("[ADMIN_ORGS] Loading start v4.2.3 (Reality Patch)");
     
     let orgs: Record<string, unknown>[] = [];
     let plans: { id: string; name: string }[] = [];
@@ -46,6 +46,7 @@ export default async function AdminOrgsPage() {
 
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
+        console.error(`[ADMIN_ORGS][${normalized.code}] ${normalized.message}`);
         errorState = { message: normalized.message, code: normalized.code };
     }
 
@@ -59,9 +60,9 @@ export default async function AdminOrgsPage() {
                         <AlertTriangle className="w-5 h-5 text-rose-600" />
                     </div>
                     <div>
-                        <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Error de Sincronización</h3>
+                        <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Fallo de Sincronización</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Orgs_Master | Code: {errorState.code}</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Orgs_Master | Code: {errorState.code} | v4.2.3</p>
                     </div>
                 </div>
             )}
@@ -73,8 +74,8 @@ export default async function AdminOrgsPage() {
                         <ShieldCheck className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                        <h3 className="text-amber-900 font-black uppercase text-[10px] tracking-widest mb-1">Modo Seguro Activo</h3>
-                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Sin privilegios de nivel de servicio, la visibilidad está limitada a su contexto de usuario.</p>
+                        <h3 className="text-amber-900 font-black uppercase text-[10px] tracking-widest mb-1">Aislamiento Activo</h3>
+                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Operando sin Admin Key. La visibilidad de nodos está limitada por RLS.</p>
                     </div>
                 </div>
             )}
@@ -82,16 +83,16 @@ export default async function AdminOrgsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase">Directorio Maestro</h1>
-                    <p className="text-slate-500 font-medium text-sm italic">Gobernanza global de organizaciones v4.2.2</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Control global de ecosistemas v4.2.3</p>
                 </div>
                 <div className="bg-white dark:bg-zinc-950 px-6 py-3 rounded-2xl border border-border shadow-sm flex items-center gap-8">
                     <div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Total Nodos</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Nodos Detectados</span>
                         <div className="text-2xl font-black text-blue-600 tracking-tighter">{orgs.length}</div>
                     </div>
                     <div className="w-px h-10 bg-border hidden md:block" />
                     <div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Planes Activos</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Catálogo Activo</span>
                         <div className="text-2xl font-black text-indigo-600 tracking-tighter">{plans.length}</div>
                     </div>
                 </div>
@@ -102,13 +103,13 @@ export default async function AdminOrgsPage() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-3 text-slate-500">
                             <Building2 className="w-5 h-5 text-blue-500" />
-                            Control de Organizaciones
+                            Gobernanza de Organizaciones
                         </CardTitle>
                         <div className="relative group max-w-sm w-full">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                             <input 
                                 type="text" 
-                                placeholder="Buscar organización..." 
+                                placeholder="Filtrar ecosistemas..." 
                                 className="pl-11 pr-6 py-2.5 bg-white dark:bg-zinc-800 border border-border rounded-2xl text-xs font-bold focus:ring-4 focus:ring-blue-500/10 outline-none transition-all w-full shadow-inner"
                             />
                         </div>
@@ -120,10 +121,10 @@ export default async function AdminOrgsPage() {
                             <thead>
                                 <tr className="bg-zinc-50/30 dark:bg-zinc-900/30 border-b border-border">
                                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Empresa / Master ID</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado Vital</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nivel Comercial</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actividad</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Mando</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Config Comercial</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Métricas</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -142,7 +143,7 @@ export default async function AdminOrgsPage() {
                             <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner border border-border">
                                 <Building2 className="w-10 h-10 text-slate-200" />
                             </div>
-                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic">Cero nodos detectados en el motor global</p>
+                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic opacity-60">No se detectan organizaciones activas</p>
                         </div>
                     )}
                 </CardContent>

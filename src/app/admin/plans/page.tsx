@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 
 export default async function AdminPlansPage() {
-    console.log("[ADMIN_PLANS] Loading start v4.2.2");
+    console.log("[ADMIN_PLANS] Loading start v4.2.3 (Reality Patch)");
     
     let plans: Record<string, unknown>[] = [];
     let errorState: { message: string; code: string } | null = null;
@@ -33,13 +33,14 @@ export default async function AdminPlansPage() {
         plans = (data as Record<string, unknown>[]) || [];
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
+        console.error(`[ADMIN_PLANS][${normalized.code}] ${normalized.message}`);
         errorState = { message: normalized.message, code: normalized.code };
     }
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-12">
             
-            {/* Error State Hardening */}
+            {/* Error State Hardening (Anti-[object Object]) */}
             {errorState && (
                 <div className="bg-rose-50 border border-rose-200 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm animate-in zoom-in duration-300">
                     <div className="bg-rose-100 p-2 rounded-xl">
@@ -48,19 +49,19 @@ export default async function AdminPlansPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Fallo de Sincronización</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Plans_Master | Code: {errorState.code}</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Plans_Master | Code: {errorState.code} | v4.2.3</p>
                     </div>
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
-                    <h2 className="text-3xl font-black italic tracking-tight text-slate-800 dark:text-white uppercase">Planes Maestros</h2>
-                    <p className="text-slate-500 font-medium text-sm italic">Definición de arquitectura comercial v4.2.2</p>
+                    <h2 className="text-3xl font-black italic tracking-tight text-slate-800 dark:text-white uppercase">Planes de Oferta</h2>
+                    <p className="text-slate-500 font-medium text-sm italic">Arquitectura comercial y límites maestros v4.2.3</p>
                 </div>
                 <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 px-6 font-bold uppercase text-[10px] tracking-widest h-12 transition-all active:scale-95">
                     <Plus className="w-4 h-4 mr-2" />
-                    Crear Nuevo Plan
+                    Nuevo Plan Maestro
                 </Button>
             </div>
 
@@ -68,7 +69,7 @@ export default async function AdminPlansPage() {
                 <CardHeader className="bg-slate-50/50 dark:bg-zinc-900/50 border-b border-border p-8">
                     <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-3 text-slate-500">
                         <CreditCard className="w-5 h-5 text-blue-500" />
-                        Catálogo de Oferta Ecosistema
+                        Estructura Comercial Ecosistema
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -76,11 +77,11 @@ export default async function AdminPlansPage() {
                         <Table data-testid="cockpit-plans-table">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent border-b border-border">
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Plan / ID</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Tarifa</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Cuotas</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Nivel / Identificador</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Tarifa Base</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Cuotas / Límites</th>
                                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Mando</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Control</th>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -127,7 +128,7 @@ export default async function AdminPlansPage() {
                             <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-900 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-inner border border-border">
                                 <CreditCard className="w-10 h-10 text-slate-200" />
                             </div>
-                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic">Sin planes activos en el motor</p>
+                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic opacity-60">Sin planes detectados</p>
                         </div>
                     )}
                 </CardContent>

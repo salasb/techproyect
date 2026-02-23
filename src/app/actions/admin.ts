@@ -3,92 +3,87 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
+import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
 
 /**
  * Updates the activation status of an organization.
  */
 export async function updateOrganizationStatus(orgId: string, status: 'PENDING' | 'ACTIVE' | 'INACTIVE') {
-    const supabase = await createClient();
+    try {
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { success: false, error: "No autorizado para esta acción maestra." };
 
-    // Safety check: ensure only SUPERADMIN can do this
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+        const supabase = await createClient();
+        const { error } = await supabase
+            .from('Organization')
+            .update({ status, updatedAt: new Date().toISOString() })
+            .eq('id', orgId);
 
-    const { data: profile } = await supabase.from("Profile").select("role").eq("id", user.id).single();
-    if (profile?.role !== "SUPERADMIN") throw new Error("Forbidden: Admin access required");
+        if (error) throw error;
 
-    const { error } = await supabase
-        .from('Organization')
-        .update({ status, updatedAt: new Date().toISOString() })
-        .eq('id', orgId);
+        // Add traceability log
+        await prisma.auditLog.create({
+            data: {
+                organizationId: orgId,
+                action: status === 'ACTIVE' ? 'SUPERADMIN_APPROVE_ORG' : `SUPERADMIN_SET_ORG_${status}`,
+                details: `Organization status explicitly set to ${status} by ${access.email}`,
+                userName: access.email
+            }
+        });
 
-    if (error) {
-        console.error("Error updating org status:", error);
-        return { success: false, error: error.message };
+        revalidatePath('/admin/orgs');
+        return { success: true };
+    } catch (err: unknown) {
+        const normalized = normalizeOperationalError(err);
+        return { success: false, error: normalized.message };
     }
-
-    // Add traceability log
-    await prisma.auditLog.create({
-        data: {
-            organizationId: orgId,
-            action: status === 'ACTIVE' ? 'SUPERADMIN_APPROVE_ORG' : `SUPERADMIN_SET_ORG_${status}`,
-            details: `Organization status explicitly set to ${status} by ${user.email}`,
-            userName: user.email
-        }
-    });
-
-    revalidatePath('/admin/orgs');
-    return { success: true };
 }
 
 /**
  * Updates the subscription plan of an organization.
  */
 export async function updateOrganizationPlan(orgId: string, plan: 'FREE' | 'PRO' | 'ENTERPRISE') {
-    const supabase = await createClient();
+    try {
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { success: false, error: "Permisos insuficientes para modificar planes." };
 
-    // Role check
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-    const { data: profile } = await supabase.from("Profile").select("role").eq("id", user.id).single();
-    if (profile?.role !== "SUPERADMIN") throw new Error("Forbidden");
+        const supabase = await createClient();
+        const { error } = await supabase
+            .from('Organization')
+            .update({ plan, updatedAt: new Date().toISOString() })
+            .eq('id', orgId);
 
-    const { error } = await supabase
-        .from('Organization')
-        .update({ plan, updatedAt: new Date().toISOString() })
-        .eq('id', orgId);
+        if (error) throw error;
 
-    if (error) {
-        return { success: false, error: error.message };
+        revalidatePath('/admin/orgs');
+        return { success: true };
+    } catch (err: unknown) {
+        const normalized = normalizeOperationalError(err);
+        return { success: false, error: normalized.message };
     }
-
-    revalidatePath('/admin/orgs');
-    return { success: true };
 }
 
 /**
  * Updates a user's role globally.
  */
 export async function updateUserRole(userId: string, role: string) {
-    const supabase = await createClient();
+    try {
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { success: false, error: "Solo superadmins pueden modificar roles globales." };
 
-    // Safety check: ensure only SUPERADMIN can do this
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+        const supabase = await createClient();
+        const { error } = await supabase
+            .from('Profile')
+            .update({ role, updatedAt: new Date().toISOString() })
+            .eq('id', userId);
 
-    const { data: profile } = await supabase.from("Profile").select("role").eq("id", user.id).single();
-    if (profile?.role !== "SUPERADMIN") throw new Error("Forbidden: Admin access required");
+        if (error) throw error;
 
-    const { error } = await supabase
-        .from('Profile')
-        .update({ role, updatedAt: new Date().toISOString() })
-        .eq('id', userId);
-
-    if (error) {
-        console.error("Error updating user role:", error);
-        return { success: false, error: error.message };
+        revalidatePath('/admin/users');
+        return { success: true };
+    } catch (err: unknown) {
+        const normalized = normalizeOperationalError(err);
+        return { success: false, error: normalized.message };
     }
-
-    revalidatePath('/admin/users');
-    return { success: true };
 }

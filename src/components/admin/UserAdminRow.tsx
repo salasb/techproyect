@@ -3,14 +3,23 @@
 import { useState } from "react";
 import { updateUserRole } from "@/app/actions/admin";
 import { useToast } from "@/components/ui/Toast";
-import { Shield, Building2, ShieldCheck, User, Eye, Loader2 } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+interface UserProfile {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    createdAt: string;
+    organization?: { name: string; plan: string };
+}
+
 interface UserAdminRowProps {
-    user: any;
+    user: UserProfile;
 }
 
 export function UserAdminRow({ user }: UserAdminRowProps) {
@@ -26,10 +35,11 @@ export function UserAdminRow({ user }: UserAdminRowProps) {
                 setRole(newRole);
                 toast({ type: 'success', message: `Rol de ${user.name} actualizado a ${newRole}` });
             } else {
-                toast({ type: 'error', message: res.error || "Error al actualizar rol" });
+                const errorMsg = typeof res.error === 'string' ? res.error : "Error al actualizar rol global";
+                toast({ type: 'error', message: errorMsg });
             }
         } catch (error) {
-            toast({ type: 'error', message: "Error de red o permisos" });
+            toast({ type: 'error', message: "Fallo de red o permisos insuficientes" });
         } finally {
             setIsLoading(false);
         }

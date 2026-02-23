@@ -5,7 +5,7 @@ import { updateOrganizationStatus, updateOrganizationPlan } from "@/app/actions/
 import { compSubscriptionAction, extendTrialAction } from "@/app/actions/admin-actions";
 import { useToast } from "@/components/ui/Toast";
 import { switchWorkspaceContext } from "@/actions/workspace";
-import { Building2, Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert, Zap, Globe, CalendarPlus, Gift } from "lucide-react";
+import { Users, FolderKanban, CheckCircle2, MoreVertical, ShieldAlert, Globe, CalendarPlus, Gift, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -15,33 +15,46 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans: { id: string, name: string }[] }) {
+interface OrgData {
+    id: string;
+    name: string;
+    status: string;
+    plan: string;
+    rut?: string;
+    createdAt: string;
+    members: { count: number }[];
+    projects: { count: number }[];
+}
+
+export function OrgAdminRow({ org, availablePlans }: { org: OrgData, availablePlans: { id: string, name: string }[] }) {
     const [status, setStatus] = useState(org.status || 'ACTIVE');
     const [plan, setPlan] = useState(org.plan || 'FREE');
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
 
-    const handleStatusChange = async (newStatus: any) => {
+    const handleStatusChange = async (newStatus: string) => {
         setIsLoading(true);
-        const res = await updateOrganizationStatus(org.id, newStatus);
+        const res = await updateOrganizationStatus(org.id, newStatus as any);
         setIsLoading(false);
         if (res.success) {
             setStatus(newStatus);
             toast({ type: 'success', message: `Organización ${newStatus === 'ACTIVE' ? 'Activada' : 'Suspendida'}` });
         } else {
-            toast({ type: 'error', message: res.error || "Error al actualizar" });
+            const errorMsg = typeof res.error === 'string' ? res.error : "Error al actualizar estado";
+            toast({ type: 'error', message: errorMsg });
         }
     };
 
-    const handlePlanChange = async (newPlan: any) => {
+    const handlePlanChange = async (newPlan: string) => {
         setIsLoading(true);
-        const res = await updateOrganizationPlan(org.id, newPlan);
+        const res = await updateOrganizationPlan(org.id, newPlan as any);
         setIsLoading(false);
         if (res.success) {
             setPlan(newPlan);
             toast({ type: 'success', message: `Plan actualizado a ${newPlan}` });
         } else {
-            toast({ type: 'error', message: res.error || "Error al actualizar" });
+            const errorMsg = typeof res.error === 'string' ? res.error : "Error al actualizar plan";
+            toast({ type: 'error', message: errorMsg });
         }
     };
 
@@ -49,13 +62,17 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
         if (!confirm("¿Estás seguro de otorgar acceso COMP a esta organización?")) return;
         setIsLoading(true);
         try {
-            await compSubscriptionAction(org.id, {
+            const res = await compSubscriptionAction(org.id, {
                 compedUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
                 compedReason: "Admin Granted"
             });
-            toast({ type: 'success', message: "Acceso COMP otorgado por 1 año" });
-        } catch (e: any) {
-            toast({ type: 'error', message: e.message || "Error al otorgar COMP" });
+            if (res.success) {
+                toast({ type: 'success', message: "Acceso COMP otorgado por 1 año" });
+            } else {
+                toast({ type: 'error', message: res.error || "Fallo en operación COMP" });
+            }
+        } catch (error: unknown) {
+            toast({ type: 'error', message: "Error inesperado al otorgar COMP" });
         } finally {
             setIsLoading(false);
         }
@@ -67,10 +84,14 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
 
         setIsLoading(true);
         try {
-            await extendTrialAction(org.id, parseInt(days));
-            toast({ type: 'success', message: `Trial extendido por ${days} días` });
-        } catch (e: any) {
-            toast({ type: 'error', message: e.message || "Error al extender trial" });
+            const res = await extendTrialAction(org.id, parseInt(days));
+            if (res.success) {
+                toast({ type: 'success', message: `Trial extendido por ${days} días` });
+            } else {
+                toast({ type: 'error', message: res.error || "Fallo al extender trial" });
+            }
+        } catch (error: unknown) {
+            toast({ type: 'error', message: "Error inesperado en motor de trial" });
         } finally {
             setIsLoading(false);
         }
@@ -84,11 +105,12 @@ export function OrgAdminRow({ org, availablePlans }: { org: any, availablePlans:
                 toast({ type: 'success', message: `Entrando a ${org.name}...` });
                 window.location.href = '/dashboard';
             } else {
-                toast({ type: 'error', message: res.error || "No se pudo cambiar el contexto" });
+                const errorMsg = typeof res.error === 'string' ? res.error : "No se pudo cambiar el contexto";
+                toast({ type: 'error', message: errorMsg });
                 setIsLoading(false);
             }
-        } catch (error: any) {
-            toast({ type: 'error', message: "Error al cambiar contexto" });
+        } catch (error: unknown) {
+            toast({ type: 'error', message: "Error de red al cambiar contexto" });
             setIsLoading(false);
         }
     };

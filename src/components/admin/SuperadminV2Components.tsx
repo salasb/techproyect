@@ -5,8 +5,9 @@ import { AlertCircle, ShieldAlert, AlertTriangle, Info, CheckCircle2 } from "luc
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { acknowledgeAlert } from "@/app/actions/superadmin-v2";
+import type { AlertItem } from "@/lib/superadmin/cockpit-data-adapter";
 
-export function SuperadminAlertsList({ alerts }: { alerts: any[] }) {
+export function SuperadminAlertsList({ alerts }: { alerts: AlertItem[] }) {
     if (alerts.length === 0) return null;
 
     const handleAck = async (id: string) => {
@@ -36,10 +37,10 @@ export function SuperadminAlertsList({ alerts }: { alerts: any[] }) {
                 Alertas Activas del Ecosistema ({alerts.length})
             </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {alerts.map((alert) => {
+                {alerts.map((alert, idx) => {
                     if (!alert) return null;
                     return (
-                        <Card key={alert.id || Math.random().toString()} className={`rounded-3xl border ${getColors(alert.severity || 'INFO')} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
+                        <Card key={alert.id || `alert-${idx}`} className={`rounded-3xl border ${getColors(alert.severity || 'INFO')} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
                             <CardContent className="p-5 flex gap-5">
                                 <div className="shrink-0 mt-1">
                                     {getIcon(alert.severity || 'INFO')}

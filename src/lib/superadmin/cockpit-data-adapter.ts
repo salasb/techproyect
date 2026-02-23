@@ -5,7 +5,7 @@ import { MetricsService, MonthlyMetrics } from "./metrics-service";
 import { normalizeOperationalError } from "./error-normalizer";
 
 /**
- * PHASE 2.2 HARDENED CONTRACT
+ * PHASE 4.2.3 REALITY PATCH CONTRACT
  */
 export type OperationalBlockStatus = "ok" | "empty" | "degraded_config" | "degraded_service";
 
@@ -16,18 +16,40 @@ export type OperationalActionCode =
   | "DEGRADED_SERVICE"
   | "VALIDATION_ERROR"
   | "NO_CHANGES"
-  | "PREVIEW_LOCKED";
+  | "PREVIEW_LOCKED"
+  | "SERVICE_FAILURE";
 
 export interface OperationalBlockResult<T> {
   status: OperationalBlockStatus;
   data: T;
-  message?: string;
-  code?: string;
+  message: string;      // SIEMPRE string legible para UI
+  code: string;         // Ej: CONFIG_MISSING, SERVICE_FAILURE, etc.
   meta: {
+    traceId: string;     // obligatorio para trazabilidad
     durationMs: number;
     rowCount?: number;
-    traceId?: string;
   };
+}
+
+export interface OperationalActionResult<T = undefined> {
+  ok: boolean;
+  code: OperationalActionCode;
+  message: string;       // SIEMPRE string amigable
+  data?: T;
+  meta?: {
+    traceId: string;
+    durationMs?: number;
+  };
+}
+
+export interface AlertItem {
+    id: string;
+    title: string;
+    description: string;
+    severity: string;
+    organization?: { name: string } | null;
+    detectedAt: string | Date;
+    status: string;
 }
 
 export interface CockpitDataPayloadV42 {
@@ -36,19 +58,19 @@ export interface CockpitDataPayloadV42 {
     blocks: {
         kpis: OperationalBlockResult<{ totalOrgs: number; issuesCount: number; activeTrials: number; inactiveOrgs: number; timestamp: Date }>;
         orgs: OperationalBlockResult<OrgCockpitSummary[]>;
-        alerts: OperationalBlockResult<Record<string, unknown>[]>;
+        alerts: OperationalBlockResult<AlertItem[]>;
         metrics: OperationalBlockResult<MonthlyMetrics[]>;
     };
 }
 
 /**
  * Robust adapter to fetch all Cockpit data with high-fidelity status reporting.
- * v4.2: Phase 2.2 Hardening + Precise Traceability
+ * v4.2.3: Reality Patch + Mandatory Traceability
  */
 export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     const startTime = Date.now();
     const config = getServerRuntimeConfig();
-    const traceId = Math.random().toString(36).substring(7).toUpperCase();
+    const traceId = `CKP-${Math.random().toString(36).substring(7).toUpperCase()}`;
     
     console.log(`[CockpitAdapter][${traceId}] Start Aggregated Fetch (Mode: ${config.mode})`);
 
@@ -83,6 +105,8 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
             return { 
                 status, 
                 data: data ?? fallback,
+                message: status === 'ok' ? 'Datos sincronizados correctamente.' : 'Sin datos disponibles en este bloque.',
+                code: status === 'ok' ? 'SYNC_OK' : 'EMPTY_RESULT',
                 meta: { durationMs, rowCount, traceId }
             };
         } catch (err: unknown) {

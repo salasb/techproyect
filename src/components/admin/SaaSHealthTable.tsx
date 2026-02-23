@@ -72,13 +72,13 @@ export function SaaSHealthTable({ orgs = [] }: { orgs: OrgMetric[] }) {
                     </thead>
                     <tbody className="divide-y divide-border">
                         {safeOrgs.map((org) => {
-                            if (!org) return null;
+                            if (!org || !org.id) return null;
                             const hStatus = org.health?.status || 'WARNING';
                             const config = healthConfig[hStatus as keyof typeof healthConfig] || healthConfig.WARNING;
-                            const HealthIcon = config.icon;
+                            const HealthIcon = config.icon || Activity;
 
                             return (
-                                <tr key={org.id || Math.random().toString()} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors group">
+                                <tr key={org.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary font-bold shadow-inner uppercase">
@@ -87,22 +87,22 @@ export function SaaSHealthTable({ orgs = [] }: { orgs: OrgMetric[] }) {
                                             <div>
                                                 <div className="font-bold text-sm text-foreground">{org.name || 'Sin nombre'}</div>
                                                 <div className="text-[10px] text-muted-foreground">
-                                                    ID: {org.id?.substring(0, 8) || 'unknown'}... • {org.createdAt ? format(new Date(org.createdAt), 'dd MMM yy', { locale: es }) : 'n/a'}
+                                                    ID: {String(org.id).substring(0, 8) || 'unknown'}... • {org.createdAt ? format(new Date(org.createdAt), 'dd MMM yy', { locale: es }) : 'n/a'}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="space-y-1.5">
-                                            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${config.bg} ${config.color}`}>
+                                            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${config.bg || 'bg-slate-100'} ${config.color || 'text-slate-500'}`}>
                                                 <HealthIcon className="w-3 h-3" />
-                                                {config.label} ({org.health?.score || 0}%)
+                                                {config.label || 'Unknown'} ({org.health?.score || 0}%)
                                             </div>
                                             {(org.health?.reasons || []).length > 0 && (
                                                 <div className="flex flex-wrap gap-1">
                                                     {org.health.reasons.map((reason, idx) => (
                                                         <span key={idx} className="text-[9px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/5 px-1 rounded border border-amber-500/10">
-                                                            {reason}
+                                                            {String(reason)}
                                                         </span>
                                                     ))}
                                                 </div>

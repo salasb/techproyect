@@ -6,10 +6,19 @@ import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table";
 import { UserAdminRow } from "@/components/admin/UserAdminRow";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 
+interface UserProfile {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    createdAt: string;
+    organization?: { name: string; plan: string };
+}
+
 export default async function AdminUsersPage() {
-    console.log("[ADMIN_USERS] Loading start v4.2.2");
+    console.log("[ADMIN_USERS] Loading start v4.2.3 (Reality Patch)");
     
-    let profiles: { id: string; [key: string]: unknown }[] = [];
+    let profiles: UserProfile[] = [];
     let count = 0;
     let isDegraded = false;
     let errorState: { message: string; code: string } | null = null;
@@ -34,19 +43,19 @@ export default async function AdminUsersPage() {
 
         if (profilesRes.error) throw profilesRes.error;
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         profiles = (profilesRes.data as any[]) || [];
         count = countRes.count || 0;
 
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
+        console.error(`[ADMIN_USERS][${normalized.code}] ${normalized.message}`);
         errorState = { message: normalized.message, code: normalized.code };
     }
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12">
             
-            {/* Error State Hardening */}
+            {/* Error State Hardening (Anti-[object Object]) */}
             {errorState && (
                 <div className="bg-rose-50 border border-rose-200 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm animate-in zoom-in duration-300">
                     <div className="bg-rose-100 p-2 rounded-xl">
@@ -55,7 +64,7 @@ export default async function AdminUsersPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Fallo de Sincronización</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Users_Master | Code: {errorState.code}</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Users_Master | Code: {errorState.code} | v4.2.3</p>
                     </div>
                 </div>
             )}
@@ -68,15 +77,15 @@ export default async function AdminUsersPage() {
                     </div>
                     <div>
                         <h3 className="text-amber-900 font-black uppercase text-[10px] tracking-widest mb-1">Visibilidad de Modo Seguro</h3>
-                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Sin Admin Key, el motor solo detecta identidades dentro de su contexto inmediato.</p>
+                        <p className="text-amber-700 text-xs font-medium leading-relaxed">Operando bajo RLS restringido. Solo identidades del contexto actual son visibles.</p>
                     </div>
                 </div>
             )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
-                    <h2 className="text-3xl font-black italic tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">Usuarios Globales</h2>
-                    <p className="text-slate-500 font-medium text-sm italic">Directorio maestro de identidades v4.2.2</p>
+                    <h2 className="text-3xl font-black italic tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">Cuentas Globales</h2>
+                    <p className="text-slate-500 font-medium text-sm italic">Directorio maestro de identidades v4.2.3</p>
                 </div>
                 <div className="bg-white dark:bg-zinc-950 px-8 py-4 rounded-[2rem] border border-border shadow-xl">
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1.5">Total Identidades</span>
@@ -88,7 +97,7 @@ export default async function AdminUsersPage() {
                 <CardHeader className="bg-slate-50/50 dark:bg-zinc-900/50 border-b border-border p-8">
                     <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-3 text-slate-500">
                         <Users className="w-5 h-5 text-blue-500" />
-                        Explorador de Cuentas
+                        Explorador de Usuarios
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -96,11 +105,11 @@ export default async function AdminUsersPage() {
                         <Table data-testid="cockpit-users-table">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent border-b border-border">
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Usuario / Identidad</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Organización</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Plan Activo</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Rol Maestro</th>
-                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Registro</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Identidad</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Empresa Actual</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Plan</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Rol</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Alta</th>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -112,10 +121,8 @@ export default async function AdminUsersPage() {
                     </div>
                     {profiles.length === 0 && !errorState && (
                         <div className="p-32 text-center">
-                            <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-900 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-inner border border-border">
-                                <Users className="w-10 h-10 text-slate-200" />
-                            </div>
-                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic">Cero perfiles detectados</p>
+                            <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest italic opacity-60">No se han detectado perfiles</p>
                         </div>
                     )}
                 </CardContent>
