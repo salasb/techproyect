@@ -1,3 +1,5 @@
+"use server";
+
 import { AlertsService } from "@/lib/superadmin/alerts-service";
 import { MetricsService } from "@/lib/superadmin/metrics-service";
 import { revalidatePath } from "next/cache";

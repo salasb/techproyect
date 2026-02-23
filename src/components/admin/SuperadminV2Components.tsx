@@ -81,7 +81,7 @@ export function SuperadminAlertsList({ alerts }: { alerts: any[] }) {
 // Separate component for Metrics Chart
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { CardHeader, CardTitle } from "@/components/ui/card";
-import { MonthlyMetrics } from "@/lib/superadmin/metrics-service";
+import type { MonthlyMetrics } from "@/lib/superadmin/metrics-service";
 
 export function SuperadminMonthlyMetrics({ data = [] }: { data: MonthlyMetrics[] }) {
     const safeData = Array.isArray(data) ? data : [];
