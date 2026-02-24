@@ -148,10 +148,50 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     }
 
     // Parallel fetch with full isolation
-    const [kpis, orgs, alerts, metrics, ops] = await Promise.all([
+    const [kpis, orgs, rawAlerts, metrics, ops] = await Promise.all([
         fetchBlockSafe('KPIs', CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }),
         fetchBlockSafe('Orgs', CockpitService.getOrganizationsList(), []),
-        fetchBlockSafe('Alerts', AlertsService.getGlobalAlertsSummary().then(items => items.map(item => {
+        fetchBlockSafe('Alerts', AlertsService.getGlobalAlertsSummary(), []),
+        fetchBlockSafe('Metrics', MetricsService.getAggregatedMonthlyMetrics(), []),
+        fetchBlockSafe('Ops', CockpitService.getOperationalMetrics(), { mttaMinutes: 0, mttrHours: 0, openAlerts: 0, breachedAlerts: 0, slaComplianceRate: 100 })
+    ]);
+
+    // Snapshot instrumentation
+    if (Array.isArray(rawAlerts.data)) {
+        const fingerprints = rawAlerts.data.map(a => a.fingerprint);
+        const uniqueFp = new Set(fingerprints);
+        console.log(`[CockpitAdapter][${traceId}] Alerts Snapshot:`, {
+            total: rawAlerts.data.length,
+            unique: uniqueFp.size,
+            isDuplicated: uniqueFp.size !== rawAlerts.data.length,
+            sample: fingerprints.slice(0, 5)
+        });
+    }
+
+    // FASE 3 - Dedupe Defensivo (Guarda anti-regresión)
+    let deduplicatedRawAlerts = rawAlerts.data || [];
+    if (Array.isArray(deduplicatedRawAlerts)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const uniqueMap = new Map<string, any>();
+        deduplicatedRawAlerts.forEach(a => {
+            if (uniqueMap.has(a.fingerprint)) {
+                console.warn(`[CockpitAdapter][${traceId}] DUPLICATE DETECTED: ${a.fingerprint}. Keeping latest.`);
+                const existing = uniqueMap.get(a.fingerprint);
+                const existingDate = existing.updatedAt || existing.detectedAt || new Date(0);
+                const newDate = a.updatedAt || a.detectedAt || new Date(0);
+                if (new Date(newDate) > new Date(existingDate)) {
+                    uniqueMap.set(a.fingerprint, a);
+                }
+            } else {
+                uniqueMap.set(a.fingerprint, a);
+            }
+        });
+        deduplicatedRawAlerts = Array.from(uniqueMap.values());
+    }
+
+    const alerts: OperationalBlockResult<CockpitOperationalAlert[]> = {
+        ...rawAlerts,
+        data: deduplicatedRawAlerts.map(item => {
             // Use OperationalStateRepo to ensure v4.6 normalized data
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const meta = OperationalStateRepo.normalize(item as any);
@@ -185,10 +225,8 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
                 owner: meta.owner,
                 playbookSteps: meta.playbookSteps
             } as CockpitOperationalAlert;
-        })), []),
-        fetchBlockSafe('Metrics', MetricsService.getAggregatedMonthlyMetrics(), []),
-        fetchBlockSafe('Ops', CockpitService.getOperationalMetrics(), { mttaMinutes: 0, mttrHours: 0, openAlerts: 0, breachedAlerts: 0, slaComplianceRate: 100 })
-    ]);
+        })
+    };
 
     const totalDuration = Date.now() - startTime;
     console.log(`[CockpitAdapter][${traceId}] Aggregate Completed in ${totalDuration}ms`);

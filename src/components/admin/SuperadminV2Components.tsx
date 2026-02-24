@@ -132,6 +132,18 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
     const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
     const searchParams = useSearchParams();
 
+    // Client-side instrumentation
+    useEffect(() => {
+        const fingerprints = alerts.map(a => a.fingerprint);
+        const uniqueFp = new Set(fingerprints);
+        console.log(`[SuperadminAlertsList] RECEIVED:`, {
+            total: alerts.length,
+            unique: uniqueFp.size,
+            isDuplicated: uniqueFp.size !== alerts.length,
+            sample: fingerprints.slice(0, 5)
+        });
+    }, [alerts]);
+
     // Filter & Density State
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string[]>([]);
@@ -227,15 +239,46 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
         });
     }, [alerts, search, statusFilter, severityFilter, slaFilter, actionableOnly]);
 
-    // Grouping Logic
+    // Grouping Logic - Single Pass Partition (Hotfix v4.6.x)
     const groups = useMemo(() => {
-        return {
-            critical: filteredAlerts.filter(a => (a.severity === 'critical' || a.sla?.status === 'BREACHED') && a.state !== 'resolved' && a.state !== 'snoozed'),
-            risk: filteredAlerts.filter(a => (a.severity === 'warning' || a.sla?.status === 'AT_RISK') && a.state !== 'resolved' && a.state !== 'snoozed' && !(a.severity === 'critical' || a.sla?.status === 'BREACHED')),
-            open: filteredAlerts.filter(a => (a.state === 'open' || a.state === 'acknowledged') && !(a.severity === 'critical' || a.sla?.status === 'BREACHED' || a.severity === 'warning' || a.sla?.status === 'AT_RISK')),
-            snoozed: filteredAlerts.filter(a => a.state === 'snoozed'),
-            resolved: filteredAlerts.filter(a => a.state === 'resolved')
+        const partitioned = {
+            critical: [] as CockpitOperationalAlert[],
+            risk: [] as CockpitOperationalAlert[],
+            open: [] as CockpitOperationalAlert[],
+            snoozed: [] as CockpitOperationalAlert[],
+            resolved: [] as CockpitOperationalAlert[]
         };
+
+        filteredAlerts.forEach(alert => {
+            if (!alert) return;
+
+            // Prioridad 1: Resueltas y Pospuestas (estados terminales/pausados en triage visual)
+            if (alert.state === 'resolved') {
+                partitioned.resolved.push(alert);
+                return;
+            }
+            if (alert.state === 'snoozed') {
+                partitioned.snoozed.push(alert);
+                return;
+            }
+
+            // Prioridad 2: SLA Vencido o Críticas
+            if (alert.sla?.status === 'BREACHED' || alert.severity === 'critical') {
+                partitioned.critical.push(alert);
+                return;
+            }
+
+            // Prioridad 3: En Riesgo o Warnings
+            if (alert.sla?.status === 'AT_RISK' || alert.severity === 'warning') {
+                partitioned.risk.push(alert);
+                return;
+            }
+
+            // Prioridad 4: Abiertas normales (Info / On Track)
+            partitioned.open.push(alert);
+        });
+
+        return partitioned;
     }, [filteredAlerts]);
 
     const toggleSection = (section: string) => {
@@ -390,7 +433,7 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                         const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
 
                                         return (
-                                            <Card key={alert.id || `alert-${key}-${idx}`} className={cn(
+                                            <Card key={alert.fingerprint || alert.id || `alert-${key}-${idx}`} className={cn(
                                                 "rounded-[2rem] border transition-all overflow-hidden relative group",
                                                 getColors(alert.severity || 'info'),
                                                 isSnoozed && "opacity-60 grayscale-[0.5]",

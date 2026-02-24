@@ -323,8 +323,10 @@ export class AlertsService {
             ]
         });
 
+        console.log(`[AlertsService] getGlobalAlertsSummary: DB found ${alerts.length} alerts`);
+
         // Filter SNOOZED alerts and normalize to v4.6
-        return alerts.map(a => {
+        const result = alerts.map(a => {
             const meta = OperationalStateRepo.normalize(a);
             return { ...a, metadata: meta };
         }).filter(a => {
@@ -334,6 +336,9 @@ export class AlertsService {
             }
             return true;
         });
+
+        console.log(`[AlertsService] getGlobalAlertsSummary: returning ${result.length} active/non-snoozed alerts`);
+        return result;
     }
 
     static async getCockpitNotifications() {
