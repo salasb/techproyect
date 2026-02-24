@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
     ShieldAlert, AlertTriangle, Info, CheckCircle2, ExternalLink, 
     MoreVertical, Clock, CheckCheck, BellRing, Loader2, 
     User, Target, ClipboardList, AlertOctagon, TrendingUp,
-    Timer, CheckCircle, ChevronRight, X
+    Timer, CheckCircle, ChevronRight, X, Filter, Search, 
+    LayoutGrid, Rows, ChevronDown, ChevronUp, Eraser, EyeOff
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { 
     acknowledgeCockpitAlert, snoozeCockpitAlert, resolveCockpitAlert, 
     assignCockpitAlertOwner, toggleCockpitPlaybookStep 
@@ -18,7 +20,7 @@ import type { OperationalMetrics } from "@/lib/superadmin/cockpit-service";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import {
+import { 
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -28,6 +30,77 @@ import {
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { getPlaybookByRule } from "@/lib/superadmin/playbooks-catalog";
+import { useSearchParams } from "next/navigation";
+
+export function SuperadminTriagePanel({ 
+    stats 
+}: { 
+    stats: { total: number; open: number; critical: number; breached: number; snoozed: number }
+}) {
+    return (
+        <Card className="rounded-[2.5rem] border-none shadow-xl bg-indigo-900 text-white p-8 space-y-8 sticky top-6">
+            <div>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-300 mb-6 flex items-center gap-2">
+                    <Target className="w-3.5 h-3.5" />
+                    Panel de Triage Operativo
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <p className="text-[9px] font-black uppercase text-indigo-200 tracking-widest opacity-60 mb-1">Abiertas</p>
+                        <p className="text-2xl font-black tracking-tighter">{stats.open}</p>
+                    </div>
+                    <div className="bg-red-500/10 p-4 rounded-2xl border border-red-500/20">
+                        <p className="text-[9px] font-black uppercase text-red-200 tracking-widest opacity-60 mb-1">Críticas</p>
+                        <p className="text-2xl font-black tracking-tighter text-red-100">{stats.critical}</p>
+                    </div>
+                    <div className="bg-amber-500/10 p-4 rounded-2xl border border-amber-500/20">
+                        <p className="text-[9px] font-black uppercase text-amber-200 tracking-widest opacity-60 mb-1">SLA Vencido</p>
+                        <p className="text-2xl font-black tracking-tighter text-amber-100">{stats.breached}</p>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10 opacity-50">
+                        <p className="text-[9px] font-black uppercase text-indigo-200 tracking-widest mb-1">Pospuestas</p>
+                        <p className="text-2xl font-black tracking-tighter">{stats.snoozed}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-white/10">
+                <h4 className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">Accesos Rápidos</h4>
+                <div className="grid grid-cols-1 gap-2">
+                    <Link href="?severity=CRITICAL" className="w-full">
+                        <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all">
+                            <ShieldAlert className="w-3.5 h-3.5 mr-3 text-red-400" />
+                            Ver Solo Críticas
+                        </Button>
+                    </Link>
+                    <Link href="?sla=BREACHED" className="w-full">
+                        <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all">
+                            <AlertOctagon className="w-3.5 h-3.5 mr-3 text-amber-400" />
+                            Ver SLA Vencido
+                        </Button>
+                    </Link>
+                    <Link href="?" className="w-full">
+                        <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all">
+                            <Eraser className="w-3.5 h-3.5 mr-3 text-indigo-300" />
+                            Limpiar Filtros
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+
+            <div className="bg-indigo-800/50 p-6 rounded-[2rem] border border-white/5">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[9px] font-black uppercase text-emerald-300">Salud de la Cola: Excelente</span>
+                </div>
+                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-emerald-400 h-full w-[85%] rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                </div>
+                <p className="text-[8px] font-bold text-indigo-200 uppercase mt-3 tracking-widest opacity-50">85% Incidentes Resueltos hoy</p>
+            </div>
+        </Card>
+    );
+}
 
 export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMetrics }) {
     return (
@@ -57,6 +130,44 @@ export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMet
 export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAlert[] }) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
+    const searchParams = useSearchParams();
+
+    // Filter & Density State
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState<string[]>([]);
+    const [severityFilter, setSeverityFilter] = useState<string[]>([]);
+    const [slaFilter, setSlaFilter] = useState<string[]>([]);
+    const [actionableOnly, setActionableOnly] = useState(true);
+    const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
+    const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+        'resolved': true, // Resolved collapsed by default
+        'snoozed': false
+    });
+
+    // Sync URL params with local state
+    useEffect(() => {
+        const sev = searchParams.get('severity');
+        if (sev) {
+            setSeverityFilter([sev.toUpperCase()]);
+            setActionableOnly(false); // If specific severity, show all even if snoozed/resolved if they match
+        }
+        
+        const sla = searchParams.get('sla');
+        if (sla) {
+            setSlaFilter([sla.toUpperCase()]);
+            setActionableOnly(false);
+        }
+
+        const stat = searchParams.get('status');
+        if (stat) {
+            setStatusFilter([stat.toUpperCase()]);
+            setActionableOnly(false);
+        }
+
+        if (!sev && !sla && !stat) {
+            // No direct URL filters
+        }
+    }, [searchParams]);
 
     if (alerts.length === 0) return (
         <div className="py-12 text-center border-2 border-dashed border-border rounded-[2.5rem] bg-slate-50/50 dark:bg-zinc-900/20">
@@ -83,6 +194,60 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
         } finally {
             setLoadingId(null);
         }
+    };
+
+    // Filter Logic
+    const filteredAlerts = useMemo(() => {
+        return alerts.filter(a => {
+            if (!a) return false;
+            
+            // Actionable Only
+            if (actionableOnly && (a.state === 'resolved' || a.state === 'snoozed')) return false;
+
+            // Search
+            if (search) {
+                const s = search.toLowerCase();
+                const inTitle = a.title?.toLowerCase().includes(s);
+                const inDesc = a.description?.toLowerCase().includes(s);
+                const inRule = a.ruleCode?.toLowerCase().includes(s);
+                const inOrg = a.organization?.name?.toLowerCase().includes(s);
+                if (!inTitle && !inDesc && !inRule && !inOrg) return false;
+            }
+
+            // Status
+            if (statusFilter.length > 0 && !statusFilter.includes(a.state.toUpperCase())) return false;
+
+            // Severity
+            if (severityFilter.length > 0 && !severityFilter.includes((a.severity || 'info').toUpperCase())) return false;
+
+            // SLA
+            if (slaFilter.length > 0 && !slaFilter.includes(a.sla?.status || 'OK')) return false;
+
+            return true;
+        });
+    }, [alerts, search, statusFilter, severityFilter, slaFilter, actionableOnly]);
+
+    // Grouping Logic
+    const groups = useMemo(() => {
+        return {
+            critical: filteredAlerts.filter(a => (a.severity === 'critical' || a.sla?.status === 'BREACHED') && a.state !== 'resolved' && a.state !== 'snoozed'),
+            risk: filteredAlerts.filter(a => (a.severity === 'warning' || a.sla?.status === 'AT_RISK') && a.state !== 'resolved' && a.state !== 'snoozed' && !(a.severity === 'critical' || a.sla?.status === 'BREACHED')),
+            open: filteredAlerts.filter(a => (a.state === 'open' || a.state === 'acknowledged') && !(a.severity === 'critical' || a.sla?.status === 'BREACHED' || a.severity === 'warning' || a.sla?.status === 'AT_RISK')),
+            snoozed: filteredAlerts.filter(a => a.state === 'snoozed'),
+            resolved: filteredAlerts.filter(a => a.state === 'resolved')
+        };
+    }, [filteredAlerts]);
+
+    const toggleSection = (section: string) => {
+        setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    const clearFilters = () => {
+        setSearch("");
+        setStatusFilter([]);
+        setSeverityFilter([]);
+        setSlaFilter([]);
+        setActionableOnly(false);
     };
 
     const getColors = (severity: string) => {
@@ -123,142 +288,258 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
         );
     };
 
+    const isCompact = density === 'compact';
+
     return (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex items-center justify-between px-2">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
-                    <BellRing className="w-3.5 h-3.5 text-rose-500" />
-                    Monitor de Incidentes ({alerts.length})
-                </h3>
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Filter Bar (Sticky) */}
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border border-border/50 p-3 rounded-2xl shadow-sm flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input 
+                        placeholder="Buscar incidente, regla u organización..." 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9 h-9 text-[11px] rounded-xl border-border/50 bg-muted/30 focus:bg-background"
+                    />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                    <Button 
+                        variant={actionableOnly ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setActionableOnly(!actionableOnly)}
+                        className={cn("h-9 rounded-xl text-[10px] font-black uppercase tracking-tight", actionableOnly ? "bg-blue-600" : "")}
+                    >
+                        {actionableOnly ? <EyeOff className="w-3.5 h-3.5 mr-2" /> : <Filter className="w-3.5 h-3.5 mr-2" />}
+                        Solo Accionables
+                    </Button>
+
+                    <div className="h-4 w-[1px] bg-border mx-1" />
+
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setDensity(density === 'comfortable' ? 'compact' : 'comfortable')}
+                        className="h-9 w-9 rounded-xl"
+                        title={isCompact ? "Modo Cómodo" : "Modo Compacto"}
+                    >
+                        {isCompact ? <LayoutGrid className="w-4 h-4" /> : <Rows className="w-4 h-4" />}
+                    </Button>
+
+                    { (search || statusFilter.length > 0 || severityFilter.length > 0 || slaFilter.length > 0 || actionableOnly) && (
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={clearFilters}
+                            className="h-9 w-9 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                            title="Limpiar Filtros"
+                        >
+                            <Eraser className="w-4 h-4" />
+                        </Button>
+                    )}
+                </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {alerts.map((alert, idx) => {
-                    if (!alert) return null;
-                    const isSnoozed = alert.state === 'snoozed';
-                    const isLoading = loadingId === alert.id;
-                    const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
+
+            {/* Triage Sections */}
+            <div className="space-y-8">
+                {Object.entries({
+                    critical: { label: "🚨 Críticas / SLA Vencido", color: "text-red-600", bg: "bg-red-50", icon: ShieldAlert },
+                    risk: { label: "⚠️ En Riesgo", color: "text-amber-600", bg: "bg-amber-50", icon: AlertTriangle },
+                    open: { label: "🔔 Abiertas", color: "text-blue-600", bg: "bg-blue-50", icon: BellRing },
+                    snoozed: { label: "⏳ Pospuestas", color: "text-slate-600", bg: "bg-slate-100", icon: Clock },
+                    resolved: { label: "✅ Resueltas Recientes", color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle2 }
+                }).map(([key, config]) => {
+                    const sectionAlerts = groups[key as keyof typeof groups];
+                    if (sectionAlerts.length === 0 && !search && key !== 'critical') return null;
+                    
+                    const isCollapsed = collapsedSections[key];
 
                     return (
-                        <Card key={alert.id || `alert-${idx}`} className={cn(
-                            "rounded-[2rem] border transition-all overflow-hidden relative group",
-                            getColors(alert.severity || 'info'),
-                            isSnoozed && "opacity-60 grayscale-[0.5]"
-                        )}>
-                            <CardContent className="p-6 flex gap-5">
-                                <div className="shrink-0 mt-1">
-                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin opacity-50" /> : getIcon(alert.severity || 'info')}
+                        <div key={key} className="space-y-4">
+                            <button 
+                                onClick={() => toggleSection(key)}
+                                className="flex items-center justify-between w-full px-4 py-2 hover:bg-muted/50 rounded-xl transition-colors group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <config.icon className={cn("w-4 h-4", config.color)} />
+                                    <h3 className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>
+                                        {config.label}
+                                    </h3>
+                                    <Badge variant="secondary" className="rounded-full h-5 px-2 text-[10px] font-black bg-muted/80">
+                                        {sectionAlerts.length}
+                                    </Badge>
                                 </div>
-                                <div className="flex-1 min-w-0 space-y-2">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex flex-col min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <p className="text-[13px] font-black uppercase tracking-tight truncate">{alert.title || 'Alerta Sin Título'}</p>
-                                                <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter">{alert.ruleCode}</span>
-                                                <SLABadge sla={alert.sla} />
-                                            </div>
-                                        </div>
-                                        <span className="text-[9px] font-black bg-white/20 dark:bg-black/20 px-2 py-1 rounded-lg truncate max-w-[120px] shadow-inner uppercase tracking-widest">
-                                            {alert.organization?.name || 'Sistema'}
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed opacity-80 font-medium italic">{alert.description || 'Sin descripción detallada.'}</p>
-                                    
-                                    <div className="flex items-center justify-between pt-3 border-t border-current/10 mt-2">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-1.5 bg-current/5 px-2 py-0.5 rounded-full">
-                                                <User className="w-2.5 h-2.5 opacity-50" />
-                                                <span className="text-[8px] font-black uppercase opacity-70">{ownerLabel}</span>
-                                            </div>
-                                            {alert.href && (
-                                                <Link href={alert.href}>
-                                                    <span className="text-[9px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer group-hover:translate-x-0.5 transition-transform">
-                                                        <ExternalLink className="w-2.5 h-2.5" />
-                                                        Contexto
-                                                    </span>
-                                                </Link>
-                                            )}
-                                        </div>
+                                {isCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+                            </button>
 
-                                        <div className="flex items-center gap-1">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                onClick={() => setSelectedAlert(alert)}
-                                                className="h-7 px-3 text-[9px] font-black uppercase tracking-tight bg-current/5 hover:bg-current/10"
-                                            >
-                                                <ClipboardList className="w-3 h-3 mr-1.5" />
-                                                Playbook
-                                            </Button>
-                                            
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger disabled={isLoading} asChild>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-current/10 transition-colors">
-                                                        <MoreVertical className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
-                                                    {alert.state === 'open' && (
-                                                        <DropdownMenuItem 
-                                                            onClick={() => handleAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))}
-                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                        >
-                                                            <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
-                                                            <span className="text-xs font-black uppercase">Acusar Recibo</span>
-                                                        </DropdownMenuItem>
-                                                    )}
-
-                                                    <DropdownMenuItem 
-                                                        onClick={() => {
-                                                            const user = prompt("ID del usuario responsable:");
-                                                            if (user) handleAction(alert.id, () => assignCockpitAlertOwner(alert.fingerprint, "user", user));
-                                                        }}
-                                                        className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                    >
-                                                        <Target className="w-3.5 h-3.5 text-indigo-500" />
-                                                        <span className="text-xs font-black uppercase">Asignar Responsable</span>
-                                                    </DropdownMenuItem>
-                                                    
-                                                    <DropdownMenuSeparator />
-                                                    <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em]">Posponer</div>
-                                                    <DropdownMenuItem 
-                                                        onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "1h"))}
-                                                        className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                    >
-                                                        <Clock className="w-3.5 h-3.5 text-amber-500" />
-                                                        <span className="text-xs font-black uppercase tracking-tight">Por 1 Hora</span>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem 
-                                                        onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "24h"))}
-                                                        className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                    >
-                                                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                                        <span className="text-xs font-black uppercase tracking-tight">Por 24 Horas</span>
-                                                    </DropdownMenuItem>
-
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem 
-                                                        onClick={() => {
-                                                            const note = prompt("Nota de resolución (opcional):");
-                                                            if (note !== null) handleAction(alert.id, () => resolveCockpitAlert(alert.fingerprint, note));
-                                                        }}
-                                                        className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5 bg-emerald-50 dark:bg-emerald-900/20"
-                                                    >
-                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                        <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400">Marcar Resuelto</span>
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                            {!isCollapsed && (
+                                <div className={cn(
+                                    "grid gap-4 transition-all animate-in fade-in slide-in-from-top-2",
+                                    isCompact ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1 lg:grid-cols-2"
+                                )}>
+                                    {sectionAlerts.length === 0 ? (
+                                        <div className="col-span-full py-8 text-center border border-dashed border-border rounded-[2rem] bg-muted/10 opacity-50 italic text-[10px] font-medium">
+                                            No hay alertas en esta categoría
                                         </div>
-                                    </div>
+                                    ) : sectionAlerts.map((alert, idx) => {
+                                        if (!alert) return null;
+                                        const isSnoozed = alert.state === 'snoozed';
+                                        const isLoading = loadingId === alert.id;
+                                        const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
+
+                                        return (
+                                            <Card key={alert.id || `alert-${key}-${idx}`} className={cn(
+                                                "rounded-[2rem] border transition-all overflow-hidden relative group",
+                                                getColors(alert.severity || 'info'),
+                                                isSnoozed && "opacity-60 grayscale-[0.5]",
+                                                isCompact ? "p-4" : "p-0"
+                                            )}>
+                                                <CardContent className={cn("p-0 flex gap-4", !isCompact && "p-6 gap-5")}>
+                                                    <div className={cn("shrink-0", !isCompact && "mt-1")}>
+                                                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin opacity-50" /> : 
+                                                         React.cloneElement(getIcon(alert.severity || 'info') as React.ReactElement, { className: isCompact ? "w-4 h-4" : "w-5 h-5" })}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 space-y-1">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="flex flex-col min-w-0">
+                                                                <div className="flex items-center gap-2 mb-0.5">
+                                                                    <p className={cn("font-black uppercase tracking-tight truncate", isCompact ? "text-[11px]" : "text-[13px]")}>
+                                                                        {alert.title || 'Alerta Sin Título'}
+                                                                    </p>
+                                                                    {!isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter">{alert.ruleCode}</span>
+                                                                    <SLABadge sla={alert.sla} />
+                                                                </div>
+                                                            </div>
+                                                            {isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
+                                                        </div>
+                                                        
+                                                        {!isCompact && (
+                                                            <p className="text-[11px] leading-relaxed opacity-80 font-medium italic line-clamp-2">
+                                                                {alert.description || 'Sin descripción detallada.'}
+                                                            </p>
+                                                        )}
+                                                        
+                                                        <div className={cn(
+                                                            "flex items-center justify-between pt-2 border-t border-current/10 mt-1",
+                                                            isCompact && "pt-1 border-none mt-0"
+                                                        )}>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex items-center gap-1.5 bg-current/5 px-2 py-0.5 rounded-full">
+                                                                    <User className="w-2 h-2 opacity-50" />
+                                                                    <span className="text-[7px] font-black uppercase opacity-70 truncate max-w-[60px]">{ownerLabel}</span>
+                                                                </div>
+                                                                {alert.href && !isCompact && (
+                                                                    <Link href={alert.href}>
+                                                                        <span className="text-[8px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer group-hover:translate-x-0.5 transition-transform">
+                                                                            <ExternalLink className="w-2.5 h-2.5" />
+                                                                            Contexto
+                                                                        </span>
+                                                                    </Link>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex items-center gap-1">
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="sm" 
+                                                                    onClick={() => setSelectedAlert(alert)}
+                                                                    className={cn("h-6 px-2 text-[8px] font-black uppercase tracking-tight bg-current/5 hover:bg-current/10", !isCompact && "h-7 px-3 text-[9px]")}
+                                                                >
+                                                                    <ClipboardList className="w-3 h-3 mr-1" />
+                                                                    {isCompact ? "" : "Playbook"}
+                                                                </Button>
+                                                                
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger disabled={isLoading} asChild>
+                                                                        <Button variant="ghost" size="icon" className={cn("h-6 w-6 rounded-lg hover:bg-current/10 transition-colors", !isCompact && "h-7 w-7")}>
+                                                                            <MoreVertical className="w-3 h-3" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
+                                                                        {alert.state === 'open' && (
+                                                                            <DropdownMenuItem 
+                                                                                onClick={() => handleAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))}
+                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                            >
+                                                                                <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                                                                                <span className="text-xs font-black uppercase">Acusar Recibo</span>
+                                                                            </DropdownMenuItem>
+                                                                        )}
+
+                                                                        <DropdownMenuItem 
+                                                                            onClick={() => {
+                                                                                const user = prompt("ID del usuario responsable:");
+                                                                                if (user) handleAction(alert.id, () => assignCockpitAlertOwner(alert.fingerprint, "user", user));
+                                                                            }}
+                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                        >
+                                                                            <Target className="w-3.5 h-3.5 text-indigo-500" />
+                                                                            <span className="text-xs font-black uppercase">Asignar Responsable</span>
+                                                                        </DropdownMenuItem>
+                                                                        
+                                                                        <DropdownMenuSeparator />
+                                                                        <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em]">Posponer</div>
+                                                                        <DropdownMenuItem 
+                                                                            onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "1h"))}
+                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                        >
+                                                                            <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                                                            <span className="text-xs font-black uppercase tracking-tight">Por 1 Hora</span>
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem 
+                                                                            onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "24h"))}
+                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                        >
+                                                                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                                                            <span className="text-xs font-black uppercase tracking-tight">Por 24 Horas</span>
+                                                                        </DropdownMenuItem>
+
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem 
+                                                                            onClick={() => {
+                                                                                const note = prompt("Nota de resolución (opcional):");
+                                                                                if (note !== null) handleAction(alert.id, () => resolveCockpitAlert(alert.fingerprint, note));
+                                                                            }}
+                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5 bg-emerald-50 dark:bg-emerald-900/20"
+                                                                        >
+                                                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                                            <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400">Marcar Resuelto</span>
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            )}
+                        </div>
                     );
                 })}
             </div>
+
+            {/* Empty Result for filters */}
+            {filteredAlerts.length === 0 && alerts.length > 0 && (
+                <div className="py-20 text-center border-2 border-dashed border-border rounded-[3rem] bg-slate-50/30">
+                    <Filter className="w-12 h-12 text-slate-300 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">Sin resultados para estos filtros</h3>
+                    <p className="text-[10px] font-bold text-slate-400 mt-2 italic uppercase">Intenta ajustar tu búsqueda o limpiar los filtros activos</p>
+                    <Button 
+                        variant="outline" 
+                        onClick={clearFilters}
+                        className="mt-6 rounded-2xl text-[10px] font-black uppercase px-6"
+                    >
+                        Limpiar Todos los Filtros
+                    </Button>
+                </div>
+            )}
 
             {/* Playbook Modal */}
             <Modal title="Ejecución de Playbook" isOpen={!!selectedAlert} onClose={() => setSelectedAlert(null)}>

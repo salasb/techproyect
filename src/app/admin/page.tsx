@@ -1,10 +1,15 @@
 import { 
     Building2, Users, CreditCard, Activity, Zap, ShieldCheck, 
-    ShieldAlert, AlertTriangle, CheckCheck, Target, ClipboardList 
+    ShieldAlert, AlertTriangle, CheckCheck, Target, ClipboardList, AlertOctagon 
 } from "lucide-react";
 import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
 import { SuperadminNotificationCenter } from "@/components/admin/SuperadminNotificationCenter";
-import { SuperadminAlertsList, SuperadminMonthlyMetrics, SuperadminOperationalKPIs } from "@/components/admin/SuperadminV2Components";
+import { 
+    SuperadminAlertsList, 
+    SuperadminMonthlyMetrics, 
+    SuperadminOperationalKPIs,
+    SuperadminTriagePanel
+} from "@/components/admin/SuperadminV2Components";
 import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 import { getCockpitDataSafe, OperationalBlockStatus } from "@/lib/superadmin/cockpit-data-adapter";
 import { CockpitService } from "@/lib/superadmin/cockpit-service";
@@ -12,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import prisma from "@/lib/prisma";
+import Link from "next/link";
+import { Suspense } from "react";
 
 function BlockContainer({ status, children, label, message, traceId }: { status: OperationalBlockStatus, children: React.ReactNode, label: string, message?: string, traceId: string }) {
     if (status === 'degraded_config') {
@@ -134,6 +141,14 @@ export default async function AdminDashboard() {
         },
     ];
 
+    const triageStats = {
+        total: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.length : 0,
+        open: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter(a => a.state === 'open' || a.state === 'acknowledged').length : 0,
+        critical: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter(a => a.severity === 'critical' || a.sla?.status === 'BREACHED').length : 0,
+        breached: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter(a => a.sla?.status === 'BREACHED').length : 0,
+        snoozed: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter(a => a.state === 'snoozed').length : 0,
+    };
+
     return (
         <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
             
@@ -183,16 +198,22 @@ export default async function AdminDashboard() {
             {/* 0.5. Operational KPIs */}
             <SuperadminOperationalKPIs metrics={blocks.ops.data} />
 
-            {/* 1. Health Status & Evaluation Recovery */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
                 <section className="lg:col-span-2 min-h-[80px]" data-testid="cockpit-alerts-card">
                     <BlockContainer status={blocks.alerts.status} label="Incidentes Críticos" message={blocks.alerts.message} traceId={blocks.alerts.meta.traceId}>
-                        <SuperadminAlertsList alerts={blocks.alerts.data} />
+                        <Suspense fallback={<div className="h-40 flex items-center justify-center bg-muted/20 rounded-[2.5rem] animate-pulse">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Iniciando Monitor de Triage...</p>
+                        </div>}>
+                            <SuperadminAlertsList alerts={blocks.alerts.data} />
+                        </Suspense>
                     </BlockContainer>
                 </section>
                 
-                <div className="space-y-6">
-                    <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-slate-50/30 dark:bg-zinc-900/10 p-8 flex flex-col justify-between">
+                <aside className="space-y-6 lg:sticky lg:top-8 animate-in slide-in-from-right-4 duration-700">
+                    {/* New Triage Panel */}
+                    <SuperadminTriagePanel stats={triageStats} />
+
+                    <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-slate-50/30 dark:bg-zinc-900/10 p-8 flex flex-col justify-between shadow-sm">
                         <div>
                             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 flex items-center gap-2">
                                 <Activity className="w-3.5 h-3.5 text-blue-500" />
@@ -207,7 +228,7 @@ export default async function AdminDashboard() {
                                         <p className="text-[10px] font-bold text-slate-500 uppercase">{new Date(lastEval.executedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                                     </div>
                                     <div className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-2xl shadow-sm">
-                                        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">{lastEval.details.split(']: ')[1] || lastEval.details}</p>
+                                        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3 italic">&quot;{lastEval.details.split(']: ')[1] || lastEval.details}&quot;</p>
                                     </div>
                                     <p className="text-[8px] font-mono text-slate-400 uppercase tracking-widest opacity-60">Trace: {lastEval.traceId}</p>
                                 </div>
@@ -223,7 +244,7 @@ export default async function AdminDashboard() {
                     </Card>
 
                     {lastOp && (
-                        <Card className="rounded-[2.5rem] border border-border bg-white dark:bg-zinc-900/50 p-8">
+                        <Card className="rounded-[2.5rem] border border-border bg-white dark:bg-zinc-900/50 p-8 shadow-sm">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 flex items-center gap-2">
                                 {lastOp.action.includes('OWNER') ? <Target className="w-3.5 h-3.5 text-indigo-500" /> : 
                                  lastOp.action.includes('STEP') ? <ClipboardList className="w-3.5 h-3.5 text-blue-500" /> :
@@ -240,7 +261,7 @@ export default async function AdminDashboard() {
                             </div>
                         </Card>
                     )}
-                </div>
+                </aside>
             </div>
 
             {/* Organizations Grid */}
