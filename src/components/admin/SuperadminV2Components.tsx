@@ -256,10 +256,11 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
         return 'border-blue-500/20 bg-blue-500/5 text-blue-700 dark:text-blue-400';
     };
 
-    const getIcon = (severity: string) => {
-        if (severity === 'CRITICAL' || severity === 'critical') return <ShieldAlert className="w-5 h-5" />;
-        if (severity === 'WARNING' || severity === 'warning') return <AlertTriangle className="w-5 h-5" />;
-        return <Info className="w-5 h-5" />;
+    const getIcon = (severity: string, className?: string) => {
+        const iconClass = className || "w-5 h-5";
+        if (severity === 'CRITICAL' || severity === 'critical') return <ShieldAlert className={iconClass} />;
+        if (severity === 'WARNING' || severity === 'warning') return <AlertTriangle className={iconClass} />;
+        return <Info className={iconClass} />;
     };
 
     const StatusBadge = ({ state, snoozedUntil }: { state: string, snoozedUntil?: string | null }) => {
@@ -398,7 +399,7 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                                 <CardContent className={cn("p-0 flex gap-4", !isCompact && "p-6 gap-5")}>
                                                     <div className={cn("shrink-0", !isCompact && "mt-1")}>
                                                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin opacity-50" /> : 
-                                                         React.cloneElement(getIcon(alert.severity || 'info') as React.ReactElement, { className: isCompact ? "w-4 h-4" : "w-5 h-5" })}
+                                                         getIcon(alert.severity || 'info', isCompact ? "w-4 h-4" : "w-5 h-5")}
                                                     </div>
                                                     <div className="flex-1 min-w-0 space-y-1">
                                                         <div className="flex items-center justify-between gap-2">
