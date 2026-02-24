@@ -1,11 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
-import { ShieldAlert, AlertTriangle, Info, CheckCircle2, ExternalLink, MoreVertical, Clock, CheckCheck, BellRing, Loader2 } from "lucide-react";
+import { 
+    ShieldAlert, AlertTriangle, Info, CheckCircle2, ExternalLink, 
+    MoreVertical, Clock, CheckCheck, BellRing, Loader2, 
+    User, Target, ClipboardList, AlertOctagon, TrendingUp,
+    Timer, CheckCircle, ChevronRight, X
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { acknowledgeCockpitAlert, snoozeCockpitAlert, resolveCockpitAlert } from "@/app/actions/superadmin-v2";
+import { 
+    acknowledgeCockpitAlert, snoozeCockpitAlert, resolveCockpitAlert, 
+    assignCockpitAlertOwner, toggleCockpitPlaybookStep 
+} from "@/app/actions/superadmin-v2";
 import type { CockpitOperationalAlert, OperationalActionResult } from "@/lib/superadmin/cockpit-data-adapter";
+import type { OperationalMetrics } from "@/lib/superadmin/cockpit-service";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -16,10 +25,38 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
+import { getPlaybookByRule } from "@/lib/superadmin/playbooks-catalog";
+
+export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMetrics }) {
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            {[
+                { label: "MTTA", value: `${metrics.mttaMinutes}m`, sub: "Tiempo acuse", icon: Timer, color: "text-blue-600" },
+                { label: "MTTR", value: `${metrics.mttrHours}h`, sub: "Tiempo resolución", icon: CheckCircle, color: "text-emerald-600" },
+                { label: "Abiertas", value: metrics.openAlerts, sub: "Incidentes", icon: BellRing, color: "text-rose-600" },
+                { label: "Vencidas", value: metrics.breachedAlerts, sub: "Fuera de SLA", icon: AlertOctagon, color: "text-orange-600" },
+                { label: "Compliance", value: `${metrics.slaComplianceRate}%`, sub: "Dentro de SLA", icon: TrendingUp, color: "text-indigo-600" },
+            ].map((kpi, i) => (
+                <Card key={i} className="rounded-3xl border-none shadow-sm bg-white dark:bg-zinc-900/50 p-4 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-2">
+                        <kpi.icon className={cn("w-4 h-4", kpi.color)} />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{kpi.label}</span>
+                    </div>
+                    <div>
+                        <p className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">{kpi.value}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">{kpi.sub}</p>
+                    </div>
+                </Card>
+            ))}
+        </div>
+    );
+}
 
 export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAlert[] }) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
+    const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
 
     if (alerts.length === 0) return (
         <div className="py-12 text-center border-2 border-dashed border-border rounded-[2.5rem] bg-slate-50/50 dark:bg-zinc-900/20">
@@ -72,6 +109,20 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
         return <Badge className={cn(base, "bg-rose-100 text-rose-700 border-rose-200 animate-pulse")}>Abierto</Badge>;
     };
 
+    const SLABadge = ({ sla }: { sla: CockpitOperationalAlert['sla'] }) => {
+        if (!sla) return null;
+        const colors = {
+            ON_TRACK: "bg-emerald-50 text-emerald-600 border-emerald-100",
+            AT_RISK: "bg-amber-50 text-amber-600 border-amber-100",
+            BREACHED: "bg-rose-50 text-rose-600 border-rose-200 animate-bounce"
+        };
+        return (
+            <Badge variant="outline" className={cn("text-[7px] font-black uppercase tracking-tighter px-1.5", colors[sla.status as keyof typeof colors])}>
+                SLA: {sla.preset} {sla.status === 'BREACHED' ? 'VENCIDO' : `(Vence ${new Date(sla.dueAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})`}
+            </Badge>
+        );
+    };
+
     return (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <div className="flex items-center justify-between px-2">
@@ -85,6 +136,7 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                     if (!alert) return null;
                     const isSnoozed = alert.state === 'snoozed';
                     const isLoading = loadingId === alert.id;
+                    const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
 
                     return (
                         <Card key={alert.id || `alert-${idx}`} className={cn(
@@ -99,11 +151,14 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                 <div className="flex-1 min-w-0 space-y-2">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="flex flex-col min-w-0">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 mb-1">
                                                 <p className="text-[13px] font-black uppercase tracking-tight truncate">{alert.title || 'Alerta Sin Título'}</p>
                                                 <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />
                                             </div>
-                                            <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter mt-0.5">{alert.ruleCode}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter">{alert.ruleCode}</span>
+                                                <SLABadge sla={alert.sla} />
+                                            </div>
                                         </div>
                                         <span className="text-[9px] font-black bg-white/20 dark:bg-black/20 px-2 py-1 rounded-lg truncate max-w-[120px] shadow-inner uppercase tracking-widest">
                                             {alert.organization?.name || 'Sistema'}
@@ -113,9 +168,10 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                     
                                     <div className="flex items-center justify-between pt-3 border-t border-current/10 mt-2">
                                         <div className="flex items-center gap-4">
-                                            <span className="text-[8px] font-bold uppercase opacity-50">
-                                                Detectada {alert.detectedAt ? new Date(alert.detectedAt).toLocaleDateString() : 'n/a'}
-                                            </span>
+                                            <div className="flex items-center gap-1.5 bg-current/5 px-2 py-0.5 rounded-full">
+                                                <User className="w-2.5 h-2.5 opacity-50" />
+                                                <span className="text-[8px] font-black uppercase opacity-70">{ownerLabel}</span>
+                                            </div>
                                             {alert.href && (
                                                 <Link href={alert.href}>
                                                     <span className="text-[9px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer group-hover:translate-x-0.5 transition-transform">
@@ -127,13 +183,23 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                         </div>
 
                                         <div className="flex items-center gap-1">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => setSelectedAlert(alert)}
+                                                className="h-7 px-3 text-[9px] font-black uppercase tracking-tight bg-current/5 hover:bg-current/10"
+                                            >
+                                                <ClipboardList className="w-3 h-3 mr-1.5" />
+                                                Playbook
+                                            </Button>
+                                            
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger disabled={isLoading} asChild>
                                                     <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-current/10 transition-colors">
                                                         <MoreVertical className="w-3.5 h-3.5" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-48 p-2 rounded-2xl border-border shadow-2xl">
+                                                <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
                                                     {alert.state === 'open' && (
                                                         <DropdownMenuItem 
                                                             onClick={() => handleAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))}
@@ -143,6 +209,17 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                                             <span className="text-xs font-black uppercase">Acusar Recibo</span>
                                                         </DropdownMenuItem>
                                                     )}
+
+                                                    <DropdownMenuItem 
+                                                        onClick={() => {
+                                                            const user = prompt("ID del usuario responsable:");
+                                                            if (user) handleAction(alert.id, () => assignCockpitAlertOwner(alert.fingerprint, "user", user));
+                                                        }}
+                                                        className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                    >
+                                                        <Target className="w-3.5 h-3.5 text-indigo-500" />
+                                                        <span className="text-xs font-black uppercase">Asignar Responsable</span>
+                                                    </DropdownMenuItem>
                                                     
                                                     <DropdownMenuSeparator />
                                                     <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em]">Posponer</div>
@@ -181,6 +258,139 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                         </Card>
                     );
                 })}
+            </div>
+
+            {/* Playbook Modal */}
+            <Modal title="Ejecución de Playbook" isOpen={!!selectedAlert} onClose={() => setSelectedAlert(null)}>
+                <div className="max-w-2xl w-full">
+                    {selectedAlert && (
+                        <PlaybookExecutionPanel 
+                            alert={selectedAlert} 
+                            onClose={() => setSelectedAlert(null)} 
+                        />
+                    )}
+                </div>
+            </Modal>
+        </div>
+    );
+}
+
+function PlaybookExecutionPanel({ alert, onClose }: { alert: CockpitOperationalAlert, onClose: () => void }) {
+    const playbook = getPlaybookByRule(alert.ruleCode);
+    const [acting, setActing] = useState<string | null>(null);
+
+    const toggleStep = async (stepId: string, checked: boolean) => {
+        setActing(stepId);
+        try {
+            const res = await toggleCockpitPlaybookStep(alert.fingerprint, stepId, checked);
+            if (res.ok) {
+                toast.success("Checklist actualizado");
+            }
+        } finally {
+            setActing(null);
+        }
+    };
+
+    return (
+        <div className="flex flex-col space-y-8 bg-white dark:bg-zinc-900 p-8 rounded-[3rem] shadow-2xl relative">
+            <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+            </button>
+
+            <div>
+                <div className="flex items-center gap-3 mb-2">
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] font-black uppercase italic">Playbook</Badge>
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{alert.ruleCode}</span>
+                </div>
+                <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900 dark:text-white">{playbook.title}</h2>
+                <p className="text-sm font-medium italic leading-relaxed pt-2 text-slate-500">
+                    {playbook.summary}
+                </p>
+            </div>
+
+            <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[60vh]">
+                <div className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                        <ClipboardList className="w-3.5 h-3.5" />
+                        Pasos de Remediación
+                    </h4>
+                    
+                    <div className="space-y-3">
+                        {playbook.steps.map((step) => {
+                            const execution = alert.playbookSteps?.find(s => s.stepId === step.id);
+                            const isChecked = execution?.checked || false;
+                            const isActing = acting === step.id;
+
+                            return (
+                                <div key={step.id} className={cn(
+                                    "p-5 rounded-3xl border transition-all flex gap-4 items-start group",
+                                    isChecked ? "bg-emerald-50/50 border-emerald-100" : "bg-slate-50 border-slate-100 hover:border-blue-200"
+                                )}>
+                                    <div className="pt-1">
+                                        {isActing ? (
+                                            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                                        ) : (
+                                            <input 
+                                                type="checkbox"
+                                                checked={isChecked} 
+                                                onChange={(e) => toggleStep(step.id, e.target.checked)}
+                                                className="w-5 h-5 rounded-lg border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={cn(
+                                            "text-xs font-black uppercase tracking-tight",
+                                            isChecked && "line-through opacity-40 text-emerald-700"
+                                        )}>
+                                            {step.title}
+                                        </p>
+                                        <p className="text-[10px] font-medium text-slate-500 mt-1 italic">
+                                            {step.description}
+                                        </p>
+                                        {isChecked && execution?.checkedBy && (
+                                            <p className="text-[8px] font-bold text-emerald-600 mt-2 uppercase tracking-widest flex items-center gap-1">
+                                                <CheckCircle2 className="w-2.5 h-2.5" />
+                                                Completado por {execution.checkedBy.split('@')[0]}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="p-6 rounded-[2.5rem] bg-indigo-50 border border-indigo-100 space-y-3 dark:bg-indigo-900/20 dark:border-indigo-800">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 flex items-center gap-2">
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        Información de Contexto
+                    </h4>
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-indigo-900/40 dark:text-indigo-100/40 uppercase">Incidente:</span>
+                            <span className="font-black text-indigo-900 dark:text-indigo-100 font-mono">{alert.fingerprint.split(':').pop()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-indigo-900/40 dark:text-indigo-100/40 uppercase">SLA Sugerido:</span>
+                            <span className="font-black text-indigo-900 dark:text-indigo-100">{playbook.defaultSlaPreset}</span>
+                        </div>
+                        {alert.href && (
+                            <Link href={alert.href}>
+                                <Button className="w-full mt-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-[10px] font-black uppercase h-9">
+                                    Explorar Objeto Afectado
+                                    <ChevronRight className="w-3 h-3 ml-2" />
+                                </Button>
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="pt-6 border-t border-border flex justify-end">
+                <Button variant="outline" onClick={onClose} className="rounded-2xl text-[10px] font-black uppercase h-10 px-8">
+                    Cerrar Panel
+                </Button>
             </div>
         </div>
     );
@@ -278,11 +488,5 @@ export function SuperadminMonthlyMetrics({ data = [] }: { data: MonthlyMetrics[]
                 </div>
             </CardContent>
         </Card>
-    );
-}
-
-function TrendingUp({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
     );
 }

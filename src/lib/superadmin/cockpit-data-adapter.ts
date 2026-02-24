@@ -1,11 +1,12 @@
 import { getServerRuntimeConfig } from "@/lib/config/server-runtime";
-import { CockpitService, OrgCockpitSummary } from "./cockpit-service";
+import { CockpitService, OrgCockpitSummary, OperationalMetrics } from "./cockpit-service";
 import { AlertsService } from "./alerts-service";
 import { MetricsService, MonthlyMetrics } from "./metrics-service";
 import { normalizeOperationalError } from "./error-normalizer";
+import { OperationalStateRepo, OperationalAlertSla, OperationalAlertOwner, PlaybookStepExecution } from "./operational-state-repo";
 
 /**
- * PHASE 4.4.0 OPERACIÓN ACCIONABLE CONTRACT
+ * PHASE 4.6.0 ORCHESTRATION CONTRACT
  */
 export type OperationalBlockStatus = "ok" | "empty" | "degraded_config" | "degraded_service";
 
@@ -63,6 +64,11 @@ export interface CockpitOperationalAlert {
   fingerprint: string;
   snoozedUntil?: string | null;
   organization?: { name: string } | null;
+  
+  // v4.6 Orchestration
+  sla?: OperationalAlertSla | null;
+  owner?: OperationalAlertOwner | null;
+  playbookSteps?: PlaybookStepExecution[];
 }
 
 export interface CockpitDataPayloadV42 {
@@ -73,12 +79,13 @@ export interface CockpitDataPayloadV42 {
         orgs: OperationalBlockResult<OrgCockpitSummary[]>;
         alerts: OperationalBlockResult<CockpitOperationalAlert[]>;
         metrics: OperationalBlockResult<MonthlyMetrics[]>;
+        ops: OperationalBlockResult<OperationalMetrics>;
     };
 }
 
 /**
  * Robust adapter to fetch all Cockpit data with high-fidelity status reporting.
- * v4.5.0: Actionable Operation + Remediation Loop
+ * v4.6.0: Actionable Operation + Remediation Loop + Orchestration
  */
 export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     const startTime = Date.now();
@@ -141,17 +148,19 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     }
 
     // Parallel fetch with full isolation
-    const [kpis, orgs, alerts, metrics] = await Promise.all([
+    const [kpis, orgs, alerts, metrics, ops] = await Promise.all([
         fetchBlockSafe('KPIs', CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }),
         fetchBlockSafe('Orgs', CockpitService.getOrganizationsList(), []),
         fetchBlockSafe('Alerts', AlertsService.getGlobalAlertsSummary().then(items => items.map(item => {
-            const meta = (item.metadata || {}) as Record<string, unknown>;
+            // Use OperationalStateRepo to ensure v4.6 normalized data
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const meta = OperationalStateRepo.normalize(item as any);
             
-            // Map status to operational states v4.5
+            // Map status to operational states v4.6
             let state: AlertState = 'open';
-            if (item.status === 'ACKNOWLEDGED') state = 'acknowledged';
-            if (item.status === 'RESOLVED') state = 'resolved';
-            if (item.status === 'ACTIVE' && meta.snoozedUntil && new Date(meta.snoozedUntil as string) > now) {
+            if (item.status === 'ACKNOWLEDGED' || meta.status === 'ACKNOWLEDGED') state = 'acknowledged';
+            if (item.status === 'RESOLVED' || meta.status === 'RESOLVED') state = 'resolved';
+            if (meta.snoozedUntil && new Date(meta.snoozedUntil) > now) {
                 state = 'snoozed';
             }
 
@@ -161,18 +170,24 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
                 description: item.description,
                 severity: item.severity.toLowerCase() as AlertSeverity,
                 state,
-                ruleCode: String(meta.ruleCode || item.type),
+                ruleCode: meta.ruleCode,
                 entityType: 'organization',
                 entityId: item.organizationId || undefined,
-                href: typeof meta.href === 'string' ? meta.href : undefined,
+                href: meta.href,
                 detectedAt: item.detectedAt.toISOString(),
-                traceId: typeof meta.lastTraceId === 'string' ? meta.lastTraceId : 'N/A',
+                traceId: meta.lastTraceId || 'N/A',
                 fingerprint: item.fingerprint,
-                snoozedUntil: typeof meta.snoozedUntil === 'string' ? meta.snoozedUntil : null,
-                organization: item.organization
+                snoozedUntil: meta.snoozedUntil,
+                organization: item.organization,
+                
+                // Orchestration v4.6
+                sla: meta.sla,
+                owner: meta.owner,
+                playbookSteps: meta.playbookSteps
             } as CockpitOperationalAlert;
         })), []),
-        fetchBlockSafe('Metrics', MetricsService.getAggregatedMonthlyMetrics(), [])
+        fetchBlockSafe('Metrics', MetricsService.getAggregatedMonthlyMetrics(), []),
+        fetchBlockSafe('Ops', CockpitService.getOperationalMetrics(), { mttaMinutes: 0, mttrHours: 0, openAlerts: 0, breachedAlerts: 0, slaComplianceRate: 100 })
     ]);
 
     const totalDuration = Date.now() - startTime;
@@ -181,6 +196,6 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     return {
         systemStatus: config.mode === 'operational' ? 'operational' : 'safe_mode',
         loadTimeMs: totalDuration,
-        blocks: { kpis, orgs, alerts, metrics }
+        blocks: { kpis, orgs, alerts, metrics, ops }
     };
 }

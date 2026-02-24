@@ -144,6 +144,48 @@ export async function resolveCockpitAlert(fingerprint: string, note?: string): P
 }
 
 /**
+ * Assign an owner to a cockpit alert
+ * v4.6.0: Orchestration
+ */
+export async function assignCockpitAlertOwner(fingerprint: string, ownerType: "user" | "role", value: string): Promise<OperationalActionResult> {
+    const traceId = `OWNER-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.assignOwner(fingerprint, ownerType, value);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: `Responsable asignado (${value}).`, meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
+ * Toggle a step in the alert playbook
+ * v4.6.0: Orchestration
+ */
+export async function toggleCockpitPlaybookStep(fingerprint: string, stepId: string, checked: boolean, note?: string): Promise<OperationalActionResult> {
+    const traceId = `STEP-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.togglePlaybookStep(fingerprint, stepId, checked, note);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: "Paso de playbook actualizado.", meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
  * Acknowledge an alert (Legacy/ID based)
  */
 export async function acknowledgeAlert(alertId: string): Promise<OperationalActionResult> {

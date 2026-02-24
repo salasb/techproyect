@@ -1,6 +1,15 @@
 import prisma from "@/lib/prisma";
+import { OperationalStateRepo } from "./operational-state-repo";
 
 export type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL';
+
+export interface OperationalMetrics {
+    mttaMinutes: number;
+    mttrHours: number;
+    openAlerts: number;
+    breachedAlerts: number;
+    slaComplianceRate: number;
+}
 
 export interface OrgCockpitSummary {
     id: string;
@@ -47,6 +56,69 @@ export class CockpitService {
 
         console.log(`[CockpitService] ensureSuperadmin: success for ${access.email}`);
         return { id: access.userId, email: access.email };
+    }
+
+    /**
+     * Calculate operational metrics (MTTA, MTTR, SLA)
+     * v4.6.0: Orchestration & Performance
+     */
+    static async getOperationalMetrics(): Promise<OperationalMetrics> {
+        await this.ensureSuperadmin();
+        
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        const alerts = await prisma.superadminAlert.findMany({
+            where: {
+                detectedAt: { gte: thirtyDaysAgo }
+            }
+        });
+
+        let totalMttaMs = 0;
+        let mttaCount = 0;
+        let totalMttrMs = 0;
+        let mttrCount = 0;
+        let breachedCount = 0;
+        let resolvedInSlaCount = 0;
+        let totalResolvedCount = 0;
+        let openCount = 0;
+
+        for (const alert of alerts) {
+            const meta = OperationalStateRepo.normalize(alert);
+            
+            // MTTA calculation
+            if (meta.acknowledgedAt) {
+                const ackTime = new Date(meta.acknowledgedAt).getTime();
+                totalMttaMs += ackTime - alert.detectedAt.getTime();
+                mttaCount++;
+            }
+
+            // MTTR & SLA compliance
+            if (alert.status === 'RESOLVED' || meta.status === 'RESOLVED') {
+                totalResolvedCount++;
+                if (alert.resolvedAt) {
+                    totalMttrMs += alert.resolvedAt.getTime() - alert.detectedAt.getTime();
+                    mttrCount++;
+
+                    if (meta.sla && alert.resolvedAt <= new Date(meta.sla.dueAt)) {
+                        resolvedInSlaCount++;
+                    }
+                }
+            } else {
+                openCount++;
+                if (meta.sla?.status === 'BREACHED') {
+                    breachedCount++;
+                }
+            }
+        }
+
+        return {
+            mttaMinutes: mttaCount > 0 ? Math.round((totalMttaMs / mttaCount) / (1000 * 60)) : 0,
+            mttrHours: mttrCount > 0 ? Math.round((totalMttrMs / mttrCount) / (1000 * 60 * 60) * 10) / 10 : 0,
+            openAlerts: openCount,
+            breachedAlerts: breachedCount,
+            slaComplianceRate: totalResolvedCount > 0 ? Math.round((resolvedInSlaCount / totalResolvedCount) * 100) : 100
+        };
     }
 
     /**
