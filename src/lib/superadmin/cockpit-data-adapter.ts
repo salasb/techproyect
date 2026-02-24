@@ -170,6 +170,16 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
 
     // FASE 3 - Dedupe Defensivo (Guarda anti-regresión para contaminación histórica)
     let deduplicatedRawAlerts = rawAlerts.data || [];
+    let hiddenByDedupe = 0;
+    
+    // Forensics variables
+    const rawAlertsTotal = deduplicatedRawAlerts.length;
+    const rawAlertsUniqueFingerprint = new Set(deduplicatedRawAlerts.map((a: any) => a.fingerprint)).size;
+    const rawAlertsUniqueSemantic = new Set(deduplicatedRawAlerts.map((a: any) => {
+        const parts = (a.fingerprint || "").split(':');
+        return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : a.fingerprint;
+    })).size;
+
     if (Array.isArray(deduplicatedRawAlerts)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const uniqueMap = new Map<string, any>();
@@ -180,6 +190,7 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
             const stableKey = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : a.fingerprint;
 
             if (uniqueMap.has(stableKey)) {
+                hiddenByDedupe++;
                 console.warn(`[CockpitAdapter][${traceId}] DUPLICATE DETECTED (Stable Key): ${stableKey}. Keeping latest.`);
                 const existing = uniqueMap.get(stableKey);
                 const existingDate = existing.updatedAt || existing.detectedAt || new Date(0);
@@ -196,6 +207,17 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
 
     const alerts: OperationalBlockResult<CockpitOperationalAlert[]> = {
         ...rawAlerts,
+        meta: {
+            ...rawAlerts.meta,
+            // @ts-ignore - injecting debug info
+            debug: {
+                rawAlertsTotal,
+                rawAlertsUniqueFingerprint,
+                rawAlertsUniqueSemantic,
+                adapterAlertsOut: deduplicatedRawAlerts.length,
+                adapterHiddenByDedupe: hiddenByDedupe
+            }
+        },
         data: deduplicatedRawAlerts.map(item => {
             // Use OperationalStateRepo to ensure v4.6 normalized data
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

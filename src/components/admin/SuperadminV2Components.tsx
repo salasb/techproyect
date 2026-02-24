@@ -64,27 +64,31 @@ export function SuperadminTriagePanel({
                 </div>
             </div>
 
-            <div className="space-y-3 pt-2 border-t border-white/10">
+            <div className="space-y-3 pt-2 border-t border-white/10 relative">
+                <div className="absolute -top-3 left-0 px-2 py-0.5 text-[6px] bg-indigo-500 text-white font-mono rounded">DBG-SIDE src:staticList | idx:0 | type:container</div>
                 <h4 className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">Accesos Rápidos</h4>
-                <div className="grid grid-cols-1 gap-2">
-                    <Link href="?severity=CRITICAL" className="w-full">
-                        <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all">
+                <div className="grid grid-cols-1 gap-2 relative">
+                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all relative overflow-hidden" asChild>
+                        <Link href="?severity=CRITICAL" className="w-full">
                             <ShieldAlert className="w-3.5 h-3.5 mr-3 text-red-400" />
                             Ver Solo Críticas
-                        </Button>
-                    </Link>
-                    <Link href="?sla=BREACHED" className="w-full">
-                        <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all">
+                            <span className="absolute bottom-0 right-0 px-1 text-[6px] bg-black/50 text-white font-mono">DBG-SIDE key:1 | type:link</span>
+                        </Link>
+                    </Button>
+                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all relative overflow-hidden" asChild>
+                        <Link href="?sla=BREACHED" className="w-full">
                             <AlertOctagon className="w-3.5 h-3.5 mr-3 text-amber-400" />
                             Ver SLA Vencido
-                        </Button>
-                    </Link>
-                    <Link href="?" className="w-full">
-                        <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all">
+                            <span className="absolute bottom-0 right-0 px-1 text-[6px] bg-black/50 text-white font-mono">DBG-SIDE key:2 | type:link</span>
+                        </Link>
+                    </Button>
+                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all relative overflow-hidden" asChild>
+                        <Link href="?" className="w-full">
                             <Eraser className="w-3.5 h-3.5 mr-3 text-indigo-300" />
                             Limpiar Filtros
-                        </Button>
-                    </Link>
+                            <span className="absolute bottom-0 right-0 px-1 text-[6px] bg-black/50 text-white font-mono">DBG-SIDE key:3 | type:link</span>
+                        </Link>
+                    </Button>
                 </div>
             </div>
 
@@ -440,8 +444,8 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                                 isCompact ? "p-4" : "p-0"
                                             )}>
                                                 {/* FORENSIC DEBUG LABEL */}
-                                                <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] bg-black/80 text-white font-mono z-50 rounded-bl-lg whitespace-nowrap">
-                                                    DBG fp:{alert.fingerprint?.slice(-8) || 'N/A'} | id:{alert.id?.slice(-6) || 'N/A'} | grp:{key} | key:{alert.fingerprint || alert.id || `alert-${key}-${idx}`} | i:{idx} | org:{alert.organization?.name?.slice(0,5) || 'N/A'}
+                                                <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] bg-black/80 text-white font-mono z-50 rounded-bl-lg whitespace-nowrap overflow-hidden">
+                                                    DBG-GRID fp:{alert.fingerprint?.slice(-8) || 'N/A'} | id:{alert.id?.slice(-8) || 'N/A'} | sem:{alert.fingerprint?.split(':')[0]?.slice(-5)}:{alert.fingerprint?.split(':')[1]} | grp:{key} | key:{alert.fingerprint || alert.id || `alert-${key}-${idx}`} | org:{alert.organization?.name?.slice(0,5) || 'N/A'}
                                                 </div>
                                                 <CardContent className={cn("p-0 flex gap-4", !isCompact && "p-6 gap-5")}>
                                                     <div className={cn("shrink-0", !isCompact && "mt-1")}>
