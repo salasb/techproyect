@@ -439,6 +439,10 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                                 isSnoozed && "opacity-60 grayscale-[0.5]",
                                                 isCompact ? "p-4" : "p-0"
                                             )}>
+                                                {/* FORENSIC DEBUG LABEL */}
+                                                <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] bg-black/80 text-white font-mono z-50 rounded-bl-lg whitespace-nowrap">
+                                                    DBG fp:{alert.fingerprint?.slice(-8) || 'N/A'} | id:{alert.id?.slice(-6) || 'N/A'} | grp:{key} | key:{alert.fingerprint || alert.id || `alert-${key}-${idx}`} | i:{idx} | org:{alert.organization?.name?.slice(0,5) || 'N/A'}
+                                                </div>
                                                 <CardContent className={cn("p-0 flex gap-4", !isCompact && "p-6 gap-5")}>
                                                     <div className={cn("shrink-0", !isCompact && "mt-1")}>
                                                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin opacity-50" /> : 

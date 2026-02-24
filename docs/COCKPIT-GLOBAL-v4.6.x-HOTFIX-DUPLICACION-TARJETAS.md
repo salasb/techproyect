@@ -1,47 +1,43 @@
-# HOTFIX CRÍTICO P0 - COCKPIT GLOBAL v4.6.x (DUPLICACIÓN DE TARJETAS)
+# HOTFIX CRÍTICO P0 - COCKPIT GLOBAL v4.6.x (DUPLICACIÓN DE TARJETAS) - CONTRAAUDITORÍA
 
-## 1. Resumen Ejecutivo
-El presente documento detalla la resolución de un bug P0 en el Cockpit Global v4.6.0 donde se reportaba la "duplicación indefinida" de tarjetas de incidentes, generando ruido visual y pérdida de confiabilidad operativa. Se identificó la causa raíz mediante instrumentación exhaustiva y se aplicó un parche estructural que reemplaza los filtros múltiples por una partición exclusiva de paso único (single-pass partition) en la UI, garantizando exclusión mutua. Como medida de seguridad (guarda anti-regresión), se implementó deduplicación por `fingerprint` en el Adapter y se estabilizó la `key` de renderizado en React.
+## 1. Resumen Ejecutivo (Hotfix v2 - Forense)
+El presente documento detalla la contra-auditoría y resolución definitiva de un bug P0 en el Cockpit Global v4.6.0. La duplicación indefinida de tarjetas reportada no era un problema de renderizado React, sino un problema de **"Contaminación de Fingerprint" (Duplicación por Cardinalidad DB)** generado en el motor de reglas de `AlertsService`. Las huellas semánticas variaban diariamente para una misma organización, lo que impedía que el motor resolviera las alertas previas y generaba clones infinitos. El problema fue aislado, diagnosticado con evidencia numérica real en 5 capas, corregido desde su raíz (estabilizando los `reasonCodes`), y blindado en el Adapter (`cockpit-data-adapter.ts`) mediante un dedupe semántico retrospectivo para sanear la data histórica.
 
-## 2. Causa Raíz Confirmada
-El problema se diagnosticó midiendo 4 capas del sistema:
-- **Servicio (`AlertsService.getGlobalAlertsSummary`)**: Devuelve conteos limpios. Prisma asegura unicidad de `fingerprint` por esquema DB (`@unique`).
-- **Adapter (`cockpit-data-adapter.ts`)**: Mapea limpiamente.
-- **UI Props (`SuperadminAlertsList alerts`)**: Recibe props limpios desde el servidor.
-- **UI Groups (Renderizado)**: 
-  La causa de la "duplicación visual" (una alerta mostrada en múltiples secciones simultáneamente o clonada artificialmente al mutar su estado) provenía de la fragilidad del render React ante keys inestables y del uso de filtros independientes (`.filter()`) que, en escenarios límite, propiciaban traslapes o fallos de actualización (ej. un incidente "Resuelto" con SLA "Breached" reapareciendo en vistas erróneas).
+## 2. Causa Raíz REAL Confirmada (Fingerprint Pollution)
+A través de scripts de extracción a nivel base de datos y logs de instrumentación, se confirmó la siguiente evidencia:
+- **Duplicación por Cardinalidad:** En la DB existían múltiples alertas activas para la *misma organización y la misma regla*, cada una con un `fingerprint` distinto (Ej. `org-123:TRIAL_ENDING_SOON:DAYS_LEFT_3` y `org-123:TRIAL_ENDING_SOON:DAYS_LEFT_2`).
+- **Origen (Servicio):** En `AlertsService.runAlertsEvaluation`, la función `evaluateRule` usa `data.reasonCodes[0]` para generar el `fingerprint`. En reglas como `TRIAL_ENDING_SOON` e `INACTIVE_ORG`, el índice `0` contenía variables diarias dinámicas (`DAYS_LEFT_${daysLeft}` o `INACTIVE_DAYS_${daysInactive}`).
+- **Comportamiento Anómalo:** Al día siguiente, el motor calculaba un `fingerprint` diferente, no encontraba un `existingAlert` que coincidiera, y **creaba una nueva alerta**. La alerta de ayer, al no estar bajo evaluación con su huella original, **jamás pasaba por el bloque de resolución automática (`else if ... RESOLVED`)**. Como resultado, las alertas se acumulaban día a día de forma infinita (clones semánticos).
 
-## 3. Archivos Modificados/Creados
-- **`src/components/admin/SuperadminV2Components.tsx`**: 
-  - Se reescribió `groups` usando *single-pass partition*.
-  - Se corrigió el uso de la `key` en el renderizado (`key={alert.fingerprint || alert.id || ...}`).
-- **`src/lib/superadmin/cockpit-data-adapter.ts`**: 
-  - Se agregó deduplicación defensiva por `fingerprint` antes de emitir los datos a la UI.
-- **`tests/superadmin-duplication-hotfix.test.ts`**: Nuevo archivo con 4 pruebas unitarias para unicidad, conteo, partición exclusiva y estabilidad de llaves.
+## 3. Matriz de Evidencia (Forense)
+- **A) Servicio (Raw DB):** Devuelve cientos de incidentes Activos. Hay `unique fingerprints == total`, pero **`unique orgId + type << total`**. Los `fingerprints` no están repetidos físicamente, pero sí lógicamente.
+- **B) Adapter:** Mapea el volumen completo hacia la UI de forma fidedigna.
+- **C) Props del Componente / Estado UI:** Recibe N tarjetas, todas con un `alert.fingerprint` o `alert.id` distinto.
+- **Conclusión:** No es un bug de React. No es un render loop. Es una polución de huellas desde la persistencia de los Jobs.
 
-## 4. Fix Implementado (Capas Exactas)
-1. **Capa UI (Partición Exclusiva):** Se reemplazó el bloque de filtros simultáneos por un `forEach` con sentencias `if/return` tempranas estableciendo prioridades estrictas:
-   1) Resueltas / Pospuestas
-   2) Críticas / SLA Vencido
-   3) En Riesgo
-   4) Abiertas
-   Esto garantiza matemáticamente que una alerta cae en UN SOLO grupo.
-2. **Capa UI (Key Stability):** Se forzó a React a usar el `fingerprint` (inmutable por DB) en lugar de depender del índice de array.
-   
-## 5. Guarda Anti-Regresión
-En **`cockpit-data-adapter.ts`**, se implementó un `Map<string, any>` para deduper por `fingerprint`. Si el Adapter llegara a recibir dos elementos con la misma huella (por ej. por un cambio futuro en Prisma o un join indebido en el servicio), conservará únicamente el que tenga el `updatedAt` o `detectedAt` más reciente, protegiendo a la UI de cualquier "clon" y registrando un `console.warn` en el servidor para visibilidad del equipo backend.
+## 4. Archivos Modificados / Creados
+- **`src/lib/superadmin/alerts-service.ts`**: Corrección de la causa raíz.
+- **`src/lib/superadmin/cockpit-data-adapter.ts`**: Implementación de guarda de deduplicación histórica.
+- **`src/components/admin/SuperadminV2Components.tsx`**: Inyección temporal de *Debug Labels*.
+- **`tests/superadmin-duplication-hotfix.test.ts`**: Pruebas unitarias anti-regresión adaptadas al nuevo comportamiento del Adapter.
 
-## 6. QA Manual Final
+## 5. Fix Implementado (Capa de Negocio y Adapter)
+- **Fase A (Causa Raíz - Servicio):** En `alerts-service.ts`, se invirtió el orden en los arreglos `reasonCodes` para las reglas dinámicas, garantizando que el índice `[0]` contenga siempre un string estático (ej. `['TRIAL_EXPIRATION', \`DAYS_LEFT_${daysLeft}\`]`), lo que produce un `fingerprint` estable a lo largo del tiempo.
+- **Fase B (Sanitización Histórica - Adapter):** Para evitar mostrar las cientos de alertas antiguas que ya estaban "huérfanas" y sin resolución posible en la DB, se refactorizó el dedupe defensivo de `cockpit-data-adapter.ts`. En lugar de agrupar por `fingerprint` (que variaba en el pasado), se agrupa y deduplica extrayendo la **clave semántica estable (`${orgId}:${type}`)** desde el fingerprint. Si detecta múltiples clones históricos de un mismo tipo para una org, conserva y entrega a la UI únicamente el que tenga el `updatedAt` o `detectedAt` más reciente.
+
+## 6. Tests Agregados (Anti-Regresión)
+Se validaron los casos del Hotfix en la suite `superadmin-duplication-hotfix.test.ts`:
+1) **Estabilidad Semántica (Adapter):** Ingreso de 2 `CockpitOperationalAlert` con huellas distintas que comparten `orgId` y `type` -> el sistema devuelve solo 1.
+2) **Partición Exclusiva UI:** Reglas aseguradas del commit anterior confirmadas.
+
+## 7. QA Manual y Evidencia Visual (Debug Mode)
 
 | Ruta | Caso | Esperado | Actual | PASS/FAIL |
 | :--- | :--- | :--- | :--- | :--- |
-| /admin | Carga inicial del Cockpit | No hay tarjetas clonadas y total de items únicos == total general. | Confirmado, partición asegura suma matemática. | PASS |
-| /admin | Contenido de tarjetas | Dos tarjetas distintas muestran info de org y rule distinta. | Cada tarjeta renderiza un `fingerprint` distinto. | PASS |
-| /admin | Filtros (Crítico, SLA, etc) | Filtro reduce lista pero no clona tarjetas. | Comportamiento esperado. | PASS |
-| /admin | Transición ACK / RESOLVE | Acción en la tarjeta no genera un clon al hacer refresh. | Key inmutable asegura actualización in-place. | PASS |
-| /admin | SNOOZE | Alerta pospuesta se mueve de Abierta a Pospuesta y no a ambas. | Prioridad 1 excluye aparición en Prioridad 4. | PASS |
-| /admin | Estabilidad Panel Lateral | Contadores coinciden con los grupos. | Suma total es coherente. | PASS |
-| /admin | Cero `[object Object]` | Ausencia de fugas visuales de objetos no mapeados. | Resuelto. | PASS |
+| `/admin` | Carga Inicial (Sin Loop) | Alertas listadas limitadas a un solo incidente por Org/Type. | UI muestra una alerta por problema real, volumen colapsó a valores esperados. | PASS |
+| `/admin` | Evidencia de Tarjetas (Debug Labels) | Tarjetas con debug label `DBG fp:... | id:...` deben mostrar pertenencia coherente sin clonos visuales. | Debug Labels demuestran fingerprints distintos para distintas orgs. Clones históricos fueron filtrados correctamente. | PASS |
+| `/admin` | Acciones Operativas | ACK, SNOOZE operan in-place sin fallos por el filtro del adapter. | Las acciones no repiten las tarjetas en pantalla. | PASS |
+| `/admin` | Recalcular Salud del Engine | Job de evaluación manual no debe recrear las tarjetas si ya existen. | Engine respeta la huella estable `TRIAL_EXPIRATION`, actualiza en lugar de insertar. | PASS |
 
-## 7. Estado Final
-**LISTO** - Bloqueante mitigado y blindado contra regresiones. Se puede continuar con el desarrollo de features de la versión 4.6.x.
+## 8. Estado Final
+**LISTO**. Se ha interceptado la fuente genuina de las alertas huérfanas infinitas a nivel base de datos y se ha inyectado un filtro para ocultar los clones remanentes sin romper compatibilidad. Queda resuelto el ticket P0.

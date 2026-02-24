@@ -168,22 +168,27 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
         });
     }
 
-    // FASE 3 - Dedupe Defensivo (Guarda anti-regresión)
+    // FASE 3 - Dedupe Defensivo (Guarda anti-regresión para contaminación histórica)
     let deduplicatedRawAlerts = rawAlerts.data || [];
     if (Array.isArray(deduplicatedRawAlerts)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const uniqueMap = new Map<string, any>();
         deduplicatedRawAlerts.forEach(a => {
-            if (uniqueMap.has(a.fingerprint)) {
-                console.warn(`[CockpitAdapter][${traceId}] DUPLICATE DETECTED: ${a.fingerprint}. Keeping latest.`);
-                const existing = uniqueMap.get(a.fingerprint);
+            // Extraer la clave semántica estable (orgId:type) del fingerprint (orgId:type:rule)
+            // Esto agrupa los clones históricos creados por la regla inestable.
+            const parts = (a.fingerprint || "").split(':');
+            const stableKey = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : a.fingerprint;
+
+            if (uniqueMap.has(stableKey)) {
+                console.warn(`[CockpitAdapter][${traceId}] DUPLICATE DETECTED (Stable Key): ${stableKey}. Keeping latest.`);
+                const existing = uniqueMap.get(stableKey);
                 const existingDate = existing.updatedAt || existing.detectedAt || new Date(0);
                 const newDate = a.updatedAt || a.detectedAt || new Date(0);
                 if (new Date(newDate) > new Date(existingDate)) {
-                    uniqueMap.set(a.fingerprint, a);
+                    uniqueMap.set(stableKey, a);
                 }
             } else {
-                uniqueMap.set(a.fingerprint, a);
+                uniqueMap.set(stableKey, a);
             }
         });
         deduplicatedRawAlerts = Array.from(uniqueMap.values());

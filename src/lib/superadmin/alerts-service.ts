@@ -97,7 +97,7 @@ export class AlertsService {
                     severity: 'WARNING',
                     title: 'Trial por Vencer (72h)',
                     description: `El periodo de prueba de ${org.name} expira en ${daysLeft} días. Requiere seguimiento comercial.`,
-                    reasonCodes: [`DAYS_LEFT_${daysLeft}`, 'TRIAL_EXPIRATION'],
+                    reasonCodes: ['TRIAL_EXPIRATION', `DAYS_LEFT_${daysLeft}`], // FIX: Stable reason code first
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,
@@ -160,7 +160,7 @@ export class AlertsService {
                     severity: 'INFO',
                     title: 'Baja Actividad en Cliente Pago',
                     description: `El cliente ${org.name} (Plan ${org.plan}) no registra actividad hace ${daysInactive} días. Riesgo de Churn.`,
-                    reasonCodes: [`INACTIVE_DAYS_${daysInactive}`, 'CHURN_RISK'],
+                    reasonCodes: ['CHURN_RISK', `INACTIVE_DAYS_${daysInactive}`], // FIX: Stable reason code first
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,

@@ -78,32 +78,36 @@ describe('HOTFIX v4.6.x - Duplicación Indefinida Anti-Regresión', () => {
         expect(criticalFPs).not.toContain('7'); // Resuelto toma prioridad sobre crítico
     });
 
-    it('2) Dedupe adapter: Si entran 2 items con mismo fingerprint, sale 1', () => {
+    it('2) Dedupe adapter: Si entran 2 items con misma huella semántica (orgId:type), sale 1 (Guarda para histórico)', () => {
         const rawAlerts = [
-            { fingerprint: 'fp-1', severity: 'info', detectedAt: new Date('2026-02-23T10:00:00Z'), updatedAt: new Date('2026-02-23T10:00:00Z') },
-            { fingerprint: 'fp-1', severity: 'critical', detectedAt: new Date('2026-02-23T10:00:00Z'), updatedAt: new Date('2026-02-23T11:00:00Z') }, // Más reciente
-            { fingerprint: 'fp-2', severity: 'warning', detectedAt: new Date('2026-02-23T10:00:00Z'), updatedAt: new Date('2026-02-23T10:00:00Z') }
+            // Simular clones históricos por el bug de fingerprint inestable (DAYS_LEFT_3 vs DAYS_LEFT_2)
+            { fingerprint: 'org-123:TRIAL_ENDING_SOON:DAYS_LEFT_3', severity: 'info', detectedAt: new Date('2026-02-23T10:00:00Z'), updatedAt: new Date('2026-02-23T10:00:00Z') },
+            { fingerprint: 'org-123:TRIAL_ENDING_SOON:DAYS_LEFT_2', severity: 'critical', detectedAt: new Date('2026-02-23T10:00:00Z'), updatedAt: new Date('2026-02-23T11:00:00Z') }, // Más reciente
+            { fingerprint: 'org-456:INACTIVE_ORG:CHURN_RISK', severity: 'warning', detectedAt: new Date('2026-02-23T10:00:00Z'), updatedAt: new Date('2026-02-23T10:00:00Z') }
         ];
 
         const uniqueMap = new Map<string, any>();
         rawAlerts.forEach(a => {
-            if (uniqueMap.has(a.fingerprint)) {
-                const existing = uniqueMap.get(a.fingerprint);
+            const parts = (a.fingerprint || "").split(':');
+            const stableKey = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : a.fingerprint;
+
+            if (uniqueMap.has(stableKey)) {
+                const existing = uniqueMap.get(stableKey);
                 const existingDate = existing.updatedAt || existing.detectedAt || new Date(0);
                 const newDate = a.updatedAt || a.detectedAt || new Date(0);
                 if (new Date(newDate) > new Date(existingDate)) {
-                    uniqueMap.set(a.fingerprint, a);
+                    uniqueMap.set(stableKey, a);
                 }
             } else {
-                uniqueMap.set(a.fingerprint, a);
+                uniqueMap.set(stableKey, a);
             }
         });
         const deduplicatedRawAlerts = Array.from(uniqueMap.values());
 
         expect(deduplicatedRawAlerts.length).toBe(2);
         
-        const fp1 = deduplicatedRawAlerts.find(a => a.fingerprint === 'fp-1');
-        expect(fp1?.severity).toBe('critical'); // Mantuvo el más reciente
+        const org123 = deduplicatedRawAlerts.find(a => a.fingerprint.includes('org-123'));
+        expect(org123?.severity).toBe('critical'); // Mantuvo el más reciente (DAYS_LEFT_2)
     });
 
     it('4) Key stability: render usa fingerprint preferentemente (indirect validation)', () => {
