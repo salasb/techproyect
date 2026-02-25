@@ -50,11 +50,19 @@ function BlockContainer({ status, children, label, message, traceId }: { status:
     );
 }
 
-export default async function AdminDashboard() {
-    console.log("[COCKPIT_V4.6.0] Rendering Orchestration Dashboard");
+export default async function AdminDashboard(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+    const searchParams = await props.searchParams;
+    const scopeMode = (searchParams.scopeMode as any) || "production_only";
+    const includeNonProductive = searchParams.includeNonProductive === '1';
+    const debugCockpit = searchParams.debugCockpit === '1';
+
+    console.log(`[COCKPIT_V4.7.1] Rendering Dashboard (Scope: ${scopeMode}, IncludeNonProd: ${includeNonProductive})`);
     
     // 0. Unified Data Fetch (Isolated Blocks)
-    const { blocks, systemStatus, loadTimeMs } = await getCockpitDataSafe();
+    const { blocks, systemStatus, loadTimeMs, hygiene } = await getCockpitDataSafe({ 
+        scopeMode, 
+        includeNonProductive 
+    });
     const isSafeMode = systemStatus === 'safe_mode';
 
     // 1. Audit Entry & Operational Recovery
@@ -67,7 +75,7 @@ export default async function AdminDashboard() {
             const supabase = await createClient();
             const { data: authData } = await supabase.auth.getUser();
             if (authData.user) {
-                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.6.0 Orchestration (load: ${loadTimeMs}ms)`);
+                await CockpitService.auditAdminAction(authData.user.id, 'SUPERADMIN_COCKPIT_VIEWED', `v4.7.1 Orchestration (load: ${loadTimeMs}ms, scope: ${scopeMode})`);
             }
 
             // Recovery of last evaluation and operations
@@ -149,31 +157,28 @@ export default async function AdminDashboard() {
         snoozed: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter(a => a.state === 'snoozed').length : 0,
     };
 
-    const debugInfo = (blocks.alerts.meta as any).debug || {};
-
     return (
         <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
             {/* DBG OVERLAY */}
-            <div className="fixed bottom-4 right-4 z-50 bg-black/90 text-green-400 p-4 rounded-xl text-[10px] font-mono whitespace-pre shadow-2xl max-w-sm overflow-auto">
-                <p className="font-bold text-white mb-2">FORENSICS OVERLAY v4</p>
-                <p>Build SHA: {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,7) || 'local'}</p>
-                <p>Env: {process.env.NEXT_PUBLIC_VERCEL_ENV || 'development'}</p>
-                <p>Rendered At: {new Date().toISOString()}</p>
-                <div className="h-px w-full bg-white/20 my-2" />
-                <p>rawAlertsTotal: {debugInfo.rawAlertsTotal}</p>
-                <p>rawAlertsUniqueFingerprint: {debugInfo.rawAlertsUniqueFingerprint}</p>
-                <p>rawAlertsUniqueSemantic: {debugInfo.rawAlertsUniqueSemantic}</p>
-                <p>adapterAlertsOut: {debugInfo.adapterAlertsOut}</p>
-                <p>adapterHiddenByDedupe: {debugInfo.adapterHiddenByDedupe}</p>
-                <p>gridPropsCount: {blocks.alerts.data.length}</p>
-                <p>panelSourceName: "Static Fixed List (3 items)"</p>
-                <p>panelPropsCount: 3</p>
-                <div className="h-px w-full bg-white/20 my-2" />
-                <p>First 5 keys:</p>
-                {(blocks.alerts.data as any[]).slice(0,5).map((a, i) => (
-                    <p key={`dbg-ov-${i}`} className="truncate">- {a.fingerprint?.slice(-12)} | {a.id?.slice(-6)}</p>
-                ))}
-            </div>
+            {debugCockpit && (
+                <div className="fixed bottom-4 right-4 z-[9999] bg-black/90 text-green-400 p-4 rounded-xl text-[10px] font-mono whitespace-pre shadow-2xl max-w-sm overflow-auto border border-white/10">
+                    <p className="font-bold text-white mb-2">FORENSICS OVERLAY v4.7.1</p>
+                    <p>Build SHA: {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,7) || 'local'}</p>
+                    <p>Env: {process.env.NEXT_PUBLIC_VERCEL_ENV || 'development'}</p>
+                    <p>Scope: {scopeMode}</p>
+                    <div className="h-px w-full bg-white/20 my-2" />
+                    <p>totalRawIncidents: {hygiene.totalRawIncidents}</p>
+                    <p>totalOperationalIncidents: {hygiene.totalOperationalIncidents}</p>
+                    <p>groupCount: {blocks.alertGroups.data.length}</p>
+                    <p>hiddenByGrouping: {hygiene.totalOperationalIncidents - blocks.alertGroups.data.length}</p>
+                    <p>hiddenByEnvironmentFilter: {hygiene.hiddenByEnvironmentFilter}</p>
+                    <div className="h-px w-full bg-white/20 my-2" />
+                    <p>Orgs by Class:</p>
+                    {Object.entries(hygiene.orgsByClass).map(([cls, count]) => (
+                        <p key={cls}>- {cls.padEnd(12)}: {count}</p>
+                    ))}
+                </div>
+            )}
 
             {/* 0. High-Fidelity Banner */}
             {isSafeMode && (
@@ -209,7 +214,7 @@ export default async function AdminDashboard() {
                             <div className={cn("w-1.5 h-1.5 rounded-full", isSafeMode ? "bg-amber-500" : "bg-emerald-500 animate-pulse")} />
                             {isSafeMode ? 'Safe Mode' : 'Operational'}
                         </div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.6.0</h1>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.7.2</h1>
                     </div>
                     <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Panel de Orquestación y Gobernanza de SLA.</p>
                 </div>
@@ -227,14 +232,22 @@ export default async function AdminDashboard() {
                         <Suspense fallback={<div className="h-40 flex items-center justify-center bg-muted/20 rounded-[2.5rem] animate-pulse">
                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Iniciando Monitor de Triage...</p>
                         </div>}>
-                            <SuperadminAlertsList alerts={blocks.alerts.data} />
+                            <SuperadminAlertsList 
+                                alerts={blocks.alerts.data} 
+                                alertGroups={blocks.alertGroups.data}
+                            />
                         </Suspense>
                     </BlockContainer>
                 </section>
                 
                 <aside className="space-y-6 lg:sticky lg:top-8 animate-in slide-in-from-right-4 duration-700">
                     {/* New Triage Panel */}
-                    <SuperadminTriagePanel stats={triageStats} />
+                    <SuperadminTriagePanel 
+                        stats={triageStats} 
+                        hygiene={hygiene}
+                        currentScope={scopeMode}
+                        includeNonProductive={includeNonProductive}
+                    />
 
                     <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-slate-50/30 dark:bg-zinc-900/10 p-8 flex flex-col justify-between shadow-sm">
                         <div>

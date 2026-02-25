@@ -4,6 +4,8 @@ import { Activity, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight } from "
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface OrgMetric {
     id: string;
@@ -11,6 +13,7 @@ interface OrgMetric {
     plan: string;
     status: string;
     createdAt: Date;
+    environmentClass?: string;
     health: {
         status: 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'INCOMPLETE';
         score: number;
@@ -85,7 +88,17 @@ export function SaaSHealthTable({ orgs = [] }: { orgs: OrgMetric[] }) {
                                                 {(org.name || '??').substring(0, 2)}
                                             </div>
                                             <div>
-                                                <div className="font-bold text-sm text-foreground">{org.name || 'Sin nombre'}</div>
+                                                <div className="font-bold text-sm text-foreground flex items-center gap-2">
+                                                    {org.name || 'Sin nombre'}
+                                                    {org.environmentClass && (
+                                                        <Badge variant="outline" className={cn(
+                                                            "text-[7px] font-black uppercase px-1 h-3.5",
+                                                            org.environmentClass === 'production' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                                        )}>
+                                                            {org.environmentClass}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <div className="text-[10px] text-muted-foreground">
                                                     ID: {String(org.id).substring(0, 8) || 'unknown'}... • {org.createdAt ? format(new Date(org.createdAt), 'dd MMM yy', { locale: es }) : 'n/a'}
                                                 </div>

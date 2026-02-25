@@ -269,6 +269,72 @@ export async function persistGlobalSettings(_formData: FormData): Promise<Operat
 }
 
 /**
+ * Bulk Acknowledge alerts
+ * v4.7.2
+ */
+export async function bulkAcknowledgeCockpitAlerts(fingerprints: string[]): Promise<OperationalActionResult> {
+    const traceId = `BULK-ACK-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.bulkAcknowledgeAlerts(fingerprints, traceId);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: `Acción masiva aplicada a ${fingerprints.length} incidentes.`, meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
+ * Bulk Snooze alerts
+ * v4.7.2
+ */
+export async function bulkSnoozeCockpitAlerts(fingerprints: string[], preset: "1h" | "24h" | "7d"): Promise<OperationalActionResult> {
+    const traceId = `BULK-SNOOZE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    const snoozeMap = { "1h": 1, "24h": 24, "7d": 168 };
+    const hours = snoozeMap[preset] || 1;
+
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.bulkSnoozeAlerts(fingerprints, hours, traceId);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: `Incidentes pospuestos por ${preset}.`, meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
+ * Bulk Resolve alerts
+ * v4.7.2
+ */
+export async function bulkResolveCockpitAlerts(fingerprints: string[], note: string): Promise<OperationalActionResult> {
+    const traceId = `BULK-RESOLVE-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.bulkResolveAlerts(fingerprints, note, traceId);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: `${fingerprints.length} incidentes marcados como RESUELTOS.`, meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
  * Fetch legacy dashboard data (Adapted to v4.2.3 contract)
  */
 export async function getCockpitV2Data(): Promise<OperationalActionResult<unknown>> {

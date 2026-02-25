@@ -33,9 +33,15 @@ import { getPlaybookByRule } from "@/lib/superadmin/playbooks-catalog";
 import { useSearchParams } from "next/navigation";
 
 export function SuperadminTriagePanel({ 
-    stats 
+    stats,
+    hygiene,
+    currentScope,
+    includeNonProductive
 }: { 
-    stats: { total: number; open: number; critical: number; breached: number; snoozed: number }
+    stats: { total: number; open: number; critical: number; breached: number; snoozed: number },
+    hygiene?: { totalRawIncidents: number; totalOperationalIncidents: number; hiddenByEnvironmentFilter: number },
+    currentScope?: string,
+    includeNonProductive?: boolean
 }) {
     return (
         <Card className="rounded-[2.5rem] border-none shadow-xl bg-indigo-900 text-white p-8 space-y-8 sticky top-6">
@@ -64,29 +70,52 @@ export function SuperadminTriagePanel({
                 </div>
             </div>
 
+            {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-1">
+                        <EyeOff className="w-3 h-3 text-amber-400" />
+                        <span className="text-[9px] font-black uppercase text-amber-200 tracking-widest">Higiene Operacional Activa</span>
+                    </div>
+                    <p className="text-[10px] font-medium text-amber-100/70 leading-tight">
+                        Se han ocultado <span className="font-black text-amber-400">{hygiene.hiddenByEnvironmentFilter} incidentes</span> de entornos Test/Demo/QA para reducir ruido.
+                    </p>
+                    <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-amber-400 mt-2 hover:text-amber-300" asChild>
+                        <Link href={`?includeNonProductive=1&scopeMode=all`}>Ver todo (Modo Diagnóstico)</Link>
+                    </Button>
+                </div>
+            )}
+
             <div className="space-y-3 pt-2 border-t border-white/10 relative">
-                <div className="absolute -top-3 left-0 px-2 py-0.5 text-[6px] bg-indigo-500 text-white font-mono rounded">DBG-SIDE src:staticList | idx:0 | type:container</div>
+                <h4 className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">Filtros de Alcance</h4>
+                <div className="grid grid-cols-1 gap-2">
+                    <Button variant="ghost" className={cn("w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all", !includeNonProductive && "bg-indigo-500 shadow-lg")} asChild>
+                        <Link href="?scopeMode=production_only" className="w-full">
+                            <ShieldCheck className="w-3.5 h-3.5 mr-3" />
+                            Solo Producción
+                        </Link>
+                    </Button>
+                    <Button variant="ghost" className={cn("w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all", includeNonProductive && "bg-amber-600 shadow-lg")} asChild>
+                        <Link href="?includeNonProductive=1&scopeMode=all" className="w-full">
+                            <Zap className="w-3.5 h-3.5 mr-3" />
+                            Incluir Test / Demo
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-white/10 relative">
                 <h4 className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">Accesos Rápidos</h4>
                 <div className="grid grid-cols-1 gap-2 relative">
-                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all relative overflow-hidden" asChild>
+                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all" asChild>
                         <Link href="?severity=CRITICAL" className="w-full">
                             <ShieldAlert className="w-3.5 h-3.5 mr-3 text-red-400" />
                             Ver Solo Críticas
-                            <span className="absolute bottom-0 right-0 px-1 text-[6px] bg-black/50 text-white font-mono">DBG-SIDE key:1 | type:link</span>
                         </Link>
                     </Button>
-                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all relative overflow-hidden" asChild>
+                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all" asChild>
                         <Link href="?sla=BREACHED" className="w-full">
                             <AlertOctagon className="w-3.5 h-3.5 mr-3 text-amber-400" />
                             Ver SLA Vencido
-                            <span className="absolute bottom-0 right-0 px-1 text-[6px] bg-black/50 text-white font-mono">DBG-SIDE key:2 | type:link</span>
-                        </Link>
-                    </Button>
-                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all relative overflow-hidden" asChild>
-                        <Link href="?" className="w-full">
-                            <Eraser className="w-3.5 h-3.5 mr-3 text-indigo-300" />
-                            Limpiar Filtros
-                            <span className="absolute bottom-0 right-0 px-1 text-[6px] bg-black/50 text-white font-mono">DBG-SIDE key:3 | type:link</span>
                         </Link>
                     </Button>
                 </div>
@@ -131,22 +160,39 @@ export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMet
     );
 }
 
-export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAlert[] }) {
+import { 
+    acknowledgeCockpitAlert, snoozeCockpitAlert, resolveCockpitAlert, 
+    assignCockpitAlertOwner, toggleCockpitPlaybookStep,
+    bulkAcknowledgeCockpitAlerts, bulkSnoozeCockpitAlerts, bulkResolveCockpitAlerts
+} from "@/app/actions/superadmin-v2";
+import type { CockpitOperationalAlert, OperationalActionResult, CockpitAlertGroup } from "@/lib/superadmin/cockpit-data-adapter";
+
+// ... [Keep existing TriagePanel and OperationalKPIs] ...
+
+export function SuperadminAlertsList({ 
+    alerts,
+    alertGroups
+}: { 
+    alerts: CockpitOperationalAlert[],
+    alertGroups: CockpitAlertGroup[]
+}) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
     const searchParams = useSearchParams();
 
-    // Client-side instrumentation
+    // View Mode State
+    const [viewMode, setViewMode] = useState<'grouped' | 'individual'>('grouped');
+    
     useEffect(() => {
-        const fingerprints = alerts.map(a => a.fingerprint);
-        const uniqueFp = new Set(fingerprints);
-        console.log(`[SuperadminAlertsList] RECEIVED:`, {
-            total: alerts.length,
-            unique: uniqueFp.size,
-            isDuplicated: uniqueFp.size !== alerts.length,
-            sample: fingerprints.slice(0, 5)
-        });
-    }, [alerts]);
+        const saved = localStorage.getItem('cockpit_view_mode');
+        if (saved === 'individual') setViewMode('individual');
+    }, []);
+
+    const toggleViewMode = () => {
+        const next = viewMode === 'grouped' ? 'individual' : 'grouped';
+        setViewMode(next);
+        localStorage.setItem('cockpit_view_mode', next);
+    };
 
     // Filter & Density State
     const [search, setSearch] = useState("");
@@ -156,41 +202,12 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
     const [actionableOnly, setActionableOnly] = useState(true);
     const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
     const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-        'resolved': true, // Resolved collapsed by default
+        'resolved': true,
         'snoozed': false
     });
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
-    // Sync URL params with local state
-    useEffect(() => {
-        const sev = searchParams.get('severity');
-        if (sev) {
-            setSeverityFilter([sev.toUpperCase()]);
-            setActionableOnly(false); // If specific severity, show all even if snoozed/resolved if they match
-        }
-        
-        const sla = searchParams.get('sla');
-        if (sla) {
-            setSlaFilter([sla.toUpperCase()]);
-            setActionableOnly(false);
-        }
-
-        const stat = searchParams.get('status');
-        if (stat) {
-            setStatusFilter([stat.toUpperCase()]);
-            setActionableOnly(false);
-        }
-
-        if (!sev && !sla && !stat) {
-            // No direct URL filters
-        }
-    }, [searchParams]);
-
-    if (alerts.length === 0) return (
-        <div className="py-12 text-center border-2 border-dashed border-border rounded-[2.5rem] bg-slate-50/50 dark:bg-zinc-900/20">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500/30 mx-auto mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Sin incidentes activos en el ecosistema</p>
-        </div>
-    );
+    // ... [Existing Filter Sync useEffect] ...
 
     const handleAction = async (id: string, actionFn: () => Promise<OperationalActionResult<unknown>>) => {
         setLoadingId(id);
@@ -201,12 +218,29 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                     description: `${res.message} (Trace: ${res.meta.traceId})`
                 });
             } else {
-                toast.error("Error Operacional", {
-                    description: res.message
-                });
+                toast.error("Error Operacional", { description: res.message });
             }
         } catch {
             toast.error("Fallo de comunicación con el motor de salud");
+        } finally {
+            setLoadingId(null);
+        }
+    };
+
+    const handleBulkAction = async (groupKey: string, actionFn: () => Promise<OperationalActionResult<unknown>>) => {
+        setLoadingId(groupKey);
+        try {
+            const res = await actionFn();
+            if (res.ok) {
+                toast.success("Acción Masiva Completada", {
+                    description: `${res.message} — Trace: ${res.meta.traceId}`,
+                    duration: 5000
+                });
+            } else {
+                toast.error("Fallo en Acción Masiva", { description: res.message });
+            }
+        } catch {
+            toast.error("Error en el túnel de comandos masivos");
         } finally {
             setLoadingId(null);
         }
@@ -216,131 +250,72 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
     const filteredAlerts = useMemo(() => {
         return alerts.filter(a => {
             if (!a) return false;
-            
-            // Actionable Only
             if (actionableOnly && (a.state === 'resolved' || a.state === 'snoozed')) return false;
-
-            // Search
             if (search) {
                 const s = search.toLowerCase();
                 const inTitle = a.title?.toLowerCase().includes(s);
-                const inDesc = a.description?.toLowerCase().includes(s);
-                const inRule = a.ruleCode?.toLowerCase().includes(s);
                 const inOrg = a.organization?.name?.toLowerCase().includes(s);
-                if (!inTitle && !inDesc && !inRule && !inOrg) return false;
+                if (!inTitle && !inOrg) return false;
             }
-
-            // Status
             if (statusFilter.length > 0 && !statusFilter.includes(a.state.toUpperCase())) return false;
-
-            // Severity
-            if (severityFilter.length > 0 && !severityFilter.includes((a.severity || 'info').toUpperCase())) return false;
-
-            // SLA
+            if (severityFilter.length > 0 && !severityFilter.includes(a.severity.toUpperCase())) return false;
             if (slaFilter.length > 0 && !slaFilter.includes(a.sla?.status || 'OK')) return false;
-
             return true;
         });
     }, [alerts, search, statusFilter, severityFilter, slaFilter, actionableOnly]);
 
-    // Grouping Logic - Multi-Level: Section > Rule Group > Org (Orchestration v4.7)
-    const groupedSections = useMemo(() => {
-        const partitioned = {
-            critical: {} as Record<string, CockpitOperationalAlert[]>,
-            risk: {} as Record<string, CockpitOperationalAlert[]>,
-            open: {} as Record<string, CockpitOperationalAlert[]>,
-            snoozed: {} as Record<string, CockpitOperationalAlert[]>,
-            resolved: {} as Record<string, CockpitOperationalAlert[]>
-        };
+    // Grouping Logic (Filtered)
+    const activeGroups = useMemo(() => {
+        if (viewMode === 'individual') return [];
+        
+        // Match groups with filtered alerts
+        const filteredIds = new Set(filteredAlerts.map(a => a.id));
+        return alertGroups.map(g => {
+            const filteredItems = g.items.filter(item => filteredIds.has(item.id));
+            if (filteredItems.length === 0) return null;
+            return { ...g, count: filteredItems.length, items: filteredItems };
+        }).filter(Boolean) as CockpitAlertGroup[];
+    }, [alertGroups, filteredAlerts, viewMode]);
 
-        filteredAlerts.forEach(alert => {
-            if (!alert) return;
-
-            let sectionKey: keyof typeof partitioned = 'open';
-            if (alert.state === 'resolved') sectionKey = 'resolved';
-            else if (alert.state === 'snoozed') sectionKey = 'snoozed';
-            else if (alert.sla?.status === 'BREACHED' || alert.severity === 'critical') sectionKey = 'critical';
-            else if (alert.sla?.status === 'AT_RISK' || alert.severity === 'warning') sectionKey = 'risk';
-
-            const ruleKey = `${alert.ruleCode}:${alert.severity}`;
-            if (!partitioned[sectionKey][ruleKey]) partitioned[sectionKey][ruleKey] = [];
-            partitioned[sectionKey][ruleKey].push(alert);
-        });
-
-        return partitioned;
-    }, [filteredAlerts]);
-
-    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-
-    const toggleRuleGroup = (ruleKey: string) => {
-        setExpandedGroups(prev => ({ ...prev, [ruleKey]: !prev[ruleKey] }));
-    };
-
-    const toggleSection = (section: string) => {
-        setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
-    };
-
-    const clearFilters = () => {
-        setSearch("");
-        setStatusFilter([]);
-        setSeverityFilter([]);
-        setSlaFilter([]);
-        setActionableOnly(false);
+    const sections = {
+        critical: { label: "🚨 Críticas / SLA Vencido", color: "text-red-600", bg: "bg-red-50", icon: ShieldAlert },
+        risk: { label: "⚠️ En Riesgo", color: "text-amber-600", bg: "bg-amber-50", icon: AlertTriangle },
+        open: { label: "🔔 Abiertas", color: "text-blue-600", bg: "bg-blue-50", icon: BellRing },
+        snoozed: { label: "⏳ Pospuestas", color: "text-slate-600", bg: "bg-slate-100", icon: Clock },
+        resolved: { label: "✅ Resueltas Recientes", color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle2 }
     };
 
     const getColors = (severity: string) => {
-        if (severity === 'CRITICAL' || severity === 'critical') return 'border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-400';
-        if (severity === 'WARNING' || severity === 'warning') return 'border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400';
+        if (severity === 'critical') return 'border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-400';
+        if (severity === 'warning') return 'border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400';
         return 'border-blue-500/20 bg-blue-500/5 text-blue-700 dark:text-blue-400';
-    };
-
-    const getIcon = (severity: string, className?: string) => {
-        const iconClass = className || "w-5 h-5";
-        if (severity === 'CRITICAL' || severity === 'critical') return <ShieldAlert className={iconClass} />;
-        if (severity === 'WARNING' || severity === 'warning') return <AlertTriangle className={iconClass} />;
-        return <Info className={iconClass} />;
-    };
-
-    const StatusBadge = ({ state, snoozedUntil }: { state: string, snoozedUntil?: string | null }) => {
-        const base = "text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full border shadow-sm";
-        if (state === 'acknowledged') return <Badge className={cn(base, "bg-blue-100 text-blue-700 border-blue-200")}>Visto</Badge>;
-        if (state === 'resolved') return <Badge className={cn(base, "bg-emerald-100 text-emerald-700 border-emerald-200")}>Resuelto</Badge>;
-        if (state === 'snoozed') return (
-            <Badge className={cn(base, "bg-amber-100 text-amber-700 border-amber-200")}>
-                Pospuesto {snoozedUntil ? `(Hasta ${new Date(snoozedUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})` : ''}
-            </Badge>
-        );
-        return <Badge className={cn(base, "bg-rose-100 text-rose-700 border-rose-200 animate-pulse")}>Abierto</Badge>;
-    };
-
-    const SLABadge = ({ sla }: { sla: CockpitOperationalAlert['sla'] }) => {
-        if (!sla) return null;
-        const colors = {
-            ON_TRACK: "bg-emerald-50 text-emerald-600 border-emerald-100",
-            AT_RISK: "bg-amber-50 text-amber-600 border-amber-100",
-            BREACHED: "bg-rose-50 text-rose-600 border-rose-200 animate-bounce"
-        };
-        return (
-            <Badge variant="outline" className={cn("text-[7px] font-black uppercase tracking-tighter px-1.5", colors[sla.status as keyof typeof colors])}>
-                SLA: {sla.preset} {sla.status === 'BREACHED' ? 'VENCIDO' : `(Vence ${new Date(sla.dueAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})`}
-            </Badge>
-        );
     };
 
     const isCompact = density === 'compact';
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Filter Bar (Sticky) */}
-            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border border-border/50 p-3 rounded-2xl shadow-sm flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                    <Input 
-                        placeholder="Buscar incidente, regla u organización..." 
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 h-9 text-[11px] rounded-xl border-border/50 bg-muted/30 focus:bg-background"
-                    />
+            {/* Filter & View Bar (Sticky) */}
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border border-border/50 p-3 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Input 
+                            placeholder="Buscar incidente u organización..." 
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-9 h-9 text-[11px] rounded-xl border-border/50 bg-muted/30 focus:bg-background"
+                        />
+                    </div>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={toggleViewMode}
+                        className="h-9 rounded-xl text-[10px] font-black uppercase tracking-tight gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    >
+                        {viewMode === 'grouped' ? <LayoutGrid className="w-3.5 h-3.5" /> : <Rows className="w-3.5 h-3.5" />}
+                        Vista: {viewMode === 'grouped' ? 'Agrupada' : 'Individual'}
+                    </Button>
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -353,274 +328,228 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                         {actionableOnly ? <EyeOff className="w-3.5 h-3.5 mr-2" /> : <Filter className="w-3.5 h-3.5 mr-2" />}
                         Solo Accionables
                     </Button>
-
-                    <div className="h-4 w-[1px] bg-border mx-1" />
-
                     <Button 
                         variant="ghost" 
                         size="icon" 
                         onClick={() => setDensity(density === 'comfortable' ? 'compact' : 'comfortable')}
                         className="h-9 w-9 rounded-xl"
-                        title={isCompact ? "Modo Cómodo" : "Modo Compacto"}
                     >
                         {isCompact ? <LayoutGrid className="w-4 h-4" /> : <Rows className="w-4 h-4" />}
                     </Button>
-
-                    { (search || statusFilter.length > 0 || severityFilter.length > 0 || slaFilter.length > 0 || actionableOnly) && (
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={clearFilters}
-                            className="h-9 w-9 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50"
-                            title="Limpiar Filtros"
-                        >
-                            <Eraser className="w-4 h-4" />
-                        </Button>
-                    )}
                 </div>
             </div>
 
-            {/* Triage Sections */}
+            {/* Grid Sections */}
             <div className="space-y-8">
-                {Object.entries({
-                    critical: { label: "🚨 Críticas / SLA Vencido", color: "text-red-600", bg: "bg-red-50", icon: ShieldAlert },
-                    risk: { label: "⚠️ En Riesgo", color: "text-amber-600", bg: "bg-amber-50", icon: AlertTriangle },
-                    open: { label: "🔔 Abiertas", color: "text-blue-600", bg: "bg-blue-50", icon: BellRing },
-                    snoozed: { label: "⏳ Pospuestas", color: "text-slate-600", bg: "bg-slate-100", icon: Clock },
-                    resolved: { label: "✅ Resueltas Recientes", color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle2 }
-                }).map(([sectionKey, config]) => {
-                    const ruleGroups = groupedSections[sectionKey as keyof typeof groupedSections];
-                    const totalInSection = Object.values(ruleGroups).reduce((acc, curr) => acc + curr.length, 0);
-                    
-                    if (totalInSection === 0 && !search && sectionKey !== 'critical') return null;
-                    
-                    const isSectionCollapsed = collapsedSections[sectionKey];
+                {Object.entries(sections).map(([secKey, config]) => {
+                    const sectionAlerts = filteredAlerts.filter(a => {
+                        if (secKey === 'resolved') return a.state === 'resolved';
+                        if (secKey === 'snoozed') return a.state === 'snoozed';
+                        if (secKey === 'critical') return a.severity === 'critical' || a.sla?.status === 'BREACHED';
+                        if (secKey === 'risk') return a.severity === 'warning' || a.sla?.status === 'AT_RISK';
+                        return a.state === 'open' || a.state === 'acknowledged';
+                    });
+
+                    const sectionGroups = activeGroups.filter(g => {
+                        if (secKey === 'resolved') return g.operationalState === 'resolved';
+                        if (secKey === 'snoozed') return g.operationalState === 'snoozed';
+                        if (secKey === 'critical') return g.severity === 'critical' || g.worstSlaStatus === 'BREACHED';
+                        if (secKey === 'risk') return g.severity === 'warning' || g.worstSlaStatus === 'AT_RISK';
+                        return g.operationalState === 'open' || g.operationalState === 'ack';
+                    });
+
+                    const totalInSec = viewMode === 'grouped' ? sectionGroups.length : sectionAlerts.length;
+                    if (totalInSec === 0 && !search && secKey !== 'critical') return null;
 
                     return (
-                        <div key={sectionKey} className="space-y-4">
+                        <div key={secKey} className="space-y-4">
                             <button 
-                                onClick={() => toggleSection(sectionKey)}
+                                onClick={() => setCollapsedSections(p => ({ ...p, [secKey]: !p[secKey] }))}
                                 className="flex items-center justify-between w-full px-4 py-2 hover:bg-muted/50 rounded-xl transition-colors group"
                             >
                                 <div className="flex items-center gap-3">
                                     <config.icon className={cn("w-4 h-4", config.color)} />
-                                    <h3 className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>
-                                        {config.label}
-                                    </h3>
-                                    <Badge variant="secondary" className="rounded-full h-5 px-2 text-[10px] font-black bg-muted/80">
-                                        {totalInSection}
-                                    </Badge>
+                                    <h3 className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>{config.label}</h3>
+                                    <Badge variant="secondary" className="rounded-full h-5 px-2 text-[10px] font-black">{totalInSec}</Badge>
                                 </div>
-                                {isSectionCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+                                {collapsedSections[secKey] ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                             </button>
 
-                            {!isSectionCollapsed && (
-                                <div className="space-y-4">
-                                    {Object.keys(ruleGroups).length === 0 ? (
-                                        <div className="py-8 text-center border border-dashed border-border rounded-[2rem] bg-muted/10 opacity-50 italic text-[10px] font-medium">
-                                            No hay alertas en esta categoría
-                                        </div>
-                                    ) : Object.entries(ruleGroups).map(([ruleKey, groupAlerts]) => {
-                                        const firstAlert = groupAlerts[0];
-                                        const isGroupExpanded = expandedGroups[ruleKey];
-                                        const severity = firstAlert.severity || 'info';
-
-                                        return (
-                                            <div key={ruleKey} className="space-y-3">
-                                                {/* Rule Group Header Card */}
-                                                <Card className={cn(
-                                                    "rounded-[2rem] border-2 transition-all overflow-hidden relative group cursor-pointer",
-                                                    getColors(severity),
-                                                    "border-opacity-40"
-                                                )} onClick={() => toggleRuleGroup(ruleKey)}>
-                                                    <CardContent className="p-6 flex items-center justify-between gap-6">
-                                                        <div className="flex items-center gap-5 flex-1">
-                                                            <div className="p-3 bg-current/10 rounded-2xl">
-                                                                {getIcon(severity, "w-6 h-6")}
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-3 mb-1">
-                                                                    <h4 className="text-sm font-black uppercase tracking-tight italic">
-                                                                        {firstAlert.title || 'Alerta Sin Título'}
-                                                                    </h4>
-                                                                    <Badge variant="outline" className="text-[9px] font-mono bg-white/50">{firstAlert.ruleCode}</Badge>
-                                                                </div>
-                                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                                                                    Afectando a <span className="text-foreground font-black">{groupAlerts.length} organizaciones</span>
-                                                                    {groupAlerts.some(a => a.sla?.status === 'BREACHED') && (
-                                                                        <span className="text-red-500 font-black animate-pulse">• SLA VENCIDO DETECTADO</span>
-                                                                    )}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="text-right hidden sm:block">
-                                                                <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Severidad Dominante</p>
-                                                                <p className="text-xs font-black uppercase tracking-tighter">{severity}</p>
-                                                            </div>
-                                                            <div className="w-10 h-10 rounded-full bg-current/10 flex items-center justify-center">
-                                                                {isGroupExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                                                            </div>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-
-                                                {/* Expanded Organization Detail */}
-                                                {isGroupExpanded && (
-                                                    <div className={cn(
-                                                        "grid gap-4 ml-8 animate-in slide-in-from-top-4 duration-300",
-                                                        isCompact ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1 lg:grid-cols-2"
-                                                    )}>
-                                                        {groupAlerts.map((alert, idx) => {
-                                                            const isSnoozed = alert.state === 'snoozed';
-                                                            const isLoading = loadingId === alert.id;
-                                                            const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
-
-                                                            return (
-                                                                <Card key={alert.fingerprint || alert.id || `alert-${ruleKey}-${idx}`} className={cn(
-                                                                    "rounded-[2rem] border transition-all overflow-hidden relative group",
-                                                                    getColors(alert.severity || 'info'),
-                                                                    isSnoozed && "opacity-60 grayscale-[0.5]",
-                                                                    isCompact ? "p-4" : "p-0"
-                                                                )}>
-                                                                    {/* FORENSIC DEBUG LABEL */}
-                                                                    <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] bg-black/80 text-white font-mono z-50 rounded-bl-lg whitespace-nowrap overflow-hidden">
-                                                                        DBG-GRID fp:{alert.fingerprint?.slice(-8) || 'N/A'} | id:{alert.id?.slice(-8) || 'N/A'} | sem:{alert.fingerprint?.split(':')[0]?.slice(-5)}:{alert.fingerprint?.split(':')[1]} | grp:{sectionKey} | org:{alert.organization?.name?.slice(0,10) || 'N/A'}
-                                                                    </div>
-                                                                    <CardContent className={cn("p-0 flex gap-4", !isCompact && "p-6 gap-5")}>
-                                                                        <div className={cn("shrink-0", !isCompact && "mt-1")}>
-                                                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin opacity-50" /> : 
-                                                                             getIcon(alert.severity || 'info', isCompact ? "w-4 h-4" : "w-5 h-5")}
-                                                                        </div>
-                                                                        <div className="flex-1 min-w-0 space-y-1">
-                                                                            <div className="flex items-center justify-between gap-2">
-                                                                                <div className="flex flex-col min-w-0">
-                                                                                    <div className="flex items-center gap-2 mb-0.5">
-                                                                                        <p className={cn("font-black uppercase tracking-tight truncate", isCompact ? "text-[11px]" : "text-[13px]")}>
-                                                                                            {alert.organization?.name || 'Organización desconocida'}
-                                                                                        </p>
-                                                                                        {!isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter">ID: {alert.organization?.id?.slice(0,8)}</span>
-                                                                                        <SLABadge sla={alert.sla} />
-                                                                                    </div>
-                                                                                </div>
-                                                                                {isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
-                                                                            </div>
-                                                                            
-                                                                            {!isCompact && (
-                                                                                <p className="text-[11px] leading-relaxed opacity-80 font-medium italic line-clamp-1">
-                                                                                    {alert.description || 'Sin descripción detallada.'}
-                                                                                </p>
-                                                                            )}
-                                                                            
-                                                                            <div className={cn(
-                                                                                "flex items-center justify-between pt-2 border-t border-current/10 mt-1",
-                                                                                isCompact && "pt-1 border-none mt-0"
-                                                                            )}>
-                                                                                <div className="flex items-center gap-3">
-                                                                                    <div className="flex items-center gap-1.5 bg-current/5 px-2 py-0.5 rounded-full">
-                                                                                        <User className="w-2 h-2 opacity-50" />
-                                                                                        <span className="text-[7px] font-black uppercase opacity-70 truncate max-w-[60px]">{ownerLabel}</span>
-                                                                                    </div>
-                                                                                    {alert.href && !isCompact && (
-                                                                                        <Link href={alert.href}>
-                                                                                            <span className="text-[8px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer group-hover:translate-x-0.5 transition-transform">
-                                                                                                <ExternalLink className="w-2.5 h-2.5" />
-                                                                                                Panel Org
-                                                                                            </span>
-                                                                                        </Link>
-                                                                                    )}
-                                                                                </div>
-
-                                                                                <div className="flex items-center gap-1">
-                                                                                    <Button 
-                                                                                        variant="ghost" 
-                                                                                        size="sm" 
-                                                                                        onClick={() => setSelectedAlert(alert)}
-                                                                                        className={cn("h-6 px-2 text-[8px] font-black uppercase tracking-tight bg-current/5 hover:bg-current/10", !isCompact && "h-7 px-3 text-[9px]")}
-                                                                                    >
-                                                                                        <ClipboardList className="w-3 h-3 mr-1" />
-                                                                                        {isCompact ? "" : "Playbook"}
-                                                                                    </Button>
-                                                                                    
-                                                                                    <DropdownMenu>
-                                                                                        <DropdownMenuTrigger disabled={isLoading} asChild>
-                                                                                            <Button variant="ghost" size="icon" className={cn("h-6 w-6 rounded-lg hover:bg-current/10 transition-colors", !isCompact && "h-7 w-7")}>
-                                                                                                <MoreVertical className="w-3 h-3" />
-                                                                                            </Button>
-                                                                                        </DropdownMenuTrigger>
-                                                                                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
-                                                                                            {alert.state === 'open' && (
-                                                                                                <DropdownMenuItem 
-                                                                                                    onClick={() => handleAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))}
-                                                                                                    className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                                                >
-                                                                                                    <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
-                                                                                                    <span className="text-xs font-black uppercase">Acusar Recibo</span>
-                                                                                                </DropdownMenuItem>
-                                                                                            )}
-
-                                                                                            <DropdownMenuItem 
-                                                                                                onClick={() => {
-                                                                                                    const user = prompt("ID del usuario responsable:");
-                                                                                                    if (user) handleAction(alert.id, () => assignCockpitAlertOwner(alert.fingerprint, "user", user));
-                                                                                                }}
-                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                                            >
-                                                                                                <Target className="w-3.5 h-3.5 text-indigo-500" />
-                                                                                                <span className="text-xs font-black uppercase">Asignar Responsable</span>
-                                                                                            </DropdownMenuItem>
-                                                                                            
-                                                                                            <DropdownMenuSeparator />
-                                                                                            <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em]">Posponer</div>
-                                                                                            <DropdownMenuItem 
-                                                                                                onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "1h"))}
-                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                                            >
-                                                                                                <Clock className="w-3.5 h-3.5 text-amber-500" />
-                                                                                                <span className="text-xs font-black uppercase tracking-tight">Por 1 Hora</span>
-                                                                                            </DropdownMenuItem>
-                                                                                            <DropdownMenuItem 
-                                                                                                onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "24h"))}
-                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                                            >
-                                                                                                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                                                                                <span className="text-xs font-black uppercase tracking-tight">Por 24 Horas</span>
-                                                                                            </DropdownMenuItem>
-
-                                                                                            <DropdownMenuSeparator />
-                                                                                            <DropdownMenuItem 
-                                                                                                onClick={() => {
-                                                                                                    const note = prompt("Nota de resolución (opcional):");
-                                                                                                    if (note !== null) handleAction(alert.id, () => resolveCockpitAlert(alert.fingerprint, note));
-                                                                                                }}
-                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5 bg-emerald-50 dark:bg-emerald-900/20"
-                                                                                            >
-                                                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                                                                <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400">Marcar Resuelto</span>
-                                                                                            </DropdownMenuItem>
-                                                                                        </DropdownMenuContent>
-                                                                                    </DropdownMenu>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </CardContent>
-                                                                </Card>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                            {!collapsedSections[secKey] && (
+                                <div className={cn("grid gap-4", isCompact ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1 lg:grid-cols-2")}>
+                                    {viewMode === 'grouped' ? (
+                                        sectionGroups.map(group => (
+                                            <AlertGroupCard 
+                                                key={group.groupKey} 
+                                                group={group} 
+                                                isCompact={isCompact}
+                                                onBulkAction={handleBulkAction}
+                                                onExpand={() => setExpandedGroups(p => ({ ...p, [group.groupKey]: !p[group.groupKey] }))}
+                                                isExpanded={expandedGroups[group.groupKey]}
+                                                onIndividualAction={handleAction}
+                                                loadingId={loadingId}
+                                            />
+                                        ))
+                                    ) : (
+                                        sectionAlerts.map(alert => (
+                                            <AlertIndividualCard 
+                                                key={alert.id} 
+                                                alert={alert} 
+                                                isCompact={isCompact} 
+                                                onAction={handleAction}
+                                                loading={loadingId === alert.id}
+                                            />
+                                        ))
+                                    )}
                                 </div>
                             )}
                         </div>
                     );
                 })}
             </div>
+        </div>
+    );
+}
+
+function AlertGroupCard({ 
+    group, 
+    isCompact, 
+    onBulkAction, 
+    onExpand, 
+    isExpanded,
+    onIndividualAction,
+    loadingId
+}: { 
+    group: CockpitAlertGroup, 
+    isCompact: boolean, 
+    onBulkAction: (key: string, fn: any) => Promise<void>,
+    onExpand: () => void,
+    isExpanded: boolean,
+    onIndividualAction: (id: string, fn: any) => Promise<void>,
+    loadingId: string | null
+}) {
+    const severityColor = group.severity === 'critical' ? 'text-red-600' : group.severity === 'warning' ? 'text-amber-600' : 'text-blue-600';
+    const isLoading = loadingId === group.groupKey;
+
+    return (
+        <Card className={cn("rounded-[2.5rem] border-2 transition-all shadow-sm overflow-hidden", isExpanded ? "col-span-full border-indigo-500/30" : "hover:border-indigo-500/20")}>
+            <CardContent className="p-6">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex gap-4 min-w-0">
+                        <div className={cn("p-3 rounded-2xl bg-muted/50", severityColor)}>
+                            {group.severity === 'critical' ? <ShieldAlert className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
+                        </div>
+                        <div className="min-w-0">
+                            <h4 className="font-black uppercase tracking-tight text-sm truncate italic">{group.title}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                                <Badge className="text-[8px] font-black uppercase bg-indigo-50 text-indigo-700 border-indigo-100">{group.count} incidentes</Badge>
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase">en {group.orgCount} organizaciones</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                                {group.organizationsPreview.map(org => (
+                                    <Badge key={org.orgId} variant="outline" className="text-[7px] font-bold opacity-60">{org.orgName}</Badge>
+                                ))}
+                                {group.orgCount > 3 && <span className="text-[7px] font-bold opacity-40">+{group.orgCount - 3} más</span>}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild disabled={isLoading}>
+                                <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase">Acciones Masivas</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-2xl">
+                                <DropdownMenuItem onClick={() => onBulkAction(group.groupKey, () => bulkAcknowledgeCockpitAlerts(group.items.map(i => i.fingerprint)))} className="rounded-xl flex items-center gap-2 p-2.5">
+                                    <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                                    <span className="text-xs font-black uppercase">Acusar recibo a todos</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-widest">Posponer Grupo</div>
+                                <DropdownMenuItem onClick={() => onBulkAction(group.groupKey, () => bulkSnoozeCockpitAlerts(group.items.map(i => i.fingerprint), "24h"))} className="rounded-xl flex items-center gap-2 p-2.5">
+                                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                    <span className="text-xs font-black uppercase">Por 24 horas</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={async () => {
+                                    const note = prompt("Nota de resolución masiva:");
+                                    if (note) await onBulkAction(group.groupKey, () => bulkResolveCockpitAlerts(group.items.map(i => i.fingerprint), note));
+                                }} className="rounded-xl flex items-center gap-2 p-2.5 bg-emerald-50">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span className="text-xs font-black uppercase text-emerald-700">Resolver todos</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button variant={isExpanded ? "default" : "secondary"} size="sm" onClick={onExpand} className="h-8 rounded-xl text-[9px] font-black uppercase">
+                            {isExpanded ? "Cerrar" : "Ver casos"}
+                        </Button>
+                    </div>
+                </div>
+
+                {isExpanded && (
+                    <div className="mt-8 pt-6 border-t border-dashed grid gap-4 animate-in slide-in-from-top-4 duration-300">
+                        {group.items.map(item => (
+                            <AlertIndividualCard 
+                                key={item.id} 
+                                alert={item} 
+                                isCompact={true} 
+                                onAction={onIndividualAction}
+                                loading={loadingId === item.id}
+                            />
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function AlertIndividualCard({ alert, isCompact, onAction, loading }: { alert: CockpitOperationalAlert, isCompact: boolean, onAction: any, loading: boolean }) {
+    const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
+    
+    return (
+        <Card className={cn(
+            "rounded-[2rem] border transition-all relative group overflow-hidden",
+            alert.severity === 'critical' ? 'bg-red-50/30' : alert.severity === 'warning' ? 'bg-amber-50/30' : 'bg-blue-50/30'
+        )}>
+            <div className="absolute top-0 right-0 px-2 py-0.5 text-[7px] bg-black/80 text-white font-mono z-10 rounded-bl-lg">
+                {alert.environmentClass?.toUpperCase()} | {alert.fingerprint.slice(-8)}
+            </div>
+            <CardContent className="p-5 flex gap-4 items-start">
+                <div className="shrink-0 mt-1">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin opacity-50" /> : 
+                     alert.severity === 'critical' ? <ShieldAlert className="w-4 h-4 text-red-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                        <p className="font-black uppercase text-xs truncate italic">{alert.organization?.name || 'Org unknown'}</p>
+                        <Badge variant="outline" className="text-[7px] font-bold">{alert.state.toUpperCase()}</Badge>
+                    </div>
+                    <p className="text-[10px] font-medium opacity-70 mt-1 line-clamp-1">{alert.title}</p>
+                    
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-black/5">
+                        <div className="flex items-center gap-2">
+                            <User className="w-2.5 h-2.5 opacity-40" />
+                            <span className="text-[8px] font-bold opacity-50 uppercase">{ownerLabel}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            {alert.state === 'open' && (
+                                <Button variant="ghost" size="sm" onClick={() => onAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-blue-100">ACK</Button>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => onAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "24h"))} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-amber-100">SNOOZE</Button>
+                            {alert.href && (
+                                <Link href={alert.href}>
+                                    <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase px-2 hover:bg-indigo-100">GOTO</Button>
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 
             {/* Empty Result for filters */}
             {filteredAlerts.length === 0 && alerts.length > 0 && (

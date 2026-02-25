@@ -4,11 +4,13 @@ import { AlertsService } from "./alerts-service";
 import { MetricsService, MonthlyMetrics } from "./metrics-service";
 import { normalizeOperationalError } from "./error-normalizer";
 import { OperationalStateRepo, OperationalAlertSla, OperationalAlertOwner, PlaybookStepExecution } from "./operational-state-repo";
+import { classifyOrganizationEnvironment, EnvironmentClass } from "./environment-classifier";
 
 /**
- * PHASE 4.6.0 ORCHESTRATION CONTRACT
+ * PHASE 4.7.1 OPERATIONAL HYGIENE CONTRACT
  */
 export type OperationalBlockStatus = "ok" | "empty" | "degraded_config" | "degraded_service";
+export type CockpitScopeMode = "production_only" | "all";
 
 export type OperationalActionCode =
   | "OK"
@@ -63,21 +65,52 @@ export interface CockpitOperationalAlert {
   traceId: string;
   fingerprint: string;
   snoozedUntil?: string | null;
-  organization?: { id: string; name: string } | null;
+  organization?: { id: string; name: string; environmentClass?: EnvironmentClass } | null;
   
   // v4.6 Orchestration
   sla?: OperationalAlertSla | null;
   owner?: OperationalAlertOwner | null;
   playbookSteps?: PlaybookStepExecution[];
+
+  // v4.7.1 Hygiene
+  environmentClass: EnvironmentClass;
+  isOperationallyRelevant: boolean;
+}
+
+/**
+ * v4.7.2 AGGREGATION CONTRACT
+ */
+export interface CockpitAlertGroup {
+  groupKey: string; // ruleCode|severity|operationalState
+  ruleCode: string;
+  severity: AlertSeverity;
+  operationalState: AlertState;
+  title: string; 
+  count: number; 
+  orgCount: number; 
+  organizationsPreview: Array<{ orgId: string; orgName: string }>;
+  oldestDetectedAt?: string;
+  newestDetectedAt?: string;
+  worstSlaStatus?: "BREACHED" | "AT_RISK" | "ON_TRACK" | null;
+  itemIds: string[]; 
+  items: CockpitOperationalAlert[];
 }
 
 export interface CockpitDataPayloadV42 {
     systemStatus: 'operational' | 'safe_mode';
     loadTimeMs: number;
+    scopeMode: CockpitScopeMode;
+    hygiene: {
+        totalRawIncidents: number;
+        totalOperationalIncidents: number;
+        hiddenByEnvironmentFilter: number;
+        orgsByClass: Record<EnvironmentClass, number>;
+    };
     blocks: {
         kpis: OperationalBlockResult<{ totalOrgs: number; issuesCount: number; activeTrials: number; inactiveOrgs: number; timestamp: Date }>;
-        orgs: OperationalBlockResult<OrgCockpitSummary[]>;
+        orgs: OperationalBlockResult<(OrgCockpitSummary & { environmentClass: EnvironmentClass })[]>;
         alerts: OperationalBlockResult<CockpitOperationalAlert[]>;
+        alertGroups: OperationalBlockResult<CockpitAlertGroup[]>;
         metrics: OperationalBlockResult<MonthlyMetrics[]>;
         ops: OperationalBlockResult<OperationalMetrics>;
     };
@@ -85,16 +118,23 @@ export interface CockpitDataPayloadV42 {
 
 /**
  * Robust adapter to fetch all Cockpit data with high-fidelity status reporting.
- * v4.6.0: Actionable Operation + Remediation Loop + Orchestration
+ * v4.7.1: Operational Hygiene + Classification + Scope Control
+ * v4.7.2: Operational Aggregation + Grouping
  */
-export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
+export async function getCockpitDataSafe(options: { 
+    scopeMode?: CockpitScopeMode,
+    includeNonProductive?: boolean 
+} = {}): Promise<CockpitDataPayloadV42> {
     const startTime = Date.now();
     const config = getServerRuntimeConfig();
     const traceId = `CKP-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const nowISO = new Date().toISOString();
     const now = new Date();
     
-    console.log(`[CockpitAdapter][${traceId}] Start Aggregated Fetch (Mode: ${config.mode})`);
+    const scopeMode = options.scopeMode || "production_only";
+    const includeNonProductive = options.includeNonProductive ?? false;
+
+    console.log(`[CockpitAdapter][${traceId}] Start Aggregated Fetch (Mode: ${config.mode}, Scope: ${scopeMode})`);
 
     async function fetchBlockSafe<T>(
         name: string,
@@ -148,13 +188,26 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
     }
 
     // Parallel fetch with full isolation
-    const [kpis, orgs, rawAlerts, metrics, ops] = await Promise.all([
+    const [kpisRaw, orgsRaw, rawAlerts, metrics, opsRaw] = await Promise.all([
         fetchBlockSafe('KPIs', CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }),
         fetchBlockSafe('Orgs', CockpitService.getOrganizationsList(), []),
         fetchBlockSafe('Alerts', AlertsService.getGlobalAlertsSummary(), []),
         fetchBlockSafe('Metrics', MetricsService.getAggregatedMonthlyMetrics(), []),
         fetchBlockSafe('Ops', CockpitService.getOperationalMetrics(), { mttaMinutes: 0, mttrHours: 0, openAlerts: 0, breachedAlerts: 0, slaComplianceRate: 100 })
     ]);
+
+    // FASE 1 - Clasificación y Enriquecimiento
+    const orgsWithClass = orgsRaw.data.map(org => {
+        const classification = classifyOrganizationEnvironment({
+            name: org.name,
+            createdAt: org.createdAt,
+            subscription: org.billing ? { status: org.billing.status, trialEndsAt: org.billing.trialEndsAt } : null,
+            plan: org.plan
+        });
+        return { ...org, environmentClass: classification.environmentClass, isRelevant: classification.isOperationallyRelevant };
+    });
+
+    const orgClassMap = new Map(orgsWithClass.map(o => [o.id, { class: o.environmentClass, isRelevant: o.isRelevant }]));
 
     // Snapshot instrumentation
     if (Array.isArray(rawAlerts.data)) {
@@ -163,104 +216,153 @@ export async function getCockpitDataSafe(): Promise<CockpitDataPayloadV42> {
         console.log(`[CockpitAdapter][${traceId}] Alerts Snapshot:`, {
             total: rawAlerts.data.length,
             unique: uniqueFp.size,
-            isDuplicated: uniqueFp.size !== rawAlerts.data.length,
-            sample: fingerprints.slice(0, 5)
+            isDuplicated: uniqueFp.size !== rawAlerts.data.length
         });
     }
 
-    // FASE 3 - Dedupe Defensivo (Guarda anti-regresión para contaminación histórica)
-    let deduplicatedRawAlerts = rawAlerts.data || [];
-    let hiddenByDedupe = 0;
-    
-    // Forensics variables
-    const rawAlertsTotal = deduplicatedRawAlerts.length;
-    const rawAlertsUniqueFingerprint = new Set(deduplicatedRawAlerts.map((a: any) => a.fingerprint)).size;
-    const rawAlertsUniqueSemantic = new Set(deduplicatedRawAlerts.map((a: any) => {
+    // FASE 2 - Dedupe Semántico (Guarda anti-regresión)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uniqueMap = new Map<string, any>();
+    rawAlerts.data.forEach(a => {
         const parts = (a.fingerprint || "").split(':');
-        return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : a.fingerprint;
-    })).size;
+        const stableKey = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : a.fingerprint;
+        if (uniqueMap.has(stableKey)) {
+            const existing = uniqueMap.get(stableKey);
+            const existingDate = existing.updatedAt || existing.detectedAt || new Date(0);
+            const newDate = a.updatedAt || a.detectedAt || new Date(0);
+            if (new Date(newDate) > new Date(existingDate)) uniqueMap.set(stableKey, a);
+        } else {
+            uniqueMap.set(stableKey, a);
+        }
+    });
+    const deduplicatedRawAlerts = Array.from(uniqueMap.values());
 
-    if (Array.isArray(deduplicatedRawAlerts)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const uniqueMap = new Map<string, any>();
-        deduplicatedRawAlerts.forEach(a => {
-            // Extraer la clave semántica estable (orgId:type) del fingerprint (orgId:type:rule)
-            // Esto agrupa los clones históricos creados por la regla inestable.
-            const parts = (a.fingerprint || "").split(':');
-            const stableKey = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : a.fingerprint;
+    // FASE 3 - Filtrado por Higiene Operacional
+    const hygieneStats = {
+        totalRawIncidents: deduplicatedRawAlerts.length,
+        totalOperationalIncidents: 0,
+        hiddenByEnvironmentFilter: 0,
+        orgsByClass: { production: 0, demo: 0, test: 0, qa: 0, trial: 0, unknown: 0 } as Record<EnvironmentClass, number>
+    };
 
-            if (uniqueMap.has(stableKey)) {
-                hiddenByDedupe++;
-                console.warn(`[CockpitAdapter][${traceId}] DUPLICATE DETECTED (Stable Key): ${stableKey}. Keeping latest.`);
-                const existing = uniqueMap.get(stableKey);
-                const existingDate = existing.updatedAt || existing.detectedAt || new Date(0);
-                const newDate = a.updatedAt || a.detectedAt || new Date(0);
-                if (new Date(newDate) > new Date(existingDate)) {
-                    uniqueMap.set(stableKey, a);
-                }
-            } else {
-                uniqueMap.set(stableKey, a);
+    const enrichedAlerts = deduplicatedRawAlerts.map(item => {
+        const orgInfo = orgClassMap.get(item.organizationId) || { class: "unknown" as EnvironmentClass, isRelevant: false };
+        const meta = OperationalStateRepo.normalize(item as any);
+        
+        let state: AlertState = 'open';
+        if (item.status === 'ACKNOWLEDGED' || meta.status === 'ACKNOWLEDGED') state = 'acknowledged';
+        if (item.status === 'RESOLVED' || meta.status === 'RESOLVED') state = 'resolved';
+        if (meta.snoozedUntil && new Date(meta.snoozedUntil) > now) state = 'snoozed';
+
+        hygieneStats.orgsByClass[orgInfo.class]++;
+
+        return {
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            severity: item.severity.toLowerCase() as AlertSeverity,
+            state,
+            ruleCode: meta.ruleCode,
+            entityType: 'organization',
+            entityId: item.organizationId || undefined,
+            href: meta.href,
+            detectedAt: item.detectedAt.toISOString(),
+            traceId: meta.lastTraceId || 'N/A',
+            fingerprint: item.fingerprint,
+            snoozedUntil: meta.snoozedUntil,
+            organization: item.organization ? { ...item.organization, id: item.organizationId, environmentClass: orgInfo.class } : null,
+            sla: meta.sla,
+            owner: meta.owner,
+            playbookSteps: meta.playbookSteps,
+            environmentClass: orgInfo.class,
+            isOperationallyRelevant: orgInfo.isRelevant
+        } as CockpitOperationalAlert;
+    });
+
+    const filteredAlerts = enrichedAlerts.filter(a => {
+        if (includeNonProductive) return true;
+        if (scopeMode === "production_only") return a.isOperationallyRelevant;
+        return true;
+    });
+
+    hygieneStats.totalOperationalIncidents = filteredAlerts.length;
+    hygieneStats.hiddenByEnvironmentFilter = hygieneStats.totalRawIncidents - filteredAlerts.length;
+
+    // FASE 4 - Agrupación Operativa (v4.7.2)
+    const groupsMap = new Map<string, CockpitAlertGroup>();
+    filteredAlerts.forEach(alert => {
+        const groupKey = `${alert.ruleCode}|${alert.severity}|${alert.state}`;
+        if (!groupsMap.has(groupKey)) {
+            groupsMap.set(groupKey, {
+                groupKey,
+                ruleCode: alert.ruleCode,
+                severity: alert.severity,
+                operationalState: alert.state,
+                title: alert.title,
+                count: 0,
+                orgCount: 0,
+                organizationsPreview: [],
+                itemIds: [],
+                items: [],
+                worstSlaStatus: null
+            });
+        }
+        const group = groupsMap.get(groupKey)!;
+        group.count++;
+        group.itemIds.push(alert.id);
+        group.items.push(alert);
+        
+        const slaOrder = { "BREACHED": 3, "AT_RISK": 2, "ON_TRACK": 1, "null": 0 };
+        const currentSlaStatus = (alert.sla?.status || "null") as keyof typeof slaOrder;
+        const worstSlaStatus = (group.worstSlaStatus || "null") as keyof typeof slaOrder;
+        if (slaOrder[currentSlaStatus] > slaOrder[worstSlaStatus]) {
+            group.worstSlaStatus = alert.sla?.status as any;
+        }
+
+        if (!group.oldestDetectedAt || new Date(alert.detectedAt) < new Date(group.oldestDetectedAt)) {
+            group.oldestDetectedAt = alert.detectedAt;
+        }
+        if (!group.newestDetectedAt || new Date(alert.detectedAt) > new Date(group.newestDetectedAt)) {
+            group.newestDetectedAt = alert.detectedAt;
+        }
+
+        if (alert.organization && !group.organizationsPreview.some(o => o.orgId === alert.organization!.id)) {
+            group.orgCount++;
+            if (group.organizationsPreview.length < 3) {
+                group.organizationsPreview.push({ orgId: alert.organization.id, orgName: alert.organization.name });
             }
-        });
-        deduplicatedRawAlerts = Array.from(uniqueMap.values());
-    }
+        }
+    });
 
+    // FASE 5 - Re-cálculo de KPIs basados en el Scope
+    const filteredOrgs = orgsWithClass.filter(o => includeNonProductive ? true : (scopeMode === "production_only" ? o.isRelevant : true));
+    
     const alerts: OperationalBlockResult<CockpitOperationalAlert[]> = {
         ...rawAlerts,
-        meta: {
-            ...rawAlerts.meta,
-            // @ts-ignore - injecting debug info
-            debug: {
-                rawAlertsTotal,
-                rawAlertsUniqueFingerprint,
-                rawAlertsUniqueSemantic,
-                adapterAlertsOut: deduplicatedRawAlerts.length,
-                adapterHiddenByDedupe: hiddenByDedupe
-            }
-        },
-        data: deduplicatedRawAlerts.map(item => {
-            // Use OperationalStateRepo to ensure v4.6 normalized data
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const meta = OperationalStateRepo.normalize(item as any);
-            
-            // Map status to operational states v4.6
-            let state: AlertState = 'open';
-            if (item.status === 'ACKNOWLEDGED' || meta.status === 'ACKNOWLEDGED') state = 'acknowledged';
-            if (item.status === 'RESOLVED' || meta.status === 'RESOLVED') state = 'resolved';
-            if (meta.snoozedUntil && new Date(meta.snoozedUntil) > now) {
-                state = 'snoozed';
-            }
+        data: filteredAlerts,
+        meta: { ...rawAlerts.meta, rowCount: filteredAlerts.length }
+    };
 
-            return {
-                id: item.id,
-                title: item.title,
-                description: item.description,
-                severity: item.severity.toLowerCase() as AlertSeverity,
-                state,
-                ruleCode: meta.ruleCode,
-                entityType: 'organization',
-                entityId: item.organizationId || undefined,
-                href: meta.href,
-                detectedAt: item.detectedAt.toISOString(),
-                traceId: meta.lastTraceId || 'N/A',
-                fingerprint: item.fingerprint,
-                snoozedUntil: meta.snoozedUntil,
-                organization: item.organization,
-                
-                // Orchestration v4.6
-                sla: meta.sla,
-                owner: meta.owner,
-                playbookSteps: meta.playbookSteps
-            } as CockpitOperationalAlert;
-        })
+    const alertGroups: OperationalBlockResult<CockpitAlertGroup[]> = {
+        status: groupsMap.size > 0 ? 'ok' : 'empty',
+        data: Array.from(groupsMap.values()),
+        message: 'Alertas agrupadas correctamente.',
+        code: 'SYNC_OK',
+        meta: { durationMs: 0, rowCount: groupsMap.size, traceId, lastUpdatedAt: nowISO }
+    };
+
+    const orgs: OperationalBlockResult<(OrgCockpitSummary & { environmentClass: EnvironmentClass })[]> = {
+        ...orgsRaw,
+        data: filteredOrgs,
+        meta: { ...orgsRaw.meta, rowCount: filteredOrgs.length }
     };
 
     const totalDuration = Date.now() - startTime;
-    console.log(`[CockpitAdapter][${traceId}] Aggregate Completed in ${totalDuration}ms`);
-
     return {
         systemStatus: config.mode === 'operational' ? 'operational' : 'safe_mode',
         loadTimeMs: totalDuration,
-        blocks: { kpis, orgs, alerts, metrics, ops }
+        scopeMode,
+        hygiene: hygieneStats,
+        blocks: { kpis: kpisRaw, orgs, alerts, alertGroups, metrics, ops: opsRaw }
     };
 }

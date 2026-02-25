@@ -472,4 +472,79 @@ export class AlertsService {
             data: { readAt: new Date() }
         });
     }
+
+    /**
+     * Bulk Operations v4.7.2
+     */
+    static async bulkAcknowledgeAlerts(fingerprints: string[], traceId: string) {
+        const user = await this.ensureSuperadmin();
+        for (const fp of fingerprints) {
+            try {
+                await OperationalStateRepo.updateMetadata(fp, {
+                    status: 'ACKNOWLEDGED',
+                    acknowledgedBy: user.email || 'unknown',
+                    acknowledgedAt: new Date().toISOString(),
+                    lastTraceId: traceId
+                });
+            } catch (e) {
+                console.error(`[AlertsService][BulkACK] Failed for ${fp}`, e);
+            }
+        }
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'SUPERADMIN_ALERTS_BULK_ACKNOWLEDGED',
+                details: `[${traceId}] Bulk ACK applied to ${fingerprints.length} alerts by ${user.email}.`,
+                createdAt: new Date()
+            }
+        });
+    }
+
+    static async bulkSnoozeAlerts(fingerprints: string[], durationHours: number, traceId: string) {
+        const user = await this.ensureSuperadmin();
+        const snoozedUntil = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+        for (const fp of fingerprints) {
+            try {
+                await OperationalStateRepo.updateMetadata(fp, {
+                    snoozedUntil: snoozedUntil.toISOString(),
+                    lastTraceId: traceId
+                });
+            } catch (e) {
+                console.error(`[AlertsService][BulkSnooze] Failed for ${fp}`, e);
+            }
+        }
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'SUPERADMIN_ALERTS_BULK_SNOOZED',
+                details: `[${traceId}] Bulk SNOOZE until ${snoozedUntil.toISOString()} applied to ${fingerprints.length} alerts by ${user.email}.`,
+                createdAt: new Date()
+            }
+        });
+    }
+
+    static async bulkResolveAlerts(fingerprints: string[], note: string, traceId: string) {
+        const user = await this.ensureSuperadmin();
+        for (const fp of fingerprints) {
+            try {
+                await OperationalStateRepo.updateMetadata(fp, {
+                    status: 'RESOLVED',
+                    resolvedAt: new Date().toISOString(),
+                    resolvedBy: user.email || 'unknown',
+                    resolutionNote: note,
+                    lastTraceId: traceId
+                });
+            } catch (e) {
+                console.error(`[AlertsService][BulkResolve] Failed for ${fp}`, e);
+            }
+        }
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'SUPERADMIN_ALERTS_BULK_RESOLVED',
+                details: `[${traceId}] Bulk RESOLVE applied to ${fingerprints.length} alerts by ${user.email}. Note: ${note}`,
+                createdAt: new Date()
+            }
+        });
+    }
 }
