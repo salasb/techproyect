@@ -6,17 +6,21 @@ import {
     MoreVertical, Clock, CheckCheck, BellRing, Loader2, 
     User, Target, ClipboardList, AlertOctagon, TrendingUp,
     Timer, CheckCircle, ChevronRight, X, Filter, Search, 
-    LayoutGrid, Rows, ChevronDown, ChevronUp, Eraser, EyeOff
+    LayoutGrid, Rows, ChevronDown, ChevronUp, Eraser, EyeOff,
+    ShieldCheck, Zap
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
     acknowledgeCockpitAlert, snoozeCockpitAlert, resolveCockpitAlert, 
-    assignCockpitAlertOwner, toggleCockpitPlaybookStep 
+    assignCockpitAlertOwner, toggleCockpitPlaybookStep,
+    bulkAcknowledgeCockpitAlerts, bulkSnoozeCockpitAlerts, bulkResolveCockpitAlerts
 } from "@/app/actions/superadmin-v2";
-import type { CockpitOperationalAlert, OperationalActionResult } from "@/lib/superadmin/cockpit-data-adapter";
+import type { CockpitOperationalAlert, OperationalActionResult, CockpitAlertGroup } from "@/lib/superadmin/cockpit-data-adapter";
 import type { OperationalMetrics } from "@/lib/superadmin/cockpit-service";
+import type { MonthlyMetrics } from "@/lib/superadmin/metrics-service";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +36,9 @@ import { toast } from "sonner";
 import { getPlaybookByRule } from "@/lib/superadmin/playbooks-catalog";
 import { useSearchParams } from "next/navigation";
 
+/**
+ * Triage Panel - Right Side Sticky
+ */
 export function SuperadminTriagePanel({ 
     stats,
     hygiene,
@@ -77,10 +84,10 @@ export function SuperadminTriagePanel({
                         <span className="text-[9px] font-black uppercase text-amber-200 tracking-widest">Higiene Operacional Activa</span>
                     </div>
                     <p className="text-[10px] font-medium text-amber-100/70 leading-tight">
-                        Se han ocultado <span className="font-black text-amber-400">{hygiene.hiddenByEnvironmentFilter} incidentes</span> de entornos Test/Demo/QA para reducir ruido.
+                        Se han ocultado <span className="font-black text-amber-400">{hygiene.hiddenByEnvironmentFilter} incidentes</span> de entornos Test/Demo/QA.
                     </p>
                     <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-amber-400 mt-2 hover:text-amber-300" asChild>
-                        <Link href={`?includeNonProductive=1&scopeMode=all`}>Ver todo (Modo Diagnóstico)</Link>
+                        <Link href={`?includeNonProductive=1&scopeMode=all`}>Ver todo (Diagnóstico)</Link>
                     </Button>
                 </div>
             )}
@@ -135,6 +142,9 @@ export function SuperadminTriagePanel({
     );
 }
 
+/**
+ * Operational KPIs - Top Bar
+ */
 export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMetrics }) {
     return (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -160,15 +170,9 @@ export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMet
     );
 }
 
-import { 
-    acknowledgeCockpitAlert, snoozeCockpitAlert, resolveCockpitAlert, 
-    assignCockpitAlertOwner, toggleCockpitPlaybookStep,
-    bulkAcknowledgeCockpitAlerts, bulkSnoozeCockpitAlerts, bulkResolveCockpitAlerts
-} from "@/app/actions/superadmin-v2";
-import type { CockpitOperationalAlert, OperationalActionResult, CockpitAlertGroup } from "@/lib/superadmin/cockpit-data-adapter";
-
-// ... [Keep existing TriagePanel and OperationalKPIs] ...
-
+/**
+ * Main Alerts List Component (v4.7.2)
+ */
 export function SuperadminAlertsList({ 
     alerts,
     alertGroups
@@ -196,9 +200,6 @@ export function SuperadminAlertsList({
 
     // Filter & Density State
     const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string[]>([]);
-    const [severityFilter, setSeverityFilter] = useState<string[]>([]);
-    const [slaFilter, setSlaFilter] = useState<string[]>([]);
     const [actionableOnly, setActionableOnly] = useState(true);
     const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
     const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
@@ -207,7 +208,10 @@ export function SuperadminAlertsList({
     });
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
-    // ... [Existing Filter Sync useEffect] ...
+    const clearFilters = () => {
+        setSearch("");
+        setActionableOnly(false);
+    };
 
     const handleAction = async (id: string, actionFn: () => Promise<OperationalActionResult<unknown>>) => {
         setLoadingId(id);
@@ -221,7 +225,7 @@ export function SuperadminAlertsList({
                 toast.error("Error Operacional", { description: res.message });
             }
         } catch {
-            toast.error("Fallo de comunicación con el motor de salud");
+            toast.error("Fallo de comunicación");
         } finally {
             setLoadingId(null);
         }
@@ -240,7 +244,7 @@ export function SuperadminAlertsList({
                 toast.error("Fallo en Acción Masiva", { description: res.message });
             }
         } catch {
-            toast.error("Error en el túnel de comandos masivos");
+            toast.error("Error en comandos masivos");
         } finally {
             setLoadingId(null);
         }
@@ -257,18 +261,13 @@ export function SuperadminAlertsList({
                 const inOrg = a.organization?.name?.toLowerCase().includes(s);
                 if (!inTitle && !inOrg) return false;
             }
-            if (statusFilter.length > 0 && !statusFilter.includes(a.state.toUpperCase())) return false;
-            if (severityFilter.length > 0 && !severityFilter.includes(a.severity.toUpperCase())) return false;
-            if (slaFilter.length > 0 && !slaFilter.includes(a.sla?.status || 'OK')) return false;
             return true;
         });
-    }, [alerts, search, statusFilter, severityFilter, slaFilter, actionableOnly]);
+    }, [alerts, search, actionableOnly]);
 
     // Grouping Logic (Filtered)
     const activeGroups = useMemo(() => {
         if (viewMode === 'individual') return [];
-        
-        // Match groups with filtered alerts
         const filteredIds = new Set(filteredAlerts.map(a => a.id));
         return alertGroups.map(g => {
             const filteredItems = g.items.filter(item => filteredIds.has(item.id));
@@ -285,17 +284,11 @@ export function SuperadminAlertsList({
         resolved: { label: "✅ Resueltas Recientes", color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle2 }
     };
 
-    const getColors = (severity: string) => {
-        if (severity === 'critical') return 'border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-400';
-        if (severity === 'warning') return 'border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400';
-        return 'border-blue-500/20 bg-blue-500/5 text-blue-700 dark:text-blue-400';
-    };
-
     const isCompact = density === 'compact';
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Filter & View Bar (Sticky) */}
+            {/* Filter Bar */}
             <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border border-border/50 p-3 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-[200px]">
                     <div className="relative flex-1">
@@ -336,6 +329,11 @@ export function SuperadminAlertsList({
                     >
                         {isCompact ? <LayoutGrid className="w-4 h-4" /> : <Rows className="w-4 h-4" />}
                     </Button>
+                    { (search || actionableOnly === false) && (
+                        <Button variant="ghost" size="icon" onClick={clearFilters} className="h-9 w-9 rounded-xl text-rose-500">
+                            <Eraser className="w-4 h-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -388,6 +386,7 @@ export function SuperadminAlertsList({
                                                 isExpanded={expandedGroups[group.groupKey]}
                                                 onIndividualAction={handleAction}
                                                 loadingId={loadingId}
+                                                onSelectPlaybook={(alert) => setSelectedAlert(alert)}
                                             />
                                         ))
                                     ) : (
@@ -398,6 +397,7 @@ export function SuperadminAlertsList({
                                                 isCompact={isCompact} 
                                                 onAction={handleAction}
                                                 loading={loadingId === alert.id}
+                                                onSelectPlaybook={() => setSelectedAlert(alert)}
                                             />
                                         ))
                                     )}
@@ -407,18 +407,30 @@ export function SuperadminAlertsList({
                     );
                 })}
             </div>
+
+            {/* Playbook Modal */}
+            <Modal title="Ejecución de Playbook" isOpen={!!selectedAlert} onClose={() => setSelectedAlert(null)}>
+                <div className="max-w-2xl w-full">
+                    {selectedAlert && (
+                        <PlaybookExecutionPanel 
+                            alert={selectedAlert} 
+                            onClose={() => setSelectedAlert(null)} 
+                        />
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 }
 
 function AlertGroupCard({ 
     group, 
-    isCompact, 
     onBulkAction, 
     onExpand, 
     isExpanded,
     onIndividualAction,
-    loadingId
+    loadingId,
+    onSelectPlaybook
 }: { 
     group: CockpitAlertGroup, 
     isCompact: boolean, 
@@ -426,7 +438,8 @@ function AlertGroupCard({
     onExpand: () => void,
     isExpanded: boolean,
     onIndividualAction: (id: string, fn: any) => Promise<void>,
-    loadingId: string | null
+    loadingId: string | null,
+    onSelectPlaybook: (alert: CockpitOperationalAlert) => void
 }) {
     const severityColor = group.severity === 'critical' ? 'text-red-600' : group.severity === 'warning' ? 'text-amber-600' : 'text-blue-600';
     const isLoading = loadingId === group.groupKey;
@@ -460,23 +473,17 @@ function AlertGroupCard({
                                 <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase">Acciones Masivas</Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-2xl">
-                                <DropdownMenuItem onClick={() => onBulkAction(group.groupKey, () => bulkAcknowledgeCockpitAlerts(group.items.map(i => i.fingerprint)))} className="rounded-xl flex items-center gap-2 p-2.5">
+                                <DropdownMenuItem onClick={() => onBulkAction(group.groupKey, () => bulkAcknowledgeCockpitAlerts(group.itemIds))} className="rounded-xl flex items-center gap-2 p-2.5">
                                     <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
                                     <span className="text-xs font-black uppercase">Acusar recibo a todos</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-widest">Posponer Grupo</div>
-                                <DropdownMenuItem onClick={() => onBulkAction(group.groupKey, () => bulkSnoozeCockpitAlerts(group.items.map(i => i.fingerprint), "24h"))} className="rounded-xl flex items-center gap-2 p-2.5">
-                                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                                    <span className="text-xs font-black uppercase">Por 24 horas</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={async () => {
                                     const note = prompt("Nota de resolución masiva:");
-                                    if (note) await onBulkAction(group.groupKey, () => bulkResolveCockpitAlerts(group.items.map(i => i.fingerprint), note));
-                                }} className="rounded-xl flex items-center gap-2 p-2.5 bg-emerald-50">
+                                    if (note) await onBulkAction(group.groupKey, () => bulkResolveCockpitAlerts(group.itemIds, note));
+                                }} className="rounded-xl flex items-center gap-2 p-2.5 bg-emerald-50 text-emerald-700">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span className="text-xs font-black uppercase text-emerald-700">Resolver todos</span>
+                                    <span className="text-xs font-black uppercase">Resolver todos</span>
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -487,7 +494,7 @@ function AlertGroupCard({
                 </div>
 
                 {isExpanded && (
-                    <div className="mt-8 pt-6 border-t border-dashed grid gap-4 animate-in slide-in-from-top-4 duration-300">
+                    <div className="mt-8 pt-6 border-t border-dashed grid gap-4 animate-in slide-in-from-top-4 duration-300 grid-cols-1 lg:grid-cols-2">
                         {group.items.map(item => (
                             <AlertIndividualCard 
                                 key={item.id} 
@@ -495,6 +502,7 @@ function AlertGroupCard({
                                 isCompact={true} 
                                 onAction={onIndividualAction}
                                 loading={loadingId === item.id}
+                                onSelectPlaybook={() => onSelectPlaybook(item)}
                             />
                         ))}
                     </div>
@@ -504,13 +512,13 @@ function AlertGroupCard({
     );
 }
 
-function AlertIndividualCard({ alert, isCompact, onAction, loading }: { alert: CockpitOperationalAlert, isCompact: boolean, onAction: any, loading: boolean }) {
+function AlertIndividualCard({ alert, onAction, loading, onSelectPlaybook }: { alert: CockpitOperationalAlert, isCompact: boolean, onAction: any, loading: boolean, onSelectPlaybook: () => void }) {
     const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
     
     return (
         <Card className={cn(
-            "rounded-[2rem] border transition-all relative group overflow-hidden",
-            alert.severity === 'critical' ? 'bg-red-50/30' : alert.severity === 'warning' ? 'bg-amber-50/30' : 'bg-blue-50/30'
+            "rounded-[2rem] border transition-all relative group overflow-hidden shadow-sm",
+            alert.severity === 'critical' ? 'bg-red-50/30 border-red-100' : alert.severity === 'warning' ? 'bg-amber-50/30 border-amber-100' : 'bg-blue-50/30 border-blue-100'
         )}>
             <div className="absolute top-0 right-0 px-2 py-0.5 text-[7px] bg-black/80 text-white font-mono z-10 rounded-bl-lg">
                 {alert.environmentClass?.toUpperCase()} | {alert.fingerprint.slice(-8)}
@@ -533,13 +541,14 @@ function AlertIndividualCard({ alert, isCompact, onAction, loading }: { alert: C
                             <span className="text-[8px] font-bold opacity-50 uppercase">{ownerLabel}</span>
                         </div>
                         <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={onSelectPlaybook} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-indigo-100">Playbook</Button>
                             {alert.state === 'open' && (
                                 <Button variant="ghost" size="sm" onClick={() => onAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-blue-100">ACK</Button>
                             )}
                             <Button variant="ghost" size="sm" onClick={() => onAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "24h"))} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-amber-100">SNOOZE</Button>
                             {alert.href && (
                                 <Link href={alert.href}>
-                                    <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase px-2 hover:bg-indigo-100">GOTO</Button>
+                                    <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase px-2 hover:bg-slate-100">GOTO</Button>
                                 </Link>
                             )}
                         </div>
@@ -547,38 +556,6 @@ function AlertIndividualCard({ alert, isCompact, onAction, loading }: { alert: C
                 </div>
             </CardContent>
         </Card>
-    );
-}
-
-
-            {/* Empty Result for filters */}
-            {filteredAlerts.length === 0 && alerts.length > 0 && (
-                <div className="py-20 text-center border-2 border-dashed border-border rounded-[3rem] bg-slate-50/30">
-                    <Filter className="w-12 h-12 text-slate-300 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">Sin resultados para estos filtros</h3>
-                    <p className="text-[10px] font-bold text-slate-400 mt-2 italic uppercase">Intenta ajustar tu búsqueda o limpiar los filtros activos</p>
-                    <Button 
-                        variant="outline" 
-                        onClick={clearFilters}
-                        className="mt-6 rounded-2xl text-[10px] font-black uppercase px-6"
-                    >
-                        Limpiar Todos los Filtros
-                    </Button>
-                </div>
-            )}
-
-            {/* Playbook Modal */}
-            <Modal title="Ejecución de Playbook" isOpen={!!selectedAlert} onClose={() => setSelectedAlert(null)}>
-                <div className="max-w-2xl w-full">
-                    {selectedAlert && (
-                        <PlaybookExecutionPanel 
-                            alert={selectedAlert} 
-                            onClose={() => setSelectedAlert(null)} 
-                        />
-                    )}
-                </div>
-            </Modal>
-        </div>
     );
 }
 
@@ -703,11 +680,9 @@ function PlaybookExecutionPanel({ alert, onClose }: { alert: CockpitOperationalA
     );
 }
 
-// Separate component for Metrics Chart
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
-import { CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonthlyMetrics } from "@/lib/superadmin/metrics-service";
-
+/**
+ * Performance Metrics Chart
+ */
 export function SuperadminMonthlyMetrics({ data = [] }: { data: MonthlyMetrics[] }) {
     const safeData = Array.isArray(data) ? data : [];
     return (
