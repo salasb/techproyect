@@ -7,7 +7,7 @@ import {
     User, Target, ClipboardList, AlertOctagon, TrendingUp,
     Timer, CheckCircle, ChevronRight, X, Filter, Search, 
     LayoutGrid, Rows, ChevronDown, ChevronUp, Eraser, EyeOff,
-    ShieldCheck, Zap
+    ShieldCheck, Zap, Building2, Globe
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,7 @@ import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { getPlaybookByRule } from "@/lib/superadmin/playbooks-catalog";
 import { useSearchParams } from "next/navigation";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * Triage Panel - Right Side Sticky
@@ -42,7 +43,6 @@ import { useSearchParams } from "next/navigation";
 export function SuperadminTriagePanel({ 
     stats,
     hygiene,
-    currentScope,
     includeNonProductive
 }: { 
     stats: { total: number; open: number; critical: number; breached: number; snoozed: number },
@@ -77,42 +77,21 @@ export function SuperadminTriagePanel({
                 </div>
             </div>
 
-            {/* v4.7.2.1 Unified Counters */}
-            <div className="p-5 bg-indigo-950/50 rounded-[2rem] border border-white/5 space-y-3">
-                <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-indigo-300">Resumen Operacional</span>
-                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px] font-black">
-                        {stats.total} Activas
-                    </Badge>
-                </div>
-                {hygiene && (
-                    <div className="space-y-1">
-                        <div className="flex justify-between text-[9px] font-medium text-indigo-200/60">
-                            <span>Incidentes Totales (DB):</span>
-                            <span>{hygiene.totalRawIncidents}</span>
-                        </div>
-                        {hygiene.hiddenByEnvironmentFilter > 0 && (
-                            <div className="flex justify-between text-[9px] font-bold text-amber-400/80 italic">
-                                <span>Ocultos (Test/Demo):</span>
-                                <span>-{hygiene.hiddenByEnvironmentFilter}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
             {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && (
-                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-                    <div className="flex items-center gap-2 mb-1">
+                <div className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] space-y-2">
+                    <div className="flex items-center gap-2">
                         <EyeOff className="w-3 h-3 text-amber-400" />
-                        <span className="text-[9px] font-black uppercase text-amber-200 tracking-widest">Higiene Operacional Activa</span>
+                        <span className="text-[9px] font-black uppercase text-amber-200 tracking-widest">Higiene operacional activa</span>
                     </div>
                     <p className="text-[10px] font-medium text-amber-100/70 leading-tight">
-                        Se han ocultado <span className="font-black text-amber-400">{hygiene.hiddenByEnvironmentFilter} incidentes</span> de entornos Test/Demo/QA.
+                        Se ocultaron <span className="font-black text-amber-400">{hygiene.hiddenByEnvironmentFilter} incidentes</span> de Test/Demo/QA/Trial.
                     </p>
-                    <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-amber-400 mt-2 hover:text-amber-300" asChild>
-                        <Link href={`?includeNonProductive=1&scopeMode=all`}>Ver todo (Diagnóstico)</Link>
-                    </Button>
+                    <div className="pt-1">
+                        <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-amber-400 hover:text-amber-300" asChild>
+                            <Link href={`?includeNonProductive=1&scopeMode=all`}>Ver todo (diagnóstico)</Link>
+                        </Button>
+                        <p className="text-[8px] text-amber-200/40 italic mt-1">Esto no elimina datos; solo reduce ruido.</p>
+                    </div>
                 </div>
             )}
 
@@ -129,24 +108,6 @@ export function SuperadminTriagePanel({
                         <Link href="?includeNonProductive=1&scopeMode=all" className="w-full">
                             <Zap className="w-3.5 h-3.5 mr-3" />
                             Incluir Test / Demo
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div className="space-y-3 pt-2 border-t border-white/10 relative">
-                <h4 className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">Accesos Rápidos</h4>
-                <div className="grid grid-cols-1 gap-2 relative">
-                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all" asChild>
-                        <Link href="?severity=CRITICAL" className="w-full">
-                            <ShieldAlert className="w-3.5 h-3.5 mr-3 text-red-400" />
-                            Ver Solo Críticas
-                        </Link>
-                    </Button>
-                    <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all" asChild>
-                        <Link href="?sla=BREACHED" className="w-full">
-                            <AlertOctagon className="w-3.5 h-3.5 mr-3 text-amber-400" />
-                            Ver SLA Vencido
                         </Link>
                     </Button>
                 </div>
@@ -169,27 +130,85 @@ export function SuperadminTriagePanel({
 /**
  * Operational KPIs - Top Bar
  */
-export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMetrics }) {
+export function SuperadminOperationalKPIs({ 
+    metrics, 
+    hygiene,
+    isDiagnosticMode = false
+}: { 
+    metrics: OperationalMetrics & { affectedOrgs?: number },
+    hygiene?: { hiddenByEnvironmentFilter: number },
+    isDiagnosticMode?: boolean
+}) {
+    const hiddenCount = hygiene?.hiddenByEnvironmentFilter || 0;
+
     return (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            {[
-                { label: "MTTA", value: `${metrics.mttaMinutes}m`, sub: "Tiempo acuse", icon: Timer, color: "text-blue-600" },
-                { label: "MTTR", value: `${metrics.mttrHours}h`, sub: "Tiempo resolución", icon: CheckCircle, color: "text-emerald-600" },
-                { label: "Abiertas", value: metrics.openAlerts, sub: "Incidentes", icon: BellRing, color: "text-rose-600" },
-                { label: "Vencidas", value: metrics.breachedAlerts, sub: "Fuera de SLA", icon: AlertOctagon, color: "text-orange-600" },
-                { label: "Compliance", value: `${metrics.slaComplianceRate}%`, sub: "Dentro de SLA", icon: TrendingUp, color: "text-indigo-600" },
-            ].map((kpi, i) => (
-                <Card key={i} className="rounded-3xl border-none shadow-sm bg-white dark:bg-zinc-900/50 p-4 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-2">
-                        <kpi.icon className={cn("w-4 h-4", kpi.color)} />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{kpi.label}</span>
-                    </div>
-                    <div>
-                        <p className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">{kpi.value}</p>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">{kpi.sub}</p>
-                    </div>
-                </Card>
-            ))}
+            {/* KPI 1: Open Incidents */}
+            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-zinc-900/50 p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-2">
+                    <BellRing className="w-4 h-4 text-rose-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {isDiagnosticMode ? "Abiertas (diagnóstico)" : "Abiertas (operacionales)"}
+                    </span>
+                </div>
+                <div>
+                    <p className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">{metrics.openAlerts}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight flex items-center justify-between">
+                        {isDiagnosticMode ? `Operacionales: ${metrics.openAlerts - hiddenCount}` : `Ocultas por higiene: ${hiddenCount}`}
+                        {!isDiagnosticMode && hiddenCount > 0 && (
+                            <Link href="?includeNonProductive=1&scopeMode=all" className="text-indigo-500 hover:underline">Ver diagnóstico</Link>
+                        )}
+                    </p>
+                </div>
+            </Card>
+
+            {/* KPI 2: Breached SLA */}
+            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-zinc-900/50 p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-2">
+                    <AlertOctagon className="w-4 h-4 text-orange-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fuera de SLA</span>
+                </div>
+                <div>
+                    <p className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">{metrics.breachedAlerts}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Scope: {isDiagnosticMode ? "Diagnóstico" : "Producción"}</p>
+                </div>
+            </Card>
+
+            {/* KPI 3: Compliance */}
+            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-zinc-900/50 p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-2">
+                    <TrendingUp className="w-4 h-4 text-indigo-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dentro de SLA</span>
+                </div>
+                <div>
+                    <p className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">{metrics.slaComplianceRate}%</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Base: {metrics.openAlerts} incidentes</p>
+                </div>
+            </Card>
+
+            {/* KPI 4: Orgs Affected */}
+            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-zinc-900/50 p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-2">
+                    <Building2 className="w-4 h-4 text-blue-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Orgs afectadas</span>
+                </div>
+                <div>
+                    <p className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">{metrics.affectedOrgs || 0}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Scope: {isDiagnosticMode ? "Diagnóstico" : "Producción"}</p>
+                </div>
+            </Card>
+
+            {/* KPI 5: MTTR */}
+            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-zinc-900/50 p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-2">
+                    <Timer className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MTTR Promedio</span>
+                </div>
+                <div>
+                    <p className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">{metrics.mttrHours}h</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">Tiempo resolución</p>
+                </div>
+            </Card>
         </div>
     );
 }
@@ -199,10 +218,12 @@ export function SuperadminOperationalKPIs({ metrics }: { metrics: OperationalMet
  */
 export function SuperadminAlertsList({ 
     alerts,
-    alertGroups
+    alertGroups,
+    hygiene
 }: { 
     alerts: CockpitOperationalAlert[],
-    alertGroups: CockpitAlertGroup[]
+    alertGroups: CockpitAlertGroup[],
+    hygiene?: { hiddenByEnvironmentFilter: number }
 }) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
@@ -309,12 +330,15 @@ export function SuperadminAlertsList({
     };
 
     const isCompact = density === 'compact';
+    const isDiagnosticMode = searchParams.get('scopeMode') === 'all';
+    const scopeLabel = isDiagnosticMode ? "Diagnóstico (incluye Test/Demo/QA)" : 
+                      searchParams.get('scopeMode') === 'include_trial' ? "Producción + Trial" : "Solo producción";
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Filter Bar */}
             <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border border-border/50 p-3 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                <div className="flex items-center gap-3 flex-1 min-w-[300px]">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <Input 
@@ -324,6 +348,21 @@ export function SuperadminAlertsList({
                             className="pl-9 h-9 text-[11px] rounded-xl border-border/50 bg-muted/30 focus:bg-background"
                         />
                     </div>
+                    
+                    <TooltipProvider>
+                        <UITooltip>
+                            <TooltipTrigger asChild>
+                                <Badge variant="secondary" className="h-9 px-3 rounded-xl border-indigo-100 bg-indigo-50/50 text-indigo-700 font-bold text-[10px] gap-2 cursor-help">
+                                    <Globe className="w-3 h-3" />
+                                    Scope: {scopeLabel}
+                                </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-slate-900 text-white border-none p-3 rounded-xl shadow-2xl max-w-xs">
+                                <p className="text-xs font-medium leading-relaxed">Este scope aplica a KPIs, triage, grupos y directorio global.</p>
+                            </TooltipContent>
+                        </UITooltip>
+                    </TooltipProvider>
+
                     <Button 
                         variant="outline" 
                         size="sm" 
@@ -381,6 +420,7 @@ export function SuperadminAlertsList({
                     });
 
                     const totalInSec = viewMode === 'grouped' ? sectionGroups.length : sectionAlerts.length;
+                    
                     if (totalInSec === 0 && !search && secKey !== 'critical') return null;
 
                     return (
@@ -399,7 +439,19 @@ export function SuperadminAlertsList({
 
                             {!collapsedSections[secKey] && (
                                 <div className={cn("grid gap-4", isCompact ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1 lg:grid-cols-2")}>
-                                    {viewMode === 'grouped' ? (
+                                    {totalInSec === 0 ? (
+                                        <div className="col-span-full py-12 text-center border-2 border-dashed border-border rounded-[2.5rem] bg-slate-50/20">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sin incidentes operacionales.</p>
+                                            {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && !isDiagnosticMode && (
+                                                <div className="mt-3 space-y-2">
+                                                    <p className="text-[9px] font-bold text-slate-400/60 uppercase">Hay {hygiene.hiddenByEnvironmentFilter} en diagnóstico.</p>
+                                                    <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-indigo-500" asChild>
+                                                        <Link href="?includeNonProductive=1&scopeMode=all">Ver diagnóstico</Link>
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : viewMode === 'grouped' ? (
                                         sectionGroups.map(group => (
                                             <AlertGroupCard 
                                                 key={group.groupKey} 
@@ -432,6 +484,16 @@ export function SuperadminAlertsList({
                 })}
             </div>
 
+            {/* Empty Search Result */}
+            {filteredAlerts.length === 0 && alerts.length > 0 && (
+                <div className="py-20 text-center border-2 border-dashed border-border rounded-[3rem] bg-slate-50/30">
+                    <Filter className="w-12 h-12 text-slate-300 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">No hay resultados para este filtro.</h3>
+                    <p className="text-[10px] font-bold text-slate-400 mt-2 italic uppercase">Intenta ajustar tu búsqueda o limpiar los filtros activos</p>
+                    <Button variant="outline" onClick={clearFilters} className="mt-6 rounded-2xl text-[10px] font-black uppercase px-6">Limpiar Filtros</Button>
+                </div>
+            )}
+
             {/* Playbook Modal */}
             <Modal title="Ejecución de Playbook" isOpen={!!selectedAlert} onClose={() => setSelectedAlert(null)}>
                 <div className="max-w-2xl w-full">
@@ -449,7 +511,6 @@ export function SuperadminAlertsList({
 
 function AlertGroupCard({ 
     group, 
-    isCompact,
     onBulkAction, 
     onExpand, 
     isExpanded,
@@ -479,13 +540,17 @@ function AlertGroupCard({
                         </div>
                         <div className="min-w-0">
                             <h4 className="font-black uppercase tracking-tight text-sm truncate italic">{group.title}</h4>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Badge className="text-[8px] font-black uppercase bg-indigo-50 text-indigo-700 border-indigo-100">{group.count} incidentes</Badge>
-                                <span className="text-[8px] font-bold text-muted-foreground uppercase">en {group.orgCount} organizaciones</span>
+                            <div className="mt-1">
+                                <p className="text-[10px] font-black text-indigo-700 uppercase tracking-tight">
+                                    {group.orgCount} organizaciones · {group.count} incidentes
+                                </p>
+                                <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                                    Último: {new Date(group.newestAt || "").toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} · SLA peor: {group.worstSlaStatus || "OK"}
+                                </p>
                             </div>
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex items-center gap-2 mt-3">
                                 {group.organizationsPreview.map(org => (
-                                    <Badge key={org.orgId} variant="outline" className="text-[7px] font-bold opacity-60">{org.orgName}</Badge>
+                                    <Badge key={org.orgId} variant="outline" className="text-[7px] font-bold opacity-60 bg-white/50">{org.orgName}</Badge>
                                 ))}
                                 {group.orgCount > 3 && <span className="text-[7px] font-bold opacity-40">+{group.orgCount - 3} más</span>}
                             </div>
@@ -495,7 +560,7 @@ function AlertGroupCard({
                     <div className="flex items-center gap-2 shrink-0">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild disabled={isLoading}>
-                                <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase">Acciones Masivas</Button>
+                                <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase">Acciones masivas</Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-2xl">
                                 <DropdownMenuItem onClick={() => onBulkAction(group.groupKey, () => bulkAcknowledgeCockpitAlerts(group.itemIds))} className="rounded-xl flex items-center gap-2 p-2.5">
@@ -537,7 +602,7 @@ function AlertGroupCard({
     );
 }
 
-function AlertIndividualCard({ alert, isCompact, onAction, loading, onSelectPlaybook }: { alert: CockpitOperationalAlert, isCompact: boolean, onAction: any, loading: boolean, onSelectPlaybook: () => void }) {
+function AlertIndividualCard({ alert, onAction, loading, onSelectPlaybook }: { alert: CockpitOperationalAlert, isCompact: boolean, onAction: any, loading: boolean, onSelectPlaybook: () => void }) {
     const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
     
     return (

@@ -157,26 +157,20 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
         snoozed: Array.isArray(blocks.alerts.data) ? blocks.alerts.data.filter(a => a.state === 'snoozed').length : 0,
     };
 
+    const isDiagnosticMode = scopeMode === 'all';
+
     return (
         <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
             {/* DBG OVERLAY */}
             {debugCockpit && (
                 <div className="fixed bottom-4 right-4 z-[9999] bg-black/90 text-green-400 p-4 rounded-xl text-[10px] font-mono whitespace-pre shadow-2xl max-w-sm overflow-auto border border-white/10">
-                    <p className="font-bold text-white mb-2">FORENSICS OVERLAY v4.7.1</p>
+                    <p className="font-bold text-white mb-2">FORENSICS OVERLAY v4.7.2.1</p>
                     <p>Build SHA: {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,7) || 'local'}</p>
-                    <p>Env: {process.env.NEXT_PUBLIC_VERCEL_ENV || 'development'}</p>
-                    <p>Scope: {scopeMode}</p>
-                    <div className="h-px w-full bg-white/20 my-2" />
-                    <p>totalRawIncidents: {hygiene.totalRawIncidents}</p>
-                    <p>totalOperationalIncidents: {hygiene.totalOperationalIncidents}</p>
+                    <p>openOperational: {hygiene.totalOperationalIncidents}</p>
+                    <p>totalRaw: {hygiene.totalRawIncidents}</p>
+                    <p>hiddenByHygiene: {hygiene.hiddenByEnvironmentFilter}</p>
                     <p>groupCount: {blocks.alertGroups.data.length}</p>
-                    <p>hiddenByGrouping: {hygiene.totalOperationalIncidents - blocks.alertGroups.data.length}</p>
-                    <p>hiddenByEnvironmentFilter: {hygiene.hiddenByEnvironmentFilter}</p>
-                    <div className="h-px w-full bg-white/20 my-2" />
-                    <p>Orgs by Class:</p>
-                    {Object.entries(hygiene.orgsByClass).map(([cls, count]) => (
-                        <p key={cls}>- {cls.padEnd(12)}: {count}</p>
-                    ))}
+                    <p>scope: {scopeMode}</p>
                 </div>
             )}
 
@@ -224,7 +218,11 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
             </div>
 
             {/* 0.5. Operational KPIs */}
-            <SuperadminOperationalKPIs metrics={blocks.ops.data} />
+            <SuperadminOperationalKPIs 
+                metrics={blocks.ops.data} 
+                hygiene={hygiene}
+                isDiagnosticMode={isDiagnosticMode}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
                 <section className="lg:col-span-2 min-h-[80px]" data-testid="cockpit-alerts-card">
@@ -235,6 +233,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
                             <SuperadminAlertsList 
                                 alerts={blocks.alerts.data} 
                                 alertGroups={blocks.alertGroups.data}
+                                hygiene={hygiene}
                             />
                         </Suspense>
                     </BlockContainer>

@@ -100,6 +100,7 @@ export interface CockpitDataPayloadV42 {
     systemStatus: 'operational' | 'safe_mode';
     loadTimeMs: number;
     scopeMode: CockpitScopeMode;
+    includeNonProductive: boolean;
     hygiene: {
         totalRawIncidents: number;
         totalOperationalIncidents: number;
@@ -107,7 +108,14 @@ export interface CockpitDataPayloadV42 {
         orgsByClass: Record<EnvironmentClass, number>;
     };
     blocks: {
-        kpis: OperationalBlockResult<{ totalOrgs: number; issuesCount: number; activeTrials: number; inactiveOrgs: number; timestamp: Date }>;
+        kpis: OperationalBlockResult<{ 
+            totalOrgs: number; 
+            issuesCount: number; 
+            activeTrials: number; 
+            inactiveOrgs: number; 
+            timestamp: Date;
+            affectedOrgs: number;
+        }>;
         orgs: OperationalBlockResult<(OrgCockpitSummary & { environmentClass: EnvironmentClass })[]>;
         alerts: OperationalBlockResult<CockpitOperationalAlert[]>;
         alertGroups: OperationalBlockResult<CockpitAlertGroup[]>;
@@ -281,8 +289,9 @@ export async function getCockpitDataSafe(options: {
     // FASE 4 - RE-CÁLCULO DE KPIs Y MÉTRICAS (Basado en el Scope Actual)
     // 4.1 KPIs de Cabecera (Orgs, Issues, Trials)
     const filteredOrgs = allEnrichedOrgs.filter(o => includeNonProductive ? true : (scopeMode === "production_only" ? o.isRelevant : true));
-    
-    const kpis: OperationalBlockResult<typeof kpisRaw.data> = {
+    const affectedOrgsCount = new Set(filteredAlerts.map(a => a.entityId)).size;
+
+    const kpis: OperationalBlockResult<any> = {
         ...kpisRaw,
         data: {
             totalOrgs: filteredOrgs.length,
@@ -292,34 +301,30 @@ export async function getCockpitDataSafe(options: {
                 if (!o.health.lastActivityAt) return true;
                 return (now.getTime() - new Date(o.health.lastActivityAt).getTime()) > 7 * 24 * 60 * 60 * 1000;
             }).length,
+            affectedOrgs: affectedOrgsCount,
             timestamp: now
         }
     };
 
     // 4.2 Métricas Operacionales (MTTA, MTTR, etc.)
     // Calculamos solo sobre el conjunto de alertas del scope
-    let totalMttaMs = 0; let mttaCount = 0;
-    let totalMttrMs = 0; let mttrCount = 0;
     let resolvedInSlaCount = 0; let totalResolvedCount = 0;
     let breachedCount = 0;
+    let atRiskCount = 0;
 
     filteredAlerts.forEach(a => {
-        if (a.state === 'acknowledged' || a.state === 'resolved') {
-            // Nota: Aquí necesitaríamos la fecha real de acuse, por ahora usamos el adapter
-            // En un caso real, AlertsService debería proveer esto.
-            mttaCount++; // Placeholder de volumen
-        }
         if (a.state === 'resolved') {
             totalResolvedCount++;
             if (a.sla && a.sla.status !== 'BREACHED') resolvedInSlaCount++;
         }
         if (a.sla?.status === 'BREACHED') breachedCount++;
+        if (a.sla?.status === 'AT_RISK') atRiskCount++;
     });
 
     const ops: OperationalBlockResult<OperationalMetrics> = {
         ...opsRaw,
         data: {
-            mttaMinutes: opsRaw.data.mttaMinutes, // Mantenemos global o recalcular si el servicio lo permitiera por IDs
+            mttaMinutes: opsRaw.data.mttaMinutes,
             mttrHours: opsRaw.data.mttrHours,
             openAlerts: filteredAlerts.filter(a => a.state === 'open' || a.state === 'acknowledged').length,
             breachedAlerts: breachedCount,
@@ -387,6 +392,7 @@ export async function getCockpitDataSafe(options: {
         systemStatus: config.mode === 'operational' ? 'operational' : 'safe_mode',
         loadTimeMs: totalDuration,
         scopeMode,
+        includeNonProductive,
         hygiene: hygieneStats,
         blocks: { kpis, orgs, alerts, alertGroups, metrics, ops }
     };
