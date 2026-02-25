@@ -77,6 +77,30 @@ export function SuperadminTriagePanel({
                 </div>
             </div>
 
+            {/* v4.7.2.1 Unified Counters */}
+            <div className="p-5 bg-indigo-950/50 rounded-[2rem] border border-white/5 space-y-3">
+                <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-indigo-300">Resumen Operacional</span>
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px] font-black">
+                        {stats.total} Activas
+                    </Badge>
+                </div>
+                {hygiene && (
+                    <div className="space-y-1">
+                        <div className="flex justify-between text-[9px] font-medium text-indigo-200/60">
+                            <span>Incidentes Totales (DB):</span>
+                            <span>{hygiene.totalRawIncidents}</span>
+                        </div>
+                        {hygiene.hiddenByEnvironmentFilter > 0 && (
+                            <div className="flex justify-between text-[9px] font-bold text-amber-400/80 italic">
+                                <span>Ocultos (Test/Demo):</span>
+                                <span>-{hygiene.hiddenByEnvironmentFilter}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
             {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
                     <div className="flex items-center gap-2 mb-1">
