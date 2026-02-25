@@ -243,47 +243,38 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
         });
     }, [alerts, search, statusFilter, severityFilter, slaFilter, actionableOnly]);
 
-    // Grouping Logic - Single Pass Partition (Hotfix v4.6.x)
-    const groups = useMemo(() => {
+    // Grouping Logic - Multi-Level: Section > Rule Group > Org (Orchestration v4.7)
+    const groupedSections = useMemo(() => {
         const partitioned = {
-            critical: [] as CockpitOperationalAlert[],
-            risk: [] as CockpitOperationalAlert[],
-            open: [] as CockpitOperationalAlert[],
-            snoozed: [] as CockpitOperationalAlert[],
-            resolved: [] as CockpitOperationalAlert[]
+            critical: {} as Record<string, CockpitOperationalAlert[]>,
+            risk: {} as Record<string, CockpitOperationalAlert[]>,
+            open: {} as Record<string, CockpitOperationalAlert[]>,
+            snoozed: {} as Record<string, CockpitOperationalAlert[]>,
+            resolved: {} as Record<string, CockpitOperationalAlert[]>
         };
 
         filteredAlerts.forEach(alert => {
             if (!alert) return;
 
-            // Prioridad 1: Resueltas y Pospuestas (estados terminales/pausados en triage visual)
-            if (alert.state === 'resolved') {
-                partitioned.resolved.push(alert);
-                return;
-            }
-            if (alert.state === 'snoozed') {
-                partitioned.snoozed.push(alert);
-                return;
-            }
+            let sectionKey: keyof typeof partitioned = 'open';
+            if (alert.state === 'resolved') sectionKey = 'resolved';
+            else if (alert.state === 'snoozed') sectionKey = 'snoozed';
+            else if (alert.sla?.status === 'BREACHED' || alert.severity === 'critical') sectionKey = 'critical';
+            else if (alert.sla?.status === 'AT_RISK' || alert.severity === 'warning') sectionKey = 'risk';
 
-            // Prioridad 2: SLA Vencido o Críticas
-            if (alert.sla?.status === 'BREACHED' || alert.severity === 'critical') {
-                partitioned.critical.push(alert);
-                return;
-            }
-
-            // Prioridad 3: En Riesgo o Warnings
-            if (alert.sla?.status === 'AT_RISK' || alert.severity === 'warning') {
-                partitioned.risk.push(alert);
-                return;
-            }
-
-            // Prioridad 4: Abiertas normales (Info / On Track)
-            partitioned.open.push(alert);
+            const ruleKey = `${alert.ruleCode}:${alert.severity}`;
+            if (!partitioned[sectionKey][ruleKey]) partitioned[sectionKey][ruleKey] = [];
+            partitioned[sectionKey][ruleKey].push(alert);
         });
 
         return partitioned;
     }, [filteredAlerts]);
+
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+    const toggleRuleGroup = (ruleKey: string) => {
+        setExpandedGroups(prev => ({ ...prev, [ruleKey]: !prev[ruleKey] }));
+    };
 
     const toggleSection = (section: string) => {
         setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -397,16 +388,18 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                     open: { label: "🔔 Abiertas", color: "text-blue-600", bg: "bg-blue-50", icon: BellRing },
                     snoozed: { label: "⏳ Pospuestas", color: "text-slate-600", bg: "bg-slate-100", icon: Clock },
                     resolved: { label: "✅ Resueltas Recientes", color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle2 }
-                }).map(([key, config]) => {
-                    const sectionAlerts = groups[key as keyof typeof groups];
-                    if (sectionAlerts.length === 0 && !search && key !== 'critical') return null;
+                }).map(([sectionKey, config]) => {
+                    const ruleGroups = groupedSections[sectionKey as keyof typeof groupedSections];
+                    const totalInSection = Object.values(ruleGroups).reduce((acc, curr) => acc + curr.length, 0);
                     
-                    const isCollapsed = collapsedSections[key];
+                    if (totalInSection === 0 && !search && sectionKey !== 'critical') return null;
+                    
+                    const isSectionCollapsed = collapsedSections[sectionKey];
 
                     return (
-                        <div key={key} className="space-y-4">
+                        <div key={sectionKey} className="space-y-4">
                             <button 
-                                onClick={() => toggleSection(key)}
+                                onClick={() => toggleSection(sectionKey)}
                                 className="flex items-center justify-between w-full px-4 py-2 hover:bg-muted/50 rounded-xl transition-colors group"
                             >
                                 <div className="flex items-center gap-3">
@@ -415,159 +408,211 @@ export function SuperadminAlertsList({ alerts }: { alerts: CockpitOperationalAle
                                         {config.label}
                                     </h3>
                                     <Badge variant="secondary" className="rounded-full h-5 px-2 text-[10px] font-black bg-muted/80">
-                                        {sectionAlerts.length}
+                                        {totalInSection}
                                     </Badge>
                                 </div>
-                                {isCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+                                {isSectionCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
                             </button>
 
-                            {!isCollapsed && (
-                                <div className={cn(
-                                    "grid gap-4 transition-all animate-in fade-in slide-in-from-top-2",
-                                    isCompact ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1 lg:grid-cols-2"
-                                )}>
-                                    {sectionAlerts.length === 0 ? (
-                                        <div className="col-span-full py-8 text-center border border-dashed border-border rounded-[2rem] bg-muted/10 opacity-50 italic text-[10px] font-medium">
+                            {!isSectionCollapsed && (
+                                <div className="space-y-4">
+                                    {Object.keys(ruleGroups).length === 0 ? (
+                                        <div className="py-8 text-center border border-dashed border-border rounded-[2rem] bg-muted/10 opacity-50 italic text-[10px] font-medium">
                                             No hay alertas en esta categoría
                                         </div>
-                                    ) : sectionAlerts.map((alert, idx) => {
-                                        if (!alert) return null;
-                                        const isSnoozed = alert.state === 'snoozed';
-                                        const isLoading = loadingId === alert.id;
-                                        const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
+                                    ) : Object.entries(ruleGroups).map(([ruleKey, groupAlerts]) => {
+                                        const firstAlert = groupAlerts[0];
+                                        const isGroupExpanded = expandedGroups[ruleKey];
+                                        const severity = firstAlert.severity || 'info';
 
                                         return (
-                                            <Card key={alert.fingerprint || alert.id || `alert-${key}-${idx}`} className={cn(
-                                                "rounded-[2rem] border transition-all overflow-hidden relative group",
-                                                getColors(alert.severity || 'info'),
-                                                isSnoozed && "opacity-60 grayscale-[0.5]",
-                                                isCompact ? "p-4" : "p-0"
-                                            )}>
-                                                {/* FORENSIC DEBUG LABEL */}
-                                                <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] bg-black/80 text-white font-mono z-50 rounded-bl-lg whitespace-nowrap overflow-hidden">
-                                                    DBG-GRID fp:{alert.fingerprint?.slice(-8) || 'N/A'} | id:{alert.id?.slice(-8) || 'N/A'} | sem:{alert.fingerprint?.split(':')[0]?.slice(-5)}:{alert.fingerprint?.split(':')[1]} | grp:{key} | key:{alert.fingerprint || alert.id || `alert-${key}-${idx}`} | org:{alert.organization?.name?.slice(0,5) || 'N/A'}
-                                                </div>
-                                                <CardContent className={cn("p-0 flex gap-4", !isCompact && "p-6 gap-5")}>
-                                                    <div className={cn("shrink-0", !isCompact && "mt-1")}>
-                                                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin opacity-50" /> : 
-                                                         getIcon(alert.severity || 'info', isCompact ? "w-4 h-4" : "w-5 h-5")}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0 space-y-1">
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <div className="flex flex-col min-w-0">
-                                                                <div className="flex items-center gap-2 mb-0.5">
-                                                                    <p className={cn("font-black uppercase tracking-tight truncate", isCompact ? "text-[11px]" : "text-[13px]")}>
-                                                                        {alert.title || 'Alerta Sin Título'}
-                                                                    </p>
-                                                                    {!isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter">{alert.ruleCode}</span>
-                                                                    <SLABadge sla={alert.sla} />
-                                                                </div>
+                                            <div key={ruleKey} className="space-y-3">
+                                                {/* Rule Group Header Card */}
+                                                <Card className={cn(
+                                                    "rounded-[2rem] border-2 transition-all overflow-hidden relative group cursor-pointer",
+                                                    getColors(severity),
+                                                    "border-opacity-40"
+                                                )} onClick={() => toggleRuleGroup(ruleKey)}>
+                                                    <CardContent className="p-6 flex items-center justify-between gap-6">
+                                                        <div className="flex items-center gap-5 flex-1">
+                                                            <div className="p-3 bg-current/10 rounded-2xl">
+                                                                {getIcon(severity, "w-6 h-6")}
                                                             </div>
-                                                            {isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
-                                                        </div>
-                                                        
-                                                        {!isCompact && (
-                                                            <p className="text-[11px] leading-relaxed opacity-80 font-medium italic line-clamp-2">
-                                                                {alert.description || 'Sin descripción detallada.'}
-                                                            </p>
-                                                        )}
-                                                        
-                                                        <div className={cn(
-                                                            "flex items-center justify-between pt-2 border-t border-current/10 mt-1",
-                                                            isCompact && "pt-1 border-none mt-0"
-                                                        )}>
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex items-center gap-1.5 bg-current/5 px-2 py-0.5 rounded-full">
-                                                                    <User className="w-2 h-2 opacity-50" />
-                                                                    <span className="text-[7px] font-black uppercase opacity-70 truncate max-w-[60px]">{ownerLabel}</span>
+                                                            <div>
+                                                                <div className="flex items-center gap-3 mb-1">
+                                                                    <h4 className="text-sm font-black uppercase tracking-tight italic">
+                                                                        {firstAlert.title || 'Alerta Sin Título'}
+                                                                    </h4>
+                                                                    <Badge variant="outline" className="text-[9px] font-mono bg-white/50">{firstAlert.ruleCode}</Badge>
                                                                 </div>
-                                                                {alert.href && !isCompact && (
-                                                                    <Link href={alert.href}>
-                                                                        <span className="text-[8px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer group-hover:translate-x-0.5 transition-transform">
-                                                                            <ExternalLink className="w-2.5 h-2.5" />
-                                                                            Contexto
-                                                                        </span>
-                                                                    </Link>
-                                                                )}
-                                                            </div>
-
-                                                            <div className="flex items-center gap-1">
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    onClick={() => setSelectedAlert(alert)}
-                                                                    className={cn("h-6 px-2 text-[8px] font-black uppercase tracking-tight bg-current/5 hover:bg-current/10", !isCompact && "h-7 px-3 text-[9px]")}
-                                                                >
-                                                                    <ClipboardList className="w-3 h-3 mr-1" />
-                                                                    {isCompact ? "" : "Playbook"}
-                                                                </Button>
-                                                                
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger disabled={isLoading} asChild>
-                                                                        <Button variant="ghost" size="icon" className={cn("h-6 w-6 rounded-lg hover:bg-current/10 transition-colors", !isCompact && "h-7 w-7")}>
-                                                                            <MoreVertical className="w-3 h-3" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
-                                                                        {alert.state === 'open' && (
-                                                                            <DropdownMenuItem 
-                                                                                onClick={() => handleAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))}
-                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                            >
-                                                                                <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
-                                                                                <span className="text-xs font-black uppercase">Acusar Recibo</span>
-                                                                            </DropdownMenuItem>
-                                                                        )}
-
-                                                                        <DropdownMenuItem 
-                                                                            onClick={() => {
-                                                                                const user = prompt("ID del usuario responsable:");
-                                                                                if (user) handleAction(alert.id, () => assignCockpitAlertOwner(alert.fingerprint, "user", user));
-                                                                            }}
-                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                        >
-                                                                            <Target className="w-3.5 h-3.5 text-indigo-500" />
-                                                                            <span className="text-xs font-black uppercase">Asignar Responsable</span>
-                                                                        </DropdownMenuItem>
-                                                                        
-                                                                        <DropdownMenuSeparator />
-                                                                        <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em]">Posponer</div>
-                                                                        <DropdownMenuItem 
-                                                                            onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "1h"))}
-                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                        >
-                                                                            <Clock className="w-3.5 h-3.5 text-amber-500" />
-                                                                            <span className="text-xs font-black uppercase tracking-tight">Por 1 Hora</span>
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem 
-                                                                            onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "24h"))}
-                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
-                                                                        >
-                                                                            <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                                                            <span className="text-xs font-black uppercase tracking-tight">Por 24 Horas</span>
-                                                                        </DropdownMenuItem>
-
-                                                                        <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem 
-                                                                            onClick={() => {
-                                                                                const note = prompt("Nota de resolución (opcional):");
-                                                                                if (note !== null) handleAction(alert.id, () => resolveCockpitAlert(alert.fingerprint, note));
-                                                                            }}
-                                                                            className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5 bg-emerald-50 dark:bg-emerald-900/20"
-                                                                        >
-                                                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                                            <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400">Marcar Resuelto</span>
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
+                                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                                                    Afectando a <span className="text-foreground font-black">{groupAlerts.length} organizaciones</span>
+                                                                    {groupAlerts.some(a => a.sla?.status === 'BREACHED') && (
+                                                                        <span className="text-red-500 font-black animate-pulse">• SLA VENCIDO DETECTADO</span>
+                                                                    )}
+                                                                </p>
                                                             </div>
                                                         </div>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="text-right hidden sm:block">
+                                                                <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Severidad Dominante</p>
+                                                                <p className="text-xs font-black uppercase tracking-tighter">{severity}</p>
+                                                            </div>
+                                                            <div className="w-10 h-10 rounded-full bg-current/10 flex items-center justify-center">
+                                                                {isGroupExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+
+                                                {/* Expanded Organization Detail */}
+                                                {isGroupExpanded && (
+                                                    <div className={cn(
+                                                        "grid gap-4 ml-8 animate-in slide-in-from-top-4 duration-300",
+                                                        isCompact ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1 lg:grid-cols-2"
+                                                    )}>
+                                                        {groupAlerts.map((alert, idx) => {
+                                                            const isSnoozed = alert.state === 'snoozed';
+                                                            const isLoading = loadingId === alert.id;
+                                                            const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
+
+                                                            return (
+                                                                <Card key={alert.fingerprint || alert.id || `alert-${ruleKey}-${idx}`} className={cn(
+                                                                    "rounded-[2rem] border transition-all overflow-hidden relative group",
+                                                                    getColors(alert.severity || 'info'),
+                                                                    isSnoozed && "opacity-60 grayscale-[0.5]",
+                                                                    isCompact ? "p-4" : "p-0"
+                                                                )}>
+                                                                    {/* FORENSIC DEBUG LABEL */}
+                                                                    <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] bg-black/80 text-white font-mono z-50 rounded-bl-lg whitespace-nowrap overflow-hidden">
+                                                                        DBG-GRID fp:{alert.fingerprint?.slice(-8) || 'N/A'} | id:{alert.id?.slice(-8) || 'N/A'} | sem:{alert.fingerprint?.split(':')[0]?.slice(-5)}:{alert.fingerprint?.split(':')[1]} | grp:{sectionKey} | org:{alert.organization?.name?.slice(0,10) || 'N/A'}
+                                                                    </div>
+                                                                    <CardContent className={cn("p-0 flex gap-4", !isCompact && "p-6 gap-5")}>
+                                                                        <div className={cn("shrink-0", !isCompact && "mt-1")}>
+                                                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin opacity-50" /> : 
+                                                                             getIcon(alert.severity || 'info', isCompact ? "w-4 h-4" : "w-5 h-5")}
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0 space-y-1">
+                                                                            <div className="flex items-center justify-between gap-2">
+                                                                                <div className="flex flex-col min-w-0">
+                                                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                                                        <p className={cn("font-black uppercase tracking-tight truncate", isCompact ? "text-[11px]" : "text-[13px]")}>
+                                                                                            {alert.organization?.name || 'Organización desconocida'}
+                                                                                        </p>
+                                                                                        {!isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span className="text-[8px] font-mono uppercase opacity-50 tracking-tighter">ID: {alert.organization?.id?.slice(0,8)}</span>
+                                                                                        <SLABadge sla={alert.sla} />
+                                                                                    </div>
+                                                                                </div>
+                                                                                {isCompact && <StatusBadge state={alert.state} snoozedUntil={alert.snoozedUntil} />}
+                                                                            </div>
+                                                                            
+                                                                            {!isCompact && (
+                                                                                <p className="text-[11px] leading-relaxed opacity-80 font-medium italic line-clamp-1">
+                                                                                    {alert.description || 'Sin descripción detallada.'}
+                                                                                </p>
+                                                                            )}
+                                                                            
+                                                                            <div className={cn(
+                                                                                "flex items-center justify-between pt-2 border-t border-current/10 mt-1",
+                                                                                isCompact && "pt-1 border-none mt-0"
+                                                                            )}>
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <div className="flex items-center gap-1.5 bg-current/5 px-2 py-0.5 rounded-full">
+                                                                                        <User className="w-2 h-2 opacity-50" />
+                                                                                        <span className="text-[7px] font-black uppercase opacity-70 truncate max-w-[60px]">{ownerLabel}</span>
+                                                                                    </div>
+                                                                                    {alert.href && !isCompact && (
+                                                                                        <Link href={alert.href}>
+                                                                                            <span className="text-[8px] font-black text-blue-600 hover:underline flex items-center gap-1 cursor-pointer group-hover:translate-x-0.5 transition-transform">
+                                                                                                <ExternalLink className="w-2.5 h-2.5" />
+                                                                                                Panel Org
+                                                                                            </span>
+                                                                                        </Link>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <Button 
+                                                                                        variant="ghost" 
+                                                                                        size="sm" 
+                                                                                        onClick={() => setSelectedAlert(alert)}
+                                                                                        className={cn("h-6 px-2 text-[8px] font-black uppercase tracking-tight bg-current/5 hover:bg-current/10", !isCompact && "h-7 px-3 text-[9px]")}
+                                                                                    >
+                                                                                        <ClipboardList className="w-3 h-3 mr-1" />
+                                                                                        {isCompact ? "" : "Playbook"}
+                                                                                    </Button>
+                                                                                    
+                                                                                    <DropdownMenu>
+                                                                                        <DropdownMenuTrigger disabled={isLoading} asChild>
+                                                                                            <Button variant="ghost" size="icon" className={cn("h-6 w-6 rounded-lg hover:bg-current/10 transition-colors", !isCompact && "h-7 w-7")}>
+                                                                                                <MoreVertical className="w-3 h-3" />
+                                                                                            </Button>
+                                                                                        </DropdownMenuTrigger>
+                                                                                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border shadow-2xl">
+                                                                                            {alert.state === 'open' && (
+                                                                                                <DropdownMenuItem 
+                                                                                                    onClick={() => handleAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))}
+                                                                                                    className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                                                >
+                                                                                                    <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                                                                                                    <span className="text-xs font-black uppercase">Acusar Recibo</span>
+                                                                                                </DropdownMenuItem>
+                                                                                            )}
+
+                                                                                            <DropdownMenuItem 
+                                                                                                onClick={() => {
+                                                                                                    const user = prompt("ID del usuario responsable:");
+                                                                                                    if (user) handleAction(alert.id, () => assignCockpitAlertOwner(alert.fingerprint, "user", user));
+                                                                                                }}
+                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                                            >
+                                                                                                <Target className="w-3.5 h-3.5 text-indigo-500" />
+                                                                                                <span className="text-xs font-black uppercase">Asignar Responsable</span>
+                                                                                            </DropdownMenuItem>
+                                                                                            
+                                                                                            <DropdownMenuSeparator />
+                                                                                            <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em]">Posponer</div>
+                                                                                            <DropdownMenuItem 
+                                                                                                onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "1h"))}
+                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                                            >
+                                                                                                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                                                                                <span className="text-xs font-black uppercase tracking-tight">Por 1 Hora</span>
+                                                                                            </DropdownMenuItem>
+                                                                                            <DropdownMenuItem 
+                                                                                                onClick={() => handleAction(alert.id, () => snoozeCockpitAlert(alert.fingerprint, "24h"))}
+                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5"
+                                                                                            >
+                                                                                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                                                                                <span className="text-xs font-black uppercase tracking-tight">Por 24 Horas</span>
+                                                                                            </DropdownMenuItem>
+
+                                                                                            <DropdownMenuSeparator />
+                                                                                            <DropdownMenuItem 
+                                                                                                onClick={() => {
+                                                                                                    const note = prompt("Nota de resolución (opcional):");
+                                                                                                    if (note !== null) handleAction(alert.id, () => resolveCockpitAlert(alert.fingerprint, note));
+                                                                                                }}
+                                                                                                className="rounded-xl cursor-pointer flex items-center gap-2 p-2.5 bg-emerald-50 dark:bg-emerald-900/20"
+                                                                                            >
+                                                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                                                                <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400">Marcar Resuelto</span>
+                                                                                            </DropdownMenuItem>
+                                                                                        </DropdownMenuContent>
+                                                                                    </DropdownMenu>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            );
+                                                        })}
                                                     </div>
-                                                </CardContent>
-                                            </Card>
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>
