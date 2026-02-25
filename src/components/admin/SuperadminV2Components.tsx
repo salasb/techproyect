@@ -43,6 +43,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 export function SuperadminTriagePanel({ 
     stats,
     hygiene,
+    currentScope,
     includeNonProductive
 }: { 
     stats: { total: number; open: number; critical: number; breached: number; snoozed: number },
