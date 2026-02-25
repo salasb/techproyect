@@ -308,7 +308,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
                     </h3>
                 </div>
                 <BlockContainer status={blocks.orgs.status} label="Organizaciones" message={blocks.orgs.message} traceId={blocks.orgs.meta.traceId}>
-                    <SaaSHealthTable orgs={blocks.orgs.data} />
+                    <SaaSHealthTable 
+                        orgs={blocks.orgs.data} 
+                        isDiagnosticMode={isDiagnosticMode}
+                    />
                 </BlockContainer>
             </div>
 

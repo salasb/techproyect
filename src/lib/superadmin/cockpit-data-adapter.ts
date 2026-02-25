@@ -10,7 +10,7 @@ import { classifyOrganizationEnvironment, EnvironmentClass } from "./environment
  * PHASE 4.7.1 OPERATIONAL HYGIENE CONTRACT
  */
 export type OperationalBlockStatus = "ok" | "empty" | "degraded_config" | "degraded_service";
-export type CockpitScopeMode = "production_only" | "all";
+export type CockpitScopeMode = "production_only" | "production_with_trial" | "all";
 
 export type OperationalActionCode =
   | "OK"
@@ -278,9 +278,10 @@ export async function getCockpitDataSafe(options: {
 
     // Alertas Filtradas (Scope)
     const filteredAlerts = allEnrichedAlerts.filter(a => {
-        if (includeNonProductive) return true;
-        if (scopeMode === "production_only") return a.isOperationallyRelevant;
-        return true;
+        if (includeNonProductive || scopeMode === "all") return true;
+        if (scopeMode === "production_only") return a.environmentClass === "production";
+        if (scopeMode === "production_with_trial") return a.environmentClass === "production" || a.environmentClass === "trial";
+        return a.isOperationallyRelevant;
     });
 
     hygieneStats.totalOperationalIncidents = filteredAlerts.length;
@@ -288,7 +289,12 @@ export async function getCockpitDataSafe(options: {
 
     // FASE 4 - RE-CÁLCULO DE KPIs Y MÉTRICAS (Basado en el Scope Actual)
     // 4.1 KPIs de Cabecera (Orgs, Issues, Trials)
-    const filteredOrgs = allEnrichedOrgs.filter(o => includeNonProductive ? true : (scopeMode === "production_only" ? o.isRelevant : true));
+    const filteredOrgs = allEnrichedOrgs.filter(o => {
+        if (includeNonProductive || scopeMode === "all") return true;
+        if (scopeMode === "production_only") return o.environmentClass === "production";
+        if (scopeMode === "production_with_trial") return o.environmentClass === "production" || o.environmentClass === "trial";
+        return o.isRelevant;
+    });
     const affectedOrgsCount = new Set(filteredAlerts.map(a => a.entityId)).size;
 
     const kpis: OperationalBlockResult<any> = {
@@ -321,14 +327,15 @@ export async function getCockpitDataSafe(options: {
         if (a.sla?.status === 'AT_RISK') atRiskCount++;
     });
 
-    const ops: OperationalBlockResult<OperationalMetrics> = {
+    const ops: OperationalBlockResult<OperationalMetrics & { affectedOrgs: number }> = {
         ...opsRaw,
         data: {
             mttaMinutes: opsRaw.data.mttaMinutes,
             mttrHours: opsRaw.data.mttrHours,
             openAlerts: filteredAlerts.filter(a => a.state === 'open' || a.state === 'acknowledged').length,
             breachedAlerts: breachedCount,
-            slaComplianceRate: totalResolvedCount > 0 ? Math.round((resolvedInSlaCount / totalResolvedCount) * 100) : 100
+            slaComplianceRate: totalResolvedCount > 0 ? Math.round((resolvedInSlaCount / totalResolvedCount) * 100) : 100,
+            affectedOrgs: affectedOrgsCount
         }
     };
 

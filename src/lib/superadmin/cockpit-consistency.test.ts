@@ -34,9 +34,11 @@ describe('cockpit-data-adapter scope consistency (v4.7.2.1)', () => {
 
         hygieneStats.totalOperationalIncidents = filteredAlerts.length;
         hygieneStats.hiddenByEnvironmentFilter = hygieneStats.totalRawIncidents - filteredAlerts.length;
+        const orgsAffected = new Set(filteredAlerts.map(a => a.organizationId)).size;
 
         expect(hygieneStats.totalRawIncidents).toBe(hygieneStats.totalOperationalIncidents + hygieneStats.hiddenByEnvironmentFilter);
         expect(hygieneStats.totalOperationalIncidents).toBe(1);
+        expect(orgsAffected).toBe(1);
         expect(hygieneStats.hiddenByEnvironmentFilter).toBe(1);
     });
 });

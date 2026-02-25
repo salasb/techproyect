@@ -39,16 +39,29 @@ const healthConfig = {
     INCOMPLETE: { icon: Activity, color: "text-blue-400", bg: "bg-blue-50", label: "Configurando" },
 };
 
-export function SaaSHealthTable({ orgs = [] }: { orgs: OrgMetric[] }) {
+export function SaaSHealthTable({ 
+    orgs = [],
+    isDiagnosticMode = false
+}: { 
+    orgs: OrgMetric[],
+    isDiagnosticMode?: boolean
+}) {
     const safeOrgs = Array.isArray(orgs) ? orgs : [];
 
     return (
         <div className="bg-card rounded-2xl border border-border shadow-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="p-6 border-b border-border flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
-                <h2 className="font-bold text-lg text-foreground flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-primary" />
-                    Estado Operativo Global
-                </h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="font-bold text-lg text-foreground flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-primary" />
+                        {isDiagnosticMode ? "Estado Operativo Global (diagnóstico)" : "Directorio de Producción"}
+                    </h2>
+                    {isDiagnosticMode && (
+                        <Badge variant="outline" className="text-[8px] font-black uppercase text-amber-600 border-amber-200 bg-amber-50">
+                            No afecta KPIs operacionales
+                        </Badge>
+                    )}
+                </div>
                 <div className="flex gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                     <div className="flex items-center gap-1.5 border-r border-border pr-4">
                         <span className="w-2 h-2 rounded-full bg-emerald-500" /> {safeOrgs.filter(o => o?.health?.status === 'HEALTHY').length}

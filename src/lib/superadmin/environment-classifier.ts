@@ -32,17 +32,17 @@ export function classifyOrganizationEnvironment(org: {
     const createdAt = new Date(org.createdAt);
     const ageInDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
     
-    // If it's a very fresh trial (< 48h), we might consider it "noise" if it's not configured yet
-    if (isTrialing && ageInDays < 2) {
-        return { environmentClass: "trial", isOperationallyRelevant: false, exclusionReason: "Fresh Trial (< 48h)" };
-    }
-
     if (isTrialing) {
-        return { environmentClass: "trial", isOperationallyRelevant: true };
+        // Trials are considered noise for strict production scope, regardless of age
+        return { 
+            environmentClass: "trial", 
+            isOperationallyRelevant: false, 
+            exclusionReason: ageInDays < 2 ? "Fresh Trial (< 48h)" : "Active Trial (Non-Prod Scope)" 
+        };
     }
 
     // 3. Known production indicators (Paid plans, or active status without test names)
-    if (org.plan && org.plan !== 'FREE') {
+    if (org.plan && org.plan !== 'FREE' && org.plan !== 'TRIAL') {
         return { environmentClass: "production", isOperationallyRelevant: true };
     }
 

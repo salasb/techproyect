@@ -98,16 +98,22 @@ export function SuperadminTriagePanel({
             <div className="space-y-3 pt-2 border-t border-white/10 relative">
                 <h4 className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">Filtros de Alcance</h4>
                 <div className="grid grid-cols-1 gap-2">
-                    <Button variant="ghost" className={cn("w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all", !includeNonProductive && "bg-indigo-500 shadow-lg")} asChild>
+                    <Button variant="ghost" className={cn("w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all", (!includeNonProductive && currentScope !== 'production_with_trial') && "bg-indigo-500 shadow-lg")} asChild>
                         <Link href="?scopeMode=production_only" className="w-full">
                             <ShieldCheck className="w-3.5 h-3.5 mr-3" />
                             Solo Producción
                         </Link>
                     </Button>
+                    <Button variant="ghost" className={cn("w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all", currentScope === 'production_with_trial' && "bg-indigo-600 shadow-lg")} asChild>
+                        <Link href="?scopeMode=production_with_trial" className="w-full">
+                            <Globe className="w-3.5 h-3.5 mr-3" />
+                            Producción + Trial
+                        </Link>
+                    </Button>
                     <Button variant="ghost" className={cn("w-full justify-start text-[10px] font-black uppercase h-10 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border-none transition-all", includeNonProductive && "bg-amber-600 shadow-lg")} asChild>
                         <Link href="?includeNonProductive=1&scopeMode=all" className="w-full">
                             <Zap className="w-3.5 h-3.5 mr-3" />
-                            Incluir Test / Demo
+                            Modo Diagnóstico
                         </Link>
                     </Button>
                 </div>
@@ -331,8 +337,9 @@ export function SuperadminAlertsList({
 
     const isCompact = density === 'compact';
     const isDiagnosticMode = searchParams.get('scopeMode') === 'all';
+    const currentScope = searchParams.get('scopeMode') || 'production_only';
     const scopeLabel = isDiagnosticMode ? "Diagnóstico (incluye Test/Demo/QA)" : 
-                      searchParams.get('scopeMode') === 'include_trial' ? "Producción + Trial" : "Solo producción";
+                      currentScope === 'production_with_trial' ? "Producción + Trial" : "Solo producción";
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -442,14 +449,6 @@ export function SuperadminAlertsList({
                                     {totalInSec === 0 ? (
                                         <div className="col-span-full py-12 text-center border-2 border-dashed border-border rounded-[2.5rem] bg-slate-50/20">
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sin incidentes operacionales.</p>
-                                            {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && !isDiagnosticMode && (
-                                                <div className="mt-3 space-y-2">
-                                                    <p className="text-[9px] font-bold text-slate-400/60 uppercase">Hay {hygiene.hiddenByEnvironmentFilter} en diagnóstico.</p>
-                                                    <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-indigo-500" asChild>
-                                                        <Link href="?includeNonProductive=1&scopeMode=all">Ver diagnóstico</Link>
-                                                    </Button>
-                                                </div>
-                                            )}
                                         </div>
                                     ) : viewMode === 'grouped' ? (
                                         sectionGroups.map(group => (
