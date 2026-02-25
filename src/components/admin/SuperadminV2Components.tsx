@@ -353,7 +353,7 @@ export function SuperadminAlertsList({
                         if (secKey === 'snoozed') return g.operationalState === 'snoozed';
                         if (secKey === 'critical') return g.severity === 'critical' || g.worstSlaStatus === 'BREACHED';
                         if (secKey === 'risk') return g.severity === 'warning' || g.worstSlaStatus === 'AT_RISK';
-                        return g.operationalState === 'open' || g.operationalState === 'ack';
+                        return g.operationalState === 'open' || g.operationalState === 'acknowledged';
                     });
 
                     const totalInSec = viewMode === 'grouped' ? sectionGroups.length : sectionAlerts.length;
@@ -425,6 +425,7 @@ export function SuperadminAlertsList({
 
 function AlertGroupCard({ 
     group, 
+    isCompact,
     onBulkAction, 
     onExpand, 
     isExpanded,
@@ -512,7 +513,7 @@ function AlertGroupCard({
     );
 }
 
-function AlertIndividualCard({ alert, onAction, loading, onSelectPlaybook }: { alert: CockpitOperationalAlert, isCompact: boolean, onAction: any, loading: boolean, onSelectPlaybook: () => void }) {
+function AlertIndividualCard({ alert, isCompact, onAction, loading, onSelectPlaybook }: { alert: CockpitOperationalAlert, isCompact: boolean, onAction: any, loading: boolean, onSelectPlaybook: () => void }) {
     const ownerLabel = alert.owner ? (alert.owner.ownerId || alert.owner.ownerRole) : "Sin asignar";
     
     return (
