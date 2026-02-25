@@ -89,8 +89,8 @@ export interface CockpitAlertGroup {
   count: number; 
   orgCount: number; 
   organizationsPreview: Array<{ orgId: string; orgName: string }>;
-  oldestDetectedAt?: string;
-  newestDetectedAt?: string;
+  oldestAt?: string;
+  newestAt?: string;
   worstSlaStatus?: "BREACHED" | "AT_RISK" | "ON_TRACK" | null;
   itemIds: string[]; 
   items: CockpitOperationalAlert[];
@@ -348,7 +348,9 @@ export async function getCockpitDataSafe(options: {
                 organizationsPreview: [],
                 itemIds: [],
                 items: [],
-                worstSlaStatus: null
+                worstSlaStatus: null,
+                oldestAt: undefined,
+                newestAt: undefined
             });
         }
         const group = groupsMap.get(groupKey)!;
@@ -360,6 +362,13 @@ export async function getCockpitDataSafe(options: {
         const currentSlaStatus = (alert.sla?.status || "null") as keyof typeof slaOrder;
         const worstSlaStatus = (group.worstSlaStatus || "null") as keyof typeof slaOrder;
         if (slaOrder[currentSlaStatus] > slaOrder[worstSlaStatus]) group.worstSlaStatus = alert.sla?.status as any;
+
+        if (!group.oldestAt || new Date(alert.detectedAt) < new Date(group.oldestAt)) {
+            group.oldestAt = alert.detectedAt;
+        }
+        if (!group.newestAt || new Date(alert.detectedAt) > new Date(group.newestAt)) {
+            group.newestAt = alert.detectedAt;
+        }
 
         if (alert.organization && !group.organizationsPreview.some(o => o.orgId === alert.organization!.id)) {
             group.orgCount++;
