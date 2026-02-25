@@ -316,7 +316,7 @@ export class AlertsService {
             where: { 
                 status: { in: ['ACTIVE', 'ACKNOWLEDGED'] }
             },
-            include: { organization: { select: { name: true } } },
+            include: { organization: { select: { id: true, name: true } } },
             orderBy: [
                 { severity: 'desc' },
                 { detectedAt: 'desc' }

@@ -63,7 +63,7 @@ export interface CockpitOperationalAlert {
   traceId: string;
   fingerprint: string;
   snoozedUntil?: string | null;
-  organization?: { name: string } | null;
+  organization?: { id: string; name: string } | null;
   
   // v4.6 Orchestration
   sla?: OperationalAlertSla | null;
