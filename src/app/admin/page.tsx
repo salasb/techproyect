@@ -57,8 +57,9 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
     const scopeMode = (searchParams.scopeMode as any) || "production_only";
     const includeNonProductive = searchParams.includeNonProductive === '1';
     const debugCockpit = searchParams.debugCockpit === '1';
+    const qaScreenshot = searchParams.qaScreenshot === '1';
 
-    console.log(`[COCKPIT_V4.7.1] Rendering Dashboard (Scope: ${scopeMode}, IncludeNonProd: ${includeNonProductive})`);
+    console.log(`[COCKPIT_V4.8.1] Rendering Dashboard (Scope: ${scopeMode}, IncludeNonProd: ${includeNonProductive}, QA: ${qaScreenshot})`);
     
     // 0. Unified Data Fetch (Isolated Blocks)
     const { blocks, systemStatus, loadTimeMs, hygiene } = await getCockpitDataSafe({ 
@@ -162,9 +163,9 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
     const isDiagnosticMode = scopeMode === 'all';
 
     return (
-        <div className="space-y-10 animate-in fade-in duration-700 pb-12" data-testid="superadmin-cockpit-root">
+        <div className={cn("space-y-10 animate-in fade-in duration-700 pb-12", qaScreenshot && "animate-none")} data-testid="superadmin-cockpit-root">
             {/* DBG OVERLAY */}
-            {debugCockpit && (
+            {(debugCockpit && !qaScreenshot) && (
                 <div className="fixed bottom-4 right-4 z-[9999] bg-black/90 text-green-400 p-4 rounded-xl text-[10px] font-mono whitespace-pre shadow-2xl max-w-sm overflow-auto border border-white/10">
                     <p className="font-bold text-white mb-2">FORENSICS OVERLAY v4.7.2.1</p>
                     <p>Build SHA: {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,7) || 'local'}</p>
@@ -235,12 +236,13 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
                             <SuperadminAlertsList 
                                 alerts={blocks.alerts.data} 
                                 alertGroups={blocks.alertGroups.data}
+                                qaScreenshot={qaScreenshot}
                             />
                         </Suspense>
                     </BlockContainer>
                 </section>
                 
-                <aside className="space-y-6 lg:sticky lg:top-8 animate-in slide-in-from-right-4 duration-700">
+                <aside className={cn("space-y-6 animate-in slide-in-from-right-4 duration-700", !qaScreenshot && "lg:sticky lg:top-8")}>
                     {/* Operational Hygiene Warning v4.7.2.3 */}
                     {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && (
                         <div data-testid="hygiene-card" className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2.5rem] space-y-3 shadow-sm transition-all hover:bg-amber-500/15 group">
@@ -267,6 +269,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
                         stats={triageStats} 
                         currentScope={scopeMode}
                         includeNonProductive={includeNonProductive}
+                        qaScreenshot={qaScreenshot}
                     />
 
                     <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-slate-50/30 dark:bg-zinc-900/10 p-8 flex flex-col justify-between shadow-sm">

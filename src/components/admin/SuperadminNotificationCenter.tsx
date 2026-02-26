@@ -46,6 +46,7 @@ export function SuperadminNotificationCenter() {
 
     const scopeMode = searchParams.get('scopeMode') || "production_only";
     const includeNonProductive = searchParams.get('includeNonProductive') === '1';
+    const qaScreenshot = searchParams.get('qaScreenshot') === '1';
     const isDiagnosticMode = scopeMode === 'all';
 
     const loadData = useCallback(async (isMountedRef: { current: boolean }, skipLoadingState = false) => {
@@ -63,6 +64,8 @@ export function SuperadminNotificationCenter() {
         loadData(isMounted, true);
         return () => { isMounted.current = false; };
     }, [loadData]);
+
+    if (qaScreenshot) return null;
 
     const handleMarkRead = async (id: string) => {
         try {

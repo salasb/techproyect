@@ -477,8 +477,8 @@ export class AlertsService {
         await prisma.auditLog.create({
             data: {
                 userId: user.id,
-                action: checked ? 'SUPERADMIN_PLAYBOOK_STEP_COMPLETED' : 'SUPERADMIN_PLAYBOOK_STEP_RESET',
-                details: `[${traceId}] Alert ${fingerprint} (${alert.organization?.name || 'Global'}): Step ${stepId} set to ${checked} by ${user.email}.`,
+                action: checked ? 'COMPLETE_STEP' : 'RESET_STEP',
+                details: `[${traceId}] Playbook Step ${stepId} set to ${checked} for alert ${fingerprint} (${alert.organization?.name || 'Global'}).`,
                 createdAt: new Date()
             }
         });
@@ -495,8 +495,8 @@ export class AlertsService {
         await prisma.auditLog.create({
             data: {
                 userId: user.id,
-                action: 'SUPERADMIN_PLAYBOOK_OPENED',
-                details: `[${traceId}] Playbook for alert ${fingerprint} (${alert.organization?.name || 'Global'}) opened by ${user.email}.`,
+                action: 'OPEN_PLAYBOOK',
+                details: `[${traceId}] Playbook opened for alert ${fingerprint} (${alert.organization?.name || 'Global'}) by ${user.email}.`,
                 createdAt: new Date()
             }
         });
@@ -509,8 +509,8 @@ export class AlertsService {
         await prisma.auditLog.create({
             data: {
                 userId: user.id,
-                action: 'SUPERADMIN_PLAYBOOK_RESET',
-                details: `[${traceId}] Playbook progress for alert ${fingerprint} reset by ${user.email}.`,
+                action: 'RESET_PROGRESS',
+                details: `[${traceId}] Playbook progress reset for alert ${fingerprint} by ${user.email}.`,
                 createdAt: new Date()
             }
         });

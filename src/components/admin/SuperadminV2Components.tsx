@@ -44,14 +44,19 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 export function SuperadminTriagePanel({ 
     stats,
     currentScope,
-    includeNonProductive
+    includeNonProductive,
+    qaScreenshot = false
 }: { 
     stats: { total: number; open: number; critical: number; breached: number; snoozed: number },
     currentScope?: string,
-    includeNonProductive?: boolean
+    includeNonProductive?: boolean,
+    qaScreenshot?: boolean
 }) {
     return (
-        <Card className="rounded-[2.5rem] border-none shadow-xl bg-indigo-900 text-white p-8 space-y-8 sticky top-6">
+        <Card className={cn(
+            "rounded-[2.5rem] border-none shadow-xl bg-indigo-900 text-white p-8 space-y-8",
+            !qaScreenshot && "sticky top-6"
+        )}>
             <div>
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-300 mb-6 flex items-center gap-2">
                     <Target className="w-3.5 h-3.5" />
@@ -206,10 +211,12 @@ export function SuperadminOperationalKPIs({
  */
 export function SuperadminAlertsList({ 
     alerts,
-    alertGroups
+    alertGroups,
+    qaScreenshot = false
 }: { 
     alerts: CockpitOperationalAlert[],
-    alertGroups: CockpitAlertGroup[]
+    alertGroups: CockpitAlertGroup[],
+    qaScreenshot?: boolean
 }) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
@@ -330,7 +337,10 @@ export function SuperadminAlertsList({
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Filter Bar */}
-            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border border-border/50 p-3 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div className={cn(
+                "z-20 bg-background/95 backdrop-blur-sm border border-border/50 p-3 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3",
+                !qaScreenshot && "sticky top-0"
+            )}>
                 <div className="flex items-center gap-3 flex-1 min-w-[300px]">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -643,7 +653,7 @@ function AlertIndividualCard({ alert, onAction, loading, onSelectPlaybook }: { a
     );
 }
 
-function PlaybookExecutionPanel({ alert, group, onClose }: { alert: CockpitOperationalAlert, group?: CockpitAlertGroup | null, onClose: () => void }) {
+export function PlaybookExecutionPanel({ alert, group, onClose }: { alert: CockpitOperationalAlert, group?: CockpitAlertGroup | null, onClose: () => void }) {
     const playbook = getPlaybookByRule(alert.ruleCode);
     const [acting, setActing] = useState<string | null>(null);
 
