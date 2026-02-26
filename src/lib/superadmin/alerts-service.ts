@@ -345,6 +345,21 @@ export class AlertsService {
         await this.ensureSuperadmin();
         return prisma.superadminNotification.findMany({
             where: { readAt: null },
+            include: { 
+                alert: { 
+                    include: { 
+                        organization: { 
+                            select: { 
+                                id: true, 
+                                name: true, 
+                                createdAt: true, 
+                                subscription: { select: { status: true, trialEndsAt: true } },
+                                plan: true 
+                            } 
+                        } 
+                    } 
+                } 
+            },
             orderBy: { createdAt: 'desc' },
             take: 20
         });

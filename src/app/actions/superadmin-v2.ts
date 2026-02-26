@@ -335,21 +335,57 @@ export async function bulkResolveCockpitAlerts(fingerprints: string[], note: str
 }
 
 /**
- * Fetch legacy dashboard data (Adapted to v4.2.3 contract)
+ * Fetch legacy dashboard data (Adapted to v4.7.2.3 contract)
  */
-export async function getCockpitV2Data(): Promise<OperationalActionResult<unknown>> {
+export async function getCockpitV2Data(options: { 
+    scopeMode?: string, 
+    includeNonProductive?: boolean 
+} = {}): Promise<OperationalActionResult<unknown>> {
     const traceId = `DATA-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const scopeMode = options.scopeMode || "production_only";
+    const includeNonProductive = options.includeNonProductive ?? false;
+
     try {
-        const [alerts, notifications, metrics] = await Promise.all([
+        const [alertsSummary, rawNotifications, metrics] = await Promise.all([
             AlertsService.getGlobalAlertsSummary(),
             AlertsService.getCockpitNotifications(),
             MetricsService.getAggregatedMonthlyMetrics()
         ]);
+
+        const { classifyOrganizationEnvironment } = await import("@/lib/superadmin/environment-classifier");
+
+        // Filter and Dedupe Notifications
+        const filteredNotifications = rawNotifications.filter(n => {
+            if (includeNonProductive || scopeMode === "all") return true;
+            if (!n.alert?.organization) return true; // Global notifications
+            
+            const classification = classifyOrganizationEnvironment(n.alert.organization as any);
+            if (scopeMode === "production_only") return classification.environmentClass === "production";
+            if (scopeMode === "production_with_trial") return ["production", "trial"].includes(classification.environmentClass);
+            
+            return classification.isOperationallyRelevant;
+        });
+
+        // Dedupe by alert fingerprint if available
+        const dedupeMap = new Map();
+        const deduped = [];
+        for (const n of filteredNotifications) {
+            const key = n.alert?.fingerprint || n.id;
+            if (!dedupeMap.has(key)) {
+                dedupeMap.set(key, true);
+                deduped.push(n);
+            }
+        }
+
         return {
             ok: true,
             code: "OK",
             message: "Lectura exitosa.",
-            data: { alerts, notifications, metrics },
+            data: { 
+                alerts: alertsSummary, 
+                notifications: deduped, 
+                metrics 
+            },
             meta: { traceId }
         };
     } catch (error: unknown) {

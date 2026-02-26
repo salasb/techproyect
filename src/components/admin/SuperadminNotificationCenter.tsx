@@ -18,6 +18,8 @@ import Link from "next/link";
 import { toast } from "sonner";
 import type { OperationalActionResult } from "@/lib/superadmin/cockpit-data-adapter";
 
+import { useSearchParams } from "next/navigation";
+
 interface NotificationItem {
     id: string;
     title: string;
@@ -29,33 +31,37 @@ interface NotificationItem {
         ruleCode?: string;
         fingerprint?: string;
     };
+    alert?: {
+        organization?: {
+            name: string;
+        }
+    };
 }
 
 export function SuperadminNotificationCenter() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [actingId, setActingId] = useState<string | null>(null);
+    const searchParams = useSearchParams();
+
+    const scopeMode = searchParams.get('scopeMode') || "production_only";
+    const includeNonProductive = searchParams.get('includeNonProductive') === '1';
+    const isDiagnosticMode = scopeMode === 'all';
 
     const loadData = useCallback(async (isMountedRef: { current: boolean }, skipLoadingState = false) => {
         if (isMountedRef.current && !skipLoadingState) setLoading(true);
-        const res = await getCockpitV2Data();
+        const res = await getCockpitV2Data({ scopeMode, includeNonProductive });
         if (isMountedRef.current && res.ok && res.data) {
             const payload = res.data as { notifications: NotificationItem[] };
             setNotifications(payload.notifications || []);
         }
         if (isMountedRef.current) setLoading(false);
-    }, []);
+    }, [scopeMode, includeNonProductive]);
 
     useEffect(() => {
         const isMounted = { current: true };
-        // Defer execution to avoid synchronous state update in effect body
-        const timer = setTimeout(() => {
-            loadData(isMounted, true);
-        }, 0);
-        return () => { 
-            isMounted.current = false; 
-            clearTimeout(timer);
-        };
+        loadData(isMounted, true);
+        return () => { isMounted.current = false; };
     }, [loadData]);
 
     const handleMarkRead = async (id: string) => {
@@ -111,10 +117,15 @@ export function SuperadminNotificationCenter() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 p-0 rounded-2xl border-border shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="p-4 bg-muted/30 border-b border-border flex items-center justify-between">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
-                        <Activity className="w-3 h-3 text-blue-500" />
-                        Notificaciones
-                    </h3>
+                    <div className="flex flex-col">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+                            <Activity className="w-3 h-3 text-blue-500" />
+                            {isDiagnosticMode ? "Notificaciones (diagnóstico)" : "Notificaciones"}
+                        </h3>
+                        {isDiagnosticMode && (
+                            <span className="text-[7px] font-bold text-amber-600 uppercase mt-0.5">No afecta KPIs operacionales</span>
+                        )}
+                    </div>
                     {unreadCount === 0 && <span className="text-[10px] font-bold text-muted-foreground">Al día</span>}
                 </div>
 
@@ -129,11 +140,12 @@ export function SuperadminNotificationCenter() {
                                 <Check className="w-5 h-5 text-emerald-500" />
                             </div>
                             <p className="text-xs font-bold text-foreground">Sin alertas críticas</p>
-                            <p className="text-[10px] text-muted-foreground mt-1">Todo el ecosistema está bajo control.</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Ecosistema bajo control.</p>
                         </div>
                     ) : (
                         notifications.map((n) => {
                             const isActing = actingId === n.id;
+                            const orgName = n.alert?.organization?.name;
                             return (
                                 <DropdownMenuItem key={n.id} className="p-4 focus:bg-muted/50 cursor-default block border-b border-border/50 last:border-0 transition-colors">
                                     <div className="flex gap-3">
@@ -143,7 +155,12 @@ export function SuperadminNotificationCenter() {
                                         <div className="flex-1 min-w-0 space-y-1">
                                             <div className="flex items-center justify-between gap-2">
                                                 <div className="flex flex-col min-w-0">
-                                                    <p className="text-[11px] font-black leading-none text-foreground truncate">{n.title}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[11px] font-black leading-none text-foreground truncate">{n.title}</p>
+                                                        {orgName && (
+                                                            <Badge variant="outline" className="text-[7px] font-bold px-1 h-3.5 border-black/5 bg-black/5">{orgName.slice(0, 10)}</Badge>
+                                                        )}
+                                                    </div>
                                                     {n.metadata?.ruleCode && (
                                                         <span className="text-[7px] font-mono uppercase opacity-40 mt-0.5">{n.metadata.ruleCode}</span>
                                                     )}

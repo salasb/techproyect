@@ -79,7 +79,7 @@ export function SuperadminTriagePanel({
             </div>
 
             {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && (
-                <div className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] space-y-2">
+                <div data-testid="hygiene-card" className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] space-y-2">
                     <div className="flex items-center gap-2">
                         <EyeOff className="w-3 h-3 text-amber-400" />
                         <span className="text-[9px] font-black uppercase text-amber-200 tracking-widest">Higiene operacional activa</span>
@@ -234,10 +234,16 @@ export function SuperadminAlertsList({
 }) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
+    const [selectedGroup, setSelectedGroup] = useState<CockpitAlertGroup | null>(null);
     const searchParams = useSearchParams();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'grouped' | 'individual'>('grouped');
+
+    const closePlaybook = () => {
+        setSelectedAlert(null);
+        setSelectedGroup(null);
+    };
     
     useEffect(() => {
         const saved = localStorage.getItem('cockpit_view_mode');
@@ -462,7 +468,8 @@ export function SuperadminAlertsList({
                                                 isExpanded={expandedGroups[group.groupKey]}
                                                 onIndividualAction={handleAction}
                                                 loadingId={loadingId}
-                                                onSelectPlaybook={(alert) => setSelectedAlert(alert)}
+                                                onSelectPlaybook={(group) => setSelectedGroup(group)}
+                                                onSelectIndividualPlaybook={(alert) => setSelectedAlert(alert)}
                                             />
                                         ))
                                     ) : (
@@ -495,12 +502,13 @@ export function SuperadminAlertsList({
             )}
 
             {/* Playbook Modal */}
-            <Modal title="Ejecución de Playbook" isOpen={!!selectedAlert} onClose={() => setSelectedAlert(null)}>
+            <Modal title="Ejecución de Playbook" isOpen={!!selectedAlert || !!selectedGroup} onClose={closePlaybook}>
                 <div className="max-w-2xl w-full">
-                    {selectedAlert && (
+                    {(selectedAlert || selectedGroup) && (
                         <PlaybookExecutionPanel 
-                            alert={selectedAlert} 
-                            onClose={() => setSelectedAlert(null)} 
+                            alert={selectedAlert || selectedGroup!.items[0]} 
+                            group={selectedGroup}
+                            onClose={closePlaybook} 
                         />
                     )}
                 </div>
@@ -511,12 +519,14 @@ export function SuperadminAlertsList({
 
 function AlertGroupCard({ 
     group, 
+    isCompact, 
     onBulkAction, 
     onExpand, 
     isExpanded,
     onIndividualAction,
     loadingId,
-    onSelectPlaybook
+    onSelectPlaybook,
+    onSelectIndividualPlaybook
 }: { 
     group: CockpitAlertGroup, 
     isCompact: boolean, 
@@ -525,7 +535,8 @@ function AlertGroupCard({
     isExpanded: boolean,
     onIndividualAction: (id: string, fn: any) => Promise<void>,
     loadingId: string | null,
-    onSelectPlaybook: (alert: CockpitOperationalAlert) => void
+    onSelectPlaybook: (group: CockpitAlertGroup) => void,
+    onSelectIndividualPlaybook: (alert: CockpitOperationalAlert) => void
 }) {
     const severityColor = group.severity === 'critical' ? 'text-red-600' : group.severity === 'warning' ? 'text-amber-600' : 'text-blue-600';
     const isLoading = loadingId === group.groupKey;
@@ -563,6 +574,10 @@ function AlertGroupCard({
                                 <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase">Acciones masivas</Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-2xl">
+                                <DropdownMenuItem onClick={() => onSelectPlaybook(group)} className="rounded-xl flex items-center gap-2 p-2.5 bg-indigo-50 text-indigo-700 font-black uppercase tracking-tight mb-2 border border-indigo-100">
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                    Abrir Playbook Base
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onBulkAction(group.groupKey, () => bulkAcknowledgeCockpitAlerts(group.itemIds))} className="rounded-xl flex items-center gap-2 p-2.5">
                                     <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
                                     <span className="text-xs font-black uppercase">Acusar recibo a todos</span>
@@ -592,7 +607,7 @@ function AlertGroupCard({
                                 isCompact={true} 
                                 onAction={onIndividualAction}
                                 loading={loadingId === item.id}
-                                onSelectPlaybook={() => onSelectPlaybook(item)}
+                                onSelectPlaybook={() => onSelectIndividualPlaybook(item)}
                             />
                         ))}
                     </div>
@@ -649,7 +664,7 @@ function AlertIndividualCard({ alert, onAction, loading, onSelectPlaybook }: { a
     );
 }
 
-function PlaybookExecutionPanel({ alert, onClose }: { alert: CockpitOperationalAlert, onClose: () => void }) {
+function PlaybookExecutionPanel({ alert, group, onClose }: { alert: CockpitOperationalAlert, group?: CockpitAlertGroup | null, onClose: () => void }) {
     const playbook = getPlaybookByRule(alert.ruleCode);
     const [acting, setActing] = useState<string | null>(null);
 
@@ -672,9 +687,16 @@ function PlaybookExecutionPanel({ alert, onClose }: { alert: CockpitOperationalA
             </button>
 
             <div>
-                <div className="flex items-center gap-3 mb-2">
-                    <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] font-black uppercase italic">Playbook</Badge>
-                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{alert.ruleCode}</span>
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] font-black uppercase italic">Playbook</Badge>
+                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{alert.ruleCode}</span>
+                    </div>
+                    {group && (
+                        <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] font-black uppercase">
+                            Impacto: {group.orgCount} orgs / {group.count} incidentes
+                        </Badge>
+                    )}
                 </div>
                 <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900 dark:text-white">{playbook.title}</h2>
                 <p className="text-sm font-medium italic leading-relaxed pt-2 text-slate-500">
@@ -722,10 +744,33 @@ function PlaybookExecutionPanel({ alert, onClose }: { alert: CockpitOperationalA
                                         <p className="text-[10px] font-medium text-slate-500 mt-1 italic">
                                             {step.description}
                                         </p>
+                                        
+                                        {/* Acciones y Deeplinks según contrato v4.8.0 */}
+                                        {step.actionType === 'deeplink' && alert.href && !isChecked && (
+                                            <div className="mt-3">
+                                                <Button variant="outline" size="sm" className="h-7 text-[9px] font-black uppercase text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100" asChild>
+                                                    <Link href={alert.href} target="_blank">
+                                                        <ExternalLink className="w-3 h-3 mr-2" />
+                                                        Abrir Contexto Relacionado
+                                                    </Link>
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {step.evidenceHint && !isChecked && (
+                                            <div className="mt-3 p-2 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2">
+                                                <Info className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                                                <p className="text-[9px] font-medium text-amber-700 leading-tight">
+                                                    <span className="font-black uppercase tracking-widest block mb-0.5">Evidencia requerida</span>
+                                                    {step.evidenceHint}
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {isChecked && execution?.checkedBy && (
                                             <p className="text-[8px] font-bold text-emerald-600 mt-2 uppercase tracking-widest flex items-center gap-1">
                                                 <CheckCircle2 className="w-2.5 h-2.5" />
-                                                Completado por {execution.checkedBy.split('@')[0]}
+                                                Completado por {execution.checkedBy.split('@')[0]} el {new Date(execution.checkedAt || "").toLocaleDateString()}
                                             </p>
                                         )}
                                     </div>
