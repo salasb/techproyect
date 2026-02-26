@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import React from 'react';
 import { SuperadminTriagePanel } from './SuperadminV2Components';
 
-describe('SuperadminTriagePanel Hygiene Card (v4.7.2.3)', () => {
+describe('SuperadminTriagePanel Hygiene Card (v4.8.0)', () => {
     it('renders ZERO hygiene cards even when filter is active (moved to page level)', () => {
         const stats = { total: 10, open: 5, critical: 2, breached: 1, snoozed: 2 };
         const hygiene = { totalRawIncidents: 100, totalOperationalIncidents: 10, hiddenByEnvironmentFilter: 90 };
@@ -16,21 +16,6 @@ describe('SuperadminTriagePanel Hygiene Card (v4.7.2.3)', () => {
         );
 
         // Should be 0 now as it moved to page.tsx
-        const count = (html.match(/data-testid="hygiene-card"/g) || []).length;
-        expect(count).toBe(0);
-    });
-
-    it('renders zero hygiene cards when filter is zero', () => {
-        const stats = { total: 10, open: 5, critical: 2, breached: 1, snoozed: 2 };
-        const hygiene = { totalRawIncidents: 10, totalOperationalIncidents: 10, hiddenByEnvironmentFilter: 0 };
-        
-        const html = renderToString(
-            <SuperadminTriagePanel 
-                stats={stats} 
-                includeNonProductive={false}
-            />
-        );
-
         const count = (html.match(/data-testid="hygiene-card"/g) || []).length;
         expect(count).toBe(0);
     });

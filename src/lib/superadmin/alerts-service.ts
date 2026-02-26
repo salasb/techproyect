@@ -361,7 +361,7 @@ export class AlertsService {
                 } 
             },
             orderBy: { createdAt: 'desc' },
-            take: 20
+            take: 100
         });
     }
 
@@ -442,9 +442,12 @@ export class AlertsService {
         });
     }
 
-    static async togglePlaybookStep(fingerprint: string, stepId: string, checked: boolean, note?: string) {
+    static async togglePlaybookStep(fingerprint: string, stepId: string, checked: boolean, traceId: string, note?: string) {
         const user = await this.ensureSuperadmin();
-        const alert = await prisma.superadminAlert.findUnique({ where: { fingerprint } });
+        const alert = await prisma.superadminAlert.findUnique({ 
+            where: { fingerprint },
+            include: { organization: true }
+        });
         if (!alert) throw new Error("Alert not found");
 
         const meta = OperationalStateRepo.normalize(alert);
@@ -470,11 +473,44 @@ export class AlertsService {
         }
 
         await OperationalStateRepo.updateMetadata(fingerprint, { playbookSteps: steps });
+        
         await prisma.auditLog.create({
             data: {
                 userId: user.id,
-                action: 'SUPERADMIN_ALERT_PLAYBOOK_STEP_TOGGLED',
-                details: `Alert ${fingerprint} step ${stepId} set to ${checked} by ${user.email}.`,
+                action: checked ? 'SUPERADMIN_PLAYBOOK_STEP_COMPLETED' : 'SUPERADMIN_PLAYBOOK_STEP_RESET',
+                details: `[${traceId}] Alert ${fingerprint} (${alert.organization?.name || 'Global'}): Step ${stepId} set to ${checked} by ${user.email}.`,
+                createdAt: new Date()
+            }
+        });
+    }
+
+    static async logPlaybookOpened(fingerprint: string, traceId: string) {
+        const user = await this.ensureSuperadmin();
+        const alert = await prisma.superadminAlert.findUnique({ 
+            where: { fingerprint },
+            include: { organization: true }
+        });
+        if (!alert) return;
+
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'SUPERADMIN_PLAYBOOK_OPENED',
+                details: `[${traceId}] Playbook for alert ${fingerprint} (${alert.organization?.name || 'Global'}) opened by ${user.email}.`,
+                createdAt: new Date()
+            }
+        });
+    }
+
+    static async resetPlaybookProgress(fingerprint: string, traceId: string) {
+        const user = await this.ensureSuperadmin();
+        await OperationalStateRepo.updateMetadata(fingerprint, { playbookSteps: [] });
+        
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                action: 'SUPERADMIN_PLAYBOOK_RESET',
+                details: `[${traceId}] Playbook progress for alert ${fingerprint} reset by ${user.email}.`,
                 createdAt: new Date()
             }
         });
@@ -482,6 +518,25 @@ export class AlertsService {
 
     static async markNotificationRead(notificationId: string) {
         await this.ensureSuperadmin();
+        
+        // Find if this notification is linked to an alert fingerprint
+        const notif = await prisma.superadminNotification.findUnique({
+            where: { id: notificationId },
+            include: { alert: true }
+        });
+
+        if (notif?.alert?.fingerprint) {
+            // Bulk mark as read for all notifications of this alert to avoid "ghosting" older duplicates
+            return prisma.superadminNotification.updateMany({
+                where: { 
+                    alert: { fingerprint: notif.alert.fingerprint },
+                    readAt: null 
+                },
+                data: { readAt: new Date() }
+            });
+        }
+
+        // Fallback to single ID if no alert link
         return prisma.superadminNotification.update({
             where: { id: notificationId },
             data: { readAt: new Date() }

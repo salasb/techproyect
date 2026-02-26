@@ -4,7 +4,7 @@ export interface CockpitPlaybookStep {
   id: string;
   title: string;
   description?: string;
-  actionType?: PlaybookActionType;
+  actionType: PlaybookActionType;
   href?: string;
   actionId?: string;
   evidenceHint?: string;

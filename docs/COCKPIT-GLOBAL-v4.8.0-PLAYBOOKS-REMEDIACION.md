@@ -24,27 +24,28 @@ export interface CockpitRulePlaybook {
   ownerRoleSuggested?: string;
   steps: PlaybookStep[];
 }
+
+export interface PlaybookProgress {
+  subjectKey: string; // alertId o semanticKey
+  completedStepIds: string[];
+  updatedAt: string;
+  updatedBy: string;
+}
 ```
 
-## Catálogo Inicial de Reglas
-1. **BILLING_NOT_CONFIGURED / BILLING_PAST_DUE**: Remediación financiera (SLA: 24h).
-2. **NO_ADMINS_ASSIGNED**: Recuperación de nodos huérfanos (SLA: 1h).
-3. **TRIAL_ENDING_SOON**: Flujo comercial (SLA: 24h).
-4. **INACTIVE_ORG**: Prevención de Churn (SLA: 72h).
-5. **GENERIC_ALERT**: Procedimiento estándar de investigación.
+## Catálogo Inicial de Reglas (v1)
+1. **BILLING_NOT_CONFIGURED**: Remediación de setup financiero. Incluye deeplink a configuración de la org.
+2. **NO_ADMINS_ASSIGNED**: Recuperación de nodos huérfanos. Paso final de verificación en audit logs.
+3. **TRIAL_ENDING_SOON**: Flujo comercial de conversión.
+4. **INACTIVE_ORG**: Prevención de Churn.
+5. **WEBHOOK_FAILURE**: Resolución técnica de fallos de integración.
 
 ## UI y UX de Remediación
-- **Botón Playbook**: Disponible en las tarjetas individuales y grupales.
-- **Drawer / Panel**: Muestra el contexto de la alerta, el SLA objetivo y una checklist interactiva.
-- **Persistencia de Progreso**: Cada paso marcado se guarda en los metadatos de la alerta (`playbookSteps`), registrando el actor (`checkedBy`) y la fecha (`checkedAt`).
+- **Botón Playbook**: Disponible en cada tarjeta (agrupada e individual).
+- **Impacto de Grupo**: Al abrir desde un grupo, se muestra el conteo de orgs e incidentes afectados.
+- **Progreso**: Indicador visual del avance (ej: "2/5 pasos completados").
+- **Trazabilidad**: Cada paso marcado registra el autor y la fecha en los metadatos de la alerta.
 
-## Fases de Implementación
-- [x] Fase 0: Remate Pre-Flight (Higiene única, Notificaciones con Scope).
-- [x] Fase 1: Contrato Playbook (Definición de tipos y metadatos).
-- [x] Fase 2: Catálogo Inicial (5 reglas principales).
-- [x] Fase 3: Integración UI (Botón y Panel de Ejecución).
-- [x] Fase 4: Persistencia y Auditoría de Progreso.
-- [x] Fase 5: QA Manual de Integridad.
-
-## Auditoría
-Todas las acciones sobre un playbook (ej. completar un paso) generan un `Trace ID` y se registran en la tabla `AuditLog` del sistema.
+## Auditoría y Eventos
+- `SUPERADMIN_ALERT_PLAYBOOK_STEP_TOGGLED`: Registrado cada vez que se marca/desmarca un paso. Incluye `traceId`.
+- `SUPERADMIN_COCKPIT_VIEWED`: Registra la apertura del cockpit con el scope activo.

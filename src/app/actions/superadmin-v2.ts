@@ -166,7 +166,7 @@ export async function assignCockpitAlertOwner(fingerprint: string, ownerType: "u
 
 /**
  * Toggle a step in the alert playbook
- * v4.6.0: Orchestration
+ * v4.8.0: Orchestration + TraceId
  */
 export async function toggleCockpitPlaybookStep(fingerprint: string, stepId: string, checked: boolean, note?: string): Promise<OperationalActionResult> {
     const traceId = `STEP-${Math.random().toString(36).substring(7).toUpperCase()}`;
@@ -176,9 +176,29 @@ export async function toggleCockpitPlaybookStep(fingerprint: string, stepId: str
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
-        await AlertsService.togglePlaybookStep(fingerprint, stepId, checked, note);
+        await AlertsService.togglePlaybookStep(fingerprint, stepId, checked, traceId, note);
         revalidatePath("/admin");
-        return { ok: true, code: "OK", message: "Paso de playbook actualizado.", meta: { traceId, executedAt } };
+        return { ok: true, code: "OK", message: checked ? "Paso completado." : "Paso reiniciado.", meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
+    }
+}
+
+/**
+ * Log when a playbook is opened for audit
+ * v4.8.0
+ */
+export async function logPlaybookOpenedAction(fingerprint: string): Promise<OperationalActionResult> {
+    const traceId = `OPEN-PLAY-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.logPlaybookOpened(fingerprint, traceId);
+        return { ok: true, code: "OK", message: "View logged.", meta: { traceId, executedAt } };
     } catch (error: unknown) {
         const normalized = normalizeOperationalError(error);
         return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
@@ -207,6 +227,27 @@ export async function acknowledgeAlert(alertId: string): Promise<OperationalActi
     } catch (error: unknown) {
         const normalized = normalizeOperationalError(error);
         return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId } };
+    }
+}
+
+/**
+ * Reset playbook progress for an alert
+ * v4.8.0
+ */
+export async function resetCockpitPlaybookAction(fingerprint: string): Promise<OperationalActionResult> {
+    const traceId = `RESET-PLAY-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const executedAt = new Date().toISOString();
+    try {
+        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const access = await resolveSuperadminAccess();
+        if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
+
+        await AlertsService.resetPlaybookProgress(fingerprint, traceId);
+        revalidatePath("/admin");
+        return { ok: true, code: "OK", message: "Progreso reiniciado.", meta: { traceId, executedAt } };
+    } catch (error: unknown) {
+        const normalized = normalizeOperationalError(error);
+        return { ok: false, code: "SERVICE_FAILURE", message: normalized.message, meta: { traceId, executedAt } };
     }
 }
 
@@ -383,7 +424,7 @@ export async function getCockpitV2Data(options: {
             message: "Lectura exitosa.",
             data: { 
                 alerts: alertsSummary, 
-                notifications: deduped, 
+                notifications: deduped.slice(0, 20), 
                 metrics 
             },
             meta: { traceId }

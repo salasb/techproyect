@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { 
     acknowledgeCockpitAlert, snoozeCockpitAlert, resolveCockpitAlert, 
     assignCockpitAlertOwner, toggleCockpitPlaybookStep,
-    bulkAcknowledgeCockpitAlerts, bulkSnoozeCockpitAlerts, bulkResolveCockpitAlerts
+    bulkAcknowledgeCockpitAlerts, bulkSnoozeCockpitAlerts, bulkResolveCockpitAlerts,
+    logPlaybookOpenedAction, resetCockpitPlaybookAction
 } from "@/app/actions/superadmin-v2";
 import type { CockpitOperationalAlert, OperationalActionResult, CockpitAlertGroup } from "@/lib/superadmin/cockpit-data-adapter";
 import type { OperationalMetrics } from "@/lib/superadmin/cockpit-service";
@@ -42,12 +43,10 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
  */
 export function SuperadminTriagePanel({ 
     stats,
-    hygiene,
     currentScope,
     includeNonProductive
 }: { 
     stats: { total: number; open: number; critical: number; breached: number; snoozed: number },
-    hygiene?: { totalRawIncidents: number; totalOperationalIncidents: number; hiddenByEnvironmentFilter: number },
     currentScope?: string,
     includeNonProductive?: boolean
 }) {
@@ -77,24 +76,6 @@ export function SuperadminTriagePanel({
                     </div>
                 </div>
             </div>
-
-            {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && (
-                <div data-testid="hygiene-card" className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] space-y-2">
-                    <div className="flex items-center gap-2">
-                        <EyeOff className="w-3 h-3 text-amber-400" />
-                        <span className="text-[9px] font-black uppercase text-amber-200 tracking-widest">Higiene operacional activa</span>
-                    </div>
-                    <p className="text-[10px] font-medium text-amber-100/70 leading-tight">
-                        Se ocultaron <span className="font-black text-amber-400">{hygiene.hiddenByEnvironmentFilter} incidentes</span> de Test/Demo/QA/Trial.
-                    </p>
-                    <div className="pt-1">
-                        <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-amber-400 hover:text-amber-300" asChild>
-                            <Link href={`?includeNonProductive=1&scopeMode=all`}>Ver todo (diagnóstico)</Link>
-                        </Button>
-                        <p className="text-[8px] text-amber-200/40 italic mt-1">Esto no elimina datos; solo reduce ruido.</p>
-                    </div>
-                </div>
-            )}
 
             <div className="space-y-3 pt-2 border-t border-white/10 relative">
                 <h4 className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">Filtros de Alcance</h4>
@@ -225,12 +206,10 @@ export function SuperadminOperationalKPIs({
  */
 export function SuperadminAlertsList({ 
     alerts,
-    alertGroups,
-    hygiene
+    alertGroups
 }: { 
     alerts: CockpitOperationalAlert[],
-    alertGroups: CockpitAlertGroup[],
-    hygiene?: { hiddenByEnvironmentFilter: number }
+    alertGroups: CockpitAlertGroup[]
 }) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [selectedAlert, setSelectedAlert] = useState<CockpitOperationalAlert | null>(null);
@@ -668,6 +647,10 @@ function PlaybookExecutionPanel({ alert, group, onClose }: { alert: CockpitOpera
     const playbook = getPlaybookByRule(alert.ruleCode);
     const [acting, setActing] = useState<string | null>(null);
 
+    useEffect(() => {
+        logPlaybookOpenedAction(alert.fingerprint);
+    }, [alert.fingerprint]);
+
     const toggleStep = async (stepId: string, checked: boolean) => {
         setActing(stepId);
         try {
@@ -687,6 +670,14 @@ function PlaybookExecutionPanel({ alert, group, onClose }: { alert: CockpitOpera
             </button>
 
             <div>
+                <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Contexto:</p>
+                    <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm font-black uppercase tracking-tight italic">{alert.organization?.name || "Organización Global"}</span>
+                    </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                         <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] font-black uppercase italic">Playbook</Badge>
@@ -699,16 +690,43 @@ function PlaybookExecutionPanel({ alert, group, onClose }: { alert: CockpitOpera
                     )}
                 </div>
                 <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900 dark:text-white">{playbook.title}</h2>
+                {group && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {group.organizationsPreview.map(o => (
+                            <Badge key={o.orgId} variant="outline" className="text-[8px] font-bold bg-slate-50 border-slate-200">{o.orgName}</Badge>
+                        ))}
+                        {group.orgCount > 3 && <span className="text-[8px] text-slate-400 font-bold">+{group.orgCount - 3} más</span>}
+                    </div>
+                )}
                 <p className="text-sm font-medium italic leading-relaxed pt-2 text-slate-500">
                     {playbook.summary}
                 </p>
             </div>
 
             <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[60vh]">
+                {/* Progress Bar v4.8.0 */}
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <span>Progreso de Remediación</span>
+                        <span className="text-blue-600 font-mono">{alert.playbookSteps?.filter(s => s.checked).length || 0} / {playbook.steps.length}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200 shadow-inner">
+                        <div 
+                            className="bg-blue-600 h-full transition-all duration-500 ease-out shadow-[0_0_10px_rgba(37,99,235,0.3)]"
+                            style={{ width: `${((alert.playbookSteps?.filter(s => s.checked).length || 0) / playbook.steps.length) * 100}%` }}
+                        />
+                    </div>
+                </div>
+
                 <div className="space-y-4">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                        <ClipboardList className="w-3.5 h-3.5" />
-                        Pasos de Remediación
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2">
+                            <ClipboardList className="w-3.5 h-3.5" />
+                            Pasos de Remediación
+                        </span>
+                        <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-mono">
+                            {alert.playbookSteps?.filter(s => s.checked).length || 0} / {playbook.steps.length} completados
+                        </span>
                     </h4>
                     
                     <div className="space-y-3">
@@ -806,7 +824,20 @@ function PlaybookExecutionPanel({ alert, group, onClose }: { alert: CockpitOpera
                 </div>
             </div>
 
-            <div className="pt-6 border-t border-border flex justify-end">
+            <div className="pt-6 border-t border-border flex justify-between items-center">
+                <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={async () => {
+                        if (confirm("¿Estás seguro de reiniciar todo el progreso de este playbook?")) {
+                            await resetCockpitPlaybookAction(alert.fingerprint);
+                            toast.success("Progreso reiniciado");
+                        }
+                    }}
+                    className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 text-[9px] font-black uppercase tracking-widest"
+                >
+                    Reiniciar Progreso
+                </Button>
                 <Button variant="outline" onClick={onClose} className="rounded-2xl text-[10px] font-black uppercase h-10 px-8">
                     Cerrar Panel
                 </Button>

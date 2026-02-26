@@ -1,6 +1,7 @@
 import { 
     Building2, Users, CreditCard, Activity, Zap, ShieldCheck, 
-    ShieldAlert, AlertTriangle, CheckCheck, Target, ClipboardList, AlertOctagon 
+    ShieldAlert, AlertTriangle, CheckCheck, Target, ClipboardList, AlertOctagon,
+    EyeOff
 } from "lucide-react";
 import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
 import { SuperadminNotificationCenter } from "@/components/admin/SuperadminNotificationCenter";
@@ -16,6 +17,7 @@ import { CockpitService } from "@/lib/superadmin/cockpit-service";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -233,17 +235,36 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
                             <SuperadminAlertsList 
                                 alerts={blocks.alerts.data} 
                                 alertGroups={blocks.alertGroups.data}
-                                hygiene={hygiene}
                             />
                         </Suspense>
                     </BlockContainer>
                 </section>
                 
                 <aside className="space-y-6 lg:sticky lg:top-8 animate-in slide-in-from-right-4 duration-700">
+                    {/* Operational Hygiene Warning v4.7.2.3 */}
+                    {hygiene && hygiene.hiddenByEnvironmentFilter > 0 && (
+                        <div data-testid="hygiene-card" className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2.5rem] space-y-3 shadow-sm transition-all hover:bg-amber-500/15 group">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-amber-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                                    <EyeOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-200 tracking-widest">Higiene operacional activa</span>
+                            </div>
+                            <p className="text-[11px] font-medium text-amber-800 dark:text-amber-100/70 leading-relaxed italic">
+                                Se ocultaron <span className="font-black text-amber-600 dark:text-amber-400 underline decoration-amber-500/30">{hygiene.hiddenByEnvironmentFilter} incidentes</span> clasificados como de Test/Demo/QA/Trial para reducir ruido.
+                            </p>
+                            <div className="pt-1 flex items-center justify-between">
+                                <Button variant="link" className="h-auto p-0 text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300" asChild>
+                                    <Link href={`?includeNonProductive=1&scopeMode=all`}>Activar Modo Diagnóstico</Link>
+                                </Button>
+                                <Badge variant="outline" className="text-[8px] font-bold border-amber-500/20 text-amber-600/50">PROD_ONLY</Badge>
+                            </div>
+                        </div>
+                    )}
+
                     {/* New Triage Panel */}
                     <SuperadminTriagePanel 
                         stats={triageStats} 
-                        hygiene={hygiene}
                         currentScope={scopeMode}
                         includeNonProductive={includeNonProductive}
                     />
