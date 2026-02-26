@@ -34,18 +34,20 @@ export interface PlaybookProgress {
 ```
 
 ## Catálogo Inicial de Reglas (v1)
-1. **BILLING_NOT_CONFIGURED**: Remediación de setup financiero. Incluye deeplink a configuración de la org.
-2. **NO_ADMINS_ASSIGNED**: Recuperación de nodos huérfanos. Paso final de verificación en audit logs.
-3. **TRIAL_ENDING_SOON**: Flujo comercial de conversión.
-4. **INACTIVE_ORG**: Prevención de Churn.
+1. **BILLING_NOT_CONFIGURED**: Remediación de setup financiero. Link a `/settings/billing`.
+2. **NO_ADMINS_ASSIGNED**: Recuperación de nodos huérfanos. Link a `/settings/team`.
+3. **TRIAL_ENDING_SOON**: Flujo comercial de conversión. Link a `/settings/organization`.
+4. **INACTIVE_ORG**: Prevención de Churn. Link a `/settings/organization`.
 5. **WEBHOOK_FAILURE**: Resolución técnica de fallos de integración.
 
 ## UI y UX de Remediación
 - **Botón Playbook**: Disponible en cada tarjeta (agrupada e individual).
-- **Impacto de Grupo**: Al abrir desde un grupo, se muestra el conteo de orgs e incidentes afectados.
-- **Progreso**: Indicador visual del avance (ej: "2/5 pasos completados").
-- **Trazabilidad**: Cada paso marcado registra el autor y la fecha en los metadatos de la alerta.
+- **Impacto de Grupo**: Al abrir desde un grupo, se muestra el conteo de orgs e incidentes afectados y un preview de los nombres.
+- **Progreso**: Indicador visual del avance (ej: "2/5 pasos completados") con barra de progreso.
+- **Trazabilidad**: Cada paso marcado registra el autor y la fecha.
 
-## Auditoría y Eventos
-- `SUPERADMIN_ALERT_PLAYBOOK_STEP_TOGGLED`: Registrado cada vez que se marca/desmarca un paso. Incluye `traceId`.
-- `SUPERADMIN_COCKPIT_VIEWED`: Registra la apertura del cockpit con el scope activo.
+## Auditoría y Eventos (v4.8.0)
+- `OPEN_PLAYBOOK`: Registrado al abrir el drawer.
+- `COMPLETE_STEP`: Registrado al marcar un paso como listo.
+- `RESET_PROGRESS`: Registrado al limpiar el checklist o reabrir la alerta.
+Cada evento incluye `traceId`, `actor` y `subjectKey`.

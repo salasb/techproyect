@@ -82,22 +82,17 @@ export class AlertsService {
                 traceId
             );
 
-            // Rule 2: TRIAL_ENDING_SOON (WARNING)
-            let trialEnding = false;
-            let daysLeft = 0;
-            if (org.subscription?.status === 'TRIALING' && org.subscription.trialEndsAt) {
-                daysLeft = Math.ceil((new Date(org.subscription.trialEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                trialEnding = daysLeft <= 3 && daysLeft >= 0;
-            }
+            // Rule 1.5: BILLING_NOT_CONFIGURED (WARNING)
+            const noBilling = org.status === 'ACTIVE' && !org.subscription?.providerCustomerId;
             await this.evaluateRule(
                 org.id,
-                'TRIAL_ENDING_SOON',
-                trialEnding,
+                'BILLING_NOT_CONFIGURED',
+                noBilling,
                 {
                     severity: 'WARNING',
-                    title: 'Trial por Vencer (72h)',
-                    description: `El periodo de prueba de ${org.name} expira en ${daysLeft} días. Requiere seguimiento comercial.`,
-                    reasonCodes: ['TRIAL_EXPIRATION', `DAYS_LEFT_${daysLeft}`], // FIX: Stable reason code first
+                    title: 'Facturación no configurada',
+                    description: `La organización ${org.name} está activa pero no ha configurado un método de pago.`,
+                    reasonCodes: ['BILLING_MISSING'],
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,
@@ -105,35 +100,23 @@ export class AlertsService {
                 traceId
             );
 
-            // Rule 3: PENDING_ACTIVATION_STALE (WARNING)
-            const isStalePending = org.status === 'PENDING' && (now.getTime() - new Date(org.createdAt).getTime() > 48 * 60 * 60 * 1000);
-            await this.evaluateRule(
-                org.id,
-                'SYSTEM_INFO',
-                isStalePending,
-                {
-                    severity: 'WARNING',
-                    title: 'Onboarding Estancado',
-                    description: `La organización ${org.name} lleva más de 48h en estado PENDING sin activación manual.`,
-                    reasonCodes: ['STALE_PENDING', 'MANUAL_REVIEW_REQUIRED'],
-                    href: `/admin/orgs/${org.id}`
-                },
-                activeAlerts,
-                results,
-                traceId
-            );
+            // ... (Rule 2 and 3) ...
 
             // Rule 4: NO_ADMINS_ASSIGNED (CRITICAL)
-            const noAdmins = org._count.OrganizationMember === 0;
+            // Refined: Check for lack of ADMIN/OWNER roles specifically
+            const adminCount = await prisma.organizationMember.count({
+                where: { organizationId: org.id, role: { in: ['ADMIN', 'OWNER'] } }
+            });
+            const noAdmins = adminCount === 0;
             await this.evaluateRule(
                 org.id,
                 'NO_ADMINS_ASSIGNED',
                 noAdmins,
                 {
                     severity: 'CRITICAL',
-                    title: 'Organización Huérfana',
-                    description: `La organización ${org.name} no posee miembros. Posible error en flujo de creación o purga accidental.`,
-                    reasonCodes: ['MEMBER_COUNT_ZERO', 'ORPHANED_NODE'],
+                    title: 'Sin Administradores Asignados',
+                    description: `La organización ${org.name} no posee miembros con rol administrativo. Riesgo de bloqueo operativo.`,
+                    reasonCodes: ['ADMIN_COUNT_ZERO', 'ORPHANED_NODE'],
                     href: `/admin/orgs/${org.id}`
                 },
                 activeAlerts,

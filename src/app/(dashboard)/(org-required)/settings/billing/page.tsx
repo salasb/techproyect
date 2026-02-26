@@ -29,8 +29,35 @@ export default async function BillingPage() {
     // Find current plan details from DB list or fallback
     const currentPlanDetails = allPlans?.find(p => p.id === plan);
 
+    const hasPaymentMethod = !!subscription?.providerCustomerId;
+
     return (
         <div className="space-y-12 animate-in fade-in pb-10">
+            {!hasPaymentMethod && (
+                <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8 animate-in slide-in-from-top-4 duration-700">
+                    <div className="flex items-center gap-6">
+                        <div className="p-4 bg-white/20 rounded-[1.5rem] shadow-inner shrink-0">
+                            <Zap className="w-8 h-8 text-white fill-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black italic tracking-tighter uppercase italic">Configuración de Facturación Pendiente</h3>
+                            <p className="text-indigo-100 text-sm max-w-xl leading-relaxed font-medium">
+                                Tu organización está operando bajo un entorno restringido. Completa la configuración de pagos para asegurar la continuidad de tus proyectos y activar Sentinel.
+                            </p>
+                        </div>
+                    </div>
+                    <form action={async () => {
+                        'use server';
+                        const { requestUpgrade } = await import("@/app/actions/subscription");
+                        await requestUpgrade("PRO_MONTHLY"); 
+                    }}>
+                        <Button type="submit" size="lg" className="bg-white text-indigo-700 hover:bg-indigo-50 px-10 h-14 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl transition-all active:scale-95">
+                            Configurar Pagos Ahora
+                        </Button>
+                    </form>
+                </div>
+            )}
+
             <div className="flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-6">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Facturación y Planes</h1>

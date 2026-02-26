@@ -29,7 +29,7 @@ export const PLAYBOOKS_CATALOG: Record<string, CockpitRulePlaybook> = {
     ownerRoleSuggested: "FINANCE_OPS",
     steps: [
       { id: "verify_stripe", title: "Verificar en Stripe Dashboard", description: "Confirmar que el pago realmente falló y no es un error de sync.", order: 1, actionType: "check", evidenceHint: "Buscar Invoice ID en Stripe" },
-      { id: "check_org_status", title: "Revisar estado de la Org", description: "Verificar si hay bloqueos previos o tickets abiertos.", order: 2, actionType: "deeplink" },
+      { id: "check_org_status", title: "Revisar estado de la Org", description: "Verificar si hay bloqueos previos o tickets abiertos.", order: 2, actionType: "deeplink", href: "/settings/billing" },
       { id: "contact_customer", title: "Contactar al cliente", description: "Enviar aviso manual o verificar si el auto-dunning funcionó.", order: 3, actionType: "check" },
       { id: "retry_sync", title: "Forzar re-sincronización", description: "Ejecutar acción de sync manual si el pago ya se regularizó.", order: 4, actionType: "serverAction" },
     ],
@@ -42,20 +42,22 @@ export const PLAYBOOKS_CATALOG: Record<string, CockpitRulePlaybook> = {
     ownerRoleSuggested: "FINANCE_OPS",
     steps: [
       { id: "verify_plan", title: "Auditar plan actual", description: "Verificar si debe estar en FREE o requiere configuración PRO.", order: 1, actionType: "check", evidenceHint: "Revisar tabla de suscripciones" },
-      { id: "notify_org", title: "Notificar al Owner", description: "Solicitar carga de tarjeta de crédito o firma de contrato.", order: 2, actionType: "check" },
+      { id: "notify_org", title: "Notificar al Owner", description: "Solicitar carga de tarjeta de crédito o firma de contrato.", order: 2, actionType: "deeplink", href: "/settings/billing" },
       { id: "apply_grace_period", title: "Otorgar periodo de gracia", description: "Si aplica, extender trial o posponer bloqueo.", order: 3, actionType: "serverAction" },
+      { id: "verify_setup", title: "Verificación Final", description: "Confirmar que el banner de configuración desapareció.", order: 4, actionType: "check", evidenceHint: "Portal Orgs muestra estado ACTIVE" },
     ]
   },
   NO_ADMINS_ASSIGNED: {
     ruleCode: "NO_ADMINS_ASSIGNED",
     title: "Recuperación de Nodo Huérfano",
-    summary: "La organización no tiene miembros asignados. Riesgo de abandono o error de creación.",
+    summary: "La organización no tiene miembros asignados con rol administrativo.",
     defaultSlaPreset: "1h",
     ownerRoleSuggested: "SUPPORT",
     steps: [
       { id: "audit_logs", title: "Auditar logs de creación", description: "Identificar quién creó la org y qué pasó con el dueño inicial.", order: 1, actionType: "check", evidenceHint: "Buscar 'ORG_CREATED' en audit log" },
-      { id: "check_invitations", title: "Verificar invitaciones pendientes", description: "Confirmar si hay invitaciones enviadas que no han sido aceptadas.", order: 2, actionType: "check" },
+      { id: "check_invitations", title: "Verificar invitaciones pendientes", description: "Confirmar si hay invitaciones enviadas que no han sido aceptadas.", order: 2, actionType: "deeplink", href: "/settings/team" },
       { id: "assign_temporary", title: "Asignar administrador temporal", description: "Asignar un Superadmin o Support como miembro para investigar.", order: 3, actionType: "serverAction" },
+      { id: "verify_governance", title: "Verificación de Gobernanza", description: "Confirmar que existe al menos un OWNER activo.", order: 4, actionType: "check", evidenceHint: "Lista de miembros tiene roles ADMIN/OWNER" },
     ],
   },
   TRIAL_ENDING_SOON: {
@@ -66,8 +68,9 @@ export const PLAYBOOKS_CATALOG: Record<string, CockpitRulePlaybook> = {
     ownerRoleSuggested: "SALES_OPS",
     steps: [
       { id: "check_usage", title: "Verificar uso y adopción", description: "Evaluar métricas clave (Wau, quotes creadas) para medir interés.", order: 1, actionType: "check", evidenceHint: "Revisar health score > 50" },
-      { id: "send_proposal", title: "Enviar propuesta comercial", description: "Si el uso es alto, enviar quote o nudge de upgrade.", order: 2, actionType: "check" },
+      { id: "send_proposal", title: "Enviar propuesta comercial", description: "Si el uso es alto, enviar quote o nudge de upgrade.", order: 2, actionType: "deeplink", href: "/settings/organization" },
       { id: "extend_trial", title: "Extender trial (opcional)", description: "Si el cliente pidió más tiempo, extender 7 días.", order: 3, actionType: "serverAction" },
+      { id: "verify_conversion", title: "Verificar Conversión", description: "Confirmar si el plan cambió a PRO.", order: 4, actionType: "check", evidenceHint: "Plan en DB es PRO" },
     ]
   },
   INACTIVE_ORG: {
@@ -77,9 +80,10 @@ export const PLAYBOOKS_CATALOG: Record<string, CockpitRulePlaybook> = {
     defaultSlaPreset: "72h",
     ownerRoleSuggested: "CUSTOMER_SUCCESS",
     steps: [
-      { id: "review_activity", title: "Revisar última sesión", description: "Validar cuándo fue el último login o acción significativa.", order: 1, actionType: "check" },
-      { id: "check_support_tickets", title: "Revisar tickets de soporte", description: "Confirmar si la inactividad se debe a un bug bloqueante.", order: 2, actionType: "check" },
+      { id: "review_activity", title: "Revisar última sesión", description: "Validar cuándo fue el último login o acción significativa.", order: 1, actionType: "check", evidenceHint: "Última actividad > 7 días" },
+      { id: "check_support_tickets", title: "Revisar tickets de soporte", description: "Confirmar si la inactividad se debe a un bug bloqueante.", order: 2, actionType: "deeplink", href: "/settings/organization" },
       { id: "reach_out", title: "Contacto CS", description: "Enviar correo de check-in o agendar llamada.", order: 3, actionType: "check" },
+      { id: "verify_reactivation", title: "Verificar Reactivación", description: "Observar si hay actividad tras el contacto.", order: 4, actionType: "check", evidenceHint: "Sentinel detecta nueva actividad" },
     ]
   },
   WEBHOOK_FAILURE: {

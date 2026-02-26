@@ -1,4 +1,6 @@
+import { ShieldAlert } from "lucide-react";
 import prisma from "@/lib/prisma";
+import { Badge } from "@/components/ui/badge";
 import { getOrganizationId } from "@/lib/current-org";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, isOwner } from "@/lib/permissions";
@@ -53,6 +55,10 @@ export default async function TeamSettingsPage() {
     const isUserOwner = isOwner(currentMember.role);
     const seatsUsed = members.filter((m: any) => m.status === 'ACTIVE').length;
 
+    // v1.1 Activation Check: Lack of Admins
+    const adminCount = members.filter(m => isAdmin(m.role)).length;
+    const hasNoAdmins = adminCount === 0;
+
     // Seat Limit Logic
     let maxSeats = 1;
     if (org?.mode === 'SOLO') {
@@ -65,12 +71,36 @@ export default async function TeamSettingsPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Gestión de Equipo</h1>
-                <p className="text-muted-foreground">
-                    Administra los miembros de tu organización y sus permisos.
-                </p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Gestión de Equipo</h1>
+                    <p className="text-muted-foreground">
+                        Administra los miembros de tu organización y sus permisos.
+                    </p>
+                </div>
+                {hasNoAdmins && (
+                    <Badge variant="destructive" className="animate-pulse py-1 px-4 text-[10px] font-black uppercase tracking-widest h-fit">
+                        Crítico: Sin Administradores
+                    </Badge>
+                )}
             </div>
+
+            {hasNoAdmins && (
+                <Card className="border-rose-200 bg-rose-50/50 shadow-sm animate-in zoom-in duration-300">
+                    <CardContent className="p-6 flex items-start gap-4">
+                        <div className="p-3 bg-rose-100 rounded-2xl text-rose-600">
+                            <ShieldAlert className="w-6 h-6" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="font-black text-rose-900 uppercase text-xs tracking-widest">Atención Requerida</h3>
+                            <p className="text-sm text-rose-700 leading-relaxed font-medium">
+                                Esta organización no tiene administradores locales asignados. 
+                                <span className="block mt-1 font-bold">Por favor, promueve al menos a un miembro a rol ADMIN o OWNER para asegurar la continuidad operativa.</span>
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <div className="grid gap-6 md:grid-cols-4">
                 <Card className="md:col-span-3">

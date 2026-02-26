@@ -558,6 +558,15 @@ function AlertGroupCard({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => onSelectPlaybook(group)}
+                            className="h-8 rounded-xl text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-2"
+                        >
+                            <ClipboardList className="w-3 h-3" />
+                            Playbook
+                        </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild disabled={isLoading}>
                                 <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase">Acciones masivas</Button>
@@ -635,7 +644,14 @@ function AlertIndividualCard({ alert, onAction, loading, onSelectPlaybook }: { a
                             <span className="text-[8px] font-bold opacity-50 uppercase">{ownerLabel}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" onClick={onSelectPlaybook} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-indigo-100">Playbook</Button>
+                            <Button variant="ghost" size="sm" onClick={onSelectPlaybook} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-indigo-100 gap-1.5">
+                                Playbook
+                                {alert.playbookSteps && alert.playbookSteps.length > 0 && (
+                                    <span className="bg-indigo-600 text-white px-1 rounded-sm text-[7px] min-w-[12px] text-center">
+                                        {alert.playbookSteps.filter(s => s.checked).length}
+                                    </span>
+                                )}
+                            </Button>
                             {alert.state === 'open' && (
                                 <Button variant="ghost" size="sm" onClick={() => onAction(alert.id, () => acknowledgeCockpitAlert(alert.fingerprint))} className="h-6 text-[8px] font-black uppercase px-2 hover:bg-blue-100">ACK</Button>
                             )}
@@ -774,16 +790,24 @@ export function PlaybookExecutionPanel({ alert, group, onClose }: { alert: Cockp
                                         </p>
                                         
                                         {/* Acciones y Deeplinks según contrato v4.8.0 */}
-                                        {step.actionType === 'deeplink' && alert.href && !isChecked && (
-                                            <div className="mt-3">
-                                                <Button variant="outline" size="sm" className="h-7 text-[9px] font-black uppercase text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100" asChild>
-                                                    <Link href={alert.href} target="_blank">
-                                                        <ExternalLink className="w-3 h-3 mr-2" />
-                                                        Abrir Contexto Relacionado
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                        )}
+                                        {step.actionType === 'deeplink' && (step.href || alert.href) && !isChecked && (() => {
+                                            const targetHref = step.href || alert.href!;
+                                            // v1.1: If we have an entityId (org), use the bridge to ensure context
+                                            const finalHref = alert.entityId 
+                                                ? `/api/admin/bridge?orgId=${alert.entityId}&next=${encodeURIComponent(targetHref)}`
+                                                : targetHref;
+
+                                            return (
+                                                <div className="mt-3">
+                                                    <Button variant="outline" size="sm" className="h-7 text-[9px] font-black uppercase text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100" asChild>
+                                                        <Link href={finalHref} target="_blank">
+                                                            <ExternalLink className="w-3 h-3 mr-2" />
+                                                            {step.href ? "Ir a Configuración" : "Abrir Contexto Relacionado"}
+                                                        </Link>
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })()}
 
                                         {step.evidenceHint && !isChecked && (
                                             <div className="mt-3 p-2 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2">
