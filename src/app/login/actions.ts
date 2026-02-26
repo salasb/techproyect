@@ -4,39 +4,47 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-function translateAuthError(errorMessage: string): string {
+function translateAuthError(errorMessage: string, type: 'login' | 'signup' | 'reset' = 'login'): string {
     const error = errorMessage.toLowerCase()
+    console.log(`[AUTH DEBUG] Error real (${type}): ${errorMessage}`)
 
-    if (error.includes('invalid login credentials')) {
-        return 'Credenciales incorrectas. Por favor verifica tu correo y contraseña.'
+    if (type === 'login') {
+        // Anti-enumeration: same message for wrong password or non-existent user
+        if (error.includes('invalid login credentials') || error.includes('user not found')) {
+            return 'Correo o contraseña incorrectos.'
+        }
     }
+
+    if (type === 'signup') {
+        if (error.includes('user already registered')) {
+            return 'No pudimos crear la cuenta con esos datos.'
+        }
+    }
+
     if (error.includes('email rate limit exceeded')) {
-        return 'Has realizado demasiados intentos. Por favor espera unos minutos antes de intentar de nuevo.'
+        return 'Demasiados intentos. Por favor espera unos minutos.'
     }
-    if (error.includes('user already registered')) {
-        return 'Este correo ya está registrado. Intenta iniciar sesión.'
-    }
+    
     if (error.includes('password should be at least')) {
-        return 'La contraseña es muy corta. Debe tener al menos 6 caracteres.'
-    }
-    if (error.includes('anonymous provider is disabled')) {
-        return 'El acceso anónimo está desactivado.'
-    }
-    if (error.includes('email not confirmed')) {
-        return 'El correo no ha sido confirmado. (Ya lo hemos validado manualmente, intenta ingresar de nuevo).'
+        return 'La contraseña debe tener al menos 6 caracteres.'
     }
 
-    // Fallback for unknown errors
-    return `Error del sistema: ${errorMessage}`
+    if (error.includes('email not confirmed')) {
+        return 'Tu correo aún no ha sido verificado.'
+    }
+
+    // Generic fallback for any other error
+    return 'Ocurrió un error en el proceso. Inténtalo de nuevo.'
 }
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
 
-    // Type-casting here for convenience
-    // In a production app, you might want to validate these
-    const email = formData.get('email') as string
+    const rawEmail = formData.get('email') as string
     const password = formData.get('password') as string
+
+    // UX Validation & Normalization
+    const email = rawEmail.trim().toLowerCase()
 
     const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -44,7 +52,7 @@ export async function login(formData: FormData) {
     })
 
     if (error) {
-        return { error: error.message }
+        return { error: translateAuthError(error.message, 'login') }
     }
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -59,7 +67,6 @@ export async function login(formData: FormData) {
         revalidatePath('/', 'layout')
 
         if (profile?.role === 'SUPERADMIN') {
-            // Policy v2.1: Superadmin always lands on Global Cockpit to avoid "No Context" crash
             redirect('/admin')
         } else {
             redirect('/dashboard')
@@ -73,8 +80,11 @@ export async function login(formData: FormData) {
 export async function signup(formData: FormData) {
     const supabase = await createClient()
 
-    const email = formData.get('email') as string
+    const rawEmail = formData.get('email') as string
     const password = formData.get('password') as string
+    
+    // UX Normalization
+    const email = rawEmail.trim().toLowerCase()
 
     const { data, error } = await supabase.auth.signUp({
         email,
@@ -82,7 +92,7 @@ export async function signup(formData: FormData) {
     })
 
     if (error) {
-        return { error: translateAuthError(error.message) }
+        return { error: translateAuthError(error.message, 'signup') }
     }
 
     if (data.session) {
@@ -92,7 +102,27 @@ export async function signup(formData: FormData) {
 
     return {
         success: true,
-        message: '¡Cuenta creada con éxito! Por favor revisa tu correo electrónico para confirmar tu cuenta y poder ingresar.'
+        message: 'Si los datos son válidos, hemos enviado un correo de confirmación.'
+    }
+}
+
+export async function forgotPassword(formData: FormData) {
+    const supabase = await createClient()
+    const rawEmail = formData.get('email') as string
+    const email = rawEmail.trim().toLowerCase()
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback?next=/settings/profile`,
+    })
+
+    if (error) {
+        console.error(`[AUTH ERROR] resetPassword: ${error.message}`)
+    }
+
+    // Anti-enumeration: always return success
+    return {
+        success: true,
+        message: 'Si el correo está registrado, te enviaremos un enlace para restablecer tu contraseña.'
     }
 }
 

@@ -1,15 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, Loader2, Lock, Mail, ArrowRight } from 'lucide-react'
-import { login, signup } from '@/app/login/actions'
+import { Eye, EyeOff, Loader2, Lock, Mail, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
+import { login, signup, forgotPassword } from '@/app/login/actions'
+import Link from 'next/link'
 
 export function LoginForm() {
     const [isVisible, setIsVisible] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
-    const [mode, setMode] = useState<'login' | 'signup'>('login')
+    const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
     const [error, setError] = useState<string | null>(null)
     const [message, setMessage] = useState<string | null>(null)
+    const [email, setEmail] = useState('')
 
     const toggleVisibility = () => setIsVisible(!isVisible)
 
@@ -22,23 +24,75 @@ export function LoginForm() {
             let result: any;
             if (mode === 'login') {
                 result = await login(formData)
-            } else {
+            } else if (mode === 'signup') {
                 result = await signup(formData)
+            } else {
+                result = await forgotPassword(formData)
             }
 
             if (result?.error) {
                 setError(result.error)
             } else if (result?.message) {
                 setMessage(result.message)
-            } else if (mode === 'signup') {
-                setMessage("¡Cuenta creada! Por favor verifica tu correo para continuar.")
+                if (mode === 'forgot') setEmail('') // Clear email on forgot success
             }
         } catch (e) {
-            // Next.js redirects throw errors, we need to ignore them or handle actual errors
-            // but usually redirect() works by throwing NEXT_REDIRECT
+            // Usually NEXT_REDIRECT
         } finally {
             setIsLoading(false)
         }
+    }
+
+    if (mode === 'forgot') {
+        return (
+            <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 p-8">
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">
+                        Recuperar contraseña
+                    </h2>
+                    <p className="text-sm text-zinc-500">
+                        Ingresa tu correo y te enviaremos las instrucciones.
+                    </p>
+                </div>
+
+                {message && (
+                    <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm mb-6 animate-in fade-in zoom-in">
+                        {message}
+                    </div>
+                )}
+
+                <form action={handleSubmit} className="space-y-5">
+                    <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-5 w-5 text-zinc-400" />
+                        <input
+                            name="email"
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="tunombre@empresa.com"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {isLoading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Enviar instrucciones'}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setMode('login')}
+                        className="w-full text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                    >
+                        Volver al inicio
+                    </button>
+                </form>
+            </div>
+        )
     }
 
     return (
@@ -46,7 +100,7 @@ export function LoginForm() {
             {/* Header / Tabs */}
             <div className="grid grid-cols-2 text-center border-b border-zinc-200 dark:border-zinc-800">
                 <button
-                    onClick={() => setMode('login')}
+                    onClick={() => { setMode('login'); setError(null); setMessage(null); }}
                     className={`py-4 text-sm font-medium transition-colors ${mode === 'login'
                         ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
                         : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
@@ -55,7 +109,7 @@ export function LoginForm() {
                     Iniciar Sesión
                 </button>
                 <button
-                    onClick={() => setMode('signup')}
+                    onClick={() => { setMode('signup'); setError(null); setMessage(null); }}
                     className={`py-4 text-sm font-medium transition-colors ${mode === 'signup'
                         ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
                         : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
@@ -78,19 +132,38 @@ export function LoginForm() {
                 </div>
 
                 {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm flex items-center animate-in fade-in slide-in-from-top-2">
-                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {error}
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center text-red-600 font-bold text-sm mb-1">
+                            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                            {error}
+                        </div>
+                        <p className="text-xs text-red-500 ml-6 leading-tight">
+                            {mode === 'login' 
+                                ? 'Si no tienes cuenta, puedes crear una. Si olvidaste tu acceso, recupéralo.'
+                                : 'Si ya tienes cuenta, intenta iniciar sesión o recuperar tu contraseña.'}
+                        </p>
+                        <div className="mt-3 ml-6 flex gap-4">
+                            {mode === 'login' && (
+                                <button 
+                                    onClick={() => setMode('signup')}
+                                    className="text-[10px] font-black uppercase text-red-700 hover:underline tracking-widest"
+                                >
+                                    Crear Cuenta
+                                </button>
+                            )}
+                            <button 
+                                onClick={() => setMode('forgot')}
+                                className="text-[10px] font-black uppercase text-red-700 hover:underline tracking-widest"
+                            >
+                                Recuperar Acceso
+                            </button>
+                        </div>
                     </div>
                 )}
 
                 {message && (
-                    <div className="p-3 bg-green-50 border border-green-200 text-green-600 rounded-lg text-sm flex items-center animate-in fade-in slide-in-from-top-2">
-                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                    <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm flex items-center animate-in fade-in slide-in-from-top-2">
+                        <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                         {message}
                     </div>
                 )}
@@ -103,6 +176,8 @@ export function LoginForm() {
                                 name="email"
                                 type="email"
                                 required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 placeholder="tunombre@empresa.com"
                                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                             />
@@ -133,9 +208,13 @@ export function LoginForm() {
 
                     {mode === 'login' && (
                         <div className="flex justify-end">
-                            <a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                            <button 
+                                type="button"
+                                onClick={() => setMode('forgot')}
+                                className="text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                            >
                                 ¿Olvidaste tu contraseña?
-                            </a>
+                            </button>
                         </div>
                     )}
 
