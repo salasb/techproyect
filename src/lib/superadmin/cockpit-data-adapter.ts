@@ -5,6 +5,7 @@ import { MetricsService, MonthlyMetrics } from "./metrics-service";
 import { normalizeOperationalError } from "./error-normalizer";
 import { OperationalStateRepo, OperationalAlertSla, OperationalAlertOwner, PlaybookStepExecution } from "./operational-state-repo";
 import { classifyOrganizationEnvironment, EnvironmentClass } from "./environment-classifier";
+import { SloStatus } from "@/services/slo-service";
 
 /**
  * PHASE 4.7.1 OPERATIONAL HYGIENE CONTRACT
@@ -121,6 +122,7 @@ export interface CockpitDataPayloadV42 {
         alertGroups: OperationalBlockResult<CockpitAlertGroup[]>;
         metrics: OperationalBlockResult<MonthlyMetrics[]>;
         ops: OperationalBlockResult<OperationalMetrics>;
+        slos: OperationalBlockResult<SloStatus[]>;
     };
 }
 
@@ -194,13 +196,16 @@ export async function getCockpitDataSafe(options: {
         }
     }
 
+    const { SloService } = await import("@/services/slo-service");
+
     // Parallel fetch with full isolation
-    const [kpisRaw, orgsRaw, rawAlerts, metrics, opsRaw] = await Promise.all([
+    const [kpisRaw, orgsRaw, rawAlerts, metrics, opsRaw, slosRaw] = await Promise.all([
         fetchBlockSafe('KPIs', CockpitService.getGlobalKPIs(), { totalOrgs: 0, issuesCount: 0, activeTrials: 0, inactiveOrgs: 0, timestamp: new Date() }),
         fetchBlockSafe('Orgs', CockpitService.getOrganizationsList(), []),
         fetchBlockSafe('Alerts', AlertsService.getGlobalAlertsSummary(), []),
         fetchBlockSafe('Metrics', MetricsService.getAggregatedMonthlyMetrics(), []),
-        fetchBlockSafe('Ops', CockpitService.getOperationalMetrics(), { mttaMinutes: 0, mttrHours: 0, openAlerts: 0, breachedAlerts: 0, slaComplianceRate: 100 })
+        fetchBlockSafe('Ops', CockpitService.getOperationalMetrics(), { mttaMinutes: 0, mttrHours: 0, openAlerts: 0, breachedAlerts: 0, slaComplianceRate: 100 }),
+        fetchBlockSafe('SLOs', SloService.getGlobalStatus(), [])
     ]);
 
     // FASE 1 - Clasificación Consistente
@@ -410,6 +415,6 @@ export async function getCockpitDataSafe(options: {
         scopeMode,
         includeNonProductive,
         hygiene: hygieneStats,
-        blocks: { kpis, orgs, alerts, alertGroups, metrics, ops }
+        blocks: { kpis, orgs, alerts, alertGroups, metrics, ops, slos: slosRaw }
     };
 }

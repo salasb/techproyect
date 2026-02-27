@@ -7,7 +7,12 @@ export type AuditEventType =
     | 'MEMBER_ROLE_CHANGED'
     | 'MEMBER_REMOVED'
     | 'ORG_MODE_CHANGED'
-    | 'SUBSCRIPTION_UPDATED';
+    | 'ORG_SETTINGS_CHANGED'
+    | 'SUBSCRIPTION_UPDATED'
+    | 'BILLING_CHECKOUT_CREATED'
+    | 'BILLING_PORTAL_ACCESSED'
+    | 'WORKSPACE_CONTEXT_SWITCHED'
+    | 'ORG_SWITCH';
 
 export async function createAuditLog({
     organizationId,

@@ -37,6 +37,148 @@ import { toast } from "sonner";
 import { getPlaybookByRule } from "@/lib/superadmin/playbooks-catalog";
 import { useSearchParams } from "next/navigation";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { SloStatus } from "@/services/slo-service";
+import { simulateSloEvent } from "@/app/actions/telemetry-qa";
+
+/**
+ * SLO Status Panel (v1.0)
+ */
+export function SuperadminSloStatus({ slos = [] }: { slos: SloStatus[] }) {
+    const [simulating, setSimulating] = useState<string | null>(null);
+
+    const handleSimulate = async (sloId: string, success: boolean) => {
+        setSimulating(`${sloId}-${success}`);
+        try {
+            await simulateSloEvent(sloId, success);
+            toast.success(`Evento ${success ? 'exitoso' : 'fallido'} registrado para ${sloId}`);
+        } finally {
+            setSimulating(null);
+        }
+    };
+
+    return (
+        <Card className="rounded-[2.5rem] border border-border bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+            <CardHeader className="p-6 border-b border-border/50 bg-muted/5">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
+                            <Activity className="w-3.5 h-3.5 text-indigo-500" />
+                            Service Level Objectives (SLO v1)
+                        </CardTitle>
+                        <p className="text-[11px] font-medium text-muted-foreground mt-1 italic tracking-tight">Multi-window Burn Rate Alerting habilitado.</p>
+                    </div>
+                    <Badge variant="outline" className="text-[8px] font-bold uppercase border-indigo-200 text-indigo-600 bg-indigo-50">SRE Orchestration</Badge>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="divide-y divide-border/50">
+                    {slos.length === 0 ? (
+                        <div className="p-12 text-center">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic opacity-50">Esperando telemetría inicial...</p>
+                        </div>
+                    ) : (
+                        slos.map((slo) => {
+                            const budgetPercent = Math.round(slo.errorBudgetRemaining * 100);
+                            const isCritical = slo.isAlerting || budgetPercent < 10;
+                            const isWarning = budgetPercent < 50;
+                            
+                            return (
+                                <div key={slo.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-muted/5 transition-colors group/slo">
+                                    <div className="space-y-1 min-w-[200px]">
+                                        <div className="flex items-center gap-3">
+                                            <h4 className="text-xs font-black uppercase tracking-tight text-foreground flex items-center gap-2">
+                                                {slo.name}
+                                                {slo.isAlerting && (
+                                                    <div className="flex h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                                                )}
+                                            </h4>
+                                            {/* QA Tool: Small simulation buttons hidden by default */}
+                                            <div className="hidden group-hover/slo:flex items-center gap-1">
+                                                <button 
+                                                    disabled={!!simulating}
+                                                    onClick={() => handleSimulate(slo.id, true)}
+                                                    className="p-1 rounded bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                                                    title="Simular éxito"
+                                                >
+                                                    <CheckCircle2 className="w-2.5 h-2.5" />
+                                                </button>
+                                                <button 
+                                                    disabled={!!simulating}
+                                                    onClick={() => handleSimulate(slo.id, false)}
+                                                    className="p-1 rounded bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors"
+                                                    title="Simular fallo"
+                                                >
+                                                    <X className="w-2.5 h-2.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase">SLI (30d):</span>
+                                            <span className={cn("text-xs font-black font-mono", slo.sli < 0.99 ? "text-amber-600" : "text-emerald-600")}>
+                                                {(slo.sli * 100).toFixed(3)}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 max-w-xs space-y-1.5">
+                                        <div className="flex justify-between items-end text-[9px] font-black uppercase tracking-widest mb-1">
+                                            <span className="text-muted-foreground">Error Budget</span>
+                                            <span className={cn(isCritical ? "text-red-600" : isWarning ? "text-amber-600" : "text-emerald-600")}>
+                                                {budgetPercent}% restante
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden shadow-inner">
+                                            <div 
+                                                className={cn(
+                                                    "h-full transition-all duration-1000",
+                                                    isCritical ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : 
+                                                    isWarning ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" : 
+                                                    "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                                                )}
+                                                style={{ width: `${budgetPercent}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 min-w-[140px] justify-end">
+                                        <div className="text-right">
+                                            <p className="text-[8px] font-black text-muted-foreground uppercase tracking-tighter mb-0.5 text-nowrap">Burn Rate (1h/6h)</p>
+                                            <div className="flex items-center gap-2 justify-end">
+                                                <Badge variant="outline" className={cn("text-[9px] font-mono font-black", slo.burnRate1h > 14.4 ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-100 text-emerald-600")}>
+                                                    {slo.burnRate1h.toFixed(1)}x
+                                                </Badge>
+                                                <Badge variant="outline" className={cn("text-[9px] font-mono font-black", slo.burnRate6h > 6.0 ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-100 text-emerald-600")}>
+                                                    {slo.burnRate6h.toFixed(1)}x
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm border",
+                                            slo.isAlerting ? "bg-red-50 border-red-100 text-red-600 animate-pulse" : "bg-emerald-50 border-emerald-100 text-emerald-600"
+                                        )}>
+                                            {slo.isAlerting ? <ShieldAlert className="w-5 h-5" /> : <CheckCheck className="w-5 h-5" />}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </CardContent>
+            <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-border/50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Info className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest italic leading-tight">
+                        Alertas rápidas: {">"}14.4x burn rate. Alertas lentas: {">"}6.0x burn rate.
+                    </span>
+                </div>
+                <Button variant="link" className="h-auto p-0 text-[9px] font-black uppercase text-indigo-600 hover:text-indigo-700 tracking-widest" asChild>
+                    <Link href="/docs/sre-policy">Ver SRE Runbook</Link>
+                </Button>
+            </div>
+        </Card>
+    );
+}
 
 /**
  * Triage Panel - Right Side Sticky

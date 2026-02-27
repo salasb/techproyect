@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import type Stripe from 'stripe';
 import { SubscriptionStatus } from '@prisma/client';
 import { ActivationService } from '@/services/activation-service';
+import { trackSlo } from '@/lib/telemetry';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,8 +69,10 @@ export async function POST(req: Request) {
                 const session = event.data.object as Stripe.Checkout.Session;
                 const orgId = session.metadata?.organizationId;
                 const invoiceId = session.metadata?.invoiceId;
+                const paymentType = session.metadata?.type;
 
-                if (orgId && session.subscription) {
+                if (orgId && (session.mode === 'subscription' || session.subscription)) {
+                    // 1. Subscription Logic
                     const stripe = getStripe();
                     const stripeSub = await stripe.subscriptions.retrieve(session.subscription as string);
 
@@ -89,31 +92,25 @@ export async function POST(req: Request) {
                         data: {
                             organizationId: orgId,
                             action: 'STRIPE_WEBHOOK_PROCESSED',
-                            details: `Processed checkout.session.completed for customer ${session.customer}`,
+                            details: `Processed subscription checkout.session.completed for customer ${session.customer}`,
                             userName: 'Stripe Webhook'
                         }
                     });
-                } else if (invoiceId && session.payment_status === 'paid') {
-                    const amount = session.amount_total ? session.amount_total / 100 : 0;
-                    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
-                    if (invoice) {
-                        const newAmountPaid = invoice.amountPaidGross + amount;
-                        await prisma.invoice.update({
-                            where: { id: invoiceId },
-                            data: {
-                                amountPaidGross: newAmountPaid,
-                                updatedAt: new Date().toISOString()
-                            }
-                        });
-                        const { AuditService } = await import("@/services/auditService");
-                        const status = newAmountPaid >= invoice.amountInvoicedGross ? ' (Pagada Totalmente)' : ' (Pago Parcial)';
-                        await AuditService.logAction(
-                            invoice.projectId,
-                            'INVOICE_PAYMENT',
-                            `Pago online registrado vía Stripe por $${amount.toLocaleString()}${status}`,
-                            { name: 'Stripe System', ip: 'Stripe Webhook', userAgent: 'Stripe/1.0' }
-                        );
-                    }
+                } else if (invoiceId && paymentType === 'INVOICE_PAYMENT' && session.payment_status === 'paid') {
+                    // 2. One-off Invoice Payment Logic
+                    const amount = session.amount_total ? session.amount_total / 1 : 0; // CLP assumes absolute units
+                    const { InvoiceService } = await import("@/services/invoiceService");
+                    
+                    await InvoiceService.registerPayment(
+                        invoiceId,
+                        amount,
+                        'STRIPE_CHECKOUT',
+                        session.id,
+                        'STRIPE_SYSTEM',
+                        orgId || 'UNKNOWN'
+                    );
+
+                    console.log(`[Webhook][${event.id}] Successfully registered payment for invoice ${invoiceId}`);
                 }
                 break;
             }
@@ -200,6 +197,20 @@ export async function POST(req: Request) {
 
             case 'ping.e2e_test': {
                 console.log("E2E Ping Event Processed");
+                break;
+            }
+
+            case 'invoice.payment_succeeded': {
+                const invoice = event.data.object as Stripe.Invoice;
+                const orgId = invoice.metadata?.organizationId || (await prisma.subscription.findFirst({ where: { providerCustomerId: invoice.customer as string } }))?.organizationId;
+                if (orgId) await trackSlo('BILLING_PAYMENT', true, orgId);
+                break;
+            }
+
+            case 'invoice.payment_failed': {
+                const invoice = event.data.object as Stripe.Invoice;
+                const orgId = invoice.metadata?.organizationId || (await prisma.subscription.findFirst({ where: { providerCustomerId: invoice.customer as string } }))?.organizationId;
+                if (orgId) await trackSlo('BILLING_PAYMENT', false, orgId, undefined, { error: invoice.last_payment_error?.message || 'Payment failed' });
                 break;
             }
 

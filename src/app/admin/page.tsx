@@ -9,7 +9,8 @@ import {
     SuperadminAlertsList, 
     SuperadminMonthlyMetrics, 
     SuperadminOperationalKPIs,
-    SuperadminTriagePanel
+    SuperadminTriagePanel,
+    SuperadminSloStatus
 } from "@/components/admin/SuperadminV2Components";
 import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
 import { getCockpitDataSafe, OperationalBlockStatus } from "@/lib/superadmin/cockpit-data-adapter";
@@ -74,6 +75,9 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
 
     if (systemStatus === 'operational') {
         try {
+            const { SloService } = await import("@/services/slo-service");
+            await SloService.syncAlerts(); // Non-blocking but keeps alerts fresh
+            
             const { createClient } = await import('@/lib/supabase/server');
             const supabase = await createClient();
             const { data: authData } = await supabase.auth.getUser();
@@ -229,6 +233,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
                 <section className="lg:col-span-2 min-h-[80px]" data-testid="cockpit-alerts-card">
+                    <div className="mb-10">
+                        <SuperadminSloStatus slos={blocks.slos?.data || []} />
+                    </div>
+
                     <BlockContainer status={blocks.alerts.status} label="Incidentes Críticos" message={blocks.alerts.message} traceId={blocks.alerts.meta.traceId}>
                         <Suspense fallback={<div className="h-40 flex items-center justify-center bg-muted/20 rounded-[2.5rem] animate-pulse">
                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Iniciando Monitor de Triage...</p>

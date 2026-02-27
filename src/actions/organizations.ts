@@ -6,6 +6,61 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { ActivationService } from "@/services/activation-service";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { isAdmin } from "@/lib/permissions";
+import { createAuditLog } from "@/services/audit-service";
+import { revalidatePath } from "next/cache";
+
+/**
+ * Updates organization settings with audit logging.
+ */
+export async function updateOrganizationAction(formData: FormData) {
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
+
+    if (!isAdmin(scope.role)) {
+        throw new Error("Acceso denegado: Se requiere rol de Administrador");
+    }
+
+    const name = formData.get("name") as string;
+    const rut = formData.get("rut") as string;
+    const logoUrl = formData.get("logoUrl") as string;
+
+    const oldOrg = await prisma.organization.findUnique({
+        where: { id: orgId },
+        select: { name: true, rut: true, logoUrl: true }
+    });
+
+    const updatedOrg = await prisma.organization.update({
+        where: { id: orgId },
+        data: {
+            name,
+            rut,
+            logoUrl,
+            updatedAt: new Date()
+        }
+    });
+
+    // Audit change
+    let changeDetails = [];
+    if (oldOrg?.name !== name) changeDetails.push(`Nombre: ${oldOrg?.name} -> ${name}`);
+    if (oldOrg?.rut !== rut) changeDetails.push(`RUT: ${oldOrg?.rut} -> ${rut}`);
+    if (oldOrg?.logoUrl !== logoUrl) changeDetails.push(`Logo cambiado`);
+
+    if (changeDetails.length > 0) {
+        await createAuditLog({
+            organizationId: orgId,
+            userId: scope.userId,
+            action: 'ORG_SETTINGS_CHANGED',
+            details: `Cambios realizados: ${changeDetails.join(', ')}`
+        });
+    }
+
+    revalidatePath('/settings/organization');
+    revalidatePath('/settings');
+    
+    return { success: true };
+}
 
 /**
  * Creates a new organization with initial subscription and owner membership.

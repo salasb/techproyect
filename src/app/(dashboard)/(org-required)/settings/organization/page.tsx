@@ -1,7 +1,7 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/server";
 import { OrganizationProfileForm } from "@/components/settings/OrganizationProfileForm";
-import { updateOrganization } from "@/app/actions/organization";
+import { updateOrganizationAction } from "@/actions/organizations";
 import { getOrganizationId } from "@/lib/current-org";
 import prisma from "@/lib/prisma";
 import { 
@@ -227,7 +227,7 @@ export default async function OrganizationPage(props: { searchParams: Promise<{ 
                     <Card className="rounded-[2.5rem] border-none shadow-xl p-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
                         <OrganizationProfileForm
                             organization={org as any}
-                            updateAction={updateOrganization}
+                            updateAction={updateOrganizationAction as any}
                         />
                     </Card>
                 </TabsContent>

@@ -11,97 +11,97 @@ import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { checkSubscriptionLimit } from "@/lib/subscriptions";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
+import { trackSlo } from "@/lib/telemetry";
 
 export async function createProject(formData: FormData) {
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
 
-    // 0. Check Subscription Limits
-    const limitCheck = await checkSubscriptionLimit(scope.orgId, 'projects');
-    if (!limitCheck.allowed) {
-        throw new Error(limitCheck.message);
-    }
+    try {
+        // 0. Check Subscription Limits
+        const limitCheck = await checkSubscriptionLimit(scope.orgId, 'projects');
+        if (!limitCheck.allowed) {
+            throw new Error(limitCheck.message);
+        }
 
-    const name = formData.get("name") as string;
-    const companyId = formData.get("companyId") as string;
-    const newCompanyName = formData.get("newCompanyName") as string;
-    const startDate = formData.get("startDate") as string;
-    const budget = formData.get("budget") ? parseFloat(formData.get("budget") as string) : 0;
+        const name = formData.get("name") as string;
+        const companyId = formData.get("companyId") as string;
+        const newCompanyName = formData.get("newCompanyName") as string;
+        const startDate = formData.get("startDate") as string;
+        const budget = formData.get("budget") ? parseFloat(formData.get("budget") as string) : 0;
 
-    const validation = validateProject({ name, companyId, startDate, budget });
-    if (!validation.success) {
-        throw new Error(validation.errors.join(", "));
-    }
+        const validation = validateProject({ name, companyId, startDate, budget });
+        if (!validation.success) {
+            throw new Error(validation.errors.join(", "));
+        }
 
-    const prisma = (await import("@/lib/prisma")).default;
+        const prisma = (await import("@/lib/prisma")).default;
 
-    let finalCompanyId = companyId;
-    let finalClientId: string | null = null;
+        let finalCompanyId = companyId;
+        let finalClientId: string | null = null;
 
-    // Handle Prefixed IDs (from SearchableSelect combining Company and Client)
-    if (companyId.startsWith("client:")) {
-        const selectedClientId = companyId.split(":")[1];
-        finalClientId = selectedClientId;
+        // Handle Prefixed IDs (from SearchableSelect combining Company and Client)
+        if (companyId.startsWith("client:")) {
+            const selectedClientId = companyId.split(":")[1];
+            finalClientId = selectedClientId;
 
-        // Fetch Client Name to sync/find Company
-        const clientData = await prisma.client.findUnique({ where: { id: selectedClientId } });
-        if (clientData) {
-            const clientName = clientData.name;
-            // Check if company exists with same name
-            const existingCompany = await prisma.company.findFirst({ where: { name: clientName, organizationId: scope.orgId } });
+            // Fetch Client Name to sync/find Company
+            const clientData = await prisma.client.findUnique({ where: { id: selectedClientId } });
+            if (clientData) {
+                const clientName = clientData.name;
+                // Check if company exists with same name
+                const existingCompany = await prisma.company.findFirst({ where: { name: clientName, organizationId: scope.orgId } });
 
-            if (existingCompany) {
-                finalCompanyId = existingCompany.id;
-            } else {
-                // Create Company for this Client (Sync)
-                const newCompany = await prisma.company.create({
-                    data: {
-                        id: crypto.randomUUID(),
-                        name: clientName,
-                        organizationId: scope.orgId
+                if (existingCompany) {
+                    finalCompanyId = existingCompany.id;
+                } else {
+                    // Create Company for this Client (Sync)
+                    const newCompany = await prisma.company.create({
+                        data: {
+                            id: crypto.randomUUID(),
+                            name: clientName,
+                            organizationId: scope.orgId
+                        }
+                    });
+
+                    if (newCompany) {
+                        finalCompanyId = newCompany.id;
                     }
-                });
-
-                if (newCompany) {
-                    finalCompanyId = newCompany.id;
                 }
             }
+        } else if (companyId.startsWith("company:")) {
+            finalCompanyId = companyId.split(":")[1];
         }
-    } else if (companyId.startsWith("company:")) {
-        finalCompanyId = companyId.split(":")[1];
-    }
 
-    // Si seleccionó crear nueva empresa (legacy/direct flow)
-    if (companyId === "new" && newCompanyName) {
-        // Create company with Prisma
-        const newCompany = await prisma.company.create({
-            data: {
-                id: crypto.randomUUID(),
-                name: newCompanyName,
-                organizationId: scope.orgId
+        // Si seleccionó crear nueva empresa (legacy/direct flow)
+        if (companyId === "new" && newCompanyName) {
+            // Create company with Prisma
+            const newCompany = await prisma.company.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    name: newCompanyName,
+                    organizationId: scope.orgId
+                }
+            });
+
+            if (newCompany) {
+                finalCompanyId = newCompany.id;
             }
-        });
-
-        if (newCompany) {
-            finalCompanyId = newCompany.id;
         }
-    }
 
-    // W0: Allow empty/no customer selected
-    if (companyId === "none" || !companyId) {
-        finalCompanyId = null as any; // Cast as any because Prisma generated types might still expect string if not regenerated
-        finalClientId = null;
-    }
+        // W0: Allow empty/no customer selected
+        if (companyId === "none" || !companyId) {
+            finalCompanyId = null as any; // Cast as any because Prisma generated types might still expect string if not regenerated
+            finalClientId = null;
+        }
 
-    // Create Project
-    // Generate ID: PRJ-YYMMDD-XXXX (Random 4 chars)
-    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
-    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const projectId = `PRJ-${dateStr}-${randomSuffix}`;
+        // Create Project
+        // Generate ID: PRJ-YYMMDD-XXXX (Random 4 chars)
+        const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const projectId = `PRJ-${dateStr}-${randomSuffix}`;
 
-    let project;
-    try {
-        project = await prisma.project.create({
+        const project = await prisma.project.create({
             data: {
                 id: projectId,
                 organizationId: scope.orgId,
@@ -119,19 +119,24 @@ export async function createProject(formData: FormData) {
                 nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : new Date(startDate).toISOString(),
             }
         });
-    } catch (projectError: any) {
-        throw new Error(`Error creating project: ${projectError?.message}`);
+
+        // Log the creation
+        await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${name}" creado para ${project.clientId ? 'Client' : 'Company'}: ${finalCompanyId}`);
+
+        // [Activation] Track Milestone
+        await ActivationService.trackFirst('FIRST_PROJECT_CREATED', scope.orgId, undefined, project.id);
+
+        // [SLO Telemetry] Success
+        await trackSlo('API_CRITICAL', true, scope.orgId, scope.userId);
+
+        revalidatePath("/projects");
+        return { success: true, projectId: project.id };
+
+    } catch (error: any) {
+        // [SLO Telemetry] Failure
+        await trackSlo('API_CRITICAL', false, scope.orgId, scope.userId, { error: error.message });
+        throw error;
     }
-
-    // Log the creation
-    await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${name}" creado para ${project.clientId ? 'Client' : 'Company'}: ${finalCompanyId}`);
-
-    // [Activation] Track Milestone
-    await ActivationService.trackFirst('FIRST_PROJECT_CREATED', scope.orgId, undefined, project.id);
-
-    revalidatePath("/projects");
-    revalidatePath("/projects");
-    return { success: true, projectId: project.id };
 }
 
 export async function deleteProject(projectId: string) {

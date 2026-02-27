@@ -180,6 +180,15 @@ export class AlertsService {
         }
 
         const durationMs = Date.now() - startTime;
+
+        // Trigger SLO Burn Rate Evaluation (Sprint 3)
+        try {
+            const { SloService } = await import("@/services/slo-service");
+            await SloService.syncAlerts();
+        } catch (e) {
+            console.error("[AlertsService] SLO Evaluation failed:", e);
+        }
+
         // Audit the run
         await prisma.auditLog.create({
             data: {

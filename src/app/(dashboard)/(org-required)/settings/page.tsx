@@ -88,15 +88,15 @@ export default async function SettingsPage() {
             </div>
 
             {/* Quick Access */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Link href="/settings/users" className="group bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md flex items-center justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Link href="/settings/team" className="group bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
                             <Users className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-zinc-900 dark:text-white">Gestión de Usuarios</h3>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Administrar equipo y permisos</p>
+                            <h3 className="font-semibold text-zinc-900 dark:text-white">Equipo y Roles</h3>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Administrar miembros e invitar</p>
                         </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-blue-500 transition-colors" />
@@ -121,8 +121,21 @@ export default async function SettingsPage() {
                             <CreditCard className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-zinc-900 dark:text-white">Facturación y Planes</h3>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Ver consumo y suscripción</p>
+                            <h3 className="font-semibold text-zinc-900 dark:text-white">Facturación</h3>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Planes y suscripción</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-blue-500 transition-colors" />
+                </Link>
+
+                <Link href="/settings/history" className="group bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-zinc-50 dark:bg-zinc-900/20 text-zinc-600 dark:text-zinc-400 rounded-lg group-hover:bg-zinc-100 dark:group-hover:bg-zinc-900/40 transition-colors">
+                            <History className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-zinc-900 dark:text-white">Historial</h3>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Registro de auditoría completo</p>
                         </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-blue-500 transition-colors" />

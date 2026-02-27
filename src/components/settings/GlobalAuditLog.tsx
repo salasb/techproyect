@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Database } from "@/types/supabase";
-import { History, User, ExternalLink, Trash2, PlusCircle, Edit3, CheckCircle, AlertCircle } from "lucide-react";
+import { History, User, ExternalLink, Trash2, PlusCircle, Edit3, CheckCircle, Shield, Mail, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import Link from "next/link";
@@ -21,6 +21,11 @@ const ACTION_ICONS: Record<string, any> = {
     'COST_DELETE': Trash2,
     'QUOTE_ACCEPTANCE_TOGGLE': CheckCircle,
     'UPDATE_SETTINGS': Edit3,
+    'ORG_SETTINGS_CHANGED': Edit3,
+    'MEMBER_ROLE_CHANGED': Shield,
+    'INVITE_SENT': Mail,
+    'INVITE_ACCEPTED': User,
+    'INVITE_REVOKED': XCircle,
     'DEFAULT': History
 };
 
@@ -28,6 +33,10 @@ const ACTION_COLORS: Record<string, string> = {
     'PROJECT_CREATE': 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20',
     'PROJECT_DELETE': 'text-red-500 bg-red-50 dark:bg-red-900/20',
     'COST_DELETE': 'text-red-500 bg-red-50 dark:bg-red-900/20',
+    'MEMBER_ROLE_CHANGED': 'text-blue-500 bg-blue-50 dark:bg-blue-900/20',
+    'INVITE_SENT': 'text-purple-500 bg-purple-50 dark:bg-purple-900/20',
+    'INVITE_ACCEPTED': 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20',
+    'INVITE_REVOKED': 'text-red-500 bg-red-50 dark:bg-red-900/20',
     'DEFAULT': 'text-zinc-500 bg-zinc-50 dark:bg-zinc-900/20'
 };
 

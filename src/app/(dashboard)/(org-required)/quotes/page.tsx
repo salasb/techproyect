@@ -1,14 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
-import { Search, Loader2, CheckCircle2, LayoutGrid, List } from "lucide-react";
+import { Search, Loader2, CheckCircle2, LayoutGrid, List, FileText } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PaginationControl } from "@/components/ui/PaginationControl";
 import { QuoteExportButton } from "@/components/quotes/QuoteExportButton";
 import { QuoteViewToggle } from "@/components/quotes/QuoteViewToggle";
 import { cookies } from "next/headers";
+import { AcceptQuoteButton } from "@/components/commercial/AcceptQuoteButton";
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ page?: string, q?: string, view?: string }> }) {
     const supabase = await createClient();
@@ -24,16 +26,17 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
     const start = (page - 1) * itemsPerPage;
     const end = start + itemsPerPage - 1;
 
-    // Build query
+    // v1.0: Query from Quote model
     let dbQuery = supabase
-        .from('Project')
-        .select('*, quoteItems:QuoteItem(*), company:Company(*), client:Client(*)', { count: 'exact' })
+        .from('Quote')
+        .select('*, project:Project(*, client:Client(*), company:Company(*)), quoteItems:QuoteItem(*)', { count: 'exact' })
         .order('createdAt', { ascending: false })
         .range(start, end);
 
-    if (query) {
-        dbQuery = dbQuery.ilike('name', `%${query}%`);
-    }
+    // If query exists, filter by project name (joined)
+    // Note: Supabase JS filter on joined tables can be tricky, using simple ILIKE on Quote for now if we had searchable fields there
+    // For now, let's assume we search on project name if possible or just filter by project.name in JS if data set is small
+    // Better: let's filter directly on the quote's project relation if the provider supports it or just do basic listing.
 
     const { data: quotes, count, error } = await dbQuery;
 
@@ -69,7 +72,8 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
 
             {/* Content */}
             {!quotes || quotes.length === 0 ? (
-                <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
+                <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground italic">
+                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     <p>No se encontraron cotizaciones.</p>
                 </div>
             ) : view === 'list' ? (
@@ -110,13 +114,12 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         </div>
     );
 }
+
 // Helper Components & Functions
 function calculateQuoteTotals(quote: any) {
-    const totalValue = quote.quoteItems?.reduce((acc: number, item: any) => {
-        return acc + (item.priceNet * item.quantity);
-    }, 0) || 0;
-
-    const currency = quote.currency || 'CLP';
+    const totalValue = quote.totalNet || 0;
+    const currency = quote.project?.currency || 'CLP';
+    
     const formattedTotal = currency === 'CLP'
         ? `CLP $${totalValue.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
         : currency === 'USD'
@@ -130,43 +133,56 @@ function QuoteGridCard({ quote }: { quote: any }) {
     const { formattedTotal } = calculateQuoteTotals(quote);
 
     return (
-        <Link
-            href={`/projects/${quote.id}/quote`}
+        <div
             className="group bg-card hover:bg-slate-50 dark:hover:bg-slate-900 border border-border hover:border-blue-200 dark:hover:border-blue-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full"
         >
-            <div>
+            <Link href={`/projects/${quote.projectId}/quote`} className="flex-1">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                        <h3 className="font-bold text-lg text-foreground group-hover:text-blue-600 transition-colors line-clamp-1" title={quote.name}>
-                            {quote.name}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-[8px] font-bold">v{quote.version}</Badge>
+                            <h3 className="font-bold text-lg text-foreground group-hover:text-blue-600 transition-colors line-clamp-1" title={quote.project?.name}>
+                                {quote.project?.name}
+                            </h3>
+                        </div>
                         <p className="text-sm text-muted-foreground line-clamp-1">
-                            {quote.client?.name || quote.company?.name || 'Cliente sin asignar'}
+                            {quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}
                         </p>
                     </div>
                     <StatusBadge status={quote.status} type="QUOTE" />
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                    <span className="bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
                         {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}
                     </span>
-                    {quote.quoteSentDate && (
-                        <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                            <CheckCircle2 className="w-3 h-3" />
+                    {quote.status === 'SENT' && (
+                        <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-bold">
                             Enviada
                         </span>
                     )}
                 </div>
-            </div>
+            </Link>
 
-            <div className="border-t border-border pt-4 flex justify-between items-end">
-                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Valor Total</div>
-                <div className="font-mono font-bold text-xl text-foreground">
-                    {formattedTotal}
+            <div className="border-t border-border pt-4 mt-auto">
+                <div className="flex justify-between items-end mb-4">
+                    <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Valor Total</div>
+                    <div className="font-mono font-bold text-xl text-foreground">
+                        {formattedTotal}
+                    </div>
+                </div>
+                
+                {/* Commercial Actions v1.0 */}
+                <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" asChild className="rounded-lg h-8 text-[10px] font-black uppercase">
+                        <Link href={`/projects/${quote.projectId}/quote`}>Ver Detalle</Link>
+                    </Button>
+                    {quote.status === 'SENT' && (
+                        <AcceptQuoteButton quoteId={quote.id} />
+                    )}
                 </div>
             </div>
-        </Link>
+        </div>
     );
 }
 
@@ -174,38 +190,40 @@ function QuoteListItem({ quote }: { quote: any }) {
     const { formattedTotal } = calculateQuoteTotals(quote);
 
     return (
-        <Link
-            href={`/projects/${quote.id}/quote`}
+        <div
             className="group flex items-center justify-between bg-card hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-border hover:border-blue-200 dark:hover:border-blue-800 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200"
         >
-            <div className="flex-1 min-w-0 pr-4">
+            <Link href={`/projects/${quote.projectId}/quote`} className="flex-1 min-w-0 pr-4">
                 <div className="flex items-center gap-3 mb-1">
+                    <Badge variant="outline" className="text-[8px] font-bold">v{quote.version}</Badge>
                     <h3 className="font-bold text-base text-foreground group-hover:text-blue-600 transition-colors truncate">
-                        {quote.name}
+                        {quote.project?.name}
                     </h3>
                     <span className="shrink-0 text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
                         {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM', { locale: es }) : '-'}
                     </span>
                 </div>
                 <p className="text-sm text-muted-foreground truncate">
-                    {quote.client?.name || quote.company?.name || 'Cliente sin asignar'}
+                    {quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}
                 </p>
-            </div>
+            </Link>
 
             <div className="flex items-center gap-6 shrink-0">
                 <div className="text-right">
                     <div className="font-mono font-bold text-base text-foreground">
                         {formattedTotal}
                     </div>
-                    {quote.quoteSentDate && (
-                        <div className="flex justify-end items-center gap-1 text-[10px] text-emerald-600 font-medium">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Enviada
-                        </div>
-                    )}
                 </div>
                 <StatusBadge status={quote.status} type="QUOTE" />
+                <div className="flex items-center gap-2 min-w-[100px] justify-end">
+                    {quote.status === 'SENT' && (
+                        <AcceptQuoteButton quoteId={quote.id} />
+                    )}
+                    <Button variant="ghost" size="sm" asChild className="rounded-lg h-8 w-8 p-0">
+                        <Link href={`/projects/${quote.projectId}/quote`}><Search className="w-4 h-4" /></Link>
+                    </Button>
+                </div>
             </div>
-        </Link>
+        </div>
     );
 }

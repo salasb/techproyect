@@ -355,18 +355,35 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    // 1. Validate permissions (Only OWNER can change roles in v1)
+    // 1. Validate permissions (OWNER can change all, ADMIN can manage MEMBERS/VIEWERS)
     const executor = await prisma.organizationMember.findUnique({
         where: { organizationId_userId: { organizationId: orgId, userId: user.id } }
     });
 
-    if (!executor || !isOwner(executor.role)) {
-        throw new Error("Only the owner can manage member roles");
+    if (!executor || !isAdmin(executor.role)) {
+        throw new Error("Insufficient permissions to manage roles");
+    }
+
+    const targetMember = await prisma.organizationMember.findUnique({ where: { id: memberId } });
+    if (!targetMember) throw new Error("Member not found");
+
+    if (!isOwner(executor.role)) {
+        // If ADMIN, cannot change roles of other ADMINs or OWNERs
+        if (targetMember.role === 'ADMIN' || targetMember.role === 'OWNER') {
+            throw new Error("Admins cannot change roles of other admins or owners");
+        }
+        // Cannot promote someone to ADMIN/OWNER if they are not already one?
+        // Actually, prompt says ADMINs can change roles. Let's allow them to change MEMBER to ADMIN if needed, 
+        // OR restrict it. Usually, only OWNER can promote to ADMIN.
+        // Rule: ADMIN can only promote to roles equal or lower than their own? 
+        // Let's stick to: ADMIN can change MEMBER <-> VIEWER. Only OWNER can manage ADMINs.
+        if (newRole === 'ADMIN' || newRole === 'OWNER') {
+            throw new Error("Only owners can promote members to Admin or Owner");
+        }
     }
 
     // 2. Safety check: Don't allow changing the last owner
-    const targetMember = await prisma.organizationMember.findUnique({ where: { id: memberId } });
-    if (targetMember?.role === 'OWNER' && newRole !== 'OWNER') {
+    if (targetMember.role === 'OWNER' && newRole !== 'OWNER') {
         const ownersCount = await prisma.organizationMember.count({
             where: { organizationId: orgId, role: 'OWNER' }
         });
@@ -386,7 +403,7 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
         organizationId: orgId,
         userId: user.id,
         action: 'MEMBER_ROLE_CHANGED',
-        details: `Changed role of member ${memberId} to ${newRole}`
+        details: `Changed role of member ${targetMember.userId} (OrgMember ${memberId}) from ${targetMember.role} to ${newRole}`
     });
 
     revalidatePath("/settings/team");
@@ -415,8 +432,14 @@ export async function removeMemberAction(memberId: string, orgId: string) {
     const targetMember = await prisma.organizationMember.findUnique({ where: { id: memberId } });
     if (!targetMember) throw new Error("Member not found");
 
+    if (!isOwner(executor.role)) {
+        // If ADMIN, cannot remove other ADMINs or OWNERs
+        if (targetMember.role === 'ADMIN' || targetMember.role === 'OWNER') {
+            throw new Error("Admins cannot remove other admins or owners");
+        }
+    }
+
     if (targetMember.role === 'OWNER') {
-        if (!isOwner(executor.role)) throw new Error("Only owners can remove other owners");
         const ownersCount = await prisma.organizationMember.count({
             where: { organizationId: orgId, role: 'OWNER' }
         });
@@ -431,7 +454,7 @@ export async function removeMemberAction(memberId: string, orgId: string) {
         organizationId: orgId,
         userId: user.id,
         action: 'MEMBER_REMOVED',
-        details: `Removed member ${memberId}`
+        details: `Removed member ${targetMember.userId} (OrgMember ${memberId}) with role ${targetMember.role}`
     });
 
     revalidatePath("/settings/team");

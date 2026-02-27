@@ -5,7 +5,8 @@ import { PaginationControl } from "@/components/ui/PaginationControl";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { FileText, AlertCircle, CheckCircle2, CreditCard } from "lucide-react";
+import { PayInvoiceButton } from "@/components/commercial/PayInvoiceButton";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
     const supabase = await createClient();
@@ -121,7 +122,10 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end">
+                                                <div className="flex justify-end items-center gap-3">
+                                                    {!isPaid && (
+                                                        <PayInvoiceButton invoiceId={inv.id} />
+                                                    )}
                                                     {isPaid ? (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                                                             <CheckCircle2 className="w-3 h-3 mr-1" /> Pagado
