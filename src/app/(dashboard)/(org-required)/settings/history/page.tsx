@@ -1,4 +1,4 @@
-import { History, ShieldInfo } from "lucide-react";
+import { History, Shield } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/current-org";
 import { createClient } from "@/lib/supabase/server";
@@ -41,7 +41,7 @@ export default async function AuditHistoryPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg">
-                    <ShieldInfo className="w-4 h-4 text-zinc-500" />
+                    <Shield className="w-4 h-4 text-zinc-500" />
                     <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">OWASP Compliant Logging</span>
                 </div>
             </div>
