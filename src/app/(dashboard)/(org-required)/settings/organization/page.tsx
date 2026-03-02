@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { GlobalAuditLog } from "@/components/settings/GlobalAuditLog";
 import { TeamMemberList } from "@/components/team/member-list";
 import { isAdmin } from "@/lib/permissions";
