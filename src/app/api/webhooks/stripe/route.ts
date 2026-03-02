@@ -224,7 +224,7 @@ export async function POST(req: Request) {
                 const invoice = event.data.object as Stripe.Invoice;
                 const orgId = invoice.metadata?.organizationId || (await prisma.subscription.findFirst({ where: { providerCustomerId: invoice.customer as string } }))?.organizationId;
                 console.log(`[StripeWebhook][${traceId}] Payment failed for Org: ${orgId}`);
-                if (orgId) await trackSlo('BILLING_PAYMENT', false, orgId, undefined, { error: invoice.last_payment_error?.message || 'Payment failed' });
+                if (orgId) await trackSlo('BILLING_PAYMENT', false, orgId, undefined, { error: 'Payment failed' });
                 break;
             }
 
