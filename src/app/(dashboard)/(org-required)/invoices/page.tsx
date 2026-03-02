@@ -5,8 +5,10 @@ import { PaginationControl } from "@/components/ui/PaginationControl";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { FileText, AlertCircle, CheckCircle2, CreditCard } from "lucide-react";
+import { FileText, AlertCircle, CheckCircle2, CreditCard, Mail } from "lucide-react";
 import { PayInvoiceButton } from "@/components/commercial/PayInvoiceButton";
+import { SendInvoiceButton } from "@/components/commercial/SendInvoiceButton";
+import { InvoicePdfButton } from "@/components/invoices/InvoicePdfButton";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
     const supabase = await createClient();
@@ -123,7 +125,11 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end items-center gap-3">
-                                                    {!isPaid && (
+                                                    <InvoicePdfButton invoice={inv} />
+                                                    {!inv.sent && !isPaid && (
+                                                        <SendInvoiceButton invoiceId={inv.id} />
+                                                    )}
+                                                    {!isPaid && inv.sent && (
                                                         <PayInvoiceButton invoiceId={inv.id} />
                                                     )}
                                                     {isPaid ? (

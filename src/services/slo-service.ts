@@ -116,24 +116,24 @@ export class SloService {
      */
     static async syncAlerts() {
         const statuses = await this.getGlobalStatus();
-        const { AlertsService } = await import("./alerts-service");
+        const traceId = `SLO-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
         for (const status of statuses) {
+            const fingerprint = `SLO_BURN:${status.id}`;
+            
             if (status.isAlerting) {
-                const burnType = status.burnRate1h > 14.4 ? 'FAST' : 'SLOW';
-                const severity = burnType === 'FAST' ? 'CRITICAL' : 'WARNING';
+                const isFast = status.burnRate1h > 14.4;
+                const severity = isFast ? 'CRITICAL' : 'WARNING';
+                const burnType = isFast ? 'FAST' : 'SLOW';
+                const currentBurn = isFast ? status.burnRate1h : status.burnRate6h;
                 
-                // Idempotency fingerprint
-                const fingerprint = `SLO_BURN:${status.id}:${burnType}`;
-                
-                // We create a SuperadminAlert via AlertsService or directly
                 await (prisma as any).superadminAlert.upsert({
                     where: { fingerprint },
                     create: {
-                        type: 'SYSTEM_INFO', // We could add a new type but SYSTEM_INFO is a safe fallback
+                        type: 'SYSTEM_INFO',
                         severity: severity as any,
                         title: `SLO Burn Rate ${burnType}: ${status.name}`,
-                        description: `El SLO ${status.name} está consumiendo su presupuesto de error demasiado rápido. Burn Rate: ${burnType === 'FAST' ? status.burnRate1h.toFixed(1) : status.burnRate6h.toFixed(1)}x.`,
+                        description: `El SLO ${status.name} está consumiendo su presupuesto de error demasiado rápido (${burnType}). Burn Rate: ${currentBurn.toFixed(1)}x.`,
                         fingerprint,
                         status: 'ACTIVE',
                         metadata: {
@@ -141,14 +141,43 @@ export class SloService {
                             burnRate1h: status.burnRate1h,
                             burnRate6h: status.burnRate6h,
                             sli: status.sli,
-                            playbook: `/docs/playbooks/slo-${status.id.toLowerCase()}.md`
+                            playbook: `/docs/playbooks/slo-${status.id.toLowerCase()}.md`,
+                            lastTraceId: traceId
                         }
                     },
                     update: {
-                        description: `El SLO ${status.name} está consumiendo su presupuesto de error demasiado rápido. Burn Rate: ${burnType === 'FAST' ? status.burnRate1h.toFixed(1) : status.burnRate6h.toFixed(1)}x.`,
-                        updatedAt: new Date()
+                        severity: severity as any,
+                        title: `SLO Burn Rate ${burnType}: ${status.name}`,
+                        description: `El SLO ${status.name} está consumiendo su presupuesto de error demasiado rápido (${burnType}). Burn Rate: ${currentBurn.toFixed(1)}x.`,
+                        status: 'ACTIVE', // Reopen if it was resolved
+                        updatedAt: new Date(),
+                        metadata: {
+                            sloId: status.id,
+                            burnRate1h: status.burnRate1h,
+                            burnRate6h: status.burnRate6h,
+                            sli: status.sli,
+                            playbook: `/docs/playbooks/slo-${status.id.toLowerCase()}.md`,
+                            lastTraceId: traceId
+                        }
                     }
                 });
+            } else {
+                // Auto-resolve if alerting condition is gone
+                const existing = await (prisma as any).superadminAlert.findUnique({
+                    where: { fingerprint }
+                });
+                
+                if (existing && existing.status !== 'RESOLVED') {
+                    await (prisma as any).superadminAlert.update({
+                        where: { fingerprint },
+                        data: {
+                            status: 'RESOLVED',
+                            resolvedAt: new Date(),
+                            description: `SLO ${status.name} normalizado. Burn rates actuales dentro de límites seguros.`,
+                            updatedAt: new Date()
+                        }
+                    });
+                }
             }
         }
     }

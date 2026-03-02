@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     const start = Date.now();
+    const traceId = `STW-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const body = await req.text();
     const requestHeaders = await headers();
     const sig = requestHeaders.get('stripe-signature');
@@ -18,25 +19,29 @@ export async function POST(req: Request) {
 
     let event: Stripe.Event;
 
+    console.log(`[StripeWebhook][${traceId}] Received webhook request`);
+
     // 1. Signature Verification / E2E Bypass
     try {
         const expectedE2ESecret = process.env.E2E_TEST_SECRET || 'E2E_LOCAL_TEST_SECRET';
 
         if (process.env.NODE_ENV !== 'production' && e2eSecretStr && e2eSecretStr === expectedE2ESecret) {
-            console.warn('Bypassing Stripe webhook signature verification for E2E test.');
+            console.warn(`[StripeWebhook][${traceId}] Bypassing signature verification for E2E test.`);
             event = JSON.parse(body) as Stripe.Event;
         } else {
             if (!sig || !endpointSecret) {
-                console.error('Webhook Error: Missing signature or secret');
+                console.error(`[StripeWebhook][${traceId}] Missing signature or secret`);
                 return Response.json({ error: 'Missing signature or secret' }, { status: 400 });
             }
             const stripe = getStripe();
             event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
         }
     } catch (err: any) {
-        console.error(`Webhook Verification Error: ${err.message}`);
+        console.error(`[StripeWebhook][${traceId}] Verification Error: ${err.message}`);
         return Response.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
     }
+
+    console.log(`[StripeWebhook][${traceId}] Event type: ${event.type}, ID: ${event.id}`);
 
     // 2. Idempotency Check
     const existingEvent = await prisma.stripeEvent.findUnique({
@@ -44,6 +49,7 @@ export async function POST(req: Request) {
     });
 
     if (existingEvent?.status === 'OK') {
+        console.log(`[StripeWebhook][${traceId}] Event ${event.id} already processed. Skipping.`);
         return Response.json({ received: true, duplication: true });
     }
 
@@ -58,7 +64,8 @@ export async function POST(req: Request) {
             type: event.type,
             processed: false,
             status: 'PENDING',
-            data: event.data.object as any
+            data: event.data.object as any,
+            orgId: (event.data.object as any).metadata?.organizationId || null
         }
     });
 
@@ -70,9 +77,11 @@ export async function POST(req: Request) {
                 const orgId = session.metadata?.organizationId;
                 const invoiceId = session.metadata?.invoiceId;
                 const paymentType = session.metadata?.type;
+                const sessionTraceId = session.metadata?.traceId;
+                
+                console.log(`[StripeWebhook][${traceId}] Processing checkout.session.completed for Org: ${orgId}, OriginTrace: ${sessionTraceId}`);
 
                 if (orgId && (session.mode === 'subscription' || session.subscription)) {
-                    // 1. Subscription Logic
                     const stripe = getStripe();
                     const stripeSub = await stripe.subscriptions.retrieve(session.subscription as string);
 
@@ -92,15 +101,16 @@ export async function POST(req: Request) {
                         data: {
                             organizationId: orgId,
                             action: 'STRIPE_WEBHOOK_PROCESSED',
-                            details: `Processed subscription checkout.session.completed for customer ${session.customer}`,
+                            details: `[${traceId}] Processed subscription checkout.session.completed. Origin: ${sessionTraceId}`,
                             userName: 'Stripe Webhook'
                         }
                     });
                 } else if (invoiceId && paymentType === 'INVOICE_PAYMENT' && session.payment_status === 'paid') {
-                    // 2. One-off Invoice Payment Logic
-                    const amount = session.amount_total ? session.amount_total / 1 : 0; // CLP assumes absolute units
+                    const amount = session.amount_total ? session.amount_total / 1 : 0;
                     const { InvoiceService } = await import("@/services/invoiceService");
                     
+                    console.log(`[StripeWebhook][${traceId}] Registering payment for invoice ${invoiceId}`);
+
                     await InvoiceService.registerPayment(
                         invoiceId,
                         amount,
@@ -109,8 +119,6 @@ export async function POST(req: Request) {
                         'STRIPE_SYSTEM',
                         orgId || 'UNKNOWN'
                     );
-
-                    console.log(`[Webhook][${event.id}] Successfully registered payment for invoice ${invoiceId}`);
                 }
                 break;
             }
@@ -125,6 +133,8 @@ export async function POST(req: Request) {
                     });
                     if (sub) orgId = sub.organizationId;
                 }
+
+                console.log(`[StripeWebhook][${traceId}] Processing customer.subscription.updated for Org: ${orgId}`);
 
                 if (orgId) {
                     let status: SubscriptionStatus = SubscriptionStatus.ACTIVE;
@@ -158,7 +168,7 @@ export async function POST(req: Request) {
                         data: {
                             organizationId: orgId,
                             action: 'STRIPE_WEBHOOK_PROCESSED',
-                            details: `Processed customer.subscription.updated (New Status: ${status})`,
+                            details: `[${traceId}] Processed customer.subscription.updated (New Status: ${status})`,
                             userName: 'Stripe Webhook'
                         }
                     });
@@ -174,6 +184,8 @@ export async function POST(req: Request) {
                     if (sub) orgId = sub.organizationId;
                 }
 
+                console.log(`[StripeWebhook][${traceId}] Processing customer.subscription.deleted for Org: ${orgId}`);
+
                 if (orgId) {
                     await prisma.subscription.update({
                         where: { organizationId: orgId },
@@ -187,7 +199,7 @@ export async function POST(req: Request) {
                         data: {
                             organizationId: orgId,
                             action: 'STRIPE_WEBHOOK_PROCESSED',
-                            details: `Processed customer.subscription.deleted`,
+                            details: `[${traceId}] Processed customer.subscription.deleted`,
                             userName: 'Stripe Webhook'
                         }
                     });
@@ -196,13 +208,14 @@ export async function POST(req: Request) {
             }
 
             case 'ping.e2e_test': {
-                console.log("E2E Ping Event Processed");
+                console.log(`[StripeWebhook][${traceId}] E2E Ping Event Processed`);
                 break;
             }
 
             case 'invoice.payment_succeeded': {
                 const invoice = event.data.object as Stripe.Invoice;
                 const orgId = invoice.metadata?.organizationId || (await prisma.subscription.findFirst({ where: { providerCustomerId: invoice.customer as string } }))?.organizationId;
+                console.log(`[StripeWebhook][${traceId}] Payment succeeded for Org: ${orgId}`);
                 if (orgId) await trackSlo('BILLING_PAYMENT', true, orgId);
                 break;
             }
@@ -210,12 +223,13 @@ export async function POST(req: Request) {
             case 'invoice.payment_failed': {
                 const invoice = event.data.object as Stripe.Invoice;
                 const orgId = invoice.metadata?.organizationId || (await prisma.subscription.findFirst({ where: { providerCustomerId: invoice.customer as string } }))?.organizationId;
+                console.log(`[StripeWebhook][${traceId}] Payment failed for Org: ${orgId}`);
                 if (orgId) await trackSlo('BILLING_PAYMENT', false, orgId, undefined, { error: invoice.last_payment_error?.message || 'Payment failed' });
                 break;
             }
 
             default:
-                console.log(`Unhandled event type ${event.type}`);
+                console.log(`[StripeWebhook][${traceId}] Unhandled event type ${event.type}`);
         }
 
         // 4. Success Update
@@ -234,7 +248,7 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         const errorMessage = error.message || "Unknown error";
-        console.error(`Webhook Processing Error [${event?.id}]: ${errorMessage}`);
+        console.error(`[StripeWebhook][${traceId}] Processing Error: ${errorMessage}`);
 
         if (event?.id) {
             await prisma.stripeEvent.update({

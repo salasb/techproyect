@@ -61,6 +61,7 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
         // Override items with the Snapshot items from SELECTED quote
         project.quoteItems = selectedQuote.items as any;
         project.totalNet = selectedQuote.totalNet;
+        (project as any).version = selectedQuote.version;
         // project.acceptedAt logic is tricky if viewing old version, 
         // but for visual consistency we show the snapshot data.
     }
@@ -111,6 +112,7 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
                     projectName={project.name}
                     quoteSentDate={project.quoteSentDate}
                     isPaused={isPaused}
+                    quote={selectedQuote}
                 />
                 <div className="flex gap-2 items-center">
                     <QuoteVersionSelector

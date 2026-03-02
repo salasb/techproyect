@@ -11,6 +11,7 @@ type Project = Database['public']['Tables']['Project']['Row'] & {
     quoteItems: Database['public']['Tables']['QuoteItem']['Row'][];
     client?: Database['public']['Tables']['Client']['Row'] | null;
     acceptedAt?: string | null;
+    version?: number;
 }
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -84,7 +85,7 @@ export function QuoteDocument({ project, settings }: Props) {
                 {/* 3. Quote Meta (Right) */}
                 <div className="w-1/3 pl-4 text-right">
                     <h1 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Cotización</h1>
-                    <p className="text-sm font-medium text-slate-500 mb-2">#{project.id.slice(0, 6).toUpperCase()}</p>
+                    <p className="text-sm font-medium text-slate-500 mb-2">#{project.id.slice(0, 6).toUpperCase()} {project.version && <span className="ml-1">v{project.version}</span>}</p>
 
                     <div className="text-[10px] space-y-1">
                         <div className="flex justify-end gap-2">

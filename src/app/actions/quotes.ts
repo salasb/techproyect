@@ -133,6 +133,15 @@ export async function toggleQuoteAcceptance(projectId: string, isAccepted: boole
     if (latestQuote) {
         if (isAccepted) {
             await QuoteService.acceptQuote(latestQuote.id, userId, scope.orgId);
+            
+            // AUTOMATION: Generate Invoice from accepted quote (v1.3 Requirement)
+            try {
+                const { InvoiceService } = await import("@/services/invoiceService");
+                await InvoiceService.generateFromQuote(latestQuote.id, userId, scope.orgId);
+            } catch (invoiceError) {
+                console.error("[QuoteAcceptance] Failed to auto-generate invoice:", invoiceError);
+                // We don't block the acceptance if invoice generation fails, but we log it.
+            }
         } else {
             await QuoteService.revokeAcceptance(latestQuote.id, userId, scope.orgId);
         }

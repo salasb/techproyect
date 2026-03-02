@@ -48,11 +48,13 @@ export async function requireOperationalScope(): Promise<OperationalScope> {
     const state = await getWorkspaceState();
 
     if (state.status === 'NOT_AUTHENTICATED') {
+        console.warn(`[AuthZ] Denial: User not authenticated.`);
         throw new ScopeError('User not authenticated', 'UNAUTHORIZED');
     }
 
     // If superadmin but no active org is set, they MUST select one to operate commercially.
     if (!state.activeOrgId) {
+        console.warn(`[AuthZ] Denial: No active organization context for user ${state.userId}.`);
         throw new ScopeError('Se requiere seleccionar una organización activa para operar.', 'NO_ORG_CONTEXT');
     }
 

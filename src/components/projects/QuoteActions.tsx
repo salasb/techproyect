@@ -9,7 +9,8 @@ import { sendQuote, createQuoteRevision, toggleQuoteAcceptance } from "@/app/act
 import { QuickClientDialog } from "@/components/clients/QuickClientDialog";
 import { useToast } from "@/components/ui/Toast";
 import confetti from 'canvas-confetti';
-import { Send, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
+import { Send, CheckCircle2, XCircle, Loader2, RefreshCw, FileDown } from "lucide-react";
+import { QuotePdfButton } from "@/components/quotes/QuotePdfButton";
 
 interface QuoteActionsProps {
     projectId: string;
@@ -18,9 +19,10 @@ interface QuoteActionsProps {
     projectName: string;
     quoteSentDate?: string | null;
     isPaused?: boolean;
+    quote?: any;
 }
 
-export function QuoteActions({ projectId, clientId, projectStatus, projectName, quoteSentDate, isPaused }: QuoteActionsProps) {
+export function QuoteActions({ projectId, clientId, projectStatus, projectName, quoteSentDate, isPaused, quote }: QuoteActionsProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
     const { toast } = useToast();
@@ -138,6 +140,12 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
                 {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
                 Rechazar
             </button>
+
+            {quote && (
+                <div className="flex items-center h-10 px-2 bg-white rounded-lg border border-zinc-200 shadow-sm">
+                    <QuotePdfButton quote={quote} />
+                </div>
+            )}
 
             {/* Invoice Generation - Available when Accepted (En Curso) */}
             {projectStatus === 'EN_CURSO' && (

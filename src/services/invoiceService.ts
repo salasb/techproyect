@@ -51,6 +51,7 @@ export class InvoiceService {
     /**
      * Registers a payment for an invoice.
      * Updates status to PAID or PARTIALLY_PAID.
+     * Idempotent: checks for existing reference.
      */
     static async registerPayment(
         invoiceId: string,
@@ -66,7 +67,18 @@ export class InvoiceService {
 
         if (!invoice) throw new Error("Invoice not found");
 
-        // Create Payment Record
+        // 1. Idempotency Check
+        if (reference) {
+            const existingPayment = await prisma.paymentRecord.findFirst({
+                where: { reference, invoiceId, organizationId }
+            });
+            if (existingPayment) {
+                console.log(`[InvoiceService] Payment with reference ${reference} already registered. Skipping.`);
+                return existingPayment;
+            }
+        }
+
+        // 2. Create Payment Record
         const payment = await prisma.paymentRecord.create({
             data: {
                 invoiceId,
@@ -79,7 +91,7 @@ export class InvoiceService {
             }
         });
 
-        // Update Invoice Stats
+        // 3. Update Invoice Stats
         const newPaidAmount = (invoice.amountPaidGross || 0) + amount;
         let newStatus: InvoiceStatus = invoice.status;
 
@@ -101,7 +113,7 @@ export class InvoiceService {
         await AuditService.logAction(
             invoice.projectId,
             'INVOICE_PAYMENT',
-            `Pago registrado: ${amount} (${method}). Estado: ${newStatus}`,
+            `Pago registrado: ${amount} (${method}). Referencia: ${reference}. Estado: ${newStatus}`,
             { id: userId }
         );
 

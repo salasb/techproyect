@@ -11,6 +11,8 @@ import { QuoteExportButton } from "@/components/quotes/QuoteExportButton";
 import { QuoteViewToggle } from "@/components/quotes/QuoteViewToggle";
 import { cookies } from "next/headers";
 import { AcceptQuoteButton } from "@/components/commercial/AcceptQuoteButton";
+import { SendQuoteButton } from "@/components/commercial/SendQuoteButton";
+import { QuotePdfButton } from "@/components/quotes/QuotePdfButton";
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ page?: string, q?: string, view?: string }> }) {
     const supabase = await createClient();
@@ -172,14 +174,20 @@ function QuoteGridCard({ quote }: { quote: any }) {
                     </div>
                 </div>
                 
-                {/* Commercial Actions v1.0 */}
-                <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" size="sm" asChild className="rounded-lg h-8 text-[10px] font-black uppercase">
+                {/* Commercial Actions v1.1 */}
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" asChild className="rounded-lg h-8 text-[10px] font-black uppercase flex-1">
                         <Link href={`/projects/${quote.projectId}/quote`}>Ver Detalle</Link>
                     </Button>
-                    {quote.status === 'SENT' && (
-                        <AcceptQuoteButton quoteId={quote.id} />
-                    )}
+                    <div className="flex items-center gap-1">
+                        <QuotePdfButton quote={quote} />
+                        {quote.status === 'DRAFT' && (
+                            <SendQuoteButton quoteId={quote.id} />
+                        )}
+                        {quote.status === 'SENT' && (
+                            <AcceptQuoteButton quoteId={quote.id} />
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -215,7 +223,11 @@ function QuoteListItem({ quote }: { quote: any }) {
                     </div>
                 </div>
                 <StatusBadge status={quote.status} type="QUOTE" />
-                <div className="flex items-center gap-2 min-w-[100px] justify-end">
+                <div className="flex items-center gap-2 min-w-[140px] justify-end">
+                    <QuotePdfButton quote={quote} />
+                    {quote.status === 'DRAFT' && (
+                        <SendQuoteButton quoteId={quote.id} />
+                    )}
                     {quote.status === 'SENT' && (
                         <AcceptQuoteButton quoteId={quote.id} />
                     )}

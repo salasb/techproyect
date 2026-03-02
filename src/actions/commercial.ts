@@ -10,6 +10,9 @@ import { getStripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
+import { createAuditLog } from "@/services/audit-service";
+import { AuditService } from "@/services/auditService";
+
 /**
  * Transition Quote to ACCEPTED and generate Invoice.
  * Idempotent: If already accepted, returns existing invoice or status.
@@ -24,10 +27,17 @@ export async function acceptQuoteAction(quoteId: string) {
 
     try {
         // 1. Accept Quote (Idempotent)
-        await QuoteService.acceptQuote(quoteId, userId, scope.orgId);
+        const acceptedQuote = await QuoteService.acceptQuote(quoteId, userId, scope.orgId);
 
         // 2. Generate Invoice (Idempotent)
         const invoice = await InvoiceService.generateFromQuote(quoteId, userId, scope.orgId);
+
+        // 3. Detailed Audit Log (OWASP)
+        await AuditService.logAction(
+            acceptedQuote.projectId,
+            'QUOTE_ACCEPTED_AUDITABLE',
+            `Cotización #${acceptedQuote.version} aceptada por ${user?.email}. Timestamp: ${new Date().toISOString()}`
+        );
 
         revalidatePath(`/quotes`);
         revalidatePath(`/invoices`);
@@ -39,6 +49,67 @@ export async function acceptQuoteAction(quoteId: string) {
         };
     } catch (error: any) {
         console.error("[acceptQuoteAction] Error:", error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Marks a quote as SENT and logs the event.
+ */
+export async function sendQuoteAction(quoteId: string) {
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
+    
+    const { data: { user } } = await (await createClient()).auth.getUser();
+    
+    try {
+        const quote = await QuoteService.sendQuote(quoteId, user?.id || 'SYSTEM', scope.orgId);
+        
+        await AuditService.logAction(
+            quote.projectId,
+            'QUOTE_SENT_TO_CLIENT',
+            `Cotización v${quote.version} enviada a cliente por ${user?.email}`
+        );
+
+        revalidatePath(`/quotes`);
+        revalidatePath(`/projects/${quote.projectId}`);
+        
+        return { success: true, message: "Cotización marcada como enviada." };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Marks an invoice as SENT and logs the event.
+ */
+export async function sendInvoiceAction(invoiceId: string) {
+    const scope = await requireOperationalScope();
+    await ensureNotPaused(scope.orgId);
+    
+    const { data: { user } } = await (await createClient()).auth.getUser();
+    
+    try {
+        const invoice = await prisma.invoice.update({
+            where: { id: invoiceId, organizationId: scope.orgId },
+            data: {
+                sent: true,
+                sentDate: new Date(),
+                updatedAt: new Date()
+            }
+        });
+
+        await AuditService.logAction(
+            invoice.projectId,
+            'INVOICE_SENT_TO_CLIENT',
+            `Factura ${invoiceId.substring(0,8)} enviada a cliente por ${user?.email}`
+        );
+
+        revalidatePath(`/invoices`);
+        revalidatePath(`/projects/${invoice.projectId}`);
+        
+        return { success: true, message: "Factura marcada como enviada." };
+    } catch (error: any) {
         return { success: false, error: error.message };
     }
 }
