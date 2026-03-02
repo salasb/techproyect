@@ -1,5 +1,6 @@
 import { getWorkspaceState } from "./workspace-resolver";
 import { redirect } from "next/navigation";
+import { Permission, hasPermission } from "./rbac";
 
 /**
  * Resolves the active organization for Server Components and Server Actions.
@@ -27,10 +28,11 @@ export interface OperationalScope {
     userId: string;
     isSuperadmin: boolean;
     role: string | null;
+    isPaused?: boolean;
 }
 
 export class ScopeError extends Error {
-    constructor(message: string, public code: 'UNAUTHORIZED' | 'NO_ORG_CONTEXT' | 'INVALID_ORG_CONTEXT') {
+    constructor(message: string, public code: 'UNAUTHORIZED' | 'NO_ORG_CONTEXT' | 'INVALID_ORG_CONTEXT' | 'FORBIDDEN') {
         super(message);
         this.name = 'ScopeError';
     }
@@ -63,5 +65,21 @@ export async function requireOperationalScope(): Promise<OperationalScope> {
         userId: state.userId as string,
         isSuperadmin: state.isSuperadmin,
         role: state.userRole || null,
+        isPaused: state.subscriptionStatus === 'PAUSED'
     };
+}
+
+/**
+ * Enhanced RBAC Guard (v1.0)
+ * Verifies both OperationalScope AND specific granular permission.
+ */
+export async function requirePermission(permission: Permission): Promise<OperationalScope> {
+    const scope = await requireOperationalScope();
+
+    if (!hasPermission(scope.role, permission)) {
+        console.error(`[RBAC] Access denied for user ${scope.userId} (Role: ${scope.role}) requesting ${permission}`);
+        throw new ScopeError(`No tienes permiso (${permission}) para realizar esta acción.`, 'FORBIDDEN');
+    }
+
+    return scope;
 }

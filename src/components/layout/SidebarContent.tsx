@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin, CreditCard, TrendingUp, Calendar, UserPlus, QrCode } from "lucide-react";
+import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin, CreditCard, TrendingUp, Calendar, UserPlus, QrCode, MessageSquare, Zap, Shield } from "lucide-react";
 import { UserMenu } from "./UserMenu";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 import { isAdmin } from "@/lib/permissions";
@@ -74,6 +74,9 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
             label: 'Configuración',
             items: [
                 { name: 'Ajustes', href: '/settings', icon: Settings, adminOnly: true },
+                { name: 'Soporte', href: '/settings/support', icon: MessageSquare },
+                { name: 'Integraciones', href: '/settings/integrations', icon: Zap, adminOnly: true },
+                { name: 'Roles y Permisos', href: '/settings/organization/roles', icon: Shield, adminOnly: true },
                 { name: 'Equipo', href: '/settings/team', icon: Users, adminOnly: true, hideInSoloMode: true },
             ]
         }

@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import { QuoteStatus, Prisma } from "@prisma/client";
 import { AuditService } from "@/services/auditService";
+import { ActivationService } from "./activation-service";
+import { OutboundWebhookService } from "./outbound-webhook-service";
 
 export class QuoteService {
     /**
@@ -17,6 +19,8 @@ export class QuoteService {
                 status: 'DRAFT',
             }
         });
+
+        await ActivationService.trackFunnelEvent('QUOTE_CREATED', organizationId, `quote_created_${quote.id}`, userId);
 
         await AuditService.logAction(
             projectId,
@@ -55,6 +59,9 @@ export class QuoteService {
                 frozenAt: new Date(), // Logic: Snapshots items state effectively by blocking updates
             }
         });
+
+        await ActivationService.trackFunnelEvent('QUOTE_SENT', organizationId, `quote_sent_${quoteId}`, userId);
+        await ActivationService.trackFirst('FIRST_QUOTE_SENT', organizationId, userId, quoteId);
 
         // 3. Audit
         await AuditService.logAction(
@@ -163,6 +170,17 @@ export class QuoteService {
             }
         });
 
+        await ActivationService.trackFunnelEvent('QUOTE_ACCEPTED', organizationId, `quote_accepted_${quoteId}`, userId || 'SYSTEM');
+
+        // Outbound Webhook
+        await OutboundWebhookService.dispatch(organizationId, 'quote.accepted', {
+            quoteId: acceptedQuote.id,
+            projectId: acceptedQuote.projectId,
+            version: acceptedQuote.version,
+            totalNet: acceptedQuote.totalNet,
+            totalTax: acceptedQuote.totalTax
+        });
+
         // Audit
         await AuditService.logAction(
             quote.projectId,
@@ -210,6 +228,8 @@ export class QuoteService {
                 totalTax: 0 // Calc later if needed
             }
         });
+
+        await ActivationService.trackFunnelEvent('QUOTE_CREATED', organizationId, `quote_created_${quote.id}`, userId);
 
         // Copy Items
         // Project items are ALREADY QuoteItems in the DB (linked to Project).

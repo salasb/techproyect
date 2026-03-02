@@ -1,7 +1,7 @@
 import { 
     Building2, Users, CreditCard, Activity, Zap, ShieldCheck, 
     ShieldAlert, AlertTriangle, CheckCheck, Target, ClipboardList, AlertOctagon,
-    EyeOff
+    EyeOff, TrendingUp, MessageSquare
 } from "lucide-react";
 import { SaaSHealthTable } from "@/components/admin/SaaSHealthTable";
 import { SuperadminNotificationCenter } from "@/components/admin/SuperadminNotificationCenter";
@@ -10,9 +10,11 @@ import {
     SuperadminMonthlyMetrics, 
     SuperadminOperationalKPIs,
     SuperadminTriagePanel,
-    SuperadminSloStatus
+    SuperadminSloStatus,
+    SuperadminActivationFunnel
 } from "@/components/admin/SuperadminV2Components";
 import { RealRefreshButton } from "@/components/admin/RealRefreshButton";
+import { getGlobalAnalytics } from "@/actions/analytics";
 import { getCockpitDataSafe, OperationalBlockStatus } from "@/lib/superadmin/cockpit-data-adapter";
 import { CockpitService } from "@/lib/superadmin/cockpit-service";
 import { cn } from "@/lib/utils";
@@ -68,6 +70,15 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
         includeNonProductive 
     });
     const isSafeMode = systemStatus === 'safe_mode';
+
+    // 0.5 Growth Analytics (New v1.0)
+    let analytics: { funnel: import("@/services/activation-service").FunnelStep[]; averageTtvDays: number } = { funnel: [], averageTtvDays: 0 };
+    if (systemStatus === 'operational') {
+        const analyticsRes = await getGlobalAnalytics().catch(() => ({ success: false, data: null }));
+        if (analyticsRes.success && analyticsRes.data) {
+            analytics = analyticsRes.data;
+        }
+    }
 
     // 1. Audit Entry & Operational Recovery
     let lastEval: { executedAt: string; traceId: string; details: string } | null = null;
@@ -153,6 +164,15 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
             color: "text-amber-600",
             bg: "bg-amber-50",
             status: blocks.kpis.status
+        },
+        {
+            id: "cockpit-kpi-support",
+            label: "Tickets Soporte",
+            value: await prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
+            icon: MessageSquare,
+            color: "text-indigo-600",
+            bg: "bg-indigo-50",
+            status: 'operational'
         },
     ];
 
@@ -332,19 +352,34 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
             </div>
 
             {/* Organizations Grid */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between px-2">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
-                        <Building2 className="w-3.5 h-3.5 text-blue-500" />
-                        Directorio de Organizaciones
-                    </h3>
-                </div>
-                <BlockContainer status={blocks.orgs.status} label="Organizaciones" message={blocks.orgs.message} traceId={blocks.orgs.meta.traceId}>
-                    <SaaSHealthTable 
-                        orgs={blocks.orgs.data} 
-                        isDiagnosticMode={isDiagnosticMode}
+            <div className="space-y-10">
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                            Activación y Crecimiento
+                        </h3>
+                    </div>
+                    <SuperadminActivationFunnel 
+                        funnel={analytics.funnel} 
+                        averageTtvDays={analytics.averageTtvDays} 
                     />
-                </BlockContainer>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
+                            <Building2 className="w-3.5 h-3.5 text-blue-500" />
+                            Directorio de Organizaciones
+                        </h3>
+                    </div>
+                    <BlockContainer status={blocks.orgs.status} label="Organizaciones" message={blocks.orgs.message} traceId={blocks.orgs.meta.traceId}>
+                        <SaaSHealthTable 
+                            orgs={blocks.orgs.data} 
+                            isDiagnosticMode={isDiagnosticMode}
+                        />
+                    </BlockContainer>
+                </div>
             </div>
 
             {/* Performance Metrics */}

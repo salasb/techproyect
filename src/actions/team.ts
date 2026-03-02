@@ -10,18 +10,25 @@ import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 import { sendTeamInvitationEmail } from "@/lib/email";
 import { ActivationService } from "@/services/activation-service";
+import { checkSubscriptionLimit } from "@/lib/subscriptions";
+import { requirePermission } from "@/lib/auth/server-resolver";
 
 /**
  * Invites a new member to an organization.
  */
 export async function inviteMemberAction(formData: FormData) {
+    const scope = await requirePermission('TEAM_MANAGE');
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    const orgId = formData.get("organizationId") as string;
+    const orgId = scope.orgId; // Use orgId from scope for safety
     const email = formData.get("email") as string;
     const role = formData.get("role") as any; // MembershipRole
+
+    // Entitlement: Seat Limit
+    const limitCheck = await checkSubscriptionLimit(orgId, 'users');
+    if (!limitCheck.allowed) throw new Error(limitCheck.message);
 
     // 0. Rate Limiting (Anti-Abuse)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -145,6 +152,10 @@ export async function inviteMemberAction(formData: FormData) {
         action: 'INVITE_SENT',
         details: `Invited ${email} with role ${role} (SentCount: ${invite.sentCount})`
     });
+
+    if (role === 'ADMIN' || role === 'OWNER') {
+        await ActivationService.trackFunnelEvent('ADMIN_ASSIGNED', orgId, `invite_admin_${invite.id}`, user.id);
+    }
 
     await ActivationService.trackFirst('FIRST_TEAM_INVITE_SENT', orgId, user.id);
 
@@ -397,6 +408,10 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
         where: { id: memberId },
         data: { role: newRole }
     });
+
+    if (newRole === 'ADMIN' || newRole === 'OWNER') {
+        await ActivationService.trackFunnelEvent('ADMIN_ASSIGNED', orgId, `promote_admin_${memberId}_${Date.now()}`, user.id);
+    }
 
     // 4. Audit
     await createAuditLog({

@@ -18,11 +18,9 @@ export async function createProject(formData: FormData) {
     await ensureNotPaused(scope.orgId);
 
     try {
-        // 0. Check Subscription Limits
+        // Entitlement: Project Limit
         const limitCheck = await checkSubscriptionLimit(scope.orgId, 'projects');
-        if (!limitCheck.allowed) {
-            throw new Error(limitCheck.message);
-        }
+        if (!limitCheck.allowed) throw new Error(limitCheck.message);
 
         const name = formData.get("name") as string;
         const companyId = formData.get("companyId") as string;
@@ -46,7 +44,12 @@ export async function createProject(formData: FormData) {
             finalClientId = selectedClientId;
 
             // Fetch Client Name to sync/find Company
-            const clientData = await prisma.client.findUnique({ where: { id: selectedClientId } });
+            const clientData = await prisma.client.findUnique({ 
+                where: { 
+                    id: selectedClientId,
+                    organizationId: scope.orgId
+                } 
+            });
             if (clientData) {
                 const clientName = clientData.name;
                 // Check if company exists with same name

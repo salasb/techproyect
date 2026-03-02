@@ -1,6 +1,6 @@
 import { getOrganizationId } from "@/lib/current-org";
 import { getOrganizationSubscription } from "@/lib/subscriptions";
-import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database, CreditCard } from "lucide-react";
+import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database, CreditCard, FileText, Receipt } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,10 @@ export default async function BillingPage() {
         .eq('isActive', true)
         .order('price', { ascending: true });
 
-    const percentUsers = Math.min((usage.users / limits.maxUsers) * 100, 100);
-    const percentProjects = Math.min((usage.projects / limits.maxProjects) * 100, 100);
+    const percentUsers = Math.min((usage.users / (limits.maxUsers || 1)) * 100, 100);
+    const percentProjects = Math.min((usage.projects / (limits.maxProjects || 1)) * 100, 100);
+    const percentQuotes = Math.min((usage.quotesMonth / (limits.maxQuotesPerMonth || 1)) * 100, 100);
+    const percentInvoices = Math.min((usage.invoicesMonth / (limits.maxInvoicesPerMonth || 1)) * 100, 100);
 
     // Find current plan details from DB list or fallback
     const currentPlanDetails = allPlans?.find(p => p.id === plan);
@@ -33,7 +35,32 @@ export default async function BillingPage() {
 
     return (
         <div className="space-y-12 animate-in fade-in pb-10">
-            {!hasPaymentMethod && (
+            {subscription?.status === 'PAUSED' && (
+                <div className="bg-rose-600 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8 animate-in slide-in-from-top-4 duration-700">
+                    <div className="flex items-center gap-6">
+                        <div className="p-4 bg-white/20 rounded-[1.5rem] shadow-inner shrink-0">
+                            <AlertTriangle className="w-8 h-8 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black italic tracking-tighter uppercase">Cuenta Pausada (Modo Lectura)</h3>
+                            <p className="text-rose-100 text-sm max-w-xl leading-relaxed font-medium">
+                                Tu acceso ha sido restringido por falta de pago. Puedes ver y descargar tus documentos, pero la creación de nuevos registros está bloqueada.
+                            </p>
+                        </div>
+                    </div>
+                    <form action={async () => {
+                        'use server';
+                        const { createPortalSession } = await import("@/actions/billing");
+                        await createPortalSession();
+                    }}>
+                        <Button type="submit" size="lg" className="bg-white text-rose-700 hover:bg-rose-50 px-10 h-14 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl transition-all">
+                            Resolver Ahora
+                        </Button>
+                    </form>
+                </div>
+            )}
+
+            {!hasPaymentMethod && subscription?.status !== 'PAUSED' && (
                 <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8 animate-in slide-in-from-top-4 duration-700">
                     <div className="flex items-center gap-6">
                         <div className="p-4 bg-white/20 rounded-[1.5rem] shadow-inner shrink-0">
@@ -161,6 +188,48 @@ export default async function BillingPage() {
                             className={`h-full transition-all duration-1000 ease-out rounded-full ${usage.projects >= limits.maxProjects ? 'bg-red-500' : 'bg-emerald-500'
                                 }`}
                             style={{ width: `${percentProjects}%` }}
+                        ></div>
+                    </div>
+                </div>
+
+                {/* Quotes Usage (Monthly) */}
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-slate-500" />
+                            <h4 className="font-bold text-slate-700 dark:text-slate-200">Cotizaciones (Mes)</h4>
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage.quotesMonth >= limits.maxQuotesPerMonth ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                            {usage.quotesMonth} / {limits.maxQuotesPerMonth || '∞'}
+                        </span>
+                    </div>
+                    <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage.quotesMonth >= limits.maxQuotesPerMonth ? 'bg-red-500' : 'bg-blue-500'
+                                }`}
+                            style={{ width: `${percentQuotes}%` }}
+                        ></div>
+                    </div>
+                </div>
+
+                {/* Invoices Usage (Monthly) */}
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <Receipt className="w-5 h-5 text-slate-500" />
+                            <h4 className="font-bold text-slate-700 dark:text-slate-200">Facturas (Mes)</h4>
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage.invoicesMonth >= limits.maxInvoicesPerMonth ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                            {usage.invoicesMonth} / {limits.maxInvoicesPerMonth || '∞'}
+                        </span>
+                    </div>
+                    <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage.invoicesMonth >= limits.maxInvoicesPerMonth ? 'bg-red-500' : 'bg-emerald-500'
+                                }`}
+                            style={{ width: `${percentInvoices}%` }}
                         ></div>
                     </div>
                 </div>

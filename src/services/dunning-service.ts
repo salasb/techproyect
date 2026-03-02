@@ -1,15 +1,18 @@
 import prisma from "@/lib/prisma";
 import { PaymentIssueStatus, SubscriptionStatus } from "@prisma/client";
 import { ActivationService } from "./activation-service";
+import { OutboundWebhookService } from "./outbound-webhook-service";
 
 export class DunningService {
     /**
      * Records a payment failure and updates the organization state.
      */
     static async handlePaymentFailure(organizationId: string, invoiceId?: string) {
+        const MAX_ATTEMPTS_BEFORE_PAUSE = 3;
+
         // 1. Log the failure in PaymentIssue
         const issue = await prisma.paymentIssue.upsert({
-            where: { id: `payment_${organizationId}_${invoiceId || 'latest'}` }, // Simplified ID for this implementation
+            where: { id: `payment_${organizationId}_${invoiceId || 'latest'}` },
             update: {
                 attemptCount: { increment: 1 },
                 lastAttemptAt: new Date(),
@@ -24,39 +27,65 @@ export class DunningService {
             }
         });
 
-        // 2. Update Subscription status to PAST_DUE if it's currently ACTIVE
+        // 2. Decide new status
+        // If it's the 3rd attempt or more, OR it's been more than 14 days, we pause the service.
+        const daysSinceStart = Math.floor((Date.now() - issue.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        const shouldPause = issue.attemptCount >= MAX_ATTEMPTS_BEFORE_PAUSE || daysSinceStart >= 14;
+        const newStatus = shouldPause ? SubscriptionStatus.PAUSED : SubscriptionStatus.PAST_DUE;
+
+        // 3. Update Subscription status
         await prisma.subscription.updateMany({
             where: {
                 organizationId,
-                status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] }
+                status: { not: SubscriptionStatus.CANCELED }
             },
-            data: { status: SubscriptionStatus.PAST_DUE }
+            data: { status: newStatus }
         });
 
-        // 3. Track in Funnel
-        await ActivationService.trackFunnelEvent('PAYMENT_FAILED', organizationId, `dunning_fail_${issue.id}_${issue.attemptCount}`, undefined, {
-            attempt: issue.attemptCount,
-            invoiceId
+        // 4. Track in Funnel
+        await ActivationService.trackFunnelEvent(
+            shouldPause ? 'SUBSCRIPTION_PAUSED' : 'PAYMENT_FAILED', 
+            organizationId, 
+            `dunning_fail_${issue.id}_${issue.attemptCount}`, 
+            undefined, 
+            {
+                attempt: issue.attemptCount,
+                invoiceId,
+                newStatus
+            }
+        );
+
+        // Outbound Webhook
+        await OutboundWebhookService.dispatch(organizationId, 'payment.failed', {
+            organizationId,
+            invoiceId,
+            attemptCount: issue.attemptCount,
+            newStatus
         });
 
-        // 4. Send Email Alert (Optional: fetching admin users)
+        // 5. Send Email Alert
         const { LifecycleEmailService } = await import("./lifecycle-email");
         const admins = await prisma.organizationMember.findMany({
             where: { organizationId, role: 'ADMIN' },
             include: { profile: true }
         });
 
+        const templateKey = shouldPause ? 'DUNNING_FINAL' : 'DUNNING_FAIL';
+        const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://techwise.pro';
+        const recoveryUrl = `${APP_URL}/settings/billing?recovery=1&issueId=${issue.id}`;
+
         for (const admin of admins) {
             await LifecycleEmailService.sendLifecycleEmail({
                 organizationId,
                 userId: admin.userId,
-                templateKey: 'DUNNING_FAIL',
-                dedupeKey: `dunning_fail_email_${issue.id}_${issue.attemptCount}_${admin.userId}`,
-                isBilling: true
+                templateKey: templateKey as any,
+                dedupeKey: `dunning_email_${templateKey}_${issue.id}_${issue.attemptCount}_${admin.userId}`,
+                isBilling: true,
+                ctaUrl: recoveryUrl
             });
         }
 
-        return issue;
+        return { issue, newStatus };
     }
 
     /**

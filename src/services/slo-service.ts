@@ -39,15 +39,16 @@ export class SloService {
      */
     static async getGlobalStatus(): Promise<SloStatus[]> {
         const statuses: SloStatus[] = [];
-        const now = new Date();
 
         for (const sloId in SLO_DEFINITIONS) {
             const def = SLO_DEFINITIONS[sloId];
             
-            // 1. Fetch data for windows
-            const [events1h, events6h, events30d] = await Promise.all([
-                this.getEvents(sloId, 1),
-                this.getEvents(sloId, 6),
+            // 1. Fetch data for windows (Multi-window v2.0)
+            const [events5m, events1h, events30m, events6h, events30d] = await Promise.all([
+                this.getEvents(sloId, 5/60), // 5 min
+                this.getEvents(sloId, 1),    // 1 hour
+                this.getEvents(sloId, 30/60),// 30 min
+                this.getEvents(sloId, 6),    // 6 hours
                 this.getEvents(sloId, def.windowDays * 24)
             ]);
 
@@ -63,16 +64,21 @@ export class SloService {
                 : 1;
 
             // 4. Burn Rates
-            // Burn rate = (error_rate_in_window) / (allowed_error_rate)
             const allowedErrorRate = 1 - def.target;
             
+            const burnRate5m = this.calculateBurnRate(events5m, allowedErrorRate);
             const burnRate1h = this.calculateBurnRate(events1h, allowedErrorRate);
+            const burnRate30m = this.calculateBurnRate(events30m, allowedErrorRate);
             const burnRate6h = this.calculateBurnRate(events6h, allowedErrorRate);
 
-            // 5. Alerting State (Fast/Slow Burn)
-            // Fast: 14.4x (Consumes 2% budget in 1h)
-            // Slow: 6.0x (Consumes 5% budget in 6h)
-            const isAlerting = burnRate1h > 14.4 || burnRate6h > 6.0;
+            // 5. Alerting State (Multi-window Multi-burn-rate v2.0)
+            // FAST Alert: (1h > 14.4) AND (5m > 14.4)
+            const isFastAlert = burnRate1h > 14.4 && burnRate5m > 14.4;
+            
+            // SLOW Alert: (6h > 6.0) AND (30m > 6.0)
+            const isSlowAlert = burnRate6h > 6.0 && burnRate30m > 6.0;
+
+            const isAlerting = isFastAlert || isSlowAlert;
 
             statuses.push({
                 id: sloId,

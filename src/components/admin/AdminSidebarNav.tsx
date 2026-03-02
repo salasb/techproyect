@@ -8,7 +8,8 @@ import {
     Users, 
     Settings, 
     CreditCard, 
-    TrendingUp 
+    TrendingUp,
+    MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
         group: "Principal",
         items: [
             { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
+            { href: "/admin/support", icon: MessageSquare, label: "Support Desk" },
             { href: "/admin/orgs", icon: Building2, label: "Organizaciones" },
             { href: "/admin/plans", icon: CreditCard, label: "Planes y Precios" },
             { href: "/admin/subscriptions", icon: TrendingUp, label: "Métricas" },

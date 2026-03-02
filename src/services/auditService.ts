@@ -6,10 +6,11 @@ export class AuditService {
         projectId: string | null,
         action: string,
         details?: string,
-        actor?: { name?: string; id?: string; ip?: string; userAgent?: string }
+        actor?: { name?: string; id?: string; ip?: string; userAgent?: string },
+        explicitOrgId?: string
     ) {
         try {
-            const orgId = await getOrganizationId();
+            const orgId = explicitOrgId || await getOrganizationId();
             const supabase = await createClient();
 
             let userName = 'Sistema';

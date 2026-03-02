@@ -28,51 +28,51 @@ model Company {
   phone          String?
   email          String?
   contactName    String?
-  projects       Project[]
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  projects       Project[]
 
   @@schema("public")
 }
 
 model Project {
-  id             String        @id
-  organizationId String?       @db.Uuid
-  companyId      String?
-  name           String
-  responsible    String
-  status         ProjectStatus
-  stage          ProjectStage
-  progress       Int           @default(0)
-  startDate      DateTime
-  plannedEndDate DateTime
-  nextAction     String?
-  budgetNet      Float         @default(0)
-  marginPct      Float         @default(0.30)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  acceptedAt     DateTime?
-  blockingReason String?
-  nextActionDate DateTime?     @db.Timestamptz(6)
-  currency       String?       @default("CLP")
-  paymentMethod  String        @default("FIFTY_FIFTY") // CASH, FIFTY_FIFTY, 30_DAYS
-  scopeDetails   String?
-  clientId       String?       @db.Uuid
-  quoteSentDate  DateTime?     @db.Timestamptz(6)
-  AuditLog       AuditLog[]
-  costEntries    CostEntry[]
-  Interaction    Interaction[]
-  invoices       Invoice[]
-  client         Client?       @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  company        Company?      @relation(fields: [companyId], references: [id])
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  tasks          Task[]
-  logs           ProjectLog[]
-  quoteItems     QuoteItem[]
-  quotes         Quote[]
-  saleNote       SaleNote?
-  closeReason    CloseReason?
+  id                 String              @id
+  organizationId     String?             @db.Uuid
+  companyId          String?
+  name               String
+  responsible        String
+  status             ProjectStatus
+  stage              ProjectStage
+  progress           Int                 @default(0)
+  startDate          DateTime
+  plannedEndDate     DateTime
+  nextAction         String?
+  budgetNet          Float               @default(0)
+  marginPct          Float               @default(0.30)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  acceptedAt         DateTime?
+  blockingReason     String?
+  nextActionDate     DateTime?           @db.Timestamptz(6)
+  currency           String?             @default("CLP")
+  paymentMethod      String              @default("FIFTY_FIFTY")
+  scopeDetails       String?
+  clientId           String?             @db.Uuid
+  quoteSentDate      DateTime?           @db.Timestamptz(6)
+  closeReason        CloseReason?
+  AuditLog           AuditLog[]
+  costEntries        CostEntry[]
+  Interaction        Interaction[]
   inventoryMovements InventoryMovement[]
+  invoices           Invoice[]
+  client             Client?             @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company            Company?            @relation(fields: [companyId], references: [id])
+  organization       Organization?       @relation(fields: [organizationId], references: [id])
+  logs               ProjectLog[]
   purchaseOrderItems PurchaseOrderItem[]
+  quotes             Quote[]
+  quoteItems         QuoteItem[]
+  saleNote           SaleNote?
+  tasks              Task[]
 
   @@schema("public")
 }
@@ -82,11 +82,11 @@ model SaleNote {
   projectId      String        @unique
   organizationId String?       @db.Uuid
   correlative    Int           @default(autoincrement())
-  status         String        @default("ISSUED") // ISSUED, ANNULLED
+  status         String        @default("ISSUED")
   generatedAt    DateTime      @default(now())
   pdfUrl         String?
-  project        Project       @relation(fields: [projectId], references: [id])
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  project        Project       @relation(fields: [projectId], references: [id])
 
   @@schema("public")
 }
@@ -103,9 +103,9 @@ model QuoteItem {
   priceNet       Float         @default(0)
   costNet        Float         @default(0)
   isSelected     Boolean       @default(true)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   quote          Quote?        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }
@@ -118,14 +118,11 @@ model CostEntry {
   category       CostCategory
   description    String
   amountNet      Float
-  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
-
-// Migrated to bottom
-// model Invoice { ... }
 
 model ProjectLog {
   id             String        @id @default(uuid())
@@ -134,73 +131,61 @@ model ProjectLog {
   content        String
   type           String        @default("INFO")
   createdAt      DateTime      @default(now())
-  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
 
-
 model Product {
-  id             String        @id @default(uuid())
-  organizationId String?       @db.Uuid
-  sku            String        @unique
-  name           String
-  description    String?
-  unit           String        @default("UN")
-  priceNet       Float         @default(0)
-  costNet        Float         @default(0)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  stockEntries   ProductStock[]
+  id                 String              @id @default(uuid())
+  organizationId     String?             @db.Uuid
+  sku                String              @unique
+  name               String
+  description        String?
+  unit               String              @default("UN")
+  priceNet           Float               @default(0)
+  costNet            Float               @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   inventoryMovements InventoryMovement[]
+  organization       Organization?       @relation(fields: [organizationId], references: [id])
+  stockEntries       ProductStock[]
   purchaseOrderItems PurchaseOrderItem[]
 
   @@schema("public")
 }
 
 model InventoryMovement {
-  id             String        @id @default(uuid())
-  projectId      String?       // Optional: for OUT (consumption)
-  organizationId String        @db.Uuid
+  id             String       @id @default(uuid())
+  projectId      String?
+  organizationId String       @db.Uuid
+  sku            String
+  quantity       Float
+  description    String?
+  createdAt      DateTime     @default(now())
   locationId     String
   productId      String
-  sku            String        // Snapshot for constraints/reference
-  quantity       Float         // Absolute value
-  type           MovementType  // IN, OUT, ADJUST, TRANSFER
-  description    String?
-  userId         String?       @db.Uuid
-  createdAt      DateTime      @default(now())
-  
-  project        Project?      @relation(fields: [projectId], references: [id])
-  organization   Organization  @relation(fields: [organizationId], references: [id])
-  location       Location      @relation(fields: [locationId], references: [id])
-  product        Product       @relation(fields: [productId], references: [id])
+  userId         String?      @db.Uuid
+  type           MovementType
+  location       Location     @relation(fields: [locationId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  product        Product      @relation(fields: [productId], references: [id])
+  project        Project?     @relation(fields: [projectId], references: [id])
 
   @@schema("public")
 }
-
-enum MovementType {
-  IN
-  OUT
-  ADJUST
-  TRANSFER
-
-  @@schema("public")
-}
-
 
 model Location {
-  id             String        @id @default(uuid())
-  organizationId String?       @db.Uuid
-  name           String        @unique
-  description    String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  stockEntries   ProductStock[]
+  id                 String              @id @default(uuid())
+  organizationId     String?             @db.Uuid
+  name               String              @unique
+  description        String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   inventoryMovements InventoryMovement[]
+  organization       Organization?       @relation(fields: [organizationId], references: [id])
+  stockEntries       ProductStock[]
   purchaseOrderItems PurchaseOrderItem[]
 
   @@schema("public")
@@ -214,12 +199,11 @@ model ProductStock {
   quantity       Float         @default(0)
   minStock       Float?
   lastSyncAt     DateTime?
-  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   location       Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, locationId])
-
   @@schema("public")
 }
 
@@ -232,33 +216,33 @@ model AuditLog {
   userName       String?
   createdAt      DateTime?     @default(now()) @db.Timestamptz(6)
   userId         String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
   Project        Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   Profile        Profile?      @relation(fields: [userId], references: [id], onUpdate: NoAction)
-  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Client {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String?       @db.Uuid
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?         @db.Uuid
   name           String
   email          String?
   phone          String?
   address        String?
   taxId          String?
   contactName    String?
-  createdAt      DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  updatedAt      DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  status         ClientStatus  @default(PROSPECT)
+  createdAt      DateTime        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updatedAt      DateTime        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  status         ClientStatus    @default(PROSPECT)
+  isVendor       Boolean         @default(false)
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
   Contact        Contact[]
   Interaction    Interaction[]
-  Project        Project[]
   opportunities  Opportunity[]
-  isVendor       Boolean       @default(false)
+  Project        Project[]
   purchaseOrders PurchaseOrder[] @relation("VendorPO")
-  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }
@@ -289,93 +273,181 @@ model Interaction {
   notes          String
   createdAt      DateTime        @default(now()) @db.Timestamptz(6)
   Client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  Project        Project?        @relation(fields: [projectId], references: [id], onUpdate: NoAction)
   organization   Organization?   @relation(fields: [organizationId], references: [id])
+  Project        Project?        @relation(fields: [projectId], references: [id], onUpdate: NoAction)
 
   @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Profile {
-  id             String        @id(map: "profile_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String?       @db.Uuid
-  name           String
-  email          String        @unique(map: "profile_email_key")
-  role           MembershipRole @default(MEMBER)
-  avatarUrl      String?
-  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime      @default(now()) @db.Timestamptz(6)
-  receiveProductTips Boolean @default(true)
+  id                 String               @id(map: "profile_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String?              @db.Uuid
+  name               String
+  email              String               @unique(map: "profile_email_key")
+  role               MembershipRole       @default(MEMBER)
+  avatarUrl          String?
+  createdAt          DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime             @default(now()) @db.Timestamptz(6)
+  receiveProductTips Boolean              @default(true)
   AuditLog           AuditLog[]
-  organization       Organization?        @relation(fields: [organizationId], references: [id])
-  OrganizationMember OrganizationMember[]
   EmailEventLog      EmailEventLog[]
   NudgeDismissed     NudgeDismissed[]
+  OrganizationMember OrganizationMember[]
+  organization       Organization?        @relation(fields: [organizationId], references: [id])
+  SupportTicket      SupportTicket[]
+  SupportMessage     SupportMessage[]
 
   @@schema("public")
 }
 
 model Organization {
-  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String
-  rut                String?
-  logoUrl            String?
-  settings           Json?                @default("{}")
-  createdAt          DateTime             @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime             @default(now()) @db.Timestamptz(6)
-  status             OrganizationStatus?  @default(ACTIVE)
-  plan               OrganizationPlan?    @default(FREE)
-  profiles           Profile[]
-  projects           Project[]
-  tasks              Task[]
-  alerts             SentinelAlert[]
-  stats              OrganizationStats?
-  subscription       Subscription?
-  Opportunity        Opportunity[]
-  Client             Client[]
-  Company            Company[]
-  Invoice            Invoice[]
-  Product            Product[]
-  Interaction        Interaction[]
-  AuditLog           AuditLog[]
-  ProjectLog         ProjectLog[]
-  QuoteItem          QuoteItem[]
-  CostEntry          CostEntry[]
-  SaleNote           SaleNote[]
-  UserInvitation     UserInvitation[]
-  OrganizationMember OrganizationMember[]
-  mode               OrganizationMode     @default(SOLO)
-  inventoryMovements InventoryMovement[]
-  locations          Location[]
-  ProductStock       ProductStock[]
-  activationEvents   ActivationEvent[]
-  EmailEventLog      EmailEventLog[]
-  NudgeDismissed     NudgeDismissed[]
-  ExperimentAssignment ExperimentAssignment[]
-  paymentIssues      PaymentIssue[]
-  cancelIntents      CancelIntent[]
-  shareLinks         ShareLink[]
-  paymentRecords     PaymentRecord[]
-  purchaseOrders     PurchaseOrder[]
-  purchaseOrderItems PurchaseOrderItem[]
-  poCounter          Int                  @default(0)
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String
+  rut                   String?
+  logoUrl               String?
+  settings              Json?                  @default("{}")
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime               @default(now()) @db.Timestamptz(6)
+  status                OrganizationStatus?    @default(ACTIVE)
+  plan                  OrganizationPlan?      @default(FREE)
+  mode                  OrganizationMode       @default(SOLO)
+  poCounter             Int                    @default(0)
+  activationEvents      ActivationEvent[]
+  AuditLog              AuditLog[]
+  cancelIntents         CancelIntent[]
+  Client                Client[]
+  Company               Company[]
+  CostEntry             CostEntry[]
+  EmailEventLog         EmailEventLog[]
+  ExperimentAssignment  ExperimentAssignment[]
+  Interaction           Interaction[]
+  inventoryMovements    InventoryMovement[]
+  Invoice               Invoice[]
+  locations             Location[]
+  NudgeDismissed        NudgeDismissed[]
+  Opportunity           Opportunity[]
+  OrganizationMember    OrganizationMember[]
+  stats                 OrganizationStats?
+  paymentIssues         PaymentIssue[]
+  paymentRecords        PaymentRecord[]
+  Product               Product[]
+  ProductStock          ProductStock[]
+  profiles              Profile[]
+  projects              Project[]
+  ProjectLog            ProjectLog[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseOrderItems    PurchaseOrderItem[]
   purchaseOrderReceipts PurchaseOrderReceipt[]
-  superadminAlerts   SuperadminAlert[]
+  QuoteItem             QuoteItem[]
+  SaleNote              SaleNote[]
+  alerts                SentinelAlert[]
+  shareLinks            ShareLink[]
+  subscription          Subscription?
+  superadminAlerts      SuperadminAlert[]
+  tasks                 Task[]
+  UserInvitation        UserInvitation[]
+  supportTickets        SupportTicket[]
+  webhookEndpoints      WebhookEndpoint[]
+
+  @@schema("public")
+}
+
+model WebhookEndpoint {
+  id             String       @id @default(uuid())
+  organizationId String       @db.Uuid
+  url            String
+  secret         String
+  description    String?
+  events         String[]     
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  logs           WebhookLog[]
+
+  @@schema("public")
+}
+
+model WebhookLog {
+  id                String          @id @default(uuid())
+  webhookEndpointId String
+  eventName         String
+  payload           Json
+  statusCode        Int?
+  responseBody      String?
+  durationMs        Int?
+  attemptCount      Int             @default(1)
+  error             String?
+  createdAt         DateTime        @default(now())
+  
+  endpoint          WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model SupportTicket {
+  id             String        @id @default(uuid())
+  organizationId String        @db.Uuid
+  userId         String        @db.Uuid
+  title          String
+  description    String
+  status         TicketStatus  @default(OPEN)
+  priority       TicketPriority @default(P2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  resolvedAt     DateTime?
+  
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  profile        Profile       @relation(fields: [userId], references: [id])
+  messages       SupportMessage[]
+
+  @@schema("public")
+}
+
+model SupportMessage {
+  id             String        @id @default(uuid())
+  ticketId       String
+  userId         String        @db.Uuid
+  content        String
+  isAdminReply   Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  
+  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  profile        Profile       @relation(fields: [userId], references: [id])
+
+  @@schema("public")
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+
+  @@schema("public")
+}
+
+enum TicketPriority {
+  P0
+  P1
+  P2
+  P3
 
   @@schema("public")
 }
 
 model StripeEvent {
-  id          String   @id // This is the Stripe Event ID
+  id          String    @id
   type        String
-  processed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  status      String   @default("PENDING") // OK, ERROR, PENDING
-  error       String?
-  processedAt DateTime?
+  processed   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  data        Json?
   durationMs  Int?
-  orgId       String?  @db.Uuid
-  data        Json?    // Snapshot of the event payload (optional/truncated)
+  error       String?
+  orgId       String?   @db.Uuid
+  processedAt DateTime?
+  status      String    @default("PENDING")
 
   @@schema("public")
 }
@@ -390,19 +462,18 @@ model Subscription {
   currentPeriodEnd       DateTime?
   cancelAtPeriodEnd      Boolean            @default(false)
   seatLimit              Int                @default(1)
-  provider               String? // e.g., 'stripe'
+  provider               String?
   providerCustomerId     String?
   providerSubscriptionId String?
-  compedUntil            DateTime?
-  compedReason           String?
-  source                 String?            @default("STRIPE") // STRIPE, COMPED, MANUAL
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
+  compedReason           String?
+  compedUntil            DateTime?
+  source                 String?            @default("STRIPE")
   organization           Organization       @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }
-
 
 model OrganizationMember {
   id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -423,20 +494,388 @@ model UserInvitation {
   email           String
   role            MembershipRole   @default(MEMBER)
   organizationId  String           @db.Uuid
-  tokenHash       String           @unique
   expiresAt       DateTime         @db.Timestamptz(6)
   createdAt       DateTime         @default(now()) @db.Timestamptz(6)
   acceptedAt      DateTime?        @db.Timestamptz(6)
   revokedAt       DateTime?        @db.Timestamptz(6)
+  tokenHash       String           @unique
+  invitedByUserId String?          @db.Uuid
   sentAt          DateTime?        @db.Timestamptz(6)
   sentCount       Int              @default(1)
   status          InvitationStatus @default(PENDING)
-  invitedByUserId String?          @db.Uuid // Corregido el nombre para consistencia con el contrato
   organization    Organization     @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId, email, status])
   @@index([tokenHash])
   @@index([organizationId, createdAt])
+  @@schema("public")
+}
+
+model Task {
+  id             String        @id @default(uuid())
+  projectId      String
+  organizationId String?       @db.Uuid
+  title          String
+  description    String?
+  status         TaskStatus    @default(PENDING)
+  dueDate        DateTime?
+  priority       Int           @default(0)
+  type           TaskType      @default(MANUAL)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model Quote {
+  id           String      @id @default(uuid())
+  projectId    String
+  version      Int         @default(1)
+  status       QuoteStatus @default(DRAFT)
+  totalNet     Float       @default(0)
+  totalTax     Float       @default(0)
+  frozenAt     DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  revisionOfId String?
+  sentAt       DateTime?   @db.Timestamptz(6)
+  invoices     Invoice[]
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentQuote  Quote?      @relation("QuoteVersions", fields: [revisionOfId], references: [id])
+  revisions    Quote[]     @relation("QuoteVersions")
+  items        QuoteItem[]
+
+  @@schema("public")
+}
+
+model Invoice {
+  id                  String          @id @default(uuid())
+  projectId           String
+  organizationId      String?         @db.Uuid
+  sent                Boolean         @default(false)
+  sentDate            DateTime?
+  paymentTermsDays    Int?
+  dueDate             DateTime?
+  amountInvoicedGross Float           @default(0)
+  amountPaidGross     Float           @default(0)
+  updatedAt           DateTime        @updatedAt
+  createdAt           DateTime        @default(now())
+  currency            String          @default("CLP")
+  quoteId             String?
+  status              InvoiceStatus   @default(DRAFT)
+  organization        Organization?   @relation(fields: [organizationId], references: [id])
+  project             Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  quote               Quote?          @relation(fields: [quoteId], references: [id])
+  payments            PaymentRecord[]
+
+  @@schema("public")
+}
+
+model PaymentRecord {
+  id             String        @id @default(uuid())
+  organizationId String?       @db.Uuid
+  invoiceId      String
+  amount         Float
+  currency       String        @default("CLP")
+  method         String
+  reference      String?
+  status         String        @default("COMPLETED")
+  recordedAt     DateTime      @default(now())
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+model PurchaseOrder {
+  id             String                 @id @default(uuid())
+  organizationId String                 @db.Uuid
+  vendorId       String                 @db.Uuid
+  poNumber       Int
+  status         PurchaseOrderStatus    @default(DRAFT)
+  totalNet       Float                  @default(0)
+  totalTax       Float                  @default(0)
+  totalBruto     Float                  @default(0)
+  notes          String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  organization   Organization           @relation(fields: [organizationId], references: [id])
+  vendor         Client                 @relation("VendorPO", fields: [vendorId], references: [id])
+  items          PurchaseOrderItem[]
+  receipts       PurchaseOrderReceipt[]
+
+  @@unique([organizationId, poNumber])
+  @@schema("public")
+}
+
+model PurchaseOrderReceipt {
+  id              String        @id @default(uuid())
+  organizationId  String        @db.Uuid
+  purchaseOrderId String
+  receiptNumber   String
+  receivedAt      DateTime      @default(now())
+  receivedBy      String        @db.Uuid
+  notes           String?
+  createdAt       DateTime      @default(now())
+  organization    Organization  @relation(fields: [organizationId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  items           ReceiptItem[]
+
+  @@unique([organizationId, purchaseOrderId, receiptNumber])
+  @@schema("public")
+}
+
+model ReceiptItem {
+  id                     String               @id @default(uuid())
+  purchaseOrderReceiptId String
+  purchaseOrderItemId    String
+  quantity               Float
+  purchaseOrderItem      PurchaseOrderItem    @relation(fields: [purchaseOrderItemId], references: [id])
+  receipt                PurchaseOrderReceipt @relation(fields: [purchaseOrderReceiptId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model PurchaseOrderItem {
+  id               String        @id @default(uuid())
+  purchaseOrderId  String
+  productId        String?
+  projectId        String?
+  locationId       String?
+  organizationId   String        @db.Uuid
+  description      String
+  quantity         Float         @default(1)
+  receivedQuantity Float         @default(0)
+  priceNet         Float         @default(0)
+  taxRate          Float         @default(0.19)
+  location         Location?     @relation(fields: [locationId], references: [id])
+  organization     Organization  @relation(fields: [organizationId], references: [id])
+  product          Product?      @relation(fields: [productId], references: [id])
+  project          Project?      @relation(fields: [projectId], references: [id])
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  receiptItems     ReceiptItem[]
+
+  @@schema("public")
+}
+
+model Opportunity {
+  id                  String        @id @default(uuid())
+  title               String
+  description         String?
+  value               Float?
+  probability         Int?          @default(0)
+  stage               String        @default("QUALIFIED")
+  expectedCloseDate   DateTime?
+  lastInteractionDate DateTime?     @db.Timestamptz(6)
+  nextInteractionDate DateTime?     @db.Timestamptz(6)
+  clientId            String?       @db.Uuid
+  organizationId      String?       @db.Uuid
+  closeReason         CloseReason?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  client              Client?       @relation(fields: [clientId], references: [id])
+  organization        Organization? @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+model SentinelAlert {
+  id             String           @id @default(uuid())
+  organizationId String           @db.Uuid
+  type           SentinelType
+  severity       SentinelSeverity
+  title          String
+  message        String
+  status         AlertStatus      @default(OPEN)
+  metadata       Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+model OrganizationStats {
+  id                String       @id @default(uuid())
+  organizationId    String       @unique @db.Uuid
+  wau               Int          @default(0)
+  mau               Int          @default(0)
+  daysToFirstQuote  Int?
+  crmCount          Int          @default(0)
+  quotesCount       Int          @default(0)
+  projectsCount     Int          @default(0)
+  inventoryCount    Int          @default(0)
+  lastActivityAt    DateTime     @default(now())
+  lastSentinelRunAt DateTime?
+  healthScore       Int          @default(100)
+  attributes        Json?        @default("{}")
+  firstValueAt      DateTime?
+  ttvDays           Float?
+  organization      Organization @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+model ActivationEvent {
+  id             String       @id @default(uuid())
+  organizationId String       @db.Uuid
+  userId         String?      @db.Uuid
+  eventName      String
+  occurredAt     DateTime     @default(now())
+  entityId       String?
+  metadata       Json?        @default("{}")
+  dedupeKey      String?      @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, eventName])
+  @@schema("public")
+}
+
+model Experiment {
+  id          String                 @id @default(uuid())
+  key         String                 @unique
+  variants    Json
+  enabled     Boolean                @default(true)
+  startAt     DateTime               @default(now())
+  endAt       DateTime?
+  assignments ExperimentAssignment[]
+
+  @@schema("public")
+}
+
+model ExperimentAssignment {
+  id             String       @id @default(uuid())
+  organizationId String       @db.Uuid
+  experimentId   String
+  variant        String
+  assignedAt     DateTime     @default(now())
+  experiment     Experiment   @relation(fields: [experimentId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, experimentId])
+  @@schema("public")
+}
+
+model EmailEventLog {
+  id                String       @id @default(uuid())
+  organizationId    String       @db.Uuid
+  userId            String       @db.Uuid
+  templateKey       String
+  dedupeKey         String       @unique
+  sentAt            DateTime     @default(now())
+  providerMessageId String?
+  meta              Json?        @default("{}")
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  profile           Profile      @relation(fields: [userId], references: [id])
+
+  @@schema("public")
+}
+
+model NudgeDismissed {
+  id             String       @id @default(uuid())
+  organizationId String       @db.Uuid
+  userId         String       @db.Uuid
+  dedupeKey      String
+  dismissedAt    DateTime     @default(now())
+  expiresAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  profile        Profile      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, organizationId, dedupeKey])
+  @@schema("public")
+}
+
+model PaymentIssue {
+  id                String             @id @default(uuid())
+  organizationId    String             @db.Uuid
+  status            PaymentIssueStatus @default(OPEN)
+  lastAttemptAt     DateTime           @default(now())
+  attemptCount      Int                @default(1)
+  invoiceId         String?
+  customerPortalUrl String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+model CancelIntent {
+  id             String             @id @default(uuid())
+  organizationId String             @db.Uuid
+  userId         String             @db.Uuid
+  reason         CancellationReason
+  comment        String?
+  variant        String?
+  outcome        CancelOutcome      @default(CANCEL_PENDING)
+  createdAt      DateTime           @default(now())
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+
+  @@schema("public")
+}
+
+model ShareLink {
+  id              String        @id @default(uuid())
+  organizationId  String        @db.Uuid
+  entityType      ShareLinkType
+  entityId        String
+  tokenHash       String        @unique
+  createdByUserId String        @db.Uuid
+  createdAt       DateTime      @default(now())
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  accessCount     Int           @default(0)
+  lastAccessAt    DateTime?
+  organization    Organization  @relation(fields: [organizationId], references: [id])
+
+  @@index([tokenHash])
+  @@index([entityId, entityType])
+  @@schema("public")
+}
+
+model SuperadminAlert {
+  id             String                   @id @default(uuid())
+  organizationId String?                  @db.Uuid
+  type           SuperadminAlertType
+  severity       SuperadminAlertSeverity
+  title          String
+  description    String
+  reasonCodes    String[]
+  status         SuperadminAlertStatus    @default(ACTIVE)
+  metadata       Json?                    @default("{}")
+  fingerprint    String                   @unique
+  detectedAt     DateTime                 @default(now())
+  resolvedAt     DateTime?
+  updatedAt      DateTime                 @updatedAt
+  organization   Organization?            @relation(fields: [organizationId], references: [id])
+  notifications  SuperadminNotification[]
+
+  @@schema("public")
+}
+
+model SuperadminNotification {
+  id          String           @id @default(uuid())
+  alertId     String?
+  actorTarget String           @default("SUPERADMIN")
+  kind        String
+  title       String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  metadata    Json?            @default("{}")
+  alert       SuperadminAlert? @relation(fields: [alertId], references: [id])
+
+  @@schema("public")
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUST
+  TRANSFER
+
   @@schema("public")
 }
 
@@ -493,11 +932,11 @@ enum MembershipStatus {
 }
 
 enum MembershipRole {
-  SUPERADMIN
   OWNER
   ADMIN
   MEMBER
   VIEWER
+  SUPERADMIN
 
   @@schema("public")
 }
@@ -513,13 +952,13 @@ enum ProjectStatus {
 }
 
 enum ProjectStage {
-  COTIZACION
   LEVANTAMIENTO
   DISENO
   DESARROLLO
   QA             @map("QA")
   IMPLEMENTACION
   SOPORTE
+  COTIZACION
 
   @@schema("public")
 }
@@ -552,24 +991,6 @@ enum InteractionType {
   @@schema("public")
 }
 
-model Task {
-  id             String        @id @default(uuid())
-  projectId      String
-  organizationId String?       @db.Uuid
-  title          String
-  description    String?
-  status         TaskStatus    @default(PENDING)
-  dueDate        DateTime?
-  priority       Int           @default(0) // 0: Normal, 1: High
-  type           TaskType      @default(MANUAL)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  @@schema("public")
-}
-
 enum TaskType {
   MANUAL
   SENTINEL
@@ -594,70 +1015,6 @@ enum InvoiceStatus {
   @@schema("public")
 }
 
-model Quote {
-  id           String      @id @default(uuid())
-  projectId    String
-  version      Int         @default(1)
-  status       QuoteStatus @default(DRAFT)
-  totalNet     Float       @default(0)
-  totalTax     Float       @default(0)
-  frozenAt     DateTime?
-  sentAt       DateTime?   @db.Timestamptz(6)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  
-  // Versioning
-  revisionOfId String?
-  parentQuote  Quote?      @relation("QuoteVersions", fields: [revisionOfId], references: [id])
-  revisions    Quote[]     @relation("QuoteVersions")
-
-  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  items        QuoteItem[]
-  invoices     Invoice[]
-
-  @@schema("public")
-}
-
-model Invoice {
-  id                  String        @id @default(uuid())
-  projectId           String
-  organizationId      String?       @db.Uuid
-  quoteId             String?
-  status              InvoiceStatus @default(DRAFT)
-  currency            String        @default("CLP")
-  sent                Boolean       @default(false)
-  sentDate            DateTime?
-  paymentTermsDays    Int?
-  dueDate             DateTime?
-  amountInvoicedGross Float         @default(0)
-  amountPaidGross     Float         @default(0)
-  updatedAt           DateTime      @updatedAt
-  
-  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  organization        Organization? @relation(fields: [organizationId], references: [id])
-  quote               Quote?        @relation(fields: [quoteId], references: [id])
-  payments            PaymentRecord[]
-
-  @@schema("public")
-}
-
-model PaymentRecord {
-  id             String        @id @default(uuid())
-  organizationId String?       @db.Uuid
-  invoiceId      String
-  amount         Float
-  currency       String        @default("CLP")
-  method         String        // STRIPE, TRANSFER, CASH
-  reference      String?       // Transaction ID or Comment
-  status         String        @default("COMPLETED") // COMPLETED, FAILED, PENDING
-  recordedAt     DateTime      @default(now())
-  
-  invoice        Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  @@schema("public")
-}
-
 enum PurchaseOrderStatus {
   DRAFT
   SENT
@@ -665,139 +1022,6 @@ enum PurchaseOrderStatus {
   PARTIALLY_RECEIVED
   RECEIVED
   CANCELED
-
-  @@schema("public")
-}
-
-model PurchaseOrder {
-  id             String                @id @default(uuid())
-  organizationId String                @db.Uuid
-  vendorId       String                @db.Uuid
-  poNumber       Int                   // Sequential per organization, managed in service
-  status         PurchaseOrderStatus   @default(DRAFT)
-  totalNet       Float                 @default(0)
-  totalTax       Float                 @default(0)
-  totalBruto     Float                 @default(0)
-  notes          String?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-
-  organization   Organization          @relation(fields: [organizationId], references: [id])
-  vendor         Client                @relation("VendorPO", fields: [vendorId], references: [id])
-  items          PurchaseOrderItem[]
-  receipts       PurchaseOrderReceipt[]
-
-  @@unique([organizationId, poNumber])
-  @@schema("public")
-}
-
-model PurchaseOrderReceipt {
-  id               String               @id @default(uuid())
-  organizationId   String               @db.Uuid
-  purchaseOrderId  String
-  receiptNumber    String               // External or internal receipt id (e.g. Invoice # from vendor)
-  receivedAt       DateTime             @default(now())
-  receivedBy       String               @db.Uuid // Profile ID
-  notes            String?
-  createdAt        DateTime             @default(now())
-
-  organization     Organization         @relation(fields: [organizationId], references: [id])
-  purchaseOrder    PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
-  items            ReceiptItem[]
-  
-  @@unique([organizationId, purchaseOrderId, receiptNumber]) // Idempotency key
-  @@schema("public")
-}
-
-model ReceiptItem {
-  id                     String               @id @default(uuid())
-  purchaseOrderReceiptId String
-  purchaseOrderItemId    String
-  quantity               Float
-  
-  receipt                PurchaseOrderReceipt @relation(fields: [purchaseOrderReceiptId], references: [id], onDelete: Cascade)
-  purchaseOrderItem      PurchaseOrderItem    @relation(fields: [purchaseOrderItemId], references: [id])
-
-  @@schema("public")
-}
-
-model PurchaseOrderItem {
-  id               String        @id @default(uuid())
-  purchaseOrderId  String
-  productId        String?
-  projectId        String?
-  locationId       String?       // Default target location
-  organizationId   String        @db.Uuid
-  description      String
-  quantity         Float         @default(1)
-  receivedQuantity Float         @default(0)
-  priceNet         Float         @default(0)
-  taxRate          Float         @default(0.19)
-
-  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product          Product?      @relation(fields: [productId], references: [id])
-  project          Project?      @relation(fields: [projectId], references: [id])
-  location         Location?     @relation(fields: [locationId], references: [id])
-  organization     Organization  @relation(fields: [organizationId], references: [id])
-  receiptItems     ReceiptItem[]
-
-  @@schema("public")
-}
-
-model Opportunity {
-  id                  String        @id @default(uuid())
-  title               String
-  description         String?
-  value               Float?
-  probability         Int?          @default(0)
-  stage               String        @default("QUALIFIED")
-  expectedCloseDate   DateTime?
-  lastInteractionDate DateTime?     @db.Timestamptz(6)
-  nextInteractionDate DateTime?     @db.Timestamptz(6)
-  clientId            String?       @db.Uuid
-  organizationId      String?       @db.Uuid
-  closeReason         CloseReason?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  client              Client?       @relation(fields: [clientId], references: [id])
-  organization        Organization? @relation(fields: [organizationId], references: [id])
-
-  @@schema("public")
-}
-
-model SentinelAlert {
-  id             String           @id @default(uuid())
-  organizationId String           @db.Uuid
-  type           SentinelType
-  severity       SentinelSeverity
-  title          String
-  message        String
-  status         AlertStatus      @default(OPEN)
-  metadata       Json? // Para guardar links al proyecto, stock id, etc.
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  organization   Organization     @relation(fields: [organizationId], references: [id])
-
-  @@schema("public")
-}
-
-model OrganizationStats {
-  id               String       @id @default(uuid())
-  organizationId   String       @unique @db.Uuid
-  wau              Int          @default(0)
-  mau              Int          @default(0)
-  daysToFirstQuote Int?
-  firstValueAt     DateTime?
-  ttvDays          Float?
-  crmCount         Int          @default(0)
-  quotesCount      Int          @default(0)
-  projectsCount    Int          @default(0)
-  inventoryCount   Int          @default(0)
-  lastActivityAt    DateTime     @default(now())
-  lastSentinelRunAt DateTime?
-  healthScore       Int          @default(100)
-  attributes        Json?        @default("{}")
-  organization      Organization @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }
@@ -853,108 +1077,10 @@ enum QuoteStatus {
   @@schema("public")
 }
 
-model ActivationEvent {
-  id             String       @id @default(uuid())
-  organizationId String       @db.Uuid
-  userId         String?      @db.Uuid
-  eventName      String
-  occurredAt     DateTime     @default(now())
-  entityId       String?
-  metadata       Json?        @default("{}")
-  dedupeKey      String?      @unique
-  organization   Organization @relation(fields: [organizationId], references: [id])
-
-  @@unique([organizationId, eventName])
-  @@schema("public")
-}
-
-model Experiment {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  variants    Json     // ["A", "B"]
-  enabled     Boolean  @default(true)
-  startAt     DateTime @default(now())
-  endAt       DateTime?
-  assignments ExperimentAssignment[]
-
-  @@schema("public")
-}
-
-model ExperimentAssignment {
-  id             String      @id @default(uuid())
-  organizationId String      @db.Uuid
-  experimentId   String
-  variant        String
-  assignedAt     DateTime    @default(now())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  experiment     Experiment   @relation(fields: [experimentId], references: [id])
-
-  @@unique([organizationId, experimentId])
-  @@schema("public")
-}
-
-model EmailEventLog {
-  id             String       @id @default(uuid())
-  organizationId String       @db.Uuid
-  userId         String       @db.Uuid
-  templateKey    String
-  dedupeKey      String       @unique
-  sentAt         DateTime     @default(now())
-  providerMessageId String?
-  meta           Json?        @default("{}")
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  profile        Profile      @relation(fields: [userId], references: [id])
-
-  @@schema("public")
-}
-
-model NudgeDismissed {
-  id             String       @id @default(uuid())
-  organizationId String       @db.Uuid
-  userId         String       @db.Uuid
-  dedupeKey      String
-  dismissedAt    DateTime     @default(now())
-  expiresAt      DateTime?
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  profile        Profile      @relation(fields: [userId], references: [id])
-
-  @@unique([userId, organizationId, dedupeKey])
-  @@schema("public")
-}
-
-model PaymentIssue {
-  id             String        @id @default(uuid())
-  organizationId String        @db.Uuid
-  status         PaymentIssueStatus @default(OPEN)
-  lastAttemptAt  DateTime      @default(now())
-  attemptCount   Int           @default(1)
-  invoiceId      String?
-  customerPortalUrl String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id])
-
-  @@schema("public")
-}
-
 enum PaymentIssueStatus {
   OPEN
   RESOLVED
   EXPIRED
-
-  @@schema("public")
-}
-
-model CancelIntent {
-  id             String        @id @default(uuid())
-  organizationId String        @db.Uuid
-  userId         String        @db.Uuid
-  reason         CancellationReason
-  comment        String?
-  variant        String?       // For A/B testing: CONTINUITY, VALUE_ROI
-  outcome        CancelOutcome @default(CANCEL_PENDING)
-  createdAt      DateTime      @default(now())
-  organization   Organization  @relation(fields: [organizationId], references: [id])
 
   @@schema("public")
 }
@@ -984,63 +1110,9 @@ enum CancelOutcome {
   @@schema("public")
 }
 
-model ShareLink {
-  id              String        @id @default(uuid())
-  organizationId  String        @db.Uuid
-  entityType      ShareLinkType
-  entityId        String
-  tokenHash       String        @unique
-  createdByUserId String        @db.Uuid
-  createdAt       DateTime      @default(now())
-  expiresAt       DateTime
-  revokedAt       DateTime?
-  accessCount     Int           @default(0)
-  lastAccessAt    DateTime?
-  organization    Organization  @relation(fields: [organizationId], references: [id])
-
-  @@index([tokenHash])
-  @@index([entityId, entityType])
-  @@schema("public")
-}
-
 enum ShareLinkType {
   QUOTE
   INVOICE
-
-  @@schema("public")
-}
-
-model SuperadminAlert {
-  id             String                @id @default(uuid())
-  organizationId String?               @db.Uuid
-  type           SuperadminAlertType
-  severity       SuperadminAlertSeverity
-  title          String
-  description    String
-  reasonCodes    String[]              // Array of strings/codes
-  status         SuperadminAlertStatus  @default(ACTIVE)
-  metadata       Json?                 @default("{}")
-  fingerprint    String                @unique // OrgId:Type or Global:Type
-  detectedAt     DateTime              @default(now())
-  resolvedAt     DateTime?
-  updatedAt      DateTime              @updatedAt
-  organization   Organization?         @relation(fields: [organizationId], references: [id])
-  notifications  SuperadminNotification[]
-
-  @@schema("public")
-}
-
-model SuperadminNotification {
-  id          String    @id @default(uuid())
-  alertId     String?
-  actorTarget String    @default("SUPERADMIN") // Global or specific
-  kind        String    // ALERT_OPEN, INFO, etc.
-  title       String
-  body        String
-  readAt      DateTime?
-  createdAt   DateTime  @default(now())
-  metadata    Json?     @default("{}")
-  alert       SuperadminAlert? @relation(fields: [alertId], references: [id])
 
   @@schema("public")
 }

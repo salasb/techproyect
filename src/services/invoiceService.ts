@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import { InvoiceStatus, PaymentRecord } from "@prisma/client";
 import { AuditService } from "@/services/auditService";
+import { ActivationService } from "./activation-service";
+import { OutboundWebhookService } from "./outbound-webhook-service";
 
 export class InvoiceService {
     /**
@@ -36,6 +38,17 @@ export class InvoiceService {
                 amountPaidGross: 0,
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Default 30 days
             }
+        });
+
+        await ActivationService.trackFunnelEvent('INVOICE_CREATED', organizationId, `invoice_created_${invoice.id}`, userId);
+
+        // Outbound Webhook
+        await OutboundWebhookService.dispatch(organizationId, 'invoice.created', {
+            invoiceId: invoice.id,
+            projectId: invoice.projectId,
+            amount: totalGross,
+            currency: invoice.currency,
+            status: invoice.status
         });
 
         await AuditService.logAction(
@@ -97,6 +110,16 @@ export class InvoiceService {
 
         if (newPaidAmount >= (invoice.amountInvoicedGross || 0)) {
             newStatus = 'PAID';
+            await ActivationService.trackFunnelEvent('INVOICE_PAID', organizationId, `inv_paid_${invoiceId}`, userId);
+            
+            // Outbound Webhook
+            await OutboundWebhookService.dispatch(organizationId, 'invoice.paid', {
+                invoiceId,
+                projectId: invoice.projectId,
+                amountPaid: amount,
+                totalPaid: newPaidAmount,
+                status: 'PAID'
+            });
         } else if (newPaidAmount > 0) {
             newStatus = 'PARTIALLY_PAID';
         }

@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function getProducts(query?: string) {
@@ -27,7 +27,7 @@ export async function getProducts(query?: string) {
 
 export async function createProduct(data: FormData) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('INVENTORY_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 

@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import prisma from "@/lib/prisma";
 
 export async function getQuotesForExport(query: string = "") {
     const supabase = await createClient();
@@ -95,4 +97,77 @@ export async function getFinancialReport(period: string = '30d') {
             Por_Cobrar: financials.receivableGross // Gross usually relevant for cashflow
         };
     });
+}
+
+// v1.0 Integrations Exports
+export type ExportType = 'quotes' | 'invoices' | 'payments' | 'tickets';
+export type ExportFormat = 'json' | 'csv';
+
+export async function exportDataAction(type: ExportType, format: ExportFormat) {
+    const scope = await requireOperationalScope();
+    const orgId = scope.orgId;
+
+    let data: any[] = [];
+
+    switch (type) {
+        case 'quotes':
+            data = await prisma.quote.findMany({
+                where: { project: { organizationId: orgId } },
+                include: { project: { select: { name: true } } },
+                orderBy: { createdAt: 'desc' }
+            });
+            break;
+        case 'invoices':
+            data = await prisma.invoice.findMany({
+                where: { organizationId: orgId },
+                include: { project: { select: { name: true } } },
+                orderBy: { createdAt: 'desc' }
+            });
+            break;
+        case 'payments':
+            data = await prisma.paymentRecord.findMany({
+                where: { organizationId: orgId },
+                orderBy: { recordedAt: 'desc' }
+            });
+            break;
+        case 'tickets':
+            data = await prisma.supportTicket.findMany({
+                where: { organizationId: orgId },
+                orderBy: { createdAt: 'desc' }
+            });
+            break;
+    }
+
+    if (format === 'json') {
+        return { 
+            success: true, 
+            filename: `${type}_${orgId}_${Date.now()}.json`,
+            content: JSON.stringify(data, null, 2),
+            contentType: 'application/json'
+        };
+    }
+
+    // Basic CSV Conversion
+    if (format === 'csv') {
+        if (data.length === 0) return { success: true, content: '', filename: `${type}.csv` };
+        
+        const headers = Object.keys(data[0]).filter(k => typeof data[0][k] !== 'object');
+        const rows = data.map(item => 
+            headers.map(header => {
+                const val = item[header];
+                return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
+            }).join(',')
+        );
+        
+        const csvContent = [headers.join(','), ...rows].join('\n');
+        
+        return { 
+            success: true, 
+            filename: `${type}_${orgId}_${Date.now()}.csv`,
+            content: csvContent,
+            contentType: 'text/csv'
+        };
+    }
+
+    throw new Error("Formato no soportado");
 }

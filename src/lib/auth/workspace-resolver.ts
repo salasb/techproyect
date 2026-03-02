@@ -21,6 +21,7 @@ export interface WorkspaceState {
     userRole?: string;
     isSuperadmin: boolean;
     recommendedRoute: string; // NEW: Canonical entry point
+    subscriptionStatus?: string;
     error?: string;
     isAutoProvisioned?: boolean;
     bootstrapDebug?: {
@@ -218,6 +219,11 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 activeMemberships = newOrg.OrganizationMember;
                 isAutoProvisioned = true;
 
+                // Milestone: Org Created & Admin Assigned
+                const { ActivationService } = await import("@/services/activation-service");
+                await ActivationService.trackFunnelEvent('ORG_CREATED', newOrg.id, `org_created_${newOrg.id}`, user.id);
+                await ActivationService.trackFunnelEvent('ADMIN_ASSIGNED', newOrg.id, `admin_assigned_${newOrg.id}_${user.id}`, user.id);
+
                 await fetchWithTimeout(prisma.profile.update({
                     where: { id: user.id },
                     data: { organizationId: newOrg.id }
@@ -233,6 +239,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                     userRole: profile.role,
                     isSuperadmin,
                     recommendedRoute: isSuperadmin ? '/admin' : '/start',
+                    subscriptionStatus: undefined,
                     bootstrapDebug
                 };
             }
@@ -240,6 +247,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
 
         // Resolve activeOrgId for non-superadmin or if not already resolved
         let setCookieId = null;
+        let subscriptionStatus = undefined;
 
         if (!activeOrgId) {
             if (cookieOrgId && activeMemberships.some(m => m.organizationId === cookieOrgId)) {
@@ -263,6 +271,15 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                     activeOrgId = null; // Forces Multi Selection State
                 }
             }
+        }
+
+        // Fetch subscription status for the active organization
+        if (activeOrgId) {
+            const sub = await prisma.subscription.findUnique({
+                where: { organizationId: activeOrgId },
+                select: { status: true }
+            });
+            subscriptionStatus = sub?.status || 'FREE';
         }
 
         if (setCookieId) {
@@ -301,6 +318,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 isSuperadmin,
                 isAutoProvisioned,
                 recommendedRoute,
+                subscriptionStatus,
                 bootstrapDebug
             };
         }
@@ -319,6 +337,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 isSuperadmin,
                 isAutoProvisioned,
                 recommendedRoute: '/pending-activation',
+                subscriptionStatus,
                 bootstrapDebug
             };
         }
@@ -334,6 +353,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             isSuperadmin,
             isAutoProvisioned,
             recommendedRoute,
+            subscriptionStatus,
             bootstrapDebug
         };
 

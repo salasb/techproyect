@@ -8,10 +8,16 @@ import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
 import { QuoteService } from "@/services/quoteService";
 import prisma from "@/lib/prisma";
+import { checkSubscriptionLimit } from "@/lib/subscriptions";
 
 export async function sendQuote(projectId: string) {
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
+
+    // Entitlement: Monthly Quote Limit
+    const limitCheck = await checkSubscriptionLimit(scope.orgId, 'quotes');
+    if (!limitCheck.allowed) throw new Error(limitCheck.message);
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';
@@ -89,6 +95,11 @@ export async function sendQuote(projectId: string) {
 export async function createQuoteRevision(projectId: string) {
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
+
+    // Entitlement: Monthly Quote Limit
+    const limitCheck = await checkSubscriptionLimit(scope.orgId, 'quotes');
+    if (!limitCheck.allowed) throw new Error(limitCheck.message);
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';

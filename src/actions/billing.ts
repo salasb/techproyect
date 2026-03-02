@@ -1,8 +1,9 @@
 'use server';
 
 import { getStripe } from '@/lib/stripe';
-import { requireOperationalScope } from '@/lib/auth/server-resolver';
+import { requireOperationalScope, requirePermission } from '@/lib/auth/server-resolver';
 import { createClient } from '@/lib/supabase/server';
+import { ActivationService } from '@/services/activation-service';
 import prisma from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 
@@ -14,12 +15,15 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 export async function createCheckoutSession(priceId: string) {
     const traceId = `BLL-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const stripe = getStripe();
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('BILLING_MANAGE');
     const orgId = scope.orgId;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
+
+    // Milestone: Checkout Started
+    await ActivationService.trackFunnelEvent('CHECKOUT_STARTED', orgId, `checkout_start_${orgId}_${priceId}_${Date.now()}`, user.id);
 
     // Get or create customer
     const subscription = await prisma.subscription.findUnique({

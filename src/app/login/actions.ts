@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { ActivationService } from '@/services/activation-service'
 
 function translateAuthError(errorMessage: string, type: 'login' | 'signup' | 'reset' = 'login'): string {
     const error = errorMessage.toLowerCase()
@@ -52,6 +53,20 @@ export async function login(formData: FormData) {
     })
 
     if (error) {
+        // We don't track failure by org here to prevent enumeration
+        console.warn(`[AUTH] Login failed for ${email}`);
+        
+        // Attempt to track a general failure event if email exists in profile
+        const { data: profile } = await supabase
+            .from('Profile')
+            .select('organizationId')
+            .eq('email', email)
+            .maybeSingle();
+        
+        if (profile?.organizationId) {
+            await ActivationService.trackFunnelEvent('PORTAL_LOGIN_FAILED', profile.organizationId, `login_fail_${email}_${Date.now()}`);
+        }
+
         return { error: translateAuthError(error.message, 'login') }
     }
 
@@ -60,9 +75,13 @@ export async function login(formData: FormData) {
     if (user) {
         const { data: profile } = await supabase
             .from('Profile')
-            .select('role')
+            .select('role, organizationId')
             .eq('id', user.id)
             .single();
+
+        if (profile?.organizationId) {
+            await ActivationService.trackFunnelEvent('PORTAL_LOGIN_SUCCESS', profile.organizationId, `login_${user.id}_${Date.now()}`, user.id);
+        }
 
         revalidatePath('/', 'layout')
 

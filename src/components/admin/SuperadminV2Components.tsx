@@ -63,9 +63,9 @@ export function SuperadminSloStatus({ slos = [] }: { slos: SloStatus[] }) {
                     <div>
                         <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
                             <Activity className="w-3.5 h-3.5 text-indigo-500" />
-                            Service Level Objectives (SLO v1)
+                            Service Level Objectives (SLO v2)
                         </CardTitle>
-                        <p className="text-[11px] font-medium text-muted-foreground mt-1 italic tracking-tight">Multi-window Burn Rate Alerting habilitado.</p>
+                        <p className="text-[11px] font-medium text-muted-foreground mt-1 italic tracking-tight">Multi-window Multi-burn-rate Alerting habilitado.</p>
                     </div>
                     <Badge variant="outline" className="text-[8px] font-bold uppercase border-indigo-200 text-indigo-600 bg-indigo-50">SRE Orchestration</Badge>
                 </div>
@@ -179,6 +179,106 @@ export function SuperadminSloStatus({ slos = [] }: { slos: SloStatus[] }) {
         </Card>
     );
 }
+
+/**
+ * Activation Funnel Component (v1.0)
+ */
+export function SuperadminActivationFunnel({ 
+    funnel = [], 
+    averageTtvDays = 0 
+}: { 
+    funnel: any[], 
+    averageTtvDays?: number 
+}) {
+    return (
+        <Card className="rounded-[2.5rem] border border-border bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+            <CardHeader className="p-8 border-b border-border/50 bg-muted/5">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                            Activation & Conversion Funnel (v1.0)
+                        </CardTitle>
+                        <p className="text-[11px] font-medium text-muted-foreground mt-1 italic tracking-tight">Análisis de conversión desde registro hasta pago exitoso.</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest opacity-60">Avg Time to Value (TTV)</p>
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter italic">
+                            {averageTtvDays} <span className="text-[10px] uppercase font-bold tracking-normal not-italic ml-1">Días</span>
+                        </p>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                    {funnel.map((step, i) => (
+                        <div key={step.name} className="relative group">
+                            <div className={cn(
+                                "p-4 rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center text-center h-full min-h-[120px]",
+                                step.count > 0 
+                                    ? "bg-white dark:bg-zinc-800 border-border group-hover:border-emerald-200 group-hover:shadow-lg group-hover:shadow-emerald-500/5 group-hover:-translate-y-1" 
+                                    : "bg-muted/30 border-dashed border-border/50 opacity-40"
+                            )}>
+                                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter mb-2 line-clamp-1">{step.name}</span>
+                                <span className="text-2xl font-black tracking-tighter text-foreground italic">{step.count}</span>
+                                {i > 0 && (
+                                    <div className="mt-2 flex flex-col items-center">
+                                        <Badge variant="outline" className={cn(
+                                            "text-[9px] font-black px-1.5 py-0 border-none",
+                                            step.conversion >= 80 ? "text-emerald-600" : 
+                                            step.conversion >= 40 ? "text-amber-600" : "text-rose-600"
+                                        )}>
+                                            {step.conversion}%
+                                        </Badge>
+                                        <span className="text-[8px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Conv.</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Drop-off indicator */}
+                            {i > 0 && step.dropOff > 0 && (
+                                <div className="absolute -top-1 -right-1 z-10">
+                                    <TooltipProvider>
+                                        <UITooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="bg-rose-50 text-rose-600 border border-rose-100 rounded-full w-5 h-5 flex items-center justify-center text-[8px] font-black cursor-help shadow-sm">
+                                                    !
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-rose-950 text-white border-none">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest">Drop-off: {step.dropOff}%</p>
+                                            </TooltipContent>
+                                        </UITooltip>
+                                    </TooltipProvider>
+                                </div>
+                            )}
+
+                            {/* Arrow between steps */}
+                            {i < funnel.length - 1 && (
+                                <div className="hidden lg:flex absolute top-1/2 -right-4 -translate-y-1/2 z-10 text-muted-foreground/30 group-hover:text-emerald-500/50 transition-colors">
+                                    <ChevronRight className="w-4 h-4" />
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-8 p-4 bg-muted/20 border border-dashed border-border rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white dark:bg-zinc-800 rounded-lg flex items-center justify-center border border-border">
+                            <Info className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <p className="text-[10px] font-medium text-muted-foreground leading-relaxed italic max-w-xl">
+                            Los datos de activación se procesan en tiempo real. La conversión se calcula como el porcentaje de organizaciones que alcanzaron este paso respecto al paso anterior.
+                        </p>
+                    </div>
+                    <Badge variant="outline" className="text-[8px] font-black uppercase border-border text-muted-foreground tracking-widest">Growth Real-time</Badge>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 /**
  * Triage Panel - Right Side Sticky

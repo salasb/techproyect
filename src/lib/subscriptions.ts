@@ -1,74 +1,68 @@
 import { createClient } from "@/lib/supabase/server";
-import { SUBSCRIPTION_PLANS, PlanTier } from "@/config/subscription-plans";
+import { SUBSCRIPTION_PLANS, PlanTier, PlanFeatures } from "@/config/subscription-plans";
+
+export type OrgUsage = {
+    users: number;
+    projects: number;
+    quotesMonth: number;
+    invoicesMonth: number;
+    storage: number;
+};
 
 export type OrgSubscription = {
     plan: PlanTier;
-    usage: {
-        users: number;
-        projects: number;
-        storage: number;
-    };
-    limits: typeof SUBSCRIPTION_PLANS['FREE'];
+    status: string;
+    usage: OrgUsage;
+    limits: PlanFeatures;
 };
 
 /**
  * Retrieves the current subscription status and usage for an organization.
  */
 export async function getOrganizationSubscription(orgId: string): Promise<OrgSubscription> {
-    const supabase = await createClient();
+    const prisma = (await import("@/lib/prisma")).default;
 
-    // 1. Get Org Plan
-    const { data: org } = await supabase
-        .from('Organization')
-        .select('settings, plan')
-        .eq('id', orgId)
-        .single();
+    // 1. Get Org Plan & Subscription Status
+    const org = await prisma.organization.findUnique({
+        where: { id: orgId },
+        include: { subscription: true }
+    });
 
-    // Determine current plan tier ID
-    const planId = (org?.plan as string) || (org?.settings as any)?.plan || 'FREE';
+    const planId = org?.subscription?.planCode || org?.plan || 'FREE';
+    const status = org?.subscription?.status || 'ACTIVE';
 
-    // 2. Fetch Plan Details from DB (Dynamic!)
-    const { data: planData } = await supabase
-        .from('Plan')
-        .select('*')
-        .eq('id', planId)
-        .single();
+    const currentPlanFeatures = SUBSCRIPTION_PLANS[planId as PlanTier] || SUBSCRIPTION_PLANS['FREE'];
 
-    // Fallback to hardcoded FREE if DB fails or plan missing
-    // We construct the "limits" object which currently holds both limits and features in the codebase types
-    let currentPlanFeatures = SUBSCRIPTION_PLANS['FREE'];
+    // 2. Usage Counts (Monthly windows)
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
 
-    if (planData) {
-        // Merge DB limits and features to match the legacy PlanFeatures interface
-        // This allows us to switch backend without breaking frontend immediately
-        const dbLimits = planData.limits as any;
-        const dbFeatures = planData.features as any;
-
-        currentPlanFeatures = {
-            ...dbLimits,
-            ...dbFeatures
-        };
-    } else {
-        // Optionally fetch 'FREE' from DB if user has a plan that was deleted? 
-        // For now, hardcoded fallback is safe for system stability.
-    }
-
-    // 3. Get Usage Counts
-    const { count: userCount } = await supabase
-        .from('OrganizationMember')
-        .select('*', { count: 'exact', head: true })
-        .eq('organizationId', orgId);
-
-    const { count: projectCount } = await supabase
-        .from('Project')
-        .select('*', { count: 'exact', head: true })
-        .eq('organizationId', orgId);
+    const [userCount, projectCount, quoteCount, invoiceCount] = await Promise.all([
+        prisma.organizationMember.count({ where: { organizationId: orgId } }),
+        prisma.project.count({ where: { organizationId: orgId } }),
+        prisma.quote.count({ 
+            where: { 
+                project: { organizationId: orgId },
+                createdAt: { gte: monthStart }
+            } 
+        }),
+        prisma.invoice.count({ 
+            where: { 
+                organizationId: orgId,
+                createdAt: { gte: monthStart }
+            } 
+        })
+    ]);
 
     return {
         plan: planId as PlanTier,
+        status,
         usage: {
             users: userCount || 0,
             projects: projectCount || 0,
+            quotesMonth: quoteCount || 0,
+            invoicesMonth: invoiceCount || 0,
             storage: 0
         },
         limits: currentPlanFeatures
@@ -78,14 +72,22 @@ export async function getOrganizationSubscription(orgId: string): Promise<OrgSub
 /**
  * Checks if an organization can perform an action based on its plan limits.
  */
-export async function checkSubscriptionLimit(orgId: string, resource: 'users' | 'projects'): Promise<{ allowed: boolean; message?: string }> {
-    const { usage, limits, plan } = await getOrganizationSubscription(orgId);
+export async function checkSubscriptionLimit(
+    orgId: string, 
+    resource: 'users' | 'projects' | 'quotes' | 'invoices'
+): Promise<{ allowed: boolean; message?: string }> {
+    const { usage, limits, plan, status } = await getOrganizationSubscription(orgId);
+
+    // If PAUSED, nothing is allowed (write operations)
+    if (status === 'PAUSED') {
+        return { allowed: false, message: "Tu cuenta está en modo LECTURA por falta de pago." };
+    }
 
     if (resource === 'users') {
         if (usage.users >= limits.maxUsers) {
             return {
                 allowed: false,
-                message: `Has alcanzado el límite de ${limits.maxUsers} usuarios en tu ${plan}. Actualiza a PRO para más.`
+                message: `Has alcanzado el límite de ${limits.maxUsers} usuarios en tu ${plan}.`
             };
         }
     }
@@ -95,6 +97,24 @@ export async function checkSubscriptionLimit(orgId: string, resource: 'users' | 
             return {
                 allowed: false,
                 message: `Has alcanzado el límite de ${limits.maxProjects} proyectos en tu ${plan}.`
+            };
+        }
+    }
+
+    if (resource === 'quotes') {
+        if (usage.quotesMonth >= limits.maxQuotesPerMonth) {
+            return {
+                allowed: false,
+                message: `Límite mensual de cotizaciones alcanzado (${limits.maxQuotesPerMonth}).`
+            };
+        }
+    }
+
+    if (resource === 'invoices') {
+        if (usage.invoicesMonth >= limits.maxInvoicesPerMonth) {
+            return {
+                allowed: false,
+                message: `Límite mensual de facturas alcanzado (${limits.maxInvoicesPerMonth}).`
             };
         }
     }

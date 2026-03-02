@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { ActivationService } from "@/services/activation-service";
+import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -12,6 +14,18 @@ export async function requestUpgrade(planId: string) {
     // 1. Get User Info
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
+
+    // Milestone: Upgrade Clicked
+    await ActivationService.trackFunnelEvent('UPGRADE_CLICKED', scope.orgId, `upgrade_click_${scope.orgId}_${planId}_${Date.now()}`, user.id);
+
+    await prisma.auditLog.create({
+        data: {
+            organizationId: scope.orgId,
+            userId: user.id,
+            action: 'UPGRADE_INTENT',
+            details: `User requested upgrade to plan ${planId}`
+        }
+    });
 
     // 2. Validate Plan Exists
     const { data: plan } = await supabase.from('Plan').select('name').eq('id', planId).single();

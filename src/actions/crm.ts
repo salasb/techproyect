@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Database } from "@/types/supabase";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function getClientDetails(clientId: string) {
@@ -59,7 +59,7 @@ export async function getClientDetails(clientId: string) {
 }
 
 export async function addContact(clientId: string, formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 

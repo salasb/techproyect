@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-export type LifecycleTemplateKey = 'WELCOME' | 'MISSING_PROJ' | 'MISSING_QUOTE' | 'TRIAL_7D' | 'TRIAL_3D' | 'TRIAL_EXP' | 'DUNNING_FAIL' | 'DUNNING_RECOVERED';
+export type LifecycleTemplateKey = 'WELCOME' | 'MISSING_PROJ' | 'MISSING_QUOTE' | 'TRIAL_7D' | 'TRIAL_3D' | 'TRIAL_EXP' | 'DUNNING_FAIL' | 'DUNNING_FINAL' | 'DUNNING_RECOVERED';
 
 export class LifecycleEmailService {
     /**
@@ -12,8 +12,9 @@ export class LifecycleEmailService {
         templateKey: LifecycleTemplateKey;
         dedupeKey: string;
         isBilling?: boolean;
+        ctaUrl?: string;
     }) {
-        const { organizationId, userId, templateKey, dedupeKey, isBilling = false } = args;
+        const { organizationId, userId, templateKey, dedupeKey, isBilling = false, ctaUrl } = args;
 
         // 1. Fetch user & preference
         const user = await prisma.profile.findUnique({ where: { id: userId } });
@@ -47,7 +48,7 @@ export class LifecycleEmailService {
         }
 
         // 5. Send Email (using existing infra or internal logic)
-        const result = await this.triggerEmailSend(user.email, templateKey, user.name);
+        const result = await this.triggerEmailSend(user.email, templateKey, user.name, ctaUrl);
 
         if (result.success) {
             // 6. Log event
@@ -61,14 +62,22 @@ export class LifecycleEmailService {
                     meta: { email: user.email }
                 }
             });
+
+            // Growth tracking: Dunning Sent
+            if (templateKey.startsWith('DUNNING_')) {
+                const { ActivationService } = await import("./activation-service");
+                await ActivationService.trackFunnelEvent('DUNNING_SENT', organizationId, `dunning_track_${dedupeKey}`, userId);
+            }
         }
 
         return result;
     }
 
-    private static async triggerEmailSend(to: string, key: LifecycleTemplateKey, userName: string) {
+    private static async triggerEmailSend(to: string, key: LifecycleTemplateKey, userName: string, ctaUrl?: string) {
         const RESEND_API_KEY = process.env.RESEND_API_KEY;
         const EMAIL_FROM = process.env.EMAIL_FROM || "TechWise <noreply@techwise.pro>";
+        const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://techwise.pro';
+        const recoveryUrl = ctaUrl || `${APP_URL}/settings/billing`;
 
         const templates: Record<LifecycleTemplateKey, { subject: string, html: string }> = {
             WELCOME: {
@@ -97,11 +106,33 @@ export class LifecycleEmailService {
             },
             DUNNING_FAIL: {
                 subject: 'Acción Requerida: Fallo en el pago de tu suscripción ⚠️',
-                html: `<p>Hola ${userName}, no hemos podido procesar el pago de tu suscripción. Por favor actualiza tu método de pago para evitar la interrupción del servicio.</p>`
+                html: `
+                    <h1>Hola ${userName}</h1>
+                    <p>No hemos podido procesar el pago de tu suscripción.</p>
+                    <p>Por favor actualiza tu método de pago para evitar la interrupción del servicio.</p>
+                    <div style="margin-top: 20px;">
+                        <a href="${recoveryUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Actualizar método de pago</a>
+                    </div>
+                `
+            },
+            DUNNING_FINAL: {
+                subject: 'Último aviso: Tu suscripción será pausada 🚨',
+                html: `
+                    <h1>Hola ${userName}</h1>
+                    <p>Hemos intentado procesar tu pago varias veces sin éxito.</p>
+                    <p>Tu cuenta pasará a modo <strong>lectura (pausa)</strong> en las próximas horas si no actualizas tu método de pago.</p>
+                    <div style="margin-top: 20px;">
+                        <a href="${recoveryUrl}" style="background-color: #DC2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Actualizar método de pago</a>
+                    </div>
+                `
             },
             DUNNING_RECOVERED: {
                 subject: '¡Todo listo! Pago procesado con éxito ✅',
-                html: `<p>Hola ${userName}, hemos recibido tu pago correctamente. Tu suscripción vuelve a estar activa.</p>`
+                html: `
+                    <h1>Hola ${userName}</h1>
+                    <p>Hemos recibido tu pago correctamente. Tu suscripción vuelve a estar activa y todas las funcionalidades han sido restauradas.</p>
+                    <p>Gracias por seguir con nosotros.</p>
+                `
             }
         };
 

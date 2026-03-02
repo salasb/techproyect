@@ -147,6 +147,8 @@ export async function createOrganizationAction(formData: FormData) {
 
         // 5. Activation Milestone
         try {
+            await ActivationService.trackFunnelEvent('ORG_CREATED', org.id, `org_created_${org.id}`, user.id);
+            await ActivationService.trackFunnelEvent('ADMIN_ASSIGNED', org.id, `admin_assigned_${org.id}_${user.id}`, user.id);
             await ActivationService.trackFirst('ORG_CREATED', org.id, user.id);
         } catch (e) {}
 

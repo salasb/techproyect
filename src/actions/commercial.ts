@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { QuoteService } from "@/services/quoteService";
 import { InvoiceService } from "@/services/invoiceService";
@@ -12,14 +12,19 @@ import { redirect } from "next/navigation";
 
 import { createAuditLog } from "@/services/audit-service";
 import { AuditService } from "@/services/auditService";
+import { checkSubscriptionLimit } from "@/lib/subscriptions";
 
 /**
  * Transition Quote to ACCEPTED and generate Invoice.
  * Idempotent: If already accepted, returns existing invoice or status.
  */
 export async function acceptQuoteAction(quoteId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('QUOTES_MANAGE');
     await ensureNotPaused(scope.orgId);
+
+    // Entitlement: Monthly Invoice Limit (since acceptance creates an invoice)
+    const limitCheck = await checkSubscriptionLimit(scope.orgId, 'invoices');
+    if (!limitCheck.allowed) throw new Error(limitCheck.message);
     
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
