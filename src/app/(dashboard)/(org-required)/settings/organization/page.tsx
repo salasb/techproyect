@@ -418,9 +418,12 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <InvoicePdfButton invoice={inv} />
-                                            <StatusBadge status={inv.status} type="INVOICE" />
+                                            <StatusBadge 
+                                                status={inv.status === 'PAID' ? 'PAID' : inv.sent ? 'SENT' : inv.status} 
+                                                type="INVOICE" 
+                                            />
                                             {/* v1.3 Requirement: CTA Pagar */}
-                                            {inv.status === 'SENT' && (
+                                            {inv.sent && inv.status !== 'PAID' && (
                                                 <Link href={`/projects/${inv.projectId}/invoices`}>
                                                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase h-8 text-[9px] px-4 rounded-xl shadow-lg shadow-emerald-500/20">Pagar</Button>
                                                 </Link>
