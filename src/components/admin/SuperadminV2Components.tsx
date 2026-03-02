@@ -7,7 +7,7 @@ import {
     User, Target, ClipboardList, AlertOctagon, TrendingUp,
     Timer, CheckCircle, ChevronRight, X, Filter, Search, 
     LayoutGrid, Rows, ChevronDown, ChevronUp, Eraser, EyeOff,
-    ShieldCheck, Zap, Building2, Globe
+    ShieldCheck, Zap, Building2, Globe, Activity
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

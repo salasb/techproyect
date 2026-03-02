@@ -56,7 +56,7 @@ export class SloService {
             
             // 3. Error Budget Remaining
             const totalEvents = events30d.length;
-            const errors = events30d.filter(e => e.eventName.endsWith(':FAILURE')).length;
+            const errors = events30d.filter((e: any) => e.eventName.endsWith(':FAILURE')).length;
             const allowedErrors = Math.floor(totalEvents * (1 - def.target));
             const errorBudgetRemaining = totalEvents > 0 
                 ? Math.max(0, (allowedErrors - errors) / (allowedErrors || 1)) 
