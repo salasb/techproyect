@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { getRolePermissions, Permission } from './rbac';
 
 export type WorkspaceStatus =
     | 'NOT_AUTHENTICATED'
@@ -19,6 +20,7 @@ export interface WorkspaceState {
     activeOrgId: string | null;
     organizations: { id: string; name: string; rut?: string | null; status?: string | null }[];
     userRole?: string;
+    permissions?: string[];
     isSuperadmin: boolean;
     recommendedRoute: string; // NEW: Canonical entry point
     subscriptionStatus?: string;
@@ -79,7 +81,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         // 1. Fetch memberships & Profile via Prisma
         const membershipsPromise = prisma.organizationMember.findMany({
             where: { userId: user.id, status: 'ACTIVE' },
-            include: { organization: true }
+            include: { organization: true, customRole: true }
         });
 
         const profilePromise = prisma.profile.findUnique({
@@ -191,7 +193,52 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
 
         // Auto-provision or NO_ORG check - Skip if Superadmin already resolved an activeOrgId
         if (activeMemberships.length === 0 && !activeOrgId) {
-            if (process.env.AUTO_PROVISION === '1') {
+            // 2.5 Strategy: Claim pending invitations (v1.2)
+            if (user.email) {
+                const pendingInvite = await prisma.userInvitation.findFirst({
+                    where: { 
+                        email: user.email.toLowerCase(), 
+                        status: 'PENDING',
+                        expiresAt: { gt: new Date() }
+                    }
+                });
+
+                if (pendingInvite) {
+                    console.log(`[WorkspaceResolver] Found pending invitation for ${user.email}. Claiming...`);
+                    await prisma.$transaction([
+                        prisma.organizationMember.create({
+                            data: {
+                                organizationId: pendingInvite.organizationId,
+                                userId: user.id,
+                                role: pendingInvite.role,
+                                customRoleId: pendingInvite.customRoleId,
+                                status: 'ACTIVE'
+                            }
+                        }),
+                        prisma.userInvitation.update({
+                            where: { id: pendingInvite.id },
+                            data: { 
+                                status: 'ACCEPTED', 
+                                acceptedAt: new Date() 
+                            }
+                        }),
+                        prisma.profile.update({
+                            where: { id: user.id },
+                            data: { organizationId: pendingInvite.organizationId }
+                        })
+                    ]);
+
+                    // Refresh memberships after claiming
+                    const refreshedMemberships = await prisma.organizationMember.findMany({
+                        where: { userId: user.id, status: 'ACTIVE' },
+                        include: { organization: true, customRole: true }
+                    });
+                    activeMemberships = refreshedMemberships;
+                }
+            }
+
+            // If still no memberships, try auto-provision
+            if (activeMemberships.length === 0 && process.env.AUTO_PROVISION === '1') {
                 const requireManualApproval = process.env.MANUAL_APPROVAL_REQUIRED === '1';
                 console.log('[WorkspaceResolver] Auto-provisioning new organization...');
                 const newOrg = await fetchWithTimeout(prisma.organization.create({
@@ -211,7 +258,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                     },
                     include: {
                         OrganizationMember: {
-                            include: { organization: true }
+                            include: { organization: true, customRole: true }
                         }
                     }
                 }));
@@ -282,6 +329,20 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             subscriptionStatus = sub?.status || 'FREE';
         }
 
+        // Resolve Permissions
+        let permissions: string[] = [];
+        const activeMembership = activeOrgId ? activeMemberships.find(m => m.organizationId === activeOrgId) : null;
+        if (activeMembership) {
+            if ((activeMembership as any).customRole) {
+                permissions = (activeMembership as any).customRole.permissions;
+            } else {
+                permissions = getRolePermissions(activeMembership.role);
+            }
+        }
+        if (isSuperadmin) {
+            permissions = getRolePermissions('SUPERADMIN' as any);
+        }
+
         if (setCookieId) {
             try {
                 const cookieStoreMutable = await cookies();
@@ -315,6 +376,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 activeOrgId: null,
                 organizations: activeMemberships.map(m => m.organization),
                 userRole: profile.role,
+                permissions,
                 isSuperadmin,
                 isAutoProvisioned,
                 recommendedRoute,
@@ -334,6 +396,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 activeOrgId: selectedOrg.id,
                 organizations: activeMemberships.map(m => m.organization),
                 userRole: profile.role,
+                permissions,
                 isSuperadmin,
                 isAutoProvisioned,
                 recommendedRoute: '/pending-activation',
@@ -350,6 +413,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             activeOrgId,
             organizations: activeMemberships.map(m => m.organization),
             userRole: profile.role,
+            permissions,
             isSuperadmin,
             isAutoProvisioned,
             recommendedRoute,

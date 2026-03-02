@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { AuditService } from "@/services/auditService";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
@@ -13,7 +13,7 @@ import prisma from "@/lib/prisma";
  * Creates an invoice based on the accepted quote of a project.
  */
 export async function createInvoiceFromProject(projectId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('FINANCE_VIEW');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -53,7 +53,7 @@ export async function createInvoiceFromProject(projectId: string) {
  * Creates a manual invoice with a specific amount.
  */
 export async function createInvoice(projectId: string, formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('FINANCE_VIEW');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -86,7 +86,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
 }
 
 export async function deleteInvoice(projectId: string, invoiceId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('FINANCE_VIEW');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -124,7 +124,7 @@ export async function markInvoiceSent(projectId: string, invoiceId: string, sent
 
 
 export async function registerPayment(projectId: string, invoiceId: string, amount: number) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('FINANCE_VIEW');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

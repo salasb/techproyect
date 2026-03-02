@@ -2,11 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function createTask(projectId: string, data: { title: string; description?: string; dueDate?: string; priority?: number }) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('PROJECTS_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -31,7 +31,7 @@ export async function createTask(projectId: string, data: { title: string; descr
 }
 
 export async function toggleTaskStatus(taskId: string, projectId: string, currentStatus: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('PROJECTS_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const newStatus = currentStatus === 'PENDING' ? 'COMPLETED' : 'PENDING';
@@ -51,7 +51,7 @@ export async function toggleTaskStatus(taskId: string, projectId: string, curren
 }
 
 export async function deleteTask(taskId: string, projectId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('PROJECTS_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 

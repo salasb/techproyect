@@ -1,12 +1,12 @@
 'use server'
 
 import { createClient } from "@/lib/supabase/server";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { revalidatePath } from "next/cache";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function createLocation(data: { name: string; address?: string; type?: string }) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('INVENTORY_MANAGE');
     const orgId = scope.orgId;
     await ensureNotPaused(orgId);
     const supabase = await createClient();
@@ -49,9 +49,9 @@ export async function getLocations() {
 }
 
 export async function updateLocation(id: string, data: { name: string; address?: string; type?: string }) {
+    const scope = await requirePermission('INVENTORY_MANAGE');
     const supabase = await createClient();
 
-    // Security check omitted for brevity, adding basic org check recommended
     const { error } = await supabase
         .from("Location")
         .update({
@@ -59,7 +59,8 @@ export async function updateLocation(id: string, data: { name: string; address?:
             address: data.address,
             type: data.type
         })
-        .eq("id", id);
+        .eq('id', id)
+        .eq('organizationId', scope.orgId);
 
     if (error) return { error: error.message };
     revalidatePath("/inventory/locations");
@@ -67,12 +68,14 @@ export async function updateLocation(id: string, data: { name: string; address?:
 }
 
 export async function deleteLocation(id: string) {
+    const scope = await requirePermission('INVENTORY_MANAGE');
     const supabase = await createClient();
 
     const { error } = await supabase
         .from("Location")
         .delete()
-        .eq("id", id);
+        .eq('id', id)
+        .eq('organizationId', scope.orgId);
 
     if (error) return { error: error.message };
     revalidatePath("/inventory/locations");

@@ -3,10 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { DEFAULT_VAT_RATE } from "@/lib/constants";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import prisma from "@/lib/prisma";
 
 export async function getQuotesForExport(query: string = "") {
+    const scope = await requirePermission('QUOTES_MANAGE');
     const supabase = await createClient();
 
     let dbQuery = supabase
@@ -54,6 +55,7 @@ export async function getQuotesForExport(query: string = "") {
 }
 
 export async function getFinancialReport(period: string = '30d') {
+    const scope = await requirePermission('FINANCE_VIEW');
     const supabase = await createClient();
 
     // Fetch settings for VAT
@@ -104,7 +106,7 @@ export type ExportType = 'quotes' | 'invoices' | 'payments' | 'tickets';
 export type ExportFormat = 'json' | 'csv';
 
 export async function exportDataAction(type: ExportType, format: ExportFormat) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('FINANCE_VIEW');
     const orgId = scope.orgId;
 
     let data: any[] = [];

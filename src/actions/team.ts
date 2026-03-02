@@ -24,7 +24,13 @@ export async function inviteMemberAction(formData: FormData) {
 
     const orgId = scope.orgId; // Use orgId from scope for safety
     const email = formData.get("email") as string;
-    const role = formData.get("role") as any; // MembershipRole
+    const roleOrCustomId = formData.get("role") as string;
+
+    // Check if roleOrCustomId is a standard role or a custom role ID
+    const standardRoles = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];
+    const isStandard = standardRoles.includes(roleOrCustomId);
+    let role = isStandard ? roleOrCustomId as any : 'MEMBER';
+    let customRoleId = isStandard ? null : roleOrCustomId;
 
     // Entitlement: Seat Limit
     const limitCheck = await checkSubscriptionLimit(orgId, 'users');
@@ -107,6 +113,8 @@ export async function inviteMemberAction(formData: FormData) {
             where: { id: existingInvite.id },
             data: {
                 tokenHash,
+                role,
+                customRoleId,
                 sentAt: new Date(),
                 sentCount: { increment: 1 },
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Reset expiration
@@ -124,6 +132,7 @@ export async function inviteMemberAction(formData: FormData) {
                 organizationId: orgId,
                 email,
                 role,
+                customRoleId,
                 tokenHash,
                 expiresAt,
                 invitedByUserId: user.id,
@@ -360,7 +369,8 @@ export async function revokeInvitationAction(invitationId: string, orgId: string
 /**
  * Updates a member's role.
  */
-export async function updateMemberRoleAction(memberId: string, orgId: string, newRole: any) {
+export async function updateMemberRoleAction(memberId: string, orgId: string, roleOrCustomId: string) {
+    const scope = await requirePermission('TEAM_MANAGE');
     await ensureNotPaused(orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -371,23 +381,33 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
         where: { organizationId_userId: { organizationId: orgId, userId: user.id } }
     });
 
-    if (!executor || !isAdmin(executor.role)) {
-        throw new Error("Insufficient permissions to manage roles");
-    }
+    if (!executor) throw new Error("Executor not found");
 
     const targetMember = await prisma.organizationMember.findUnique({ where: { id: memberId } });
     if (!targetMember) throw new Error("Member not found");
 
-    if (!isOwner(executor.role)) {
-        // If ADMIN, cannot change roles of other ADMINs or OWNERs
+    // Standard business rules still apply on top of RBAC permissions
+    if (executor.role !== 'OWNER' && !scope.isSuperadmin) {
         if (targetMember.role === 'ADMIN' || targetMember.role === 'OWNER') {
             throw new Error("Admins cannot change roles of other admins or owners");
         }
-        // Cannot promote someone to ADMIN/OWNER if they are not already one?
-        // Actually, prompt says ADMINs can change roles. Let's allow them to change MEMBER to ADMIN if needed, 
-        // OR restrict it. Usually, only OWNER can promote to ADMIN.
-        // Rule: ADMIN can only promote to roles equal or lower than their own? 
-        // Let's stick to: ADMIN can change MEMBER <-> VIEWER. Only OWNER can manage ADMINs.
+    }
+
+    // Check if roleOrCustomId is a standard role
+    const standardRoles = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];
+    const isStandard = standardRoles.includes(roleOrCustomId);
+    let customRoleId = null;
+    let newRole = roleOrCustomId as any;
+
+    if (!isStandard) {
+        // Assume it's a custom role UUID
+        const customRole = await prisma.customRole.findUnique({ where: { id: roleOrCustomId, organizationId: orgId } });
+        if (!customRole) throw new Error("Custom role not found");
+        customRoleId = customRole.id;
+        newRole = 'MEMBER'; // Base role for custom roles
+    }
+
+    if (executor.role !== 'OWNER' && !scope.isSuperadmin) {
         if (newRole === 'ADMIN' || newRole === 'OWNER') {
             throw new Error("Only owners can promote members to Admin or Owner");
         }
@@ -406,7 +426,7 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
     // 3. Update
     const updatedMember = await prisma.organizationMember.update({
         where: { id: memberId },
-        data: { role: newRole }
+        data: { role: newRole, customRoleId }
     });
 
     if (newRole === 'ADMIN' || newRole === 'OWNER') {
@@ -418,7 +438,7 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
         organizationId: orgId,
         userId: user.id,
         action: 'MEMBER_ROLE_CHANGED',
-        details: `Changed role of member ${targetMember.userId} (OrgMember ${memberId}) from ${targetMember.role} to ${newRole}`
+        details: `Changed role of member ${targetMember.userId} (OrgMember ${memberId}) to ${isStandard ? newRole : 'Custom Role ' + customRoleId}`
     });
 
     revalidatePath("/settings/team");
@@ -429,6 +449,7 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ne
  * Removes a member from the organization.
  */
 export async function removeMemberAction(memberId: string, orgId: string) {
+    const scope = await requirePermission('TEAM_MANAGE');
     await ensureNotPaused(orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -439,15 +460,13 @@ export async function removeMemberAction(memberId: string, orgId: string) {
         where: { organizationId_userId: { organizationId: orgId, userId: user.id } }
     });
 
-    if (!executor || !isAdmin(executor.role)) {
-        throw new Error("Insufficient permissions to remove members");
-    }
+    if (!executor) throw new Error("Executor not found");
 
     // 2. Safety checks
     const targetMember = await prisma.organizationMember.findUnique({ where: { id: memberId } });
     if (!targetMember) throw new Error("Member not found");
 
-    if (!isOwner(executor.role)) {
+    if (executor.role !== 'OWNER' && !scope.isSuperadmin) {
         // If ADMIN, cannot remove other ADMINs or OWNERs
         if (targetMember.role === 'ADMIN' || targetMember.role === 'OWNER') {
             throw new Error("Admins cannot remove other admins or owners");

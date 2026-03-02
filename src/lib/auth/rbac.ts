@@ -8,18 +8,21 @@ export type Permission =
     | 'TEAM_MANAGE' 
     | 'SUPPORT_MANAGE'
     | 'INVENTORY_MANAGE'
-    | 'CRM_MANAGE';
+    | 'CRM_MANAGE'
+    | 'INTEGRATIONS_MANAGE'
+    | 'ORG_MANAGE';
 
 const ROLE_PERMISSIONS: Record<MembershipRole, Permission[]> = {
     OWNER: [
         'BILLING_MANAGE', 'FINANCE_VIEW', 'QUOTES_MANAGE', 
         'PROJECTS_MANAGE', 'TEAM_MANAGE', 'SUPPORT_MANAGE',
-        'INVENTORY_MANAGE', 'CRM_MANAGE'
+        'INVENTORY_MANAGE', 'CRM_MANAGE', 'INTEGRATIONS_MANAGE',
+        'ORG_MANAGE'
     ],
     ADMIN: [
         'FINANCE_VIEW', 'QUOTES_MANAGE', 'PROJECTS_MANAGE', 
         'TEAM_MANAGE', 'SUPPORT_MANAGE', 'INVENTORY_MANAGE', 
-        'CRM_MANAGE'
+        'CRM_MANAGE', 'ORG_MANAGE'
     ],
     MEMBER: [
         'QUOTES_MANAGE', 'PROJECTS_MANAGE', 'SUPPORT_MANAGE',

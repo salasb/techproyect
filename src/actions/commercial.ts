@@ -62,7 +62,7 @@ export async function acceptQuoteAction(quoteId: string) {
  * Marks a quote as SENT and logs the event.
  */
 export async function sendQuoteAction(quoteId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('QUOTES_MANAGE');
     await ensureNotPaused(scope.orgId);
     
     const { data: { user } } = await (await createClient()).auth.getUser();
@@ -89,7 +89,7 @@ export async function sendQuoteAction(quoteId: string) {
  * Marks an invoice as SENT and logs the event.
  */
 export async function sendInvoiceAction(invoiceId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('FINANCE_VIEW');
     await ensureNotPaused(scope.orgId);
     
     const { data: { user } } = await (await createClient()).auth.getUser();
@@ -124,7 +124,7 @@ export async function sendInvoiceAction(invoiceId: string) {
  * v1.0: Real commercial loop with idempotency.
  */
 export async function createInvoicePaymentSession(invoiceId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('FINANCE_VIEW');
     await ensureNotPaused(scope.orgId);
     
     const stripe = getStripe();

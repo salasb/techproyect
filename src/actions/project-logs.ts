@@ -2,9 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 export async function addLog(projectId: string, content: string, type: 'INFO' | 'BLOCKER' | 'MILESTONE' | 'STATUS_CHANGE' = 'INFO') {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('PROJECTS_MANAGE');
     const supabase = await createClient();
 
     const { error } = await supabase.from('ProjectLog').insert({

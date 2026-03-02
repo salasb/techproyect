@@ -9,11 +9,11 @@ type CostCategory = Database['public']['Enums']['CostCategory'];
 
 import { validateCost } from "@/lib/validators";
 
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 
 export async function addCost(projectId: string, formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('PROJECTS_MANAGE');
     const orgId = scope.orgId;
     await ensureNotPaused(orgId);
     const description = formData.get("description") as string;
@@ -54,7 +54,7 @@ export async function addCost(projectId: string, formData: FormData) {
 }
 
 export async function deleteCost(projectId: string, costId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('PROJECTS_MANAGE');
     const orgId = scope.orgId;
     await ensureNotPaused(orgId);
     const supabase = await createClient();
@@ -77,6 +77,9 @@ export async function deleteCost(projectId: string, costId: string) {
 }
 
 export async function updateCost(projectId: string, costId: string, formData: FormData) {
+    const scope = await requirePermission('PROJECTS_MANAGE');
+    await ensureNotPaused(scope.orgId);
+    
     const description = formData.get("description") as string;
     const amount = parseFloat(formData.get("amount") as string);
     const category = formData.get("category") as CostCategory;

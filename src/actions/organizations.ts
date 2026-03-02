@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ActivationService } from "@/services/activation-service";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { isAdmin } from "@/lib/permissions";
 import { AuditService } from "@/services/auditService";
 import { revalidatePath } from "next/cache";
@@ -14,12 +14,8 @@ import { revalidatePath } from "next/cache";
  * Updates organization settings with audit logging.
  */
 export async function updateOrganizationAction(formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('ORG_MANAGE');
     const orgId = scope.orgId;
-
-    if (!isAdmin(scope.role)) {
-        throw new Error("Acceso denegado: Se requiere rol de Administrador");
-    }
 
     const name = formData.get("name") as string;
     const rut = formData.get("rut") as string;

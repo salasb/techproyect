@@ -7,6 +7,8 @@ import { Database } from "@/types/supabase";
 import { addBusinessDays } from "@/lib/date-utils";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
+import { createQuickClient } from "@/actions/clients";
 
 type Opportunity = Database['public']['Tables']['Opportunity']['Row'];
 type OpportunityInsert = Database['public']['Tables']['Opportunity']['Insert'];
@@ -60,12 +62,8 @@ export async function getOpportunitiesByClient(clientId: string) {
     return data;
 }
 
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
-
-import { createQuickClient } from "@/actions/clients";
-
 export async function createOpportunity(formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -137,7 +135,7 @@ export async function createOpportunity(formData: FormData) {
 }
 
 export async function updateOpportunityStage(id: string, stage: OpportunityStage) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -172,7 +170,7 @@ export async function updateOpportunityStage(id: string, stage: OpportunityStage
 }
 
 export async function updateOpportunity(id: string, formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -207,7 +205,7 @@ export async function updateOpportunity(id: string, formData: FormData) {
 }
 
 export async function deleteOpportunity(id: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -224,7 +222,7 @@ export async function deleteOpportunity(id: string) {
 }
 
 export async function convertOpportunityToProject(opportunityId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 

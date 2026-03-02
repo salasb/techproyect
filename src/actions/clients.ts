@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRut, cleanRut, formatRut } from "@/lib/rut";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
 
@@ -21,7 +21,7 @@ export async function getClients() {
 }
 
 export async function createClientAction(formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -91,7 +91,7 @@ export async function createClientAction(formData: FormData) {
 }
 
 export async function updateClientAction(clientId: string, formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -159,7 +159,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 }
 
 export async function deleteClientAction(clientId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { error } = await supabase.from('Client').delete().eq('id', clientId).eq('organizationId', scope.orgId);
@@ -168,7 +168,7 @@ export async function deleteClientAction(clientId: string) {
 }
 
 export async function createQuickClient(formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const prisma = (await import("@/lib/prisma")).default;
 

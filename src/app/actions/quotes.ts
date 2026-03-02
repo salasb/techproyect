@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { AuditService } from "@/services/auditService";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { ActivationService } from "@/services/activation-service";
 import { QuoteService } from "@/services/quoteService";
@@ -11,7 +11,7 @@ import prisma from "@/lib/prisma";
 import { checkSubscriptionLimit } from "@/lib/subscriptions";
 
 export async function sendQuote(projectId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('QUOTES_MANAGE');
     await ensureNotPaused(scope.orgId);
 
     // Entitlement: Monthly Quote Limit
@@ -93,7 +93,7 @@ export async function sendQuote(projectId: string) {
 }
 
 export async function createQuoteRevision(projectId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('QUOTES_MANAGE');
     await ensureNotPaused(scope.orgId);
 
     // Entitlement: Monthly Quote Limit
@@ -121,7 +121,7 @@ export async function createQuoteRevision(projectId: string) {
 }
 
 export async function toggleQuoteAcceptance(projectId: string, isAccepted: boolean) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('QUOTES_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

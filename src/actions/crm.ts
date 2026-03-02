@@ -83,7 +83,7 @@ export async function addContact(clientId: string, formData: FormData) {
 }
 
 export async function addInteraction(clientId: string, formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -107,7 +107,7 @@ export async function addInteraction(clientId: string, formData: FormData) {
 }
 
 export async function updateClientStatus(clientId: string, status: Database['public']['Enums']['ClientStatus']) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 
@@ -139,7 +139,7 @@ export async function getPipelineProjects() {
 }
 
 export async function updateProjectStage(projectId: string, stage: Database['public']['Enums']['ProjectStage']) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('CRM_MANAGE');
     await ensureNotPaused(scope.orgId);
     const supabase = await createClient();
 

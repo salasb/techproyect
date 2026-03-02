@@ -33,7 +33,8 @@ export default async function TeamSettingsPage() {
     const members = await prisma.organizationMember.findMany({
         where: { organizationId: orgId },
         include: {
-            profile: true
+            profile: true,
+            customRole: true
         },
         orderBy: { createdAt: 'asc' }
     });
@@ -45,6 +46,10 @@ export default async function TeamSettingsPage() {
             expiresAt: { gt: new Date() }
         },
         orderBy: { createdAt: 'desc' }
+    });
+
+    const customRoles = await prisma.customRole.findMany({
+        where: { organizationId: orgId }
     });
 
     const org = await prisma.organization.findUnique({
@@ -123,6 +128,7 @@ export default async function TeamSettingsPage() {
                                     currentUserId={user.id}
                                     isOwner={isUserOwner}
                                     orgId={orgId}
+                                    customRoles={customRoles}
                                 />
                             </TabsContent>
 
@@ -149,6 +155,7 @@ export default async function TeamSettingsPage() {
                                 orgId={orgId}
                                 canInvite={seatsUsed < maxSeats}
                                 orgMode={currentMember.organization.mode}
+                                customRoles={customRoles}
                             />
                             {seatsUsed >= maxSeats && (
                                 <p className="text-xs text-destructive mt-2">

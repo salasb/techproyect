@@ -35,7 +35,7 @@ describe('Multi-Org Smoke Test (v1.6.1/v1.8 Gate)', () => {
 
     it('should strongly isolate data between Org A and Org B in server actions', async () => {
         // 1. Mock context for Org A
-        const scopeA = { orgId: orgAId, userId, isSuperadmin: false, role: 'OWNER' };
+        const scopeA = { orgId: orgAId, userId, isSuperadmin: false, role: 'OWNER', permissions: [] };
         vi.mocked(serverResolver.requireOperationalScope).mockResolvedValue(scopeA);
 
         // 2. Create data physically tied to Org A
@@ -59,7 +59,7 @@ describe('Multi-Org Smoke Test (v1.6.1/v1.8 Gate)', () => {
         expect(resultsA[0].title).toBe('Opp in Org A');
 
         // 4. Action Context Switch: Requesting data with Org B scope
-        const scopeB = { orgId: orgBId, userId, isSuperadmin: false, role: 'OWNER' };
+        const scopeB = { orgId: orgBId, userId, isSuperadmin: false, role: 'OWNER', permissions: [] };
         vi.mocked(serverResolver.requireOperationalScope).mockResolvedValue(scopeB);
 
         const reqScopeB = await serverResolver.requireOperationalScope();

@@ -10,10 +10,23 @@ import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { Clipboard, Check } from "lucide-react";
 
-export function InviteMemberForm({ orgId, canInvite, orgMode }: any) {
+export function InviteMemberForm({ orgId, canInvite, orgMode, customRoles = [] }: any) {
     const [isPending, startTransition] = useTransition();
     const [inviteLink, setInviteLink] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+
+    const standardOptions = [
+        { value: "ADMIN", label: "Administrador" },
+        { value: "MEMBER", label: "Miembro" },
+        { value: "VIEWER", label: "Visualizador" }
+    ];
+
+    const customOptions = customRoles.map((r: any) => ({
+        value: r.id,
+        label: `Custom: ${r.name}`
+    }));
+
+    const options = [...standardOptions, ...customOptions];
 
     const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -67,11 +80,7 @@ export function InviteMemberForm({ orgId, canInvite, orgMode }: any) {
                         name="role"
                         defaultValue="MEMBER"
                         disabled={!canInvite || isPending}
-                        options={[
-                            { value: "ADMIN", label: "Administrador" },
-                            { value: "MEMBER", label: "Miembro" },
-                            { value: "VIEWER", label: "Visualizador" }
-                        ]}
+                        options={options}
                     />
                 </div>
 

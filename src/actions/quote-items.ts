@@ -2,13 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+import { AuditService } from "@/services/auditService";
 
 export async function addQuoteItem(projectId: string, data: FormData) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
@@ -46,11 +46,9 @@ export async function addQuoteItem(projectId: string, data: FormData) {
     }
 }
 
-import { AuditService } from "@/services/auditService";
-
 export async function removeQuoteItem(itemId: string, projectId: string) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
@@ -74,7 +72,7 @@ export async function removeQuoteItem(itemId: string, projectId: string) {
 
 export async function updateQuoteItem(itemId: string, projectId: string, data: FormData) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
@@ -112,7 +110,7 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
 
 export async function toggleQuoteItemSelection(itemId: string, projectId: string, isSelected: boolean) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
@@ -135,7 +133,7 @@ export async function toggleQuoteItemSelection(itemId: string, projectId: string
 
 export async function toggleAllQuoteItems(projectId: string, isSelected: boolean) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
@@ -157,7 +155,7 @@ export async function toggleAllQuoteItems(projectId: string, isSelected: boolean
 
 export async function addQuoteItemsBulk(projectId: string, items: any[]) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 

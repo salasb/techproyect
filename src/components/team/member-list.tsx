@@ -4,12 +4,12 @@ import { useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Shield, User, XCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Shield, User, XCircle, Settings2 } from "lucide-react";
 import { updateMemberRoleAction, removeMemberAction } from "@/actions/team";
 import { toast } from "sonner";
 
-export function TeamMemberList({ members, currentUserId, isOwner, orgId }: any) {
+export function TeamMemberList({ members, currentUserId, isOwner, orgId, customRoles = [] }: any) {
     const [isPending, startTransition] = useTransition();
 
     const onUpdateRole = (memberId: string, role: string) => {
@@ -55,8 +55,8 @@ export function TeamMemberList({ members, currentUserId, isOwner, orgId }: any) 
                         </TableCell>
                         <TableCell>{member.profile?.email}</TableCell>
                         <TableCell>
-                            <Badge variant={member.role === 'OWNER' ? 'default' : 'secondary'}>
-                                {member.role}
+                            <Badge variant={member.role === 'OWNER' ? 'default' : member.customRole ? 'outline' : 'secondary'} className={member.customRole ? 'border-indigo-200 text-indigo-700 bg-indigo-50' : ''}>
+                                {member.customRole ? member.customRole.name : member.role}
                             </Badge>
                         </TableCell>
                         <TableCell>
@@ -73,14 +73,32 @@ export function TeamMemberList({ members, currentUserId, isOwner, orgId }: any) 
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Gestionar</DropdownMenuLabel>
+                                        <DropdownMenuLabel>Gestionar Rol</DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => onUpdateRole(member.id, 'ADMIN')}>
                                             <Shield className="mr-2 h-4 w-4" /> Hacer Admin
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => onUpdateRole(member.id, 'MEMBER')}>
-                                            <User className="mr-2 h-4 w-4" /> Hacer Miembro
+                                            <User className="mr-2 h-4 w-4" /> Hacer Miembro (Estándar)
                                         </DropdownMenuItem>
+                                        
+                                        {customRoles.length > 0 && (
+                                            <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger>
+                                                    <Settings2 className="mr-2 h-4 w-4" /> Roles Personalizados
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                    <DropdownMenuSubContent>
+                                                        {customRoles.map((role: any) => (
+                                                            <DropdownMenuItem key={role.id} onClick={() => onUpdateRole(member.id, role.id)}>
+                                                                {role.name}
+                                                            </DropdownMenuItem>
+                                                        ))}
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                            </DropdownMenuSub>
+                                        )}
+                                        
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             className="text-destructive"

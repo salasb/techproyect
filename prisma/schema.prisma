@@ -349,6 +349,7 @@ model Organization {
   UserInvitation        UserInvitation[]
   supportTickets        SupportTicket[]
   webhookEndpoints      WebhookEndpoint[]
+  customRoles           CustomRole[]
 
   @@schema("public")
 }
@@ -482,10 +483,12 @@ model OrganizationMember {
   organizationId String           @db.Uuid
   userId         String           @db.Uuid
   role           MembershipRole   @default(MEMBER)
+  customRoleId   String?          @db.Uuid
   status         MembershipStatus @default(ACTIVE)
   createdAt      DateTime         @default(now()) @db.Timestamptz(6)
   organization   Organization     @relation(fields: [organizationId], references: [id])
   profile        Profile          @relation(fields: [userId], references: [id])
+  customRole     CustomRole?      @relation(fields: [customRoleId], references: [id])
 
   @@unique([organizationId, userId])
   @@schema("public")
@@ -495,6 +498,7 @@ model UserInvitation {
   id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email           String
   role            MembershipRole   @default(MEMBER)
+  customRoleId    String?          @db.Uuid
   organizationId  String           @db.Uuid
   expiresAt       DateTime         @db.Timestamptz(6)
   createdAt       DateTime         @default(now()) @db.Timestamptz(6)
@@ -506,10 +510,28 @@ model UserInvitation {
   sentCount       Int              @default(1)
   status          InvitationStatus @default(PENDING)
   organization    Organization     @relation(fields: [organizationId], references: [id])
+  customRole      CustomRole?      @relation(fields: [customRoleId], references: [id])
 
   @@index([organizationId, email, status])
   @@index([tokenHash])
   @@index([organizationId, createdAt])
+  @@schema("public")
+}
+
+model CustomRole {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String               @db.Uuid
+  name           String
+  description    String?
+  permissions    String[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        OrganizationMember[]
+  invitations    UserInvitation[]
+
+  @@unique([organizationId, name])
   @@schema("public")
 }
 

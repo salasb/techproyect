@@ -115,7 +115,7 @@ export async function createProduct(data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('INVENTORY_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
 
@@ -165,7 +165,7 @@ export async function updateProduct(id: string, data: FormData) {
 
 export async function deleteProduct(id: string) {
     try {
-        const scope = await requireOperationalScope();
+        const scope = await requirePermission('INVENTORY_MANAGE');
         await ensureNotPaused(scope.orgId);
         const supabase = await createClient();
         const { error } = await supabase.from('Product').delete().eq('id', id).eq('organizationId', scope.orgId);

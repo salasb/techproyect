@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 
 export type TimelineEvent = {
     id: string;
@@ -14,6 +15,7 @@ export type TimelineEvent = {
 };
 
 export async function getProjectTimeline(projectId: string): Promise<TimelineEvent[]> {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     // 1. Fetch Audit Logs (System Events)
@@ -21,6 +23,7 @@ export async function getProjectTimeline(projectId: string): Promise<TimelineEve
         .from('AuditLog')
         .select('*')
         .eq('projectId', projectId)
+        .eq('organizationId', scope.orgId)
         .order('createdAt', { ascending: false });
 
     // 2. Fetch Project Logs (Manual Notes)
@@ -28,6 +31,7 @@ export async function getProjectTimeline(projectId: string): Promise<TimelineEve
         .from('ProjectLog')
         .select('*')
         .eq('projectId', projectId)
+        .eq('organizationId', scope.orgId)
         .order('createdAt', { ascending: false });
 
     // 3. Fetch Interactions (CRM)
@@ -35,6 +39,7 @@ export async function getProjectTimeline(projectId: string): Promise<TimelineEve
         .from('Interaction')
         .select('*')
         .eq('projectId', projectId)
+        .eq('organizationId', scope.orgId)
         .order('date', { ascending: false });
 
     const events: TimelineEvent[] = [];

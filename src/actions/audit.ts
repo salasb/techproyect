@@ -2,13 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 
 export async function createAuditLog(projectId: string, action: string, details: string, userName: string = "Usuario") {
+    const scope = await requireOperationalScope();
     const supabase = await createClient();
 
     const { error } = await supabase
         .from('AuditLog')
         .insert({
+            organizationId: scope.orgId,
             projectId,
             action,
             details,

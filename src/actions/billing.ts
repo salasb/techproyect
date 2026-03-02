@@ -77,7 +77,7 @@ export async function createCheckoutSession(priceId: string) {
 export async function createPortalSession() {
     const traceId = `PRT-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const stripe = getStripe();
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('BILLING_MANAGE');
     const orgId = scope.orgId;
 
     const supabase = await createClient();

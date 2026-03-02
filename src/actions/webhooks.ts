@@ -1,15 +1,12 @@
 'use server'
 
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 
 export async function createWebhookEndpointAction(formData: FormData) {
-    const scope = await requireOperationalScope();
-    if (scope.role !== 'OWNER' && scope.role !== 'ADMIN' && !scope.isSuperadmin) {
-        throw new Error("Solo administradores pueden gestionar integraciones.");
-    }
+    const scope = await requirePermission('INTEGRATIONS_MANAGE');
 
     const url = formData.get("url") as string;
     const description = formData.get("description") as string;
@@ -35,10 +32,7 @@ export async function createWebhookEndpointAction(formData: FormData) {
 }
 
 export async function deleteWebhookEndpointAction(id: string) {
-    const scope = await requireOperationalScope();
-    if (scope.role !== 'OWNER' && scope.role !== 'ADMIN' && !scope.isSuperadmin) {
-        throw new Error("No autorizado");
-    }
+    const scope = await requirePermission('INTEGRATIONS_MANAGE');
 
     await prisma.webhookEndpoint.delete({
         where: { id, organizationId: scope.orgId }

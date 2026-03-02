@@ -2,11 +2,14 @@ import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { getRolePermissions, Permission } from "@/lib/auth/rbac";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Check, X, Info } from "lucide-react";
+import { Shield, Check, X, Info, Settings2 } from "lucide-react";
 import { MembershipRole } from "@prisma/client";
+import { CustomRoleManager } from "@/components/settings/CustomRoleManager";
+import { getCustomRolesAction } from "@/actions/rbac";
 
 export default async function RolesPermissionsPage() {
     const scope = await requireOperationalScope();
+    const customRoles = await getCustomRolesAction();
 
     const roles: MembershipRole[] = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];
     const allPermissions: { id: Permission, label: string, desc: string }[] = [
@@ -95,13 +98,27 @@ export default async function RolesPermissionsPage() {
                     <div className="space-y-2">
                         <h4 className="text-blue-900 dark:text-blue-300 font-black uppercase text-xs tracking-[0.2em]">Acerca de los Roles</h4>
                         <p className="text-blue-700 dark:text-blue-400 text-sm leading-relaxed font-medium italic">
-                            Los permisos son fijos por rol en esta versión. Si necesitas una configuración personalizada (Custom Roles), por favor contacta a soporte para activar el módulo Enterprise.
+                            Los permisos de la matriz superior son fijos y corresponden a la base del sistema. Para crear configuraciones específicas para tu equipo, utiliza los Roles Personalizados.
                         </p>
                         <div className="pt-4">
                             <Badge variant="outline" className="border-blue-200 text-blue-700 bg-white text-[9px] font-bold uppercase">Security Policy v1.0</Badge>
                         </div>
                     </div>
                 </div>
+
+                {/* Custom Roles Manager */}
+                {scope.permissions.includes('TEAM_MANAGE') && (
+                    <div className="pt-8">
+                        <div className="mb-6">
+                            <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                                <Settings2 className="w-5 h-5 text-indigo-500" />
+                                Roles Personalizados
+                            </h3>
+                            <p className="text-sm text-muted-foreground italic mt-1">Crea combinaciones de permisos exactas para tu flujo de trabajo.</p>
+                        </div>
+                        <CustomRoleManager initialRoles={customRoles as any} />
+                    </div>
+                )}
             </div>
         </div>
     );

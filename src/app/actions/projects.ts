@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { validateProject } from "@/lib/validators";
 import { AuditService } from "@/services/auditService";
-import { requireOperationalScope } from "@/lib/auth/server-resolver";
+import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 
 import { checkSubscriptionLimit } from "@/lib/subscriptions";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
@@ -14,7 +14,7 @@ import { ActivationService } from "@/services/activation-service";
 import { trackSlo } from "@/lib/telemetry";
 
 export async function createProject(formData: FormData) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('PROJECTS_MANAGE');
     await ensureNotPaused(scope.orgId);
 
     try {

@@ -9,6 +9,7 @@ interface NavItem {
     href: string;
     icon: any;
     restrictedToPlans?: string[];
+    permission?: Permission;
     adminOnly?: boolean;
     hideInSoloMode?: boolean;
 }
@@ -25,6 +26,8 @@ interface SidebarContentProps {
     settings?: any;
 }
 
+import { Permission } from "@/lib/auth/rbac";
+
 export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: SidebarContentProps) {
     const isSoloMode = settings?.isSoloMode || false;
 
@@ -38,46 +41,46 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
         {
             label: 'Vender',
             items: [
-                { name: 'Oportunidades', href: '/crm/pipeline', icon: TrendingUp },
-                { name: 'Cotizaciones', href: '/quotes', icon: FileText },
-                { name: 'Clientes', href: '/clients', icon: Users },
+                { name: 'Oportunidades', href: '/crm/pipeline', icon: TrendingUp, permission: 'CRM_MANAGE' },
+                { name: 'Cotizaciones', href: '/quotes', icon: FileText, permission: 'QUOTES_MANAGE' },
+                { name: 'Clientes', href: '/clients', icon: Users, permission: 'CRM_MANAGE' },
             ]
         },
         {
             label: 'Ejecutar',
             items: [
-                { name: 'Proyectos', href: '/projects', icon: FolderOpen },
-                { name: 'Calendario', href: '/crm/calendar', icon: Calendar },
+                { name: 'Proyectos', href: '/projects', icon: FolderOpen, permission: 'PROJECTS_MANAGE' },
+                { name: 'Calendario', href: '/crm/calendar', icon: Calendar, permission: 'CRM_MANAGE' },
             ]
         },
         {
             label: 'Cobrar',
             items: [
-                { name: 'Facturación', href: '/invoices', icon: Receipt },
+                { name: 'Facturación', href: '/invoices', icon: Receipt, permission: 'FINANCE_VIEW' },
             ]
         },
         {
             label: 'Inventario',
             items: [
-                { name: 'Catálogo', href: '/catalog', icon: Package },
-                { name: 'Ubicaciones', href: '/inventory/locations', icon: MapPin, hideInSoloMode: true },
-                { name: 'Escáner QR', href: '/inventory/scan', icon: QrCode },
+                { name: 'Catálogo', href: '/catalog', icon: Package, permission: 'INVENTORY_MANAGE' },
+                { name: 'Ubicaciones', href: '/inventory/locations', icon: MapPin, hideInSoloMode: true, permission: 'INVENTORY_MANAGE' },
+                { name: 'Escáner QR', href: '/inventory/scan', icon: QrCode, permission: 'INVENTORY_MANAGE' },
             ]
         },
         {
             label: 'Reportes',
             items: [
-                { name: 'Análisis', href: '/reports', icon: BarChart },
+                { name: 'Análisis', href: '/reports', icon: BarChart, permission: 'FINANCE_VIEW' },
             ]
         },
         {
             label: 'Configuración',
             items: [
-                { name: 'Ajustes', href: '/settings', icon: Settings, adminOnly: true },
-                { name: 'Soporte', href: '/settings/support', icon: MessageSquare },
-                { name: 'Integraciones', href: '/settings/integrations', icon: Zap, adminOnly: true },
-                { name: 'Roles y Permisos', href: '/settings/organization/roles', icon: Shield, adminOnly: true },
-                { name: 'Equipo', href: '/settings/team', icon: Users, adminOnly: true, hideInSoloMode: true },
+                { name: 'Ajustes', href: '/settings', icon: Settings, permission: 'ORG_MANAGE' },
+                { name: 'Soporte', href: '/settings/support', icon: MessageSquare, permission: 'SUPPORT_MANAGE' },
+                { name: 'Integraciones', href: '/settings/integrations', icon: Zap, permission: 'INTEGRATIONS_MANAGE' },
+                { name: 'Roles y Permisos', href: '/settings/organization/roles', icon: Shield, permission: 'ORG_MANAGE' },
+                { name: 'Equipo', href: '/settings/team', icon: Users, permission: 'TEAM_MANAGE', hideInSoloMode: true },
             ]
         }
     ];
@@ -89,6 +92,7 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
     };
 
     const userRole = profile?.role;
+    const userPermissions = profile?.permissions || [];
     const orgPlan = profile?.organization?.plan || 'FREE'; // Default to FREE if undefined
 
     return (
@@ -106,7 +110,16 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
             <nav className="flex-1 px-4 py-4 space-y-6 overflow-y-auto">
                 {navGroups.map((group) => {
                     const filteredItems = group.items.filter(item => {
+                        // 1. Superadmin bypass
+                        if (userRole === 'SUPERADMIN') return true;
+
+                        // 2. Permission check
+                        if (item.permission && !userPermissions.includes(item.permission)) return false;
+
+                        // 3. Legacy Role check
                         if (item.adminOnly && !isAdmin(userRole)) return false;
+
+                        // 4. Other checks
                         if (item.restrictedToPlans && !item.restrictedToPlans.includes(orgPlan)) return false;
                         if (item.hideInSoloMode && isSoloMode) return false;
                         return true;

@@ -28,6 +28,7 @@ export interface OperationalScope {
     userId: string;
     isSuperadmin: boolean;
     role: string | null;
+    permissions: string[];
     isPaused?: boolean;
 }
 
@@ -65,6 +66,7 @@ export async function requireOperationalScope(): Promise<OperationalScope> {
         userId: state.userId as string,
         isSuperadmin: state.isSuperadmin,
         role: state.userRole || null,
+        permissions: state.permissions || [],
         isPaused: state.subscriptionStatus === 'PAUSED'
     };
 }
@@ -76,7 +78,8 @@ export async function requireOperationalScope(): Promise<OperationalScope> {
 export async function requirePermission(permission: Permission): Promise<OperationalScope> {
     const scope = await requireOperationalScope();
 
-    if (!hasPermission(scope.role, permission)) {
+    // isSuperadmin implicitly has all permissions for ops
+    if (!scope.isSuperadmin && !scope.permissions.includes(permission)) {
         console.error(`[RBAC] Access denied for user ${scope.userId} (Role: ${scope.role}) requesting ${permission}`);
         throw new ScopeError(`No tienes permiso (${permission}) para realizar esta acción.`, 'FORBIDDEN');
     }

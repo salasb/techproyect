@@ -26,7 +26,7 @@ export async function createTicketAction(formData: FormData) {
 }
 
 export async function addTicketMessageAction(ticketId: string, content: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('SUPPORT_MANAGE');
     
     if (!content) throw new Error("El mensaje no puede estar vacío");
 
@@ -56,7 +56,7 @@ export async function addTicketMessageAction(ticketId: string, content: string) 
 }
 
 export async function resolveTicketAction(ticketId: string) {
-    const scope = await requireOperationalScope();
+    const scope = await requirePermission('SUPPORT_MANAGE');
     
     const ticket = await SupportService.getTicketDetails(ticketId);
     if (!ticket) throw new Error("Ticket no encontrado");

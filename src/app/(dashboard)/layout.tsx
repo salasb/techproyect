@@ -78,8 +78,14 @@ export default async function DashboardLayout({
     return (
         <PaywallProvider>
             <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans">
-                <AppSidebar profile={profile} settings={settings} />
-                <MobileNav profile={profile} settings={settings} />
+                <AppSidebar 
+                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }} 
+                    settings={settings} 
+                />
+                <MobileNav 
+                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }} 
+                    settings={settings} 
+                />
                 <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
                     <AppHeader
                         profile={profile as any}
