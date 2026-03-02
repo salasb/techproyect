@@ -447,7 +447,9 @@ model StripeEvent {
   error       String?
   orgId       String?   @db.Uuid
   processedAt DateTime?
-  status      String    @default("PENDING")
+  status      String    @default("PENDING") // PENDING, PROCESSING, OK, ERROR, DLQ
+  attempts    Int       @default(0)
+  nextRetryAt DateTime?
 
   @@schema("public")
 }

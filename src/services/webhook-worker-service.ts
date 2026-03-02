@@ -8,19 +8,35 @@ import { getStripe } from '@/lib/stripe';
 export class WebhookWorkerService {
     /**
      * Processes a single Stripe event from the database.
-     * v1.0: Queue-First background processing.
+     * v1.1: Hardened Queue-First processing with retries, DLQ and locking.
      */
     static async processEvent(eventId: string, traceId: string) {
         const start = Date.now();
+        const MAX_ATTEMPTS = 5;
         
+        // 1. Concurrency-Safe Lock (Lease)
+        // We only allow picking events in PENDING or ERROR state.
+        const locked = await prisma.stripeEvent.updateMany({
+            where: { 
+                id: eventId, 
+                status: { in: ['PENDING', 'ERROR'] } 
+            },
+            data: { 
+                status: 'PROCESSING'
+            }
+        });
+
+        if (locked.count === 0) {
+            console.log(`[WebhookWorker][${traceId}] Event ${eventId} already being processed or finished.`);
+            return;
+        }
+
+        // Fetch the event after locking to get current attempt count
         const stripeEvent = await prisma.stripeEvent.findUnique({
             where: { id: eventId }
         });
 
-        if (!stripeEvent || stripeEvent.status === 'OK') {
-            console.log(`[WebhookWorker][${traceId}] Event ${eventId} already processed or missing.`);
-            return;
-        }
+        if (!stripeEvent) return;
 
         const event = {
             id: stripeEvent.id,
@@ -29,7 +45,13 @@ export class WebhookWorkerService {
         } as any;
 
         try {
-            // Processing logic (formerly in route.ts)
+            // 2. Increment attempt count
+            await prisma.stripeEvent.update({
+                where: { id: eventId },
+                data: { attempts: { increment: 1 } }
+            });
+
+            // 3. Processing logic
             switch (event.type) {
                 case 'checkout.session.completed': {
                     const session = event.data.object as Stripe.Checkout.Session;
@@ -174,7 +196,7 @@ export class WebhookWorkerService {
                 }
             }
 
-            // Success Update
+            // 4. Success Update
             await prisma.stripeEvent.update({
                 where: { id: eventId },
                 data: {
@@ -182,20 +204,65 @@ export class WebhookWorkerService {
                     status: 'OK',
                     processedAt: new Date(),
                     durationMs: Date.now() - start,
-                    error: null
+                    error: null,
+                    nextRetryAt: null
                 }
             });
 
         } catch (error: any) {
-            await trackError('WEBHOOK_WORKER_FAILURE', error, { eventId, traceId });
+            const currentAttempts = stripeEvent.attempts + 1;
+            const isLastAttempt = currentAttempts >= MAX_ATTEMPTS;
+            const nextStatus = isLastAttempt ? 'DLQ' : 'ERROR';
+            
+            // Exponential backoff: 1m, 4m, 9m, 16m...
+            const backoffMinutes = Math.pow(currentAttempts, 2);
+            const nextRetryAt = isLastAttempt ? null : new Date(Date.now() + backoffMinutes * 60000);
+
+            await trackError('WEBHOOK_WORKER_FAILURE', error, { eventId, traceId, attempt: currentAttempts, nextStatus });
+            
             await prisma.stripeEvent.update({
                 where: { id: eventId },
                 data: {
                     processed: false,
-                    status: 'ERROR',
-                    error: error.message
+                    status: nextStatus,
+                    error: error.message,
+                    nextRetryAt
                 }
             });
         }
+    }
+
+    /**
+     * Replays a specific event. Resets status to PENDING and triggers worker.
+     */
+    static async replayEvent(eventId: string, adminUserId: string) {
+        const traceId = `RPLY-${Math.random().toString(36).substring(7).toUpperCase()}`;
+        
+        const event = await prisma.stripeEvent.findUnique({ where: { id: eventId } });
+        if (!event) throw new Error("Event not found");
+
+        await prisma.stripeEvent.update({
+            where: { id: eventId },
+            data: {
+                status: 'PENDING',
+                error: null,
+                processed: false,
+                attempts: 0
+            }
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                organizationId: event.orgId || 'SYSTEM',
+                userId: adminUserId,
+                action: 'WEBHOOK_REPLAY_TRIGGERED',
+                details: `[${traceId}] Manual replay triggered for event ${eventId}`
+            }
+        });
+
+        // Trigger worker
+        await this.processEvent(eventId, traceId);
+        
+        return { success: true, traceId };
     }
 }

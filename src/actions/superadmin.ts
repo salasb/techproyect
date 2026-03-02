@@ -179,3 +179,26 @@ export async function reactivateOrgAction(organizationId: string) {
         return { success: false, error: e.message };
     }
 }
+
+/**
+ * Replays a failed or DLQ Stripe event manually.
+ */
+export async function replayStripeEventAction(eventId: string) {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Unauthorized");
+
+        const profile = await prisma.profile.findUnique({ 
+            where: { id: user.id },
+            select: { role: true }
+        });
+        if (profile?.role !== 'SUPERADMIN') throw new Error("Forbidden: Superadmin only");
+
+        const { WebhookWorkerService } = await import("@/services/webhook-worker-service");
+        return await WebhookWorkerService.replayEvent(eventId, user.id);
+    } catch (e: any) {
+        console.error("[Superadmin] Replay failed:", e);
+        return { success: false, error: e.message };
+    }
+}
