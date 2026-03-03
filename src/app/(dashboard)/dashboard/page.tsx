@@ -51,11 +51,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         throw e; // Let error.tsx handle the boundary
     }
 
-    // 0.5 Strict Routing Guard (Entry Policy v2.1.2)
-    if (workspace.recommendedRoute && workspace.recommendedRoute !== '/dashboard') {
-        console.log(`[DashboardGuard] Redirecting to recommended route: ${workspace.recommendedRoute}`);
+    // 0.5 Canonical Redirect Guard (v1.2)
+    const { resolveRedirect } = await import('@/lib/auth/redirect-resolver');
+    const redirectPath = resolveRedirect({
+        pathname: '/dashboard',
+        isAuthed: workspace.status !== 'NOT_AUTHENTICATED',
+        hasOrgContext: !!workspace.activeOrgId,
+        recommendedRoute: workspace.recommendedRoute
+    });
+
+    if (redirectPath && redirectPath !== '/dashboard') {
+        console.log(`[DashboardGuard] Redirecting to: ${redirectPath}`);
         const { redirect } = await import("next/navigation");
-        redirect(workspace.recommendedRoute);
+        redirect(redirectPath);
     }
 
     const orgId = workspace.activeOrgId;

@@ -24,12 +24,19 @@ export default async function DashboardLayout({
     const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
     const workspace = await getWorkspaceState();
 
-    // 0.5 ENTRY GUARD: If Superadmin is trying to access local area without context, send to admin.
-    // This prevents the "Context: None" crash before it reaches the page.
-    if (workspace.isSuperadmin && !workspace.activeOrgId) {
-        console.log("[DashboardLayout] Superadmin without context detected. Redirecting to /admin portal.");
+    // 0.5 Canonical Redirect Guard (v1.2)
+    const { resolveRedirect } = await import('@/lib/auth/redirect-resolver');
+    const redirectPath = resolveRedirect({
+        pathname: '/dashboard', // Layout acts as a proxy for child routes
+        isAuthed: workspace.status !== 'NOT_AUTHENTICATED',
+        hasOrgContext: !!workspace.activeOrgId,
+        recommendedRoute: workspace.recommendedRoute
+    });
+
+    // In layout, we only redirect if it's a critical mismatch (e.g. not authed or superadmin context)
+    if (redirectPath === '/login' || (workspace.isSuperadmin && !workspace.activeOrgId && redirectPath === '/admin')) {
         const { redirect } = await import("next/navigation");
-        redirect('/admin');
+        redirect(redirectPath);
     }
 
     let profile = null;

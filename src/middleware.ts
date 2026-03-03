@@ -2,6 +2,9 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+    const traceId = Math.random().toString(36).substring(7).toUpperCase();
+    const pathname = request.nextUrl.pathname;
+    
     let response = NextResponse.next({
         request: {
             headers: request.headers,
@@ -25,9 +28,13 @@ export async function updateSession(request: NextRequest) {
                             headers: request.headers,
                         },
                     })
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        response.cookies.set(name, value, options)
-                    )
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        const opt = { ...options };
+                        if (process.env.VERCEL_ENV === 'preview') {
+                            delete opt.domain;
+                        }
+                        response.cookies.set(name, value, opt);
+                    })
                 },
             },
         }
@@ -37,40 +44,34 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // 1. Skip middleware for static assets
-    if (request.nextUrl.pathname.match(/\.(svg|png|jpg|jpeg|gif|webp)$/)) {
-        return response;
+    const isPublicRoute = ['/login', '/signup', '/forgot-password', '/favicon.ico'].some(p => pathname.startsWith(p)) || pathname.startsWith('/auth') || pathname.startsWith('/api');
+    const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp)$/);
+
+    // Debug logging
+    if (process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'preview') {
+        console.log(`[Middleware][${traceId}] Path: ${pathname}, Authed: ${!!user}`);
     }
 
-    // 1.5 Bypass for forensics and E2E endpoints
-    if (request.nextUrl.pathname.startsWith('/api/forensics') || request.nextUrl.pathname.startsWith('/api/e2e')) {
-        return response;
+    if (isAsset) return response;
+
+    // Core Auth Guard
+    if (!user && !isPublicRoute) {
+        const target = '/login';
+        const res = NextResponse.redirect(new URL(target, request.url));
+        res.headers.set('x-redirect-reason', 'unauthed_protected_access');
+        res.headers.set('x-redirect-target', target);
+        return res;
     }
 
-    // 2. Auth Guard (Login)
-    if (request.nextUrl.pathname.startsWith('/login')) {
-        if (user) {
-            return NextResponse.redirect(new URL('/', request.url))
-        }
-        return response
+    if (user && pathname === '/login') {
+        const target = '/';
+        const res = NextResponse.redirect(new URL(target, request.url));
+        res.headers.set('x-redirect-reason', 'authed_login_access');
+        res.headers.set('x-redirect-target', target);
+        return res;
     }
 
-    if (!user) {
-        return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    // 3. Start/Onboarding Guard
-    // Allow access to /start for everyone authenticated
-    if (request.nextUrl.pathname.startsWith('/start')) {
-        return response;
-    }
-
-    // 4. Role-Based Route Protection (RBAC) - Moving to Node Runtime layouts
-    // In middleware we only ensure the user is authenticated.
-    // Fine-grained access control will happen in Server Components.
-
-    // 7. Security Headers
-    // Content Security Policy (CSP)
+    // Security Headers
     const cspHeader = `
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://m.stripe.network https://*.supabase.co;
@@ -92,7 +93,6 @@ export async function updateSession(request: NextRequest) {
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
-    // HSTS (Strict-Transport-Security) - Enabled for 1 year in production
     if (process.env.NODE_ENV === 'production') {
         response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     }

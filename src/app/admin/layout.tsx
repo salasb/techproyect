@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { 
     Shield, 
     LogOut, 
@@ -80,6 +81,17 @@ export default async function AdminLayout({
     // Access Granted
     const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
     const workspace = await getWorkspaceState();
+
+    const { resolveRedirect } = await import('@/lib/auth/redirect-resolver');
+    const redirectPath = resolveRedirect({
+        pathname: '/admin',
+        isAuthed: true, // Known from resolveSuperadminAccess
+        hasOrgContext: !!workspace.activeOrgId,
+        recommendedRoute: workspace.recommendedRoute
+    });
+
+    // Admin layout is usually stable, but let's check for auth pings
+    if (redirectPath === '/login') redirect('/login');
 
     return (
         <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans">

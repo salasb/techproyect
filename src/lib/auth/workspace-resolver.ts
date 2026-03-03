@@ -69,14 +69,14 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         const { data: { user }, error: authError } = await fetchWithTimeout(supabase.auth.getUser(), 3000);
 
         if (authError || !user) {
-            console.log("[WorkspaceResolver] No user authenticated", authError);
+            console.log("[WorkspaceResolver] State: NOT_AUTHENTICATED", { authError: authError?.message });
             return {
                 status: 'NOT_AUTHENTICATED',
                 ...unauthBase
             };
         }
 
-        console.log(`[WorkspaceResolver] User identified: ${user.email}`);
+        console.log(`[WorkspaceResolver] User: ${user.email}, ID: ${user.id}`);
 
         // 1. Fetch memberships & Profile via Prisma
         const membershipsPromise = prisma.organizationMember.findMany({
@@ -92,7 +92,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         const [memberships, profile] = await fetchWithTimeout(Promise.all([membershipsPromise, profilePromise]));
 
         if (!profile) {
-            console.warn(`[WorkspaceResolver] Profile missing for user ${user.id}`);
+            console.warn(`[WorkspaceResolver] State: PROFILE_MISSING for ${user.id}`);
             return {
                 status: 'PROFILE_MISSING',
                 userId: user.id,
@@ -106,7 +106,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             };
         }
 
-        console.log(`[WorkspaceResolver] Profile resolved: role=${profile.role}`);
+        console.log(`[WorkspaceResolver] Profile Found: role=${profile.role}, orgId=${profile.organizationId}`);
 
         let isSuperadmin = profile.role === 'SUPERADMIN';
 
@@ -294,28 +294,37 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
 
         // Resolve activeOrgId for non-superadmin or if not already resolved
         let setCookieId = null;
+        let shouldClearCookie = false;
         let subscriptionStatus = undefined;
 
         if (!activeOrgId) {
             if (cookieOrgId && activeMemberships.some(m => m.organizationId === cookieOrgId)) {
                 activeOrgId = cookieOrgId;
-            } else if (activeMemberships.length === 1) {
-                activeOrgId = activeMemberships[0].organizationId;
-                setCookieId = activeOrgId;
-                // Sync fallback
-                if (profile.organizationId !== activeOrgId) {
-                    await prisma.profile.update({
-                        where: { id: user.id },
-                        data: { organizationId: activeOrgId }
-                    }).catch(() => { });
-                }
-            } else if (activeMemberships.length > 1) {
-                const lastActiveOrgId = profile.organizationId;
-                if (lastActiveOrgId && activeMemberships.some(m => m.organizationId === lastActiveOrgId)) {
-                    activeOrgId = lastActiveOrgId;
+            } else if (cookieOrgId) {
+                // If it's a superadmin, we already checked if the org exists in the God-mode block.
+                // If we are here and have a cookieOrgId but no activeOrgId, it's invalid.
+                shouldClearCookie = true;
+            }
+
+            if (!activeOrgId) {
+                if (activeMemberships.length === 1) {
+                    activeOrgId = activeMemberships[0].organizationId;
                     setCookieId = activeOrgId;
-                } else {
-                    activeOrgId = null; // Forces Multi Selection State
+                    // Sync fallback
+                    if (profile.organizationId !== activeOrgId) {
+                        await prisma.profile.update({
+                            where: { id: user.id },
+                            data: { organizationId: activeOrgId }
+                        }).catch(() => { });
+                    }
+                } else if (activeMemberships.length > 1) {
+                    const lastActiveOrgId = profile.organizationId;
+                    if (lastActiveOrgId && activeMemberships.some(m => m.organizationId === lastActiveOrgId)) {
+                        activeOrgId = lastActiveOrgId;
+                        setCookieId = activeOrgId;
+                    } else {
+                        activeOrgId = null; // Forces Multi Selection State
+                    }
                 }
             }
         }
@@ -351,11 +360,15 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                     httpOnly: false,
                     sameSite: 'lax',
                     secure: process.env.NODE_ENV === 'production',
-                    maxAge: 60 * 60 * 24 * 7 // 1 week
+                    maxAge: 60 * 60 * 24 * 7, // 1 week
+                    domain: undefined 
                 });
-            } catch (err) {
-                // Ignore Next.js Server Component context errors
-            }
+            } catch (err) { }
+        } else if (shouldClearCookie) {
+            try {
+                const cookieStoreMutable = await cookies();
+                cookieStoreMutable.delete('app-org-id');
+            } catch (err) { }
         }
 
         // Determine Final Recommended Route (Entry Policy v2.2.0)
