@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     const isPublicRoute = ['/login', '/signup', '/forgot-password', '/favicon.ico'].some(p => pathname.startsWith(p)) || pathname.startsWith('/auth') || pathname.startsWith('/api');
+    const isSafeHarbor = pathname.startsWith('/start') || pathname.startsWith('/org/select') || pathname.startsWith('/pending-activation');
     const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp)$/);
 
     // Debug logging
@@ -54,8 +55,8 @@ export async function updateSession(request: NextRequest) {
 
     if (isAsset) return response;
 
-    // Core Auth Guard
-    if (!user && !isPublicRoute) {
+    // 1. Core Auth Guard: If not authed and not on a public route or safe harbor, send to login
+    if (!user && !isPublicRoute && !isSafeHarbor) {
         const target = '/login';
         const res = NextResponse.redirect(new URL(target, request.url));
         res.headers.set('x-redirect-reason', 'unauthed_protected_access');
@@ -63,13 +64,8 @@ export async function updateSession(request: NextRequest) {
         return res;
     }
 
-    if (user && pathname === '/login') {
-        const target = '/';
-        const res = NextResponse.redirect(new URL(target, request.url));
-        res.headers.set('x-redirect-reason', 'authed_login_access');
-        res.headers.set('x-redirect-target', target);
-        return res;
-    }
+    // 2. NO Edge-level redirects for authed users on /login
+    // This allows /login to render its own "Already logged in" UI if desired, avoiding loop.
 
     // Security Headers
     const cspHeader = `

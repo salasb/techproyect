@@ -303,6 +303,11 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         if (!activeOrgId) {
             if (activeOrgFromContext && activeMemberships.some(m => m.organizationId === activeOrgFromContext)) {
                 activeOrgId = activeOrgFromContext;
+                // Rehydrate if it came from DB (cookie Store is missing the cookie)
+                const cookieStore = await cookies();
+                if (!cookieStore.has(ORG_CONTEXT_COOKIE)) {
+                    setCookieId = activeOrgId;
+                }
             } else if (activeOrgFromContext) {
                 // If it's a superadmin, we already checked if the org exists in the God-mode block.
                 // If we are here and have a context org but no activeOrgId, it's invalid.
