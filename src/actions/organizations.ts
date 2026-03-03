@@ -149,14 +149,8 @@ export async function createOrganizationAction(formData: FormData) {
             await ActivationService.trackFirst('ORG_CREATED', org.id, user.id);
         } catch (e) {}
 
-        const cookieStore = await cookies();
-        cookieStore.set(ORG_CONTEXT_COOKIE, org.id, {
-            path: '/',
-            httpOnly: true,
-            sameSite: 'lax',
-            secure: true,
-            maxAge: 60 * 60 * 24 * 7 // 1 week
-        });
+        const { setActiveOrg } = await import("@/lib/auth/active-context");
+        await setActiveOrg(user.id, org.id, "auto");
 
         redirect('/dashboard');
     } catch (error: any) {
@@ -198,14 +192,8 @@ export async function switchOrganizationAction(organizationId: string) {
         data: { organizationId: organizationId }
     });
 
-    const cookieStore = await cookies();
-    cookieStore.set(ORG_CONTEXT_COOKIE, organizationId, {
-        path: '/',
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: true,
-        maxAge: 60 * 60 * 24 * 7 // 1 week
-    });
+    const { setActiveOrg } = await import("@/lib/auth/active-context");
+    await setActiveOrg(user.id, organizationId, "select");
 
     redirect('/dashboard');
 }

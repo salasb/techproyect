@@ -33,10 +33,14 @@ export default async function DashboardLayout({
         recommendedRoute: workspace.recommendedRoute
     });
 
-    // In layout, we only redirect if it's a critical mismatch (e.g. not authed or superadmin context)
-    if (redirectPath === '/login' || (workspace.isSuperadmin && !workspace.activeOrgId && redirectPath === '/admin')) {
-        const { redirect } = await import("next/navigation");
-        redirect(redirectPath);
+    // In layout, we only redirect if it's a critical mismatch (e.g. not authed or no org context)
+    if (redirectPath && redirectPath !== '/dashboard') {
+        // Safe harbor check: don't redirect if we are already on a valid target path
+        // For layouts, since they wrap multiple routes, we only redirect if it's a structural jump.
+        if (redirectPath === '/login' || redirectPath === '/start' || redirectPath === '/org/select' || (workspace.isSuperadmin && redirectPath === '/admin')) {
+            const { redirect } = await import("next/navigation");
+            redirect(redirectPath);
+        }
     }
 
     let profile = null;

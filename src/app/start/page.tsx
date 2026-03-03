@@ -43,6 +43,21 @@ export default async function StartPage({
     const cookieStore = await cookies();
     const currentOrgCookie = cookieStore.get(ORG_CONTEXT_COOKIE)?.value;
 
+    // 1.5 Auto-select if exactly 1 org (Bootstrap Strategy v1.5)
+    if (orgs.length === 1 && !currentOrgCookie) {
+        const { createClient } = await import("@/lib/supabase/server");
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+            console.log(`[StartPage][${traceId}] Auto-selecting unique org: ${orgs[0].id}`);
+            const { setActiveOrg } = await import("@/lib/auth/active-context");
+            await setActiveOrg(user.id, orgs[0].id, "auto");
+            // Direct redirect since we just set the DB source of truth
+            redirect('/dashboard');
+        }
+    }
+
     // Check for invalid cookie state
     const hasOrgContext = !!currentOrgCookie;
     const isCookieValid = hasOrgContext && orgs.some(o => o.id === currentOrgCookie);

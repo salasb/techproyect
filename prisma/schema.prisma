@@ -297,6 +297,7 @@ model Profile {
   organization       Organization?        @relation(fields: [organizationId], references: [id])
   SupportTicket      SupportTicket[]
   SupportMessage     SupportMessage[]
+  ActiveContext      ActiveContext?
 
   @@schema("public")
 }
@@ -350,6 +351,20 @@ model Organization {
   supportTickets        SupportTicket[]
   webhookEndpoints      WebhookEndpoint[]
   customRoles           CustomRole[]
+  activeContexts        ActiveContext[]
+
+  @@schema("public")
+}
+
+model ActiveContext {
+  id             String       @id @default(uuid())
+  userId         String       @unique @db.Uuid
+  orgId          String?      @db.Uuid
+  source         String       @default("auto") // "select" | "auto"
+  updatedAt      DateTime     @updatedAt
+  
+  organization   Organization? @relation(fields: [orgId], references: [id])
+  profile        Profile       @relation(fields: [userId], references: [id])
 
   @@schema("public")
 }

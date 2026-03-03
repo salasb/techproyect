@@ -16,26 +16,27 @@ export async function GET(req: Request) {
     const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development';
 
     try {
-        const cookieStore = await cookies();
-        const orgId = cookieStore.get(ORG_CONTEXT_COOKIE)?.value;
-
-        if (!orgId) {
-            const response = NextResponse.json({ 
-                ok: false, 
-                code: 'NO_ORG_CONTEXT',
-                message: "No hay una organización seleccionada en este entorno.",
-                traceId 
-            }, { status: 200 }); // Status 200 to allow client-side logic handling
-            
-            if (isPreview) response.headers.set('x-active-org', 'none');
-            return response;
-        }
-
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
             return NextResponse.json({ ok: false, code: 'UNAUTHORIZED', traceId }, { status: 401 });
+        }
+
+        const { getActiveOrg } = await import("@/lib/auth/active-context");
+        const orgId = await getActiveOrg(user.id);
+
+        if (!orgId) {
+            const response = NextResponse.json({ 
+                ok: false, 
+                code: 'NO_ORG_CONTEXT',
+                message: "No hay una organización seleccionada.",
+                traceId 
+            }, { status: 200 });
+            
+            if (isPreview) response.headers.set('x-active-org', 'none');
+            response.headers.set('Cache-Control', 'no-store');
+            return response;
         }
 
         // Validate Membership
@@ -59,16 +60,32 @@ export async function GET(req: Request) {
             }, { status: 403 });
         }
 
+        // Rehydrate Cookie if missing (Server Action / Route Handler context)
+        const cookieStore = await cookies();
+        if (!cookieStore.has(ORG_CONTEXT_COOKIE)) {
+            console.log(`[OrgActive][${traceId}] Rehydrating cookie for ${user.id} -> ${orgId}`);
+            cookieStore.set(ORG_CONTEXT_COOKIE, orgId, {
+                path: '/',
+                httpOnly: true,
+                secure: true,
+                sameSite: 'lax',
+                maxAge: 60 * 60 * 24 * 7
+            });
+        }
+
         const response = NextResponse.json({ 
             ok: true, 
             orgId,
-            source: "cookie",
+            source: cookieStore.has(ORG_CONTEXT_COOKIE) ? "cookie" : "db",
             isSuperadmin,
             traceId 
         });
 
         response.headers.set('Cache-Control', 'no-store, max-age=0');
-        if (isPreview) response.headers.set('x-active-org', orgId);
+        if (isPreview) {
+            response.headers.set('x-active-org', orgId);
+            response.headers.set('x-active-source', cookieStore.has(ORG_CONTEXT_COOKIE) ? "cookie" : "db");
+        }
         return response;
 
     } catch (error: any) {

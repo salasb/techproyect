@@ -179,18 +179,18 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         let activeMemberships = memberships;
         let isAutoProvisioned = false;
 
-        const cookieStore = await cookies();
-        const cookieOrgId = cookieStore.get(ORG_CONTEXT_COOKIE)?.value;
+        const { getActiveOrg } = await import('./active-context');
+        const activeOrgFromContext = await getActiveOrg(user.id);
         let activeOrgId = null;
 
         // God-mode for Superadmins: Allow context even without explicit membership
-        if (isSuperadmin && cookieOrgId) {
+        if (isSuperadmin && activeOrgFromContext) {
             const orgExists = await prisma.organization.findUnique({
-                where: { id: cookieOrgId },
+                where: { id: activeOrgFromContext },
                 select: { id: true, name: true, status: true }
             });
             if (orgExists) {
-                activeOrgId = cookieOrgId;
+                activeOrgId = activeOrgFromContext;
             }
         }
 
@@ -301,11 +301,11 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         let subscriptionStatus = undefined;
 
         if (!activeOrgId) {
-            if (cookieOrgId && activeMemberships.some(m => m.organizationId === cookieOrgId)) {
-                activeOrgId = cookieOrgId;
-            } else if (cookieOrgId) {
+            if (activeOrgFromContext && activeMemberships.some(m => m.organizationId === activeOrgFromContext)) {
+                activeOrgId = activeOrgFromContext;
+            } else if (activeOrgFromContext) {
                 // If it's a superadmin, we already checked if the org exists in the God-mode block.
-                // If we are here and have a cookieOrgId but no activeOrgId, it's invalid.
+                // If we are here and have a context org but no activeOrgId, it's invalid.
                 shouldClearCookie = true;
             }
 

@@ -117,33 +117,21 @@ export async function POST(req: Request) {
         const referer = req.headers.get('referer');
         const redirectTo = isSuperadmin && referer?.includes('/admin') ? '/admin' : '/dashboard';
         
-        // 6. Persistence (Cookie via NextResponse for maximum reliability)
+        // 6. Persistence (Robust Context v1.5)
+        const { setActiveOrg } = await import("@/lib/auth/active-context");
+        await setActiveOrg(user.id, orgId, "select");
+
         const response = NextResponse.json({ 
             ok: true, 
             redirectTo,
             traceId 
         });
 
-        // Set the __Host- cookie (Secure, Path=/, No Domain)
-        response.cookies.set(ORG_CONTEXT_COOKIE, orgId, {
-            path: '/',
-            httpOnly: true, 
-            sameSite: 'lax',
-            secure: true, // Always secure for __Host-
-            maxAge: 60 * 60 * 24 * 7, // 1 week
-        });
-
-        // 7. Sync Profile (Await but catch errors)
-        try {
-            await prisma.profile.update({
-                where: { id: user.id },
-                data: { organizationId: orgId }
-            });
-            console.log(`[OrgSelect][${traceId}] Profile updated successfully`);
-        } catch (syncErr: any) {
-            console.error(`[OrgSelect][${traceId}] Profile update failed:`, syncErr.message);
-            // We proceed anyway because the cookie is the primary source of truth for the session
-        }
+        // 7. Sync Profile (Fire and forget with safety)
+        prisma.profile.update({
+            where: { id: user.id },
+            data: { organizationId: orgId }
+        }).catch(err => console.error(`[OrgSelect][${traceId}] Profile sync warning:`, err.message));
 
         console.log(`[OrgSelect][${traceId}] SUCCESS`);
         return response;
