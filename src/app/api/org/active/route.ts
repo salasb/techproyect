@@ -67,10 +67,13 @@ export async function GET(req: Request) {
             traceId 
         });
 
+        response.headers.set('Cache-Control', 'no-store, max-age=0');
         if (isPreview) response.headers.set('x-active-org', orgId);
         return response;
 
     } catch (error: any) {
-        return NextResponse.json({ ok: false, code: 'INTERNAL_ERROR', details: error.message, traceId }, { status: 500 });
+        const response = NextResponse.json({ ok: false, code: 'INTERNAL_ERROR', details: error.message, traceId }, { status: 500 });
+        response.headers.set('Cache-Control', 'no-store');
+        return response;
     }
 }
