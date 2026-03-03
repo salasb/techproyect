@@ -2,76 +2,53 @@ import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { ORG_CONTEXT_COOKIE } from "@/lib/auth/constants";
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Robust Organization Selection API (v1.2)
- * Optimized for Vercel Preview and App Router consistency.
- * 
- * FIX: Added strict UUID validation to prevent Prisma internal errors (500).
- * FIX: Improved cookie persistence using NextResponse.
+ * Definitive Organization Selection API (v1.3)
+ * FIX: Using __Host- prefix for maximum cookie stability.
+ * FIX: Strict error mapping and detailed trace logging.
  */
 export async function POST(req: Request) {
     const traceId = `SEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
-    const isPreview = process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development';
     
     try {
-        const body = await req.json().catch(() => ({}));
+        // 1. Parse Input
+        let body;
+        try {
+            body = await req.json();
+        } catch (e) {
+            console.error(`[OrgSelect][${traceId}] Failed to parse JSON body`);
+            return NextResponse.json({ ok: false, code: 'INVALID_REQUEST', message: "Cuerpo de petición inválido.", traceId }, { status: 400 });
+        }
+
         const { orgId } = body;
-        
         if (!orgId) {
-            return NextResponse.json({ 
-                ok: false, 
-                code: 'MISSING_ORG_ID', 
-                message: "No se proporcionó el ID de la organización.",
-                traceId 
-            }, { status: 400 });
+            return NextResponse.json({ ok: false, code: 'MISSING_ORG_ID', message: "ID de organización requerido.", traceId }, { status: 400 });
         }
 
-        // UUID Validation (Prisma will throw 500 if invalid UUID is passed to a UUID field)
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(orgId)) {
-            return NextResponse.json({ 
-                ok: false, 
-                code: 'INVALID_ORG_ID', 
-                message: "El ID de organización proporcionado no es válido.",
-                traceId 
-            }, { status: 400 });
-        }
-
+        // 2. Validate Session
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
-            console.warn(`[OrgSelect][${traceId}] Auth failed:`, authError?.message);
-            return NextResponse.json({ 
-                ok: false, 
-                code: 'UNAUTHORIZED', 
-                message: "Tu sesión ha expirado. Por favor inicia sesión de nuevo.",
-                traceId 
-            }, { status: 401 });
+            console.warn(`[OrgSelect][${traceId}] Session invalid or expired:`, authError?.message);
+            return NextResponse.json({ ok: false, code: 'SESSION_EXPIRED', message: "Tu sesión ha expirado.", traceId }, { status: 401 });
         }
 
-        // 1. Validate Identity & Membership
+        console.log(`[OrgSelect][${traceId}] User: ${user.id}, Org: ${orgId}`);
+
+        // 3. Validate Membership (Direct DB query)
         const profile = await prisma.profile.findUnique({
             where: { id: user.id },
-            select: { role: true, id: true }
+            select: { role: true }
         });
 
-        if (!profile) {
-            return NextResponse.json({ 
-                ok: false, 
-                code: 'PROFILE_MISSING', 
-                message: "Tu perfil de usuario no ha sido inicializado correctamente.",
-                traceId 
-            }, { status: 404 });
-        }
-
-        const isSuperadmin = profile.role === 'SUPERADMIN';
+        const isSuperadmin = profile?.role === 'SUPERADMIN';
         
         if (!isSuperadmin) {
-            // Use findFirst to avoid potential constraint name issues in different environments
             const membership = await prisma.organizationMember.findFirst({
                 where: { 
                     organizationId: orgId, 
@@ -81,68 +58,44 @@ export async function POST(req: Request) {
             });
 
             if (!membership) {
-                console.warn(`[OrgSelect][${traceId}] Access denied for user ${user.email} to org ${orgId}.`);
-                return NextResponse.json({ 
-                    ok: false, 
-                    code: 'FORBIDDEN',
-                    message: "No tienes una membresía activa en esta organización.",
-                    traceId 
-                }, { status: 403 });
+                console.warn(`[OrgSelect][${traceId}] Access denied: user has no active membership in ${orgId}`);
+                return NextResponse.json({ ok: false, code: 'NO_MEMBERSHIP', message: "No tienes acceso a esta organización.", traceId }, { status: 403 });
             }
         }
 
-        // 2. Prepare Success State
-        const referer = req.headers.get('referer');
-        const redirectTo = isSuperadmin && referer?.includes('/admin') ? '/admin' : '/dashboard';
-        
-        // 3. Persist Context (Cookie via NextResponse)
+        // 4. Persistence (Robust Cookie)
+        // We use NextResponse.json() combined with .cookies.set for reliability
         const response = NextResponse.json({ 
             ok: true, 
-            redirectTo,
+            redirectTo: isSuperadmin ? '/admin' : '/dashboard',
             traceId 
         });
 
-        // Set Host-Only Cookie (No Domain)
-        // Note: Using standard name for compatibility, but enforcing host-only properties
-        response.cookies.set('app-org-id', orgId, {
+        // Set the __Host- cookie
+        // Requirements: Secure=true, Path=/, No Domain
+        response.cookies.set(ORG_CONTEXT_COOKIE, orgId, {
             path: '/',
-            httpOnly: false, 
-            sameSite: 'lax',
+            httpOnly: true,
             secure: true, 
-            maxAge: 60 * 60 * 24 * 7, // 1 week
+            sameSite: 'lax',
+            maxAge: 60 * 60 * 24 * 7 // 1 week
         });
 
-        // 4. Sync Profile (Await with timeout to ensure DB consistency before responding)
-        try {
-            await Promise.race([
-                prisma.profile.update({
-                    where: { id: user.id },
-                    data: { organizationId: orgId }
-                }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout syncing profile")), 2000))
-            ]);
-        } catch (syncErr: any) {
-            console.error(`[OrgSelect][${traceId}] Profile sync warning:`, syncErr.message);
-            // We don't fail the whole request if sync lags, the cookie is the primary driver
-        }
+        // 5. Profile Sync (Fire and forget with safety)
+        prisma.profile.update({
+            where: { id: user.id },
+            data: { organizationId: orgId }
+        }).catch(err => console.error(`[OrgSelect][${traceId}] Background sync failed:`, err.message));
 
-        // Debug headers
-        if (isPreview) {
-            response.headers.set('x-org-select-status', 'ok');
-            response.headers.set('x-org-select-reason', isSuperadmin ? 'superadmin_bypass' : 'membership_verified');
-            response.headers.set('x-trace-id', traceId);
-        }
-
-        console.log(`[OrgSelect][${traceId}] Success for ${user.email} -> ${orgId}`);
+        console.log(`[OrgSelect][${traceId}] SUCCESS`);
         return response;
 
     } catch (error: any) {
-        console.error(`[OrgSelect][${traceId}] INTERNAL_ERROR:`, error.message, error.stack);
+        console.error(`[OrgSelect][${traceId}] UNEXPECTED_BACKEND_ERROR:`, error.message, error.stack);
         return NextResponse.json({ 
             ok: false, 
-            code: 'INTERNAL_ERROR',
-            message: "No pudimos procesar tu selección. Por favor reintenta.",
-            details: isPreview ? error.message : undefined,
+            code: 'INTERNAL_ERROR', 
+            message: "No pudimos guardar tu contexto comercial. Reintenta.", 
             traceId 
         }, { status: 500 });
     }

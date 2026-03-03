@@ -21,40 +21,52 @@ export function OrgSelector({ orgs }: { orgs: Org[] }) {
 
     const handleSelect = async (orgId: string) => {
         setSelectingId(orgId);
-        const toastId = toast.loading("Guardando contexto...");
+        const toastId = toast.loading("Guardando contexto comercial...");
         
         try {
             const response = await fetch('/api/org/select', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify({ orgId })
             });
 
             const result = await response.json();
 
             if (result.ok) {
-                toast.success("Contexto guardado. Redirigiendo...", { id: toastId });
-                // Refresh ensures layouts re-fetch workspace state with the new cookie
+                toast.success("Acceso concedido. Entrando...", { id: toastId });
+                // router.refresh() invalidates the server component cache for the target page
                 router.refresh();
-                // Replace to avoid history loops
+                // client-side navigation to dashboard
                 router.replace(result.redirectTo || '/dashboard');
             } else {
-                let errorMessage = result.message || "No se pudo seleccionar la organización.";
+                let errorMessage = result.message || "Error al seleccionar organización.";
                 
-                if (response.status === 401) {
-                    errorMessage = "Tu sesión expiró. Vuelve a iniciar sesión.";
-                    setTimeout(() => router.push('/login'), 2000);
-                } else if (response.status === 403) {
-                    errorMessage = "No tienes acceso activo a esta organización.";
-                } else if (response.status === 500) {
-                    errorMessage = `No pudimos guardar tu contexto. Reintenta. (Trace: ${result.traceId || 'N/A'})`;
+                // Map status codes to user-friendly messages
+                switch (response.status) {
+                    case 401:
+                        errorMessage = "Tu sesión expiró. Inicia sesión nuevamente.";
+                        setTimeout(() => router.push('/login'), 2000);
+                        break;
+                    case 403:
+                        errorMessage = "No tienes acceso a esta organización.";
+                        break;
+                    case 400:
+                        errorMessage = "Petición inválida. Intenta refrescar la página.";
+                        break;
+                    case 500:
+                        errorMessage = `Fallo técnico en el servidor. (Trace: ${result.traceId})`;
+                        break;
                 }
 
-                toast.error(errorMessage, { id: toastId });
+                toast.error(errorMessage, { id: toastId, duration: 5000 });
                 setSelectingId(null);
             }
         } catch (error: any) {
-            toast.error("Error de red. Por favor revisa tu conexión.", { id: toastId });
+            console.error("[OrgSelector] Fetch error:", error);
+            toast.error("Error de conexión. Reintenta en unos momentos.", { id: toastId });
             setSelectingId(null);
         }
     };

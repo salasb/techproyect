@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import prisma from '@/lib/prisma'
 import { CockpitService } from '@/lib/superadmin/cockpit-service'
+import { ORG_CONTEXT_COOKIE } from '@/lib/auth/constants'
 
 /**
  * Allows a Superadmin to safely enter an organization's context.
@@ -35,9 +36,9 @@ export async function enterOrganizationContext(orgId: string) {
 
     // 2. Set Cookie
     const cookieStore = await cookies()
-    cookieStore.set('app-org-id', orgId, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
+    cookieStore.set(ORG_CONTEXT_COOKIE, orgId, {
+        httpOnly: true,
+        secure: true,
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,
         path: '/',

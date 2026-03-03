@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { ORG_CONTEXT_COOKIE } from '@/lib/auth/constants';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -12,7 +13,7 @@ export async function GET() {
     }
 
     const cookieStore = await cookies();
-    const cookieOrgId = cookieStore.get('app-org-id')?.value;
+    const cookieOrgId = cookieStore.get(ORG_CONTEXT_COOKIE)?.value;
 
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();

@@ -88,7 +88,7 @@ setup('authenticate as Admin', async ({ request, page }) => {
     // Manual cookie injection for robustness
     if (data.bootstrap.activeOrgId) {
         await page.context().addCookies([{
-            name: 'app-org-id',
+            name: '__Host-app-org-id',
             value: data.bootstrap.activeOrgId,
             domain: 'localhost',
             path: '/',
@@ -134,7 +134,7 @@ setup('authenticate as Multi-Org Admin', async ({ request, page }) => {
     // Manual cookie injection for Org A as baseline
     if (data.bootstrap.activeOrgId) {
         await page.context().addCookies([{
-            name: 'app-org-id',
+            name: '__Host-app-org-id',
             value: data.bootstrap.activeOrgId,
             domain: 'localhost',
             path: '/',

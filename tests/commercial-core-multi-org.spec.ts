@@ -81,9 +81,9 @@ test.describe('E2E Multi-Org Isolation v1.8.3', () => {
 
         test('C2. ScopeError controlado ante contexto corrupto', async ({ page, request }) => {
             const stateCookie = await page.context().cookies();
-            const filteredCookies = stateCookie.filter(c => c.name !== 'app-org-id');
+            const filteredCookies = stateCookie.filter(c => c.name !== '__Host-app-org-id');
             let cookieHeader = filteredCookies.map(c => `${c.name}=${c.value}`).join('; ');
-            cookieHeader += '; app-org-id=invalid-uuid-0000;';
+            cookieHeader += '; __Host-app-org-id=invalid-uuid-0000;';
 
             const res = await request.post('/api/sales/generate-note', {
                 data: { projectId: 'e2e-fake-project-id' },

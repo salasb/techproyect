@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { headers, cookies } from 'next/headers';
+import { ORG_CONTEXT_COOKIE } from '@/lib/auth/constants';
 
 export async function GET(request: Request) {
     // 1. Protection Flag
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
             select: { organizationId: true, role: true, status: true }
         });
 
-        const activeOrgFromCookie = cookieStore.get('app-org-id')?.value || null;
+        const activeOrgFromCookie = cookieStore.get(ORG_CONTEXT_COOKIE)?.value || null;
 
         // Global DB sizes to check if we are connecting to a fresh DB by mistake
         const totalProfiles = await prisma.profile.count();

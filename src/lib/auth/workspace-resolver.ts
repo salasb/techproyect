@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { getRolePermissions, Permission } from './rbac';
+import { ORG_CONTEXT_COOKIE } from './constants';
 
 export type WorkspaceStatus =
     | 'NOT_AUTHENTICATED'
@@ -177,7 +178,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         let isAutoProvisioned = false;
 
         const cookieStore = await cookies();
-        const cookieOrgId = cookieStore.get('app-org-id')?.value;
+        const cookieOrgId = cookieStore.get(ORG_CONTEXT_COOKIE)?.value;
         let activeOrgId = null;
 
         // God-mode for Superadmins: Allow context even without explicit membership
@@ -355,11 +356,11 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         if (setCookieId) {
             try {
                 const cookieStoreMutable = await cookies();
-                cookieStoreMutable.set('app-org-id', setCookieId, {
+                cookieStoreMutable.set(ORG_CONTEXT_COOKIE, setCookieId, {
                     path: '/',
-                    httpOnly: false,
+                    httpOnly: true,
                     sameSite: 'lax',
-                    secure: process.env.NODE_ENV === 'production',
+                    secure: true, // Required for __Host-
                     maxAge: 60 * 60 * 24 * 7, // 1 week
                     domain: undefined 
                 });
@@ -367,7 +368,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         } else if (shouldClearCookie) {
             try {
                 const cookieStoreMutable = await cookies();
-                cookieStoreMutable.delete('app-org-id');
+                cookieStoreMutable.delete(ORG_CONTEXT_COOKIE);
             } catch (err) { }
         }
 

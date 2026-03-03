@@ -9,7 +9,7 @@ test.describe('Org Selection Robustness (P0)', () => {
                 contentType: 'application/json',
                 body: JSON.stringify({ ok: true, redirectTo: '/dashboard', traceId: 'SEL-SUCCESS' }),
                 headers: {
-                    'set-cookie': 'app-org-id=valid-org-id; Path=/; SameSite=Lax; HttpOnly'
+                    'set-cookie': '__Host-app-org-id=valid-org-id; Path=/; SameSite=Lax; HttpOnly; Secure'
                 }
             });
         });

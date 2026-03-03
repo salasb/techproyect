@@ -8,7 +8,7 @@ test.describe('Multi-Org Hardening v1.5 - Isolation & Scope', () => {
     test('Usuario normal no puede operar org donde no tiene membresía (Invalid Scope Fallback)', async ({ page, request }) => {
         // En este test el usuario 1 tiene membresia en Org A pero no en Org B.
         // Simulamos que el usuario altera manualmente su cookie a Org B.
-        // await page.context().addCookies([{ name: 'app-org-id', value: 'org-B-id', url: 'http://localhost:3000' }]);
+        // await page.context().addCookies([{ name: '__Host-app-org-id', value: 'org-B-id', url: 'http://localhost:3000' }]);
 
         // await page.goto('/dashboard');
         // const reqScope = await request.get('/api/inventory/export');

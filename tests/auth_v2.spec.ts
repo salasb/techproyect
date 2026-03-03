@@ -28,7 +28,7 @@ test.describe('Workspace & Onboarding Flow (v2)', () => {
         // Ir a una ruta que requiere organización
         await page.goto('/projects');
 
-        // Si no hay org seleccionada (por ejemplo, borrando la cookie app-org-id)
+        // Si no hay org seleccionada (por ejemplo, borrando la cookie __Host-app-org-id)
         // se debería ver el componente OrgGate
         const gateTitle = page.getByText('Configuración requerida');
         // Nota: Esto depende de si el auto-provisioning es síncrono. 

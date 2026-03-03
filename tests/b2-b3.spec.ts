@@ -9,12 +9,12 @@ test.describe('B2 & B3 Validación', () => {
 
         // Obtener el ID de la organización activa desde la cookie
         const cookies = await page.context().cookies();
-        const activeOrgCookie = cookies.find(c => c.name === 'app-org-id');
+        const activeOrgCookie = cookies.find(c => c.name === '__Host-app-org-id');
         expect(activeOrgCookie).toBeDefined();
 
-        // B3: Simular un "app-org-id" inválido/fantasma (UUID inexistente)
+        // B3: Simular un "__Host-app-org-id" inválido/fantasma (UUID inexistente)
         await page.context().addCookies([{
-            name: 'app-org-id',
+            name: '__Host-app-org-id',
             value: '00000000-0000-0000-0000-000000000000',
             domain: activeOrgCookie!.domain,
             path: '/'
@@ -29,7 +29,7 @@ test.describe('B2 & B3 Validación', () => {
 
         // Verificar que la cookie fue corregida
         const newCookies = await page.context().cookies();
-        const newOrgCookie = newCookies.find(c => c.name === 'app-org-id');
+        const newOrgCookie = newCookies.find(c => c.name === '__Host-app-org-id');
         expect(newOrgCookie?.value).not.toBe('00000000-0000-0000-0000-000000000000');
         expect(newOrgCookie?.value).toBe(activeOrgCookie!.value);
     });

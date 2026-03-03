@@ -3,6 +3,7 @@ import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
+import { ORG_CONTEXT_COOKIE } from "@/lib/auth/constants";
 
 export async function GET() {
     // F) Diagnóstico Dev-Safe protection
@@ -37,7 +38,7 @@ export async function GET() {
         });
 
         const cookieStore = await cookies();
-        const activeOrgFromCookie = cookieStore.get('app-org-id')?.value || null;
+        const activeOrgFromCookie = cookieStore.get(ORG_CONTEXT_COOKIE)?.value || null;
 
         const debugInfo = {
             userId: user.id,

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers, cookies } from "next/headers";
 import { selectOrganization } from "@/app/org/select/actions";
+import { ORG_CONTEXT_COOKIE } from "@/lib/auth/constants";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,7 @@ export default async function StartPage({
     // 1. Fetch User and Orgs
     const orgs = await getUserOrganizations();
     const cookieStore = await cookies();
-    const currentOrgCookie = cookieStore.get('app-org-id')?.value;
+    const currentOrgCookie = cookieStore.get(ORG_CONTEXT_COOKIE)?.value;
 
     // Check for invalid cookie state
     const hasOrgContext = !!currentOrgCookie;

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import prisma from '@/lib/prisma'
+import { ORG_CONTEXT_COOKIE } from '@/lib/auth/constants'
 
 export async function switchWorkspaceContext(orgId: string) {
     const cookieStore = await cookies()
@@ -53,9 +54,9 @@ export async function switchWorkspaceContext(orgId: string) {
         })
 
         // Set the cookie
-        cookieStore.set('app-org-id', orgId, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production',
+        cookieStore.set(ORG_CONTEXT_COOKIE, orgId, {
+            httpOnly: true,
+            secure: true,
             sameSite: 'lax',
             maxAge: 60 * 60 * 24 * 7, // 1 week
             path: '/',

@@ -10,7 +10,7 @@ test.describe('Organization Selection Flow (/start)', () => {
                 contentType: 'application/json',
                 body: JSON.stringify({ ok: true, redirectTo: '/dashboard', traceId: 'TEST-TRACE' }),
                 headers: {
-                    'set-cookie': 'app-org-id=test-org-id; Path=/; SameSite=Lax; HttpOnly'
+                    'set-cookie': '__Host-app-org-id=test-org-id; Path=/; SameSite=Lax; HttpOnly'
                 }
             });
         });

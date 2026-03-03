@@ -9,6 +9,7 @@ import { requireOperationalScope, requirePermission } from "@/lib/auth/server-re
 import { isAdmin } from "@/lib/permissions";
 import { AuditService } from "@/services/auditService";
 import { revalidatePath } from "next/cache";
+import { ORG_CONTEXT_COOKIE } from "@/lib/auth/constants";
 
 /**
  * Updates organization settings with audit logging.
@@ -149,9 +150,9 @@ export async function createOrganizationAction(formData: FormData) {
         } catch (e) {}
 
         const cookieStore = await cookies();
-        cookieStore.set('app-org-id', org.id, {
+        cookieStore.set(ORG_CONTEXT_COOKIE, org.id, {
             path: '/',
-            httpOnly: false,
+            httpOnly: true,
             sameSite: 'lax',
             secure: true,
             maxAge: 60 * 60 * 24 * 7 // 1 week
@@ -198,9 +199,9 @@ export async function switchOrganizationAction(organizationId: string) {
     });
 
     const cookieStore = await cookies();
-    cookieStore.set('app-org-id', organizationId, {
+    cookieStore.set(ORG_CONTEXT_COOKIE, organizationId, {
         path: '/',
-        httpOnly: false,
+        httpOnly: true,
         sameSite: 'lax',
         secure: true,
         maxAge: 60 * 60 * 24 * 7 // 1 week

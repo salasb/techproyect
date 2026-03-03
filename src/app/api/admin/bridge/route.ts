@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { CockpitService } from "@/lib/superadmin/cockpit-service";
+import { ORG_CONTEXT_COOKIE } from "@/lib/auth/constants";
 
 export const dynamic = 'force-dynamic';
 
@@ -45,9 +46,9 @@ export async function GET(req: Request) {
 
     // 2. Set Context Cookie
     const cookieStore = await cookies();
-    cookieStore.set('app-org-id', orgId, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
+    cookieStore.set(ORG_CONTEXT_COOKIE, orgId, {
+        httpOnly: true,
+        secure: true,
         sameSite: 'lax',
         maxAge: 60 * 60 * 24, // 1 day for bridge session
         path: '/',
