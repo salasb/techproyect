@@ -12,6 +12,7 @@ import { selectOrganization } from "@/app/org/select/actions";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { OrgSelector } from "@/components/auth/OrgSelector";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,7 +31,6 @@ export default async function StartPage({
     searchParams: Promise<{ error?: string; msg?: string }>
 }) {
     const { error: urlError, msg } = await searchParams;
-    const headerList = await headers();
     const isPreview = process.env.VERCEL_ENV === 'preview';
     
     // Instrumentation (Preview/Dev only)
@@ -127,33 +127,7 @@ export default async function StartPage({
                                 <CardDescription className="text-sm font-medium italic">Elige la organización en la que deseas operar hoy.</CardDescription>
                             </CardHeader>
                             <CardContent className="p-10 pt-0 space-y-8">
-                                <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {orgs.map(org => (
-                                        <form key={org.id} action={async () => {
-                                            'use server';
-                                            await selectOrganization(org.id);
-                                        }}>
-                                            <button 
-                                                type="submit"
-                                                className="w-full text-left p-6 rounded-3xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/5 transition-all group flex items-center justify-between"
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center group-hover:bg-blue-50 transition-colors shadow-inner">
-                                                        <Building2 className="w-6 h-6 text-slate-400 group-hover:text-blue-600" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-black uppercase text-sm tracking-tight text-slate-900">{org.name}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant="outline" className="text-[8px] font-black uppercase py-0 px-1 border-blue-100 text-blue-600 bg-blue-50/50">{org.subscription?.status || 'FREE'}</Badge>
-                                                            <span className="text-[9px] font-bold text-slate-400">ID: {org.id.substring(0,8)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-                                            </button>
-                                        </form>
-                                    ))}
-                                </div>
+                                <OrgSelector orgs={orgs as any} />
 
                                 <div className="relative py-4">
                                     <div className="absolute inset-0 flex items-center">
@@ -164,7 +138,6 @@ export default async function StartPage({
                                     </div>
                                 </div>
 
-                                {/* Link to creation form toggle? Let's just keep it simple: creation is below if they want */}
                                 <form action={createOrganizationAction} className="space-y-4">
                                     <div className="space-y-2">
                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Nombre de la nueva empresa</Label>
