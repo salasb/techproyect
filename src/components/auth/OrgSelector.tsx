@@ -24,7 +24,8 @@ export function OrgSelector({ orgs }: { orgs: Org[] }) {
         const toastId = toast.loading("Guardando contexto comercial...");
         
         try {
-            const response = await fetch('/api/org/select', {
+            // 1. Set the context via POST (Fastest path)
+            const selectResponse = await fetch('/api/org/select', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -33,40 +34,52 @@ export function OrgSelector({ orgs }: { orgs: Org[] }) {
                 body: JSON.stringify({ orgId })
             });
 
-            const result = await response.json();
+            const selectResult = await selectResponse.json();
 
-            if (result.ok) {
-                toast.success("Acceso concedido. Entrando...", { id: toastId });
-                // router.refresh() invalidates the server component cache for the target page
-                router.refresh();
-                // client-side navigation to dashboard
-                router.replace(result.redirectTo || '/dashboard');
-            } else {
-                let errorMessage = result.message || "Error al seleccionar organización.";
-                
-                // Map status codes to user-friendly messages
-                switch (response.status) {
-                    case 401:
-                        errorMessage = "Tu sesión expiró. Inicia sesión nuevamente.";
-                        setTimeout(() => router.push('/login'), 2000);
-                        break;
-                    case 403:
-                        errorMessage = "No tienes acceso a esta organización.";
-                        break;
-                    case 400:
-                        errorMessage = "Petición inválida. Intenta refrescar la página.";
-                        break;
-                    case 500:
-                        errorMessage = `Fallo técnico en el servidor. (Trace: ${result.traceId})`;
-                        break;
+            if (!selectResult.ok) {
+                let errorMessage = selectResult.message || "Error al seleccionar organización.";
+                if (selectResponse.status === 401) {
+                    errorMessage = "Tu sesión expiró. Inicia sesión nuevamente.";
+                    setTimeout(() => router.push('/login'), 2000);
                 }
+                toast.error(errorMessage, { id: toastId });
+                setSelectingId(null);
+                return;
+            }
 
-                toast.error(errorMessage, { id: toastId, duration: 5000 });
+            // 2. VERIFY Context (Safe path to avoid bounces)
+            // We wait a moment for the cookie to settle and be visible to subsequent requests
+            toast.loading("Verificando persistencia de contexto...", { id: toastId });
+            
+            // Retry verification up to 3 times with small delay
+            let verified = false;
+            let finalTarget = selectResult.redirectTo || '/dashboard';
+
+            for (let i = 0; i < 3; i++) {
+                const activeResponse = await fetch('/api/org/active', { cache: 'no-store' });
+                const activeResult = await activeResponse.json();
+                
+                if (activeResult.ok && activeResult.orgId === orgId) {
+                    verified = true;
+                    break;
+                }
+                // Small backoff
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            if (verified) {
+                toast.success("Acceso confirmado. Entrando...", { id: toastId });
+                // HARD REDIRECT: window.location.assign ensures a fresh request 
+                // with all new cookies, avoiding Next.js prefetch/router cache.
+                window.location.assign(finalTarget);
+            } else {
+                toast.error("No se pudo confirmar la persistencia del contexto. Por favor recarga la página.", { id: toastId });
                 setSelectingId(null);
             }
+
         } catch (error: any) {
-            console.error("[OrgSelector] Fetch error:", error);
-            toast.error("Error de conexión. Reintenta en unos momentos.", { id: toastId });
+            console.error("[OrgSelector] Selection failed:", error);
+            toast.error("Error técnico al conectar con el servidor.", { id: toastId });
             setSelectingId(null);
         }
     };

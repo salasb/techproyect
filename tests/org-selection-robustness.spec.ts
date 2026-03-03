@@ -93,4 +93,44 @@ test.describe('Org Selection Robustness (P0)', () => {
             await expect(toast).toBeVisible();
         }
     });
+
+    test('Selection should not bounce back from dashboard to start', async ({ page }) => {
+        let selectCalled = false;
+        let activeCalled = false;
+
+        // Mock Select API
+        await page.route('**/api/org/select', async route => {
+            selectCalled = true;
+            await route.fulfill({
+                status: 200,
+                body: JSON.stringify({ ok: true, redirectTo: '/dashboard' }),
+                headers: { 'set-cookie': '__Host-app-org-id=valid-id; Path=/; Secure; HttpOnly' }
+            });
+        });
+
+        // Mock Active API
+        await page.route('**/api/org/active', async route => {
+            activeCalled = true;
+            await route.fulfill({
+                status: 200,
+                body: JSON.stringify({ ok: true, orgId: 'valid-id' })
+            });
+        });
+
+        await page.goto('/start');
+        const orgBtn = page.locator('button').filter({ hasText: /ID:/ }).first();
+        if (await orgBtn.isVisible()) {
+            await orgBtn.click();
+            
+            // Wait for dashboard navigation
+            await page.waitForURL('**/dashboard');
+            
+            // Wait a bit to ensure it STAYS on dashboard
+            await page.waitForTimeout(1000);
+            
+            expect(page.url()).toContain('/dashboard');
+            expect(selectCalled).toBe(true);
+            expect(activeCalled).toBe(true);
+        }
+    });
 });

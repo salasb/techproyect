@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { unstable_noStore as noStore } from 'next/cache';
 import { getRolePermissions, Permission } from './rbac';
 import { ORG_CONTEXT_COOKIE } from './constants';
 
@@ -41,6 +42,7 @@ export interface WorkspaceState {
  * Strict State Machine output.
  */
 export async function getWorkspaceState(): Promise<WorkspaceState> {
+    noStore();
     console.log("[WorkspaceResolver] getWorkspaceState start");
     const supabase = await createClient();
 
