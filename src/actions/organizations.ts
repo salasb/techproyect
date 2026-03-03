@@ -149,7 +149,13 @@ export async function createOrganizationAction(formData: FormData) {
         } catch (e) {}
 
         const cookieStore = await cookies();
-        cookieStore.set('app-org-id', org.id);
+        cookieStore.set('app-org-id', org.id, {
+            path: '/',
+            httpOnly: false,
+            sameSite: 'lax',
+            secure: true,
+            maxAge: 60 * 60 * 24 * 7 // 1 week
+        });
 
         redirect('/dashboard');
     } catch (error: any) {
@@ -192,7 +198,13 @@ export async function switchOrganizationAction(organizationId: string) {
     });
 
     const cookieStore = await cookies();
-    cookieStore.set('app-org-id', organizationId);
+    cookieStore.set('app-org-id', organizationId, {
+        path: '/',
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: true,
+        maxAge: 60 * 60 * 24 * 7 // 1 week
+    });
 
     redirect('/dashboard');
 }

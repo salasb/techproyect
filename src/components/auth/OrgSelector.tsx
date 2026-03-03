@@ -21,6 +21,8 @@ export function OrgSelector({ orgs }: { orgs: Org[] }) {
 
     const handleSelect = async (orgId: string) => {
         setSelectingId(orgId);
+        const toastId = toast.loading("Guardando contexto...");
+        
         try {
             const response = await fetch('/api/org/select', {
                 method: 'POST',
@@ -31,17 +33,28 @@ export function OrgSelector({ orgs }: { orgs: Org[] }) {
             const result = await response.json();
 
             if (result.ok) {
-                toast.success("Contexto actualizado. Redirigiendo...");
-                // Refresh to ensure middleware/layouts see the new cookie
+                toast.success("Contexto guardado. Redirigiendo...", { id: toastId });
+                // Refresh ensures layouts re-fetch workspace state with the new cookie
                 router.refresh();
-                // Navigate to dashboard
+                // Replace to avoid history loops
                 router.replace(result.redirectTo || '/dashboard');
             } else {
-                toast.error(result.error || "No se pudo seleccionar la organización.");
+                let errorMessage = result.message || "No se pudo seleccionar la organización.";
+                
+                if (response.status === 401) {
+                    errorMessage = "Tu sesión expiró. Vuelve a iniciar sesión.";
+                    setTimeout(() => router.push('/login'), 2000);
+                } else if (response.status === 403) {
+                    errorMessage = "No tienes acceso activo a esta organización.";
+                } else if (response.status === 500) {
+                    errorMessage = `No pudimos guardar tu contexto. Reintenta. (Trace: ${result.traceId || 'N/A'})`;
+                }
+
+                toast.error(errorMessage, { id: toastId });
                 setSelectingId(null);
             }
         } catch (error: any) {
-            toast.error("Error de red al seleccionar organización.");
+            toast.error("Error de red. Por favor revisa tu conexión.", { id: toastId });
             setSelectingId(null);
         }
     };
