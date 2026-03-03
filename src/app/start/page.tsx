@@ -27,7 +27,11 @@ export default function StartPage() {
     const loadBootstrap = async () => {
         setStatus('loading');
         try {
-            const res = await fetch('/api/start/bootstrap', { cache: 'no-store' });
+            const res = await fetch('/api/start/bootstrap', { 
+                cache: 'no-store',
+                headers: { 'Accept': 'application/json' }
+            });
+            
             const data = await res.json();
             
             if (data.ok) {
@@ -41,17 +45,23 @@ export default function StartPage() {
                 
                 setStatus('ready');
             } else {
+                setBootstrapData(data); // Capture error data for UI
                 setStatus('error');
-                if (data.code === 'UNAUTHORIZED') router.push('/login');
+                
+                if (data.code === 'SESSION_EXPIRED') {
+                    toast.error("Tu sesión ha expirado.");
+                    setTimeout(() => router.push('/login'), 2000);
+                }
             }
-        } catch (e) {
+        } catch (e: any) {
+            console.error("[StartBootstrap] Fetch failed:", e.message);
             setStatus('error');
         }
     };
 
     const handleSelect = async (orgId: string, isAuto = false) => {
         setSelectingId(orgId);
-        const toastId = isAuto ? null : toast.loading("Sincronizando espacio de trabajo...");
+        const toastId = isAuto ? null : toast.loading("Estableciendo conexión...");
         
         try {
             const res = await fetch('/api/org/select', {
@@ -62,17 +72,16 @@ export default function StartPage() {
             const data = await res.json();
 
             if (data.ok) {
-                if (!isAuto) toast.success("Acceso confirmado.", { id: toastId! });
-                // Refresh and Hard Redirect to ensure fresh server state
-                router.refresh();
+                if (!isAuto) toast.success("Espacio de trabajo listo.", { id: toastId! });
+                // Force fresh server state
                 window.location.assign(data.redirectTo || '/dashboard');
             } else {
-                if (!isAuto) toast.error(data.message || "Error al seleccionar organización.", { id: toastId! });
+                if (!isAuto) toast.error(data.message || "No se pudo entrar.", { id: toastId! });
                 setSelectingId(null);
                 setStatus('ready');
             }
         } catch (e) {
-            if (!isAuto) toast.error("Error de conexión.", { id: toastId! });
+            if (!isAuto) toast.error("Error técnico de red.", { id: toastId! });
             setSelectingId(null);
             setStatus('ready');
         }
@@ -82,19 +91,45 @@ export default function StartPage() {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
                 <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-                <p className="text-sm font-bold text-slate-500 italic">Cargando asistente...</p>
+                <p className="text-sm font-bold text-slate-500 italic uppercase tracking-widest opacity-60">Inicializando...</p>
             </div>
         );
     }
 
     if (status === 'error') {
+        const errorMsg = bootstrapData?.message || "No pudimos conectar con el servidor de configuración.";
+        const traceId = bootstrapData?.traceId;
+
         return (
-            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-                <div className="max-w-md w-full bg-white rounded-[2.5rem] p-10 shadow-2xl text-center">
-                    <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-black italic tracking-tighter uppercase mb-2">Error de Carga</h2>
-                    <p className="text-slate-500 text-sm mb-8 italic">No pudimos conectar con el servidor de configuración.</p>
-                    <Button onClick={loadBootstrap} className="w-full bg-blue-600 text-white rounded-2xl h-14 font-black uppercase">Reintentar</Button>
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-500">
+                <div className="max-w-md w-full bg-white rounded-[3rem] p-12 shadow-2xl border border-rose-100 text-center space-y-6">
+                    <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto text-rose-500 rotate-3">
+                        <AlertCircle className="w-10 h-10" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">Error Crítico</h2>
+                        <p className="text-slate-500 text-sm font-medium italic leading-relaxed">{errorMsg}</p>
+                    </div>
+
+                    {traceId && (
+                        <div className="bg-slate-50 p-3 rounded-xl">
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">ID de Seguimiento</p>
+                            <code className="text-xs font-mono font-bold text-slate-600 uppercase">{traceId}</code>
+                        </div>
+                    )}
+
+                    <div className="pt-4 space-y-3">
+                        <Button 
+                            onClick={loadBootstrap} 
+                            className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-900/20 active:scale-95 transition-all"
+                        >
+                            Reintentar Conexión
+                        </Button>
+                        <Button asChild variant="ghost" className="w-full text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+                            <Link href="/login">Volver al inicio</Link>
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
@@ -218,11 +253,15 @@ export default function StartPage() {
 
                     {/* Footer */}
                     <div className="mt-8 flex justify-end px-6">
-                        <Button variant="ghost" onClick={() => {
-                            window.location.assign('/api/auth/logout');
-                        }} className="text-slate-400 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest">
-                            <LogOut className="w-3.5 h-3.5 mr-2" /> Cerrar Sesión
-                        </Button>
+                        <form action={async () => {
+                            'use server';
+                            const { logout } = await import("@/app/login/actions");
+                            await logout();
+                        }}>
+                            <Button variant="ghost" type="submit" className="text-slate-400 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest">
+                                <LogOut className="w-3.5 h-3.5 mr-2" /> Cerrar Sesión
+                            </Button>
+                        </form>
                     </div>
                 </div>
             </div>
