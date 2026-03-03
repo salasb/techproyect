@@ -3,17 +3,13 @@ import { test, expect } from '@playwright/test';
 test.describe('Routing Integrity & Redirect Loops (P0)', () => {
     
     test('Unauthenticated user on / should redirect to /login in 1 jump', async ({ page }) => {
-        // We use a fresh context to ensure no session
         await page.goto('/');
-        
-        // Wait for URL to stabilize
         await page.waitForURL('**/login');
-        
         expect(page.url()).toContain('/login');
     });
 
-    test('Accessing a deep protected route without session should go to /login', async ({ page }) => {
-        await page.goto('/projects');
+    test('Accessing /start without session should go to /login', async ({ page }) => {
+        await page.goto('/start');
         await page.waitForURL('**/login');
         expect(page.url()).toContain('/login');
     });
@@ -27,11 +23,17 @@ test.describe('Routing Integrity & Redirect Loops (P0)', () => {
         });
 
         await page.goto('/');
-        
-        // In theory / -> /login is 1 redirect (307/308)
-        // If it was / -> /dashboard -> /start -> /login that would be 3.
-        // We fail if more than 5.
         expect(redirects.length).toBeLessThanOrEqual(5);
     });
 
+    test('/start should be a safe harbor (stable status 200 for authed)', async ({ page }) => {
+        // This test assumes a valid session is already set up in playwright/.auth
+        // We'll just check if it doesn't bounce immediately.
+        const response = await page.goto('/start');
+        expect(response?.status()).toBe(200);
+        
+        // Ensure no immediate redirect away from /start if no org is selected
+        await page.waitForTimeout(1000);
+        expect(page.url()).toContain('/start');
+    });
 });

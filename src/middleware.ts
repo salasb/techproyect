@@ -1,6 +1,11 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * Middleware Recovery Mode (v1.0)
+ * Goal: Zero redirect loops.
+ * Responsibility: Only validate session. Routing logic belongs to Node runtime.
+ */
 export async function updateSession(request: NextRequest) {
     const traceId = Math.random().toString(36).substring(7).toUpperCase();
     const pathname = request.nextUrl.pathname;
@@ -44,19 +49,17 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    const isPublicRoute = ['/login', '/signup', '/forgot-password', '/favicon.ico'].some(p => pathname.startsWith(p)) || pathname.startsWith('/auth') || pathname.startsWith('/api');
-    const isSafeHarbor = pathname.startsWith('/start') || pathname.startsWith('/org/select') || pathname.startsWith('/pending-activation');
-    const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp)$/);
+    // A) TOTAL BYPASS (Public & Safe Harbors)
+    const publicPrefixes = ['/login', '/signup', '/forgot-password', '/auth', '/api', '/_next', '/favicon.ico', '/start', '/org/select', '/pending-activation'];
+    const isPublic = publicPrefixes.some(p => pathname.startsWith(p));
+    const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|css|js)$/);
 
-    // Debug logging
-    if (process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'preview') {
-        console.log(`[Middleware][${traceId}] Path: ${pathname}, Authed: ${!!user}`);
+    if (isPublic || isAsset) {
+        return response;
     }
 
-    if (isAsset) return response;
-
-    // 1. Core Auth Guard: If not authed and not on a public route or safe harbor, send to login
-    if (!user && !isPublicRoute && !isSafeHarbor) {
+    // B) CORE SESSION GUARD
+    if (!user) {
         const target = '/login';
         const res = NextResponse.redirect(new URL(target, request.url));
         res.headers.set('x-redirect-reason', 'unauthed_protected_access');
@@ -64,35 +67,8 @@ export async function updateSession(request: NextRequest) {
         return res;
     }
 
-    // 2. NO Edge-level redirects for authed users on /login
-    // This allows /login to render its own "Already logged in" UI if desired, avoiding loop.
-
-    // Security Headers
-    const cspHeader = `
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://m.stripe.network https://*.supabase.co;
-        style-src 'self' 'unsafe-inline';
-        img-src 'self' blob: data: https://*.stripe.com;
-        font-src 'self' data:;
-        object-src 'none';
-        base-uri 'self';
-        form-action 'self';
-        frame-ancestors 'none';
-        frame-src 'self' https://js.stripe.com https://hooks.stripe.com;
-        connect-src 'self' https://api.stripe.com https://m.stripe.network https://*.supabase.co https://*.supabase.in;
-        upgrade-insecure-requests;
-    `.replace(/\s{2,}/g, ' ').trim();
-
-    response.headers.set('Content-Security-Policy', cspHeader);
-    response.headers.set('X-Content-Type-Options', 'nosniff');
-    response.headers.set('X-Frame-Options', 'DENY');
-    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-
-    if (process.env.NODE_ENV === 'production') {
-        response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-    }
-
+    // C) LOGGED IN -> Let it pass. 
+    // Org context resolution happens in Server Components (Layouts/Pages).
     return response
 }
 
