@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Middleware Recovery Mode (v1.1)
+ * Middleware Recovery Mode (v1.2)
  * Goal: Zero redirect loops.
  * Responsibility: ONLY validate Supabase session. 
  * Business routing logic (org context, onboarding) belongs to Node runtime.

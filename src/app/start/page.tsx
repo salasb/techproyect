@@ -34,6 +34,20 @@ export default function StartPage() {
                 headers: { 'Accept': 'application/json' }
             });
             
+            // Check if response is HTML (likely a middleware redirect)
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("text/html")) {
+                console.error("[StartPage] Bootstrap returned HTML instead of JSON. Potential redirect loop.");
+                setBootstrapData({ 
+                    ok: false, 
+                    code: 'BOOTSTRAP_RETURNED_HTML', 
+                    message: "El servidor devolvió una respuesta inesperada (HTML). Esto indica un problema de enrutamiento.",
+                    traceId: 'HTML-ERR' 
+                });
+                setStatus('error');
+                return;
+            }
+
             const data = await res.json();
             
             if (res.status === 401 || data.code === 'SESSION_EXPIRED') {
@@ -116,7 +130,7 @@ export default function StartPage() {
                     </div>
                     
                     <div className="space-y-2">
-                        <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900">Error Crítico</h2>
+                        <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">Error Crítico</h2>
                         <p className="text-slate-500 text-sm font-medium italic leading-relaxed">{errorMsg}</p>
                     </div>
 

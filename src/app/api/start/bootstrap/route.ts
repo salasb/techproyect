@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * Bootstrap API (v1.3)
+ * Bootstrap API (v1.4)
  * Definitive initial state orquestrator.
  * NO REDIRECTS allowed here. Only JSON.
  */
@@ -18,13 +18,13 @@ export async function GET(req: Request) {
     try {
         console.log(`[Bootstrap][${traceId}] Loading config. Env: ${env}`);
 
-        // 0. Environment Check
+        // 0. Environment Check (Critical for Vercel Preview)
         if (!process.env.DATABASE_URL) {
             console.error(`[Bootstrap][${traceId}] FATAL: DATABASE_URL is missing.`);
             return NextResponse.json({ 
                 ok: false, 
                 code: 'ENV_MISSING_DATABASE_URL', 
-                message: "Configuración de base de datos no encontrada.",
+                message: "Configuración de base de datos no encontrada en este entorno.",
                 traceId 
             }, { status: 500 });
         }
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ 
                 ok: false, 
                 code: 'SESSION_EXPIRED',
-                message: "Sesión no válida o expirada.",
+                message: "Sesión no válida o expirada. Por favor reingresa.",
                 traceId 
             }, { status: 401 });
         }
