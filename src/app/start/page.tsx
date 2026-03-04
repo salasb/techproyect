@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Building2, User, CheckCircle2, AlertCircle, LogOut, ChevronRight, Sparkles, Loader2 } from "lucide-react";
+import { Building2, User, CheckCircle2, AlertCircle, LogOut, ChevronRight, Sparkles, Loader2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -28,10 +28,10 @@ export default function StartPage() {
     const loadBootstrap = async () => {
         setStatus('loading');
         try {
+            console.log("[StartPage] Fetching bootstrap data...");
             const res = await fetch('/api/start/bootstrap', { 
                 cache: 'no-store',
-                headers: { 'Accept': 'application/json' },
-                // Use default credentials behaviour (same-origin includes)
+                headers: { 'Accept': 'application/json' }
             });
             
             const data = await res.json();
@@ -53,20 +53,19 @@ export default function StartPage() {
                 
                 setStatus('ready');
             } else {
-                setBootstrapData(data); // Capture error data for UI
+                setBootstrapData(data);
                 setStatus('error');
             }
         } catch (e: any) {
-            console.error("[StartBootstrap] Fetch failed:", e.message);
-            // Non-JSON or Network error
-            setBootstrapData({ message: "Error de conexión con el servidor.", traceId: 'NETWORK_ERR' });
+            console.error("[StartPage] Bootstrap fetch failed:", e.message);
+            setBootstrapData({ ok: false, code: 'NETWORK_ERROR', message: "Error de red al conectar con el servidor.", traceId: 'NET-ERR' });
             setStatus('error');
         }
     };
 
     const handleSelect = async (orgId: string, isAuto = false) => {
         setSelectingId(orgId);
-        const toastId = isAuto ? null : toast.loading("Estableciendo conexión...");
+        const toastId = isAuto ? null : toast.loading("Estableciendo conexión segura...");
         
         try {
             const res = await fetch('/api/org/select', {
@@ -77,16 +76,16 @@ export default function StartPage() {
             const data = await res.json();
 
             if (data.ok) {
-                if (!isAuto) toast.success("Espacio de trabajo listo.", { id: toastId! });
-                // Force fresh server state
+                if (!isAuto) toast.success("Sincronizado.", { id: toastId! });
+                // Force a hard navigation to ensure fresh context
                 window.location.assign(data.redirectTo || '/dashboard');
             } else {
-                if (!isAuto) toast.error(data.message || "No se pudo entrar.", { id: toastId! });
+                if (!isAuto) toast.error(data.message || "Error al entrar.");
                 setSelectingId(null);
                 setStatus('ready');
             }
         } catch (e) {
-            if (!isAuto) toast.error("Error técnico de red.", { id: toastId! });
+            if (!isAuto) toast.error("Fallo de red al guardar contexto.");
             setSelectingId(null);
             setStatus('ready');
         }
@@ -95,45 +94,56 @@ export default function StartPage() {
     if (status === 'loading') {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-                <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-                <p className="text-sm font-bold text-slate-500 italic uppercase tracking-widest opacity-60">Inicializando...</p>
+                <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-6" />
+                <div className="text-center space-y-1">
+                    <p className="font-black uppercase text-[10px] tracking-[0.3em] text-slate-400">Onboarding Safe-Harbor</p>
+                    <p className="text-sm font-bold text-slate-600 italic">Sincronizando configuración central...</p>
+                </div>
             </div>
         );
     }
 
     if (status === 'error') {
-        const errorMsg = bootstrapData?.message || "No pudimos conectar con el servidor de configuración.";
+        const errorMsg = bootstrapData?.message || "Error desconocido al inicializar.";
         const traceId = bootstrapData?.traceId;
+        const code = bootstrapData?.code;
 
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-500">
-                <div className="max-w-md w-full bg-white rounded-[3rem] p-12 shadow-2xl border border-rose-100 text-center space-y-6">
-                    <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto text-rose-500 rotate-3">
+                <div className="max-w-md w-full bg-white rounded-[3rem] p-12 shadow-2xl border border-rose-100 text-center space-y-8">
+                    <div className="w-20 h-20 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto text-rose-500 rotate-3 shadow-inner">
                         <AlertCircle className="w-10 h-10" />
                     </div>
                     
                     <div className="space-y-2">
-                        <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">Error Crítico</h2>
+                        <h2 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900">Error Crítico</h2>
                         <p className="text-slate-500 text-sm font-medium italic leading-relaxed">{errorMsg}</p>
                     </div>
 
-                    {traceId && (
-                        <div className="bg-slate-50 p-3 rounded-xl">
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">ID de Seguimiento</p>
-                            <code className="text-xs font-mono font-bold text-slate-600 uppercase">{traceId}</code>
+                    <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
+                        <div className="flex justify-between items-center text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                            <span>Código</span>
+                            <span>Trace ID</span>
                         </div>
-                    )}
+                        <div className="flex justify-between items-center font-mono text-[11px] font-bold text-slate-600">
+                            <span className="bg-white px-2 py-0.5 rounded border border-slate-100">{code || 'UNKNOWN'}</span>
+                            <span className="bg-rose-50 px-2 py-0.5 rounded border border-rose-100 text-rose-600">{traceId || 'N/A'}</span>
+                        </div>
+                    </div>
 
                     <div className="pt-4 space-y-3">
                         <Button 
                             onClick={loadBootstrap} 
-                            className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-900/20 active:scale-95 transition-all"
+                            className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-900/20 active:scale-95 transition-all"
                         >
+                            <RotateCcw className="w-4 h-4 mr-2" />
                             Reintentar Conexión
                         </Button>
-                        <Button asChild variant="ghost" className="w-full text-slate-400 font-bold uppercase text-[10px] tracking-widest">
-                            <Link href="/login">Volver al inicio</Link>
-                        </Button>
+                        <form action={logout} className="w-full">
+                            <Button type="submit" variant="ghost" className="w-full text-slate-400 font-bold uppercase text-[10px] tracking-widest h-12">
+                                Volver al login
+                            </Button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -144,7 +154,6 @@ export default function StartPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans">
-            {/* Top Minimal Branding */}
             <div className="mb-12 flex flex-col items-center">
                 <img src="/techwise logo negro.png" alt="TechWise" className="h-10 w-auto grayscale opacity-50" />
                 <div className="mt-2 h-0.5 w-8 bg-blue-600/30 rounded-full" />
@@ -152,21 +161,20 @@ export default function StartPage() {
 
             <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
                 
-                {/* Left: Value Proposition */}
                 <div className="lg:col-span-5 flex flex-col justify-center space-y-8 py-8 animate-in fade-in slide-in-from-left-4 duration-1000">
                     <div className="space-y-4">
                         <h1 className="text-5xl font-black text-slate-900 tracking-tighter leading-none italic uppercase">
-                            Hola <span className="text-blue-600">Nuevamente.</span>
+                            Empieza <span className="text-blue-600">Hoy.</span>
                         </h1>
                         <p className="text-lg text-slate-500 font-medium leading-relaxed max-w-sm italic">
-                            Tu centro de operaciones tecnológicas está a un paso.
+                            Configura tu entorno de trabajo profesional en segundos.
                         </p>
                     </div>
 
                     <div className="space-y-6 pt-4">
                         {[
-                            { title: "Control Total", desc: "Gestión de proyectos, costos y márgenes en tiempo real." },
-                            { title: "Enterprise Ready", desc: "Soporte multi-empresa y roles B2B desde el inicio." },
+                            { title: "Multi-Org", desc: "Cambia entre empresas sin cerrar sesión." },
+                            { title: "Seguridad B2B", desc: "Roles y permisos configurables por equipo." },
                         ].map((item, i) => (
                             <div key={i} className="flex gap-4 group">
                                 <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-sm group-hover:border-blue-200 group-hover:shadow-lg transition-all shrink-0">
@@ -181,16 +189,15 @@ export default function StartPage() {
                     </div>
                 </div>
 
-                {/* Right: Dynamic Selection */}
                 <div className="lg:col-span-7 animate-in fade-in slide-in-from-right-4 duration-1000">
                     {orgs.length > 0 ? (
                         <Card className="rounded-[3rem] shadow-2xl border-blue-50 bg-white overflow-hidden">
                             <CardHeader className="p-10 pb-6">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
-                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Selección de Entorno</span>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Espacios Disponibles</span>
                                 </div>
-                                <CardTitle className="text-3xl font-black tracking-tighter italic uppercase text-slate-900">Tu Espacio de Trabajo</CardTitle>
+                                <CardTitle className="text-3xl font-black tracking-tighter italic uppercase text-slate-900">Selecciona Entorno</CardTitle>
                             </CardHeader>
                             <CardContent className="p-10 pt-0 space-y-8">
                                 <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -201,7 +208,7 @@ export default function StartPage() {
                                             onClick={() => handleSelect(org.id)}
                                             className={cn(
                                                 "w-full text-left p-6 rounded-3xl border transition-all group flex items-center justify-between",
-                                                selectingId === org.id ? "border-blue-500 bg-blue-50/50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"
+                                                selectingId === org.id ? "border-blue-500 bg-blue-50/50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 shadow-sm"
                                             )}
                                         >
                                             <div className="flex items-center gap-4">
@@ -223,7 +230,7 @@ export default function StartPage() {
                                         <span className="w-full border-t border-slate-100"></span>
                                     </div>
                                     <div className="relative flex justify-center text-[10px] uppercase tracking-widest text-slate-400 font-bold italic">
-                                        <span className="bg-white px-4">O inicia una nueva operación</span>
+                                        <span className="bg-white px-4 text-center">¿Necesitas otro espacio?</span>
                                     </div>
                                 </div>
 
@@ -236,19 +243,18 @@ export default function StartPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        /* Simple Creation Card */
                         <Card className="rounded-[3rem] shadow-2xl border-blue-50 bg-white overflow-hidden">
                             <CardHeader className="p-10 pb-6">
                                 <CardTitle className="text-3xl font-black tracking-tighter italic uppercase text-slate-900">Crea tu Organización</CardTitle>
-                                <CardDescription className="text-sm font-medium italic">Define tu entorno de trabajo para comenzar.</CardDescription>
+                                <CardDescription className="text-sm font-medium italic leading-relaxed">Define tu entorno de trabajo para comenzar a gestionar tus proyectos.</CardDescription>
                             </CardHeader>
                             <CardContent className="p-10 pt-4">
                                 <form action={createOrganizationAction} className="space-y-8">
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nombre Comercial</Label>
-                                        <Input name="name" placeholder="Ej: Mi Consultora" required className="h-14 rounded-2xl border-slate-100 bg-slate-50 font-bold" />
+                                        <Input name="name" placeholder="Ej: Mi Empresa SpA" required className="h-14 rounded-2xl border-slate-100 bg-slate-50 font-bold text-lg" />
                                     </div>
-                                    <Button type="submit" className="w-full h-16 rounded-[1.5rem] bg-blue-600 text-white font-black uppercase text-xs tracking-[0.2em] shadow-2xl">
+                                    <Button type="submit" className="w-full h-16 rounded-[1.5rem] bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-900/20 transition-all active:scale-95">
                                         Activar Espacio de Trabajo
                                     </Button>
                                 </form>
@@ -256,10 +262,9 @@ export default function StartPage() {
                         </Card>
                     )}
 
-                    {/* Footer */}
                     <div className="mt-8 flex justify-end px-6">
                         <form action={logout}>
-                            <Button variant="ghost" type="submit" className="text-slate-400 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest">
+                            <Button type="submit" variant="ghost" className="text-slate-400 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest transition-colors">
                                 <LogOut className="w-3.5 h-3.5 mr-2" /> Cerrar Sesión
                             </Button>
                         </form>

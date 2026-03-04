@@ -2,9 +2,10 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Middleware Recovery Mode (v1.0)
+ * Middleware Recovery Mode (v1.1)
  * Goal: Zero redirect loops.
- * Responsibility: Only validate session. Routing logic belongs to Node runtime.
+ * Responsibility: ONLY validate Supabase session. 
+ * Business routing logic (org context, onboarding) belongs to Node runtime.
  */
 export async function updateSession(request: NextRequest) {
     const traceId = Math.random().toString(36).substring(7).toUpperCase();
@@ -49,8 +50,13 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // A) TOTAL BYPASS (Public & Safe Harbors)
-    const publicPrefixes = ['/login', '/signup', '/forgot-password', '/auth', '/api', '/_next', '/favicon.ico', '/start', '/org/select', '/pending-activation'];
+    // A) TOTAL BYPASS (Public & Bootstrap routes)
+    // These routes MUST ALWAYS load to prevent loops or blocked recovery
+    const publicPrefixes = [
+        '/login', '/signup', '/forgot-password', 
+        '/auth', '/api', '/_next', '/favicon.ico', 
+        '/start', '/pending-activation'
+    ];
     const isPublic = publicPrefixes.some(p => pathname.startsWith(p));
     const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|css|js)$/);
 
@@ -59,16 +65,18 @@ export async function updateSession(request: NextRequest) {
     }
 
     // B) CORE SESSION GUARD
+    // Only redirect if there is absolutely no user session
     if (!user) {
         const target = '/login';
         const res = NextResponse.redirect(new URL(target, request.url));
         res.headers.set('x-redirect-reason', 'unauthed_protected_access');
         res.headers.set('x-redirect-target', target);
+        res.headers.set('x-trace-id', traceId);
         return res;
     }
 
-    // C) LOGGED IN -> Let it pass. 
-    // Org context resolution happens in Server Components (Layouts/Pages).
+    // C) AUTHENTICATED -> Pass through
+    // Redirection based on org context happens in Server Components (Layouts/Pages)
     return response
 }
 
