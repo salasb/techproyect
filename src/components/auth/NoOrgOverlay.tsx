@@ -115,6 +115,8 @@ export function NoOrgOverlay() {
                     <p className="text-slate-500 text-sm font-medium italic leading-relaxed">
                         {errorData?.code === 'ENV_MISSING_DATABASE_URL' 
                             ? "Configuración de base de datos faltante en Preview (DATABASE_URL). Contacta a soporte/ops."
+                            : errorData?.code === 'SCHEMA_MISMATCH'
+                            ? "La base de datos del entorno no tiene las columnas o tablas esperadas. Es necesario aplicar migraciones."
                             : errorData?.code === 'DB_UNREACHABLE'
                             ? `No pudimos conectar con la base de datos (${errorData.prismaCode || 'ERR'}). Por favor reintenta.`
                             : errorData?.message || "No pudimos inicializar tu sesión comercial."}

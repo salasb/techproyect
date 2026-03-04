@@ -1,6 +1,6 @@
 {
   "name": "tech-proyect",
-  "version": "1.0.295",
+  "version": "1.0.296",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +10,7 @@
     "release:minor": "node scripts/release.js minor --yes",
     "release:major": "node scripts/release.js major --yes",
     "prebuild": "npm run update-version",
-    "build": "next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

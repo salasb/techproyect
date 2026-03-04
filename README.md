@@ -9,6 +9,13 @@ For the system to function correctly (especially the bootstrap and commercial lo
 - `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Stripe integration.
 - `INTERNAL_WORKER_SECRET`: Token for internal background workers.
 
+### Database Migrations
+The build process automatically runs `prisma migrate deploy`. This ensures the target database schema matches the Prisma client.
+If you encounter a `SCHEMA_MISMATCH` (Prisma P2022/P2021) error:
+1. Verify that `DATABASE_URL` is correct.
+2. Ensure the database user has permissions to run migrations.
+3. If using a shared DB for multiple branches, be careful with destructive changes.
+
 ### Vercel Preview
 If `/start` or `/dashboard` show technical errors in a Preview branch, check that the `DATABASE_URL` is correctly configured for that specific deployment.
 

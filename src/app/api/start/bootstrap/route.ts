@@ -62,10 +62,23 @@ export async function GET(req: Request) {
             ]);
         } catch (dbError: any) {
             console.error(`[Bootstrap][${traceId}] Database access failed:`, dbError.message, dbError.code);
+            
+            // Explicit check for Schema Mismatch (P2022: column missing, P2021: table missing)
+            if (dbError.code === 'P2022' || dbError.code === 'P2021') {
+                return NextResponse.json({
+                    ok: false,
+                    code: 'SCHEMA_MISMATCH',
+                    prismaCode: dbError.code,
+                    message: "La base de datos del entorno no tiene las columnas o tablas esperadas. Es necesario aplicar migraciones.",
+                    details: isPreview ? dbError.message : undefined,
+                    traceId
+                }, { status: 500 });
+            }
+
             return NextResponse.json({
                 ok: false,
                 code: 'DB_UNREACHABLE',
-                prismaCode: dbError.code, // e.g. P1001, P2002
+                prismaCode: dbError.code, // e.g. P1001
                 message: "No pudimos conectar con la base de datos de organizaciones.",
                 details: isPreview ? dbError.message : undefined,
                 traceId
