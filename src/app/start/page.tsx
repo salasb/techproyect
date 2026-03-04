@@ -30,11 +30,18 @@ export default function StartPage() {
         try {
             const res = await fetch('/api/start/bootstrap', { 
                 cache: 'no-store',
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
+                // Use default credentials behaviour (same-origin includes)
             });
             
             const data = await res.json();
             
+            if (res.status === 401 || data.code === 'SESSION_EXPIRED') {
+                toast.error("Tu sesión ha expirado.");
+                router.push('/login');
+                return;
+            }
+
             if (data.ok) {
                 setBootstrapData(data);
                 
@@ -48,14 +55,11 @@ export default function StartPage() {
             } else {
                 setBootstrapData(data); // Capture error data for UI
                 setStatus('error');
-                
-                if (data.code === 'SESSION_EXPIRED') {
-                    toast.error("Tu sesión ha expirado.");
-                    setTimeout(() => router.push('/login'), 2000);
-                }
             }
         } catch (e: any) {
             console.error("[StartBootstrap] Fetch failed:", e.message);
+            // Non-JSON or Network error
+            setBootstrapData({ message: "Error de conexión con el servidor.", traceId: 'NETWORK_ERR' });
             setStatus('error');
         }
     };
