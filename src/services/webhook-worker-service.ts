@@ -87,7 +87,7 @@ export class WebhookWorkerService {
                                 userName: 'Stripe Webhook Worker'
                             }
                         });
-                    } else if (invoiceId && paymentType === 'INVOICE_PAYMENT' && session.payment_status === 'paid') {
+                    } else if (invoiceId && (paymentType === 'INVOICE_PAYMENT' || paymentType === 'PUBLIC_INVOICE_PAYMENT') && session.payment_status === 'paid') {
                         const amount = session.amount_total ? session.amount_total / 1 : 0;
                         const { InvoiceService } = await import("@/services/invoiceService");
                         

@@ -54,6 +54,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
             {/* Actions Buttons (Screen only) */}
             <QuoteActions
                 quoteId={project.id.slice(0, 8).toUpperCase()}
+                internalId={project.id}
                 projectName={project.name}
                 clientName={clientName}
                 clientEmail={clientEmail}
