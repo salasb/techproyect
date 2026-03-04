@@ -21,11 +21,20 @@ export async function updateOrganizationAction(formData: FormData) {
     const name = formData.get("name") as string;
     const rut = formData.get("rut") as string;
     const logoUrl = formData.get("logoUrl") as string;
+    const country = formData.get("country") as string || 'CL';
+    const sector = formData.get("sector") as string || 'OTRO';
 
     const oldOrg = await prisma.organization.findUnique({
         where: { id: orgId },
-        select: { name: true, rut: true, logoUrl: true }
+        select: { name: true, rut: true, logoUrl: true, settings: true }
     });
+
+    const currentSettings = (oldOrg?.settings as any) || {};
+    const newSettings = {
+        ...currentSettings,
+        country,
+        sector
+    };
 
     await prisma.organization.update({
         where: { id: orgId },
@@ -33,6 +42,7 @@ export async function updateOrganizationAction(formData: FormData) {
             name,
             rut,
             logoUrl,
+            settings: newSettings,
             updatedAt: new Date()
         }
     });
@@ -41,12 +51,14 @@ export async function updateOrganizationAction(formData: FormData) {
     let changeDetails = [];
     if (oldOrg?.name !== name) changeDetails.push(`Nombre: ${oldOrg?.name} -> ${name}`);
     if (oldOrg?.rut !== rut) changeDetails.push(`RUT: ${oldOrg?.rut} -> ${rut}`);
+    if (currentSettings.country !== country) changeDetails.push(`País: ${currentSettings.country} -> ${country}`);
+    if (currentSettings.sector !== sector) changeDetails.push(`Rubro: ${currentSettings.sector} -> ${sector}`);
     if (oldOrg?.logoUrl !== logoUrl) changeDetails.push(`Logo cambiado`);
 
     if (changeDetails.length > 0) {
         await AuditService.logAction(
             null,
-            'ORG_SETTINGS_CHANGED',
+            'ORG_UPDATED',
             `Cambios realizados: ${changeDetails.join(', ')}`
         );
     }

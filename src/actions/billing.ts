@@ -41,7 +41,7 @@ export async function createCheckoutSession(priceId: string) {
         ],
         mode: 'subscription',
         success_url: `${APP_URL}/dashboard?checkout=success&trace=${traceId}`,
-        cancel_url: `${APP_URL}/settings/billing?checkout=cancel&trace=${traceId}`,
+        cancel_url: `${APP_URL}/settings/organization/billing?checkout=cancel&trace=${traceId}`,
         metadata: {
             organizationId: orgId,
             userId: user.id,
@@ -93,7 +93,7 @@ export async function createPortalSession() {
 
     const session = await stripe.billingPortal.sessions.create({
         customer: subscription.providerCustomerId,
-        return_url: `${APP_URL}/settings/billing`,
+        return_url: `${APP_URL}/settings/organization/billing`,
     }, {
         idempotencyKey: `portal_${orgId}_${subscription.providerCustomerId}_${new Date().toISOString().slice(0, 13)}`
     });

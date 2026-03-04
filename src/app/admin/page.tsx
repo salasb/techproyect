@@ -186,11 +186,12 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
     };
 
     const isDiagnosticMode = scopeMode === 'all';
+    const showDebug = debugCockpit && !qaScreenshot;
 
     return (
         <div className={cn("space-y-10 animate-in fade-in duration-700 pb-12", qaScreenshot && "animate-none")} data-testid="superadmin-cockpit-root">
-            {/* DBG OVERLAY */}
-            {(debugCockpit && !qaScreenshot) && (
+            {/* DBG OVERLAY (Solo visible con ?debugCockpit=1) */}
+            {showDebug && (
                 <div className="fixed bottom-4 right-4 z-[9999] bg-black/90 text-green-400 p-4 rounded-xl text-[10px] font-mono whitespace-pre shadow-2xl max-w-sm overflow-auto border border-white/10">
                     <p className="font-bold text-white mb-2">FORENSICS OVERLAY v{COCKPIT_CONTRACT_VERSION}</p>
                     <p>Build SHA: {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,7) || 'local'}</p>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, Check, Building2, PlusCircle, CreditCard, Clock, Lock, Shield } from 'lucide-react';
+import { ChevronDown, Check, Building2, PlusCircle, CreditCard, Clock, Lock, Shield, Users } from 'lucide-react';
 import { getUserOrganizations, switchOrganizationAction } from '@/actions/organizations';
 import { Button } from '@/components/ui/button';
 import {
@@ -153,7 +153,16 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                 </div>
                 <DropdownMenuSeparator className="my-2" />
                 <DropdownMenuItem
-                    onSelect={() => router.push('/start')}
+                    onSelect={() => router.push('/organizations')}
+                    className="w-full flex items-center gap-3 px-3 py-3 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-900/10 rounded-lg transition-all group cursor-pointer"
+                >
+                    <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:scale-110 transition-transform text-slate-500">
+                        <Users className="h-4 w-4" />
+                    </div>
+                    <span>Gestionar Organizaciones</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    onSelect={() => router.push('/organizations/new')}
                     className="w-full flex items-center gap-3 px-3 py-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-all group cursor-pointer"
                     data-testid="new-org-link"
                 >

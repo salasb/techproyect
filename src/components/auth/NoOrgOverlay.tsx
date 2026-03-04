@@ -107,18 +107,24 @@ export function NoOrgOverlay() {
     }
 
     if (status === 'error') {
+        const isMaintenance = errorData?.code === 'SCHEMA_MISMATCH' || errorData?.code === 'DB_UNREACHABLE';
+
         return (
             <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-                <Card className="max-w-md w-full rounded-[2.5rem] p-10 shadow-2xl bg-white dark:bg-zinc-900 border border-rose-100 text-center space-y-6">
-                    <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-                    <h2 className="text-2xl font-black uppercase tracking-tighter italic">Error de Sistema</h2>
+                <Card className={cn(
+                    "max-w-md w-full rounded-[2.5rem] p-10 shadow-2xl bg-white dark:bg-zinc-900 border text-center space-y-6",
+                    isMaintenance ? "border-amber-200" : "border-rose-100"
+                )}>
+                    {isMaintenance ? <div className="bg-amber-100 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2 animate-pulse"><AlertCircle className="w-6 h-6 text-amber-600" /></div> : <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />}
+                    
+                    <h2 className="text-2xl font-black uppercase tracking-tighter italic">{isMaintenance ? "Modo Mantenimiento" : "Error de Sistema"}</h2>
                     <p className="text-slate-500 text-sm font-medium italic leading-relaxed">
                         {errorData?.code === 'ENV_MISSING_DATABASE_URL' 
                             ? "Configuración de base de datos faltante en Preview (DATABASE_URL). Contacta a soporte/ops."
                             : errorData?.code === 'SCHEMA_MISMATCH'
-                            ? "La base de datos del entorno no tiene las columnas o tablas esperadas. Es necesario aplicar migraciones."
+                            ? "Estamos sincronizando las bases de datos globales. El Cockpit está en modo mantenimiento temporal."
                             : errorData?.code === 'DB_UNREACHABLE'
-                            ? `No pudimos conectar con la base de datos (${errorData.prismaCode || 'ERR'}). Por favor reintenta.`
+                            ? `Conexión inestable con el nodo de datos (${errorData.prismaCode || 'ERR'}). Por favor reintenta.`
                             : errorData?.message || "No pudimos inicializar tu sesión comercial."}
                     </p>
                     {errorData?.traceId && (
@@ -129,12 +135,17 @@ export function NoOrgOverlay() {
                             )}
                         </div>
                     )}
-                    <div className="flex gap-3 mt-2">
-                        <Button onClick={loadOrgs} className="flex-1 h-14 bg-blue-600 rounded-2xl font-black uppercase shadow-lg shadow-blue-900/20">
-                            Reintentar
+                    <div className="flex flex-col gap-3">
+                        <Button onClick={loadOrgs} className="w-full h-14 bg-blue-600 rounded-2xl font-black uppercase shadow-lg shadow-blue-900/20">
+                            Reintentar Conexión
                         </Button>
-                        <Button variant="outline" onClick={() => window.location.assign('/api/auth/logout')} className="flex-1 h-14 rounded-2xl font-black uppercase border-slate-200">
-                            Volver al Login
+                        {isMaintenance && (
+                            <Button variant="ghost" onClick={() => window.location.assign('/dashboard')} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600">
+                                Continuar a Dashboard (Limitado)
+                            </Button>
+                        )}
+                        <Button variant="outline" onClick={() => window.location.assign('/api/auth/logout')} className="w-full h-12 rounded-2xl font-black uppercase border-slate-200 text-xs">
+                            Cerrar Sesión
                         </Button>
                     </div>
                 </Card>

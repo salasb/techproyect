@@ -3,7 +3,7 @@
 import { AlertTriangle, CreditCard, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePaywall } from "./PaywallContext";
-import { createCustomerPortalSession } from "@/app/actions/subscription";
+import { createPortalSession } from "@/actions/billing";
 
 export function DunningBanner({ subscription }: { subscription: any }) {
     if (!subscription || (subscription.status !== 'PAST_DUE' && subscription.status !== 'PAUSED')) return null;
@@ -25,7 +25,7 @@ export function DunningBanner({ subscription }: { subscription: any }) {
             </div>
 
             <div className="flex items-center gap-3">
-                <form action={createCustomerPortalSession}>
+                <form action={createPortalSession}>
                     <Button
                         size="sm"
                         variant="secondary"

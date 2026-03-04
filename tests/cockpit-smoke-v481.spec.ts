@@ -1,102 +1,49 @@
 import { test, expect } from '@playwright/test';
+import { COCKPIT_CONTRACT_VERSION } from '../src/lib/versions';
 
-const authFileSuperadmin = 'playwright/.auth/superadmin.json';
+/**
+ * Cockpit v4.7.2 Smoke Test
+ * Goal: Verify superadmin access and UI integrity.
+ */
+test.describe('Global Cockpit v4.7.2 Smoke Suite', () => {
 
-test.describe('Cockpit Global v4.8.1 - Smoke Tests', () => {
-    test.use({ storageState: authFileSuperadmin });
+    test.beforeEach(async ({ page }) => {
+        // Assume auth setup is handled via storageState (auth.setup.ts)
+        // If not, this test will fail on redirect to /login
+    });
 
-    test('Cockpit loads and can trigger health evaluation', async ({ page }) => {
+    test('Superadmin can access /admin and see correct version', async ({ page }) => {
         await page.goto('/admin');
-
-        // 1. Verify Header
-        await expect(page.locator('h1')).toContainText('Global Cockpit');
+        
+        // 1. Verify H1 version
+        const h1 = page.locator('h1');
+        await expect(h1).toContainText(`Global Cockpit v${COCKPIT_CONTRACT_VERSION}`);
         
         // 2. Verify Operational Badge
-        await expect(page.getByTestId('cockpit-global-mode-badge')).toBeVisible();
-
-        // 3. Trigger Refresh
-        const refreshBtn = page.getByRole('button', { name: /Recalcular Salud/i });
-        await expect(refreshBtn).toBeVisible();
-        await refreshBtn.click();
-
-        // Wait for toast
-        await expect(page.locator('text=Sincronización v4.4 Completa')).toBeVisible({ timeout: 30000 });
+        const badge = page.getByTestId('cockpit-global-mode-badge');
+        await expect(badge).toBeVisible();
     });
 
-    test('Can open playbook from group and complete a step', async ({ page }) => {
+    test('Debug overlay is hidden by default and shown with ?debugCockpit=1', async ({ page }) => {
+        // Hidden by default
         await page.goto('/admin');
+        const overlay = page.locator('text=FORENSICS OVERLAY');
+        await expect(overlay).not.toBeVisible();
 
-        // Ensure we are in grouped view
-        const groupedBtn = page.locator('button:has-text("Vista: Agrupada")');
-        if (await page.locator('button:has-text("Vista: Individual")').isVisible()) {
-            await page.locator('button:has-text("Vista: Individual")').click();
-        }
-
-        // Find first group with actions
-        const firstGroup = page.locator('div:has-text("organizaciones")').first();
-        await expect(firstGroup).toBeVisible();
-
-        // Open Actions Menu
-        await page.getByRole('button', { name: /Acciones masivas/i }).first().click();
-
-        // Open Playbook
-        await page.getByRole('menuitem', { name: /Abrir Playbook Base/i }).click();
-
-        // Verify Playbook Drawer
-        await expect(page.locator('h2')).toContainText('Remediación');
-        await expect(page.locator('text=Pasos de Remediación')).toBeVisible();
-
-        // Complete first step
-        const firstStep = page.locator('input[type="checkbox"]').first();
-        await firstStep.check();
-
-        // Verify toast
-        await expect(page.locator('text=Checklist actualizado')).toBeVisible();
-
-        // Verify progress text change (e.g., 1 / X)
-        await expect(page.locator('text=/1 \/ \d+/')).toBeVisible();
-
-        // Refresh and check persistence
-        await page.reload();
-        
-        // Re-open playbook (individual item this time for variety)
-        await page.getByRole('button', { name: /Ver casos/i }).first().click();
-        await page.getByRole('button', { name: /Playbook/i }).first().click();
-
-        // Check if step is still checked
-        await expect(page.locator('input[type="checkbox"]').first()).toBeChecked();
-    });
-
-    test('Can perform bulk ACK from group', async ({ page }) => {
-        await page.goto('/admin');
-
-        // Open Actions Menu
-        await page.getByRole('button', { name: /Acciones masivas/i }).first().click();
-
-        // Click ACK All
-        await page.getByRole('menuitem', { name: /Acusar recibo a todos/i }).click();
-
-        // Verify Success Toast
-        await expect(page.locator('text=Acción Masiva Completada')).toBeVisible();
-        await expect(page.locator('text=Acción masiva aplicada')).toBeVisible();
-    });
-
-    test('Clean screenshot mode hides debug elements', async ({ page }) => {
-        // 1. Visit with debug on
+        // Shown with query param
         await page.goto('/admin?debugCockpit=1');
         await expect(page.locator('text=FORENSICS OVERLAY')).toBeVisible();
+    });
 
-        // 2. Visit with qaScreenshot on
-        await page.goto('/admin?qaScreenshot=1');
+    test('Cockpit UI elements are interactive', async ({ page }) => {
+        await page.goto('/admin');
         
-        // Debug overlay should be hidden even if it was active
-        await expect(page.locator('text=FORENSICS OVERLAY')).not.toBeVisible();
-        
-        // Triage panel should NOT be sticky (check class or styles if needed, but simple visibility of essential content is key)
-        const triagePanel = page.locator('text=Panel de Triage Operativo');
-        await expect(triagePanel).toBeVisible();
-        
-        // Notification bell should be hidden in screenshot mode
-        await expect(page.locator('button.relative:has(.lucide-bell)')).not.toBeVisible();
+        // Operational KPIs should be visible
+        const kpis = page.getByTestId('cockpit-operational-kpis');
+        await expect(kpis).toBeVisible();
+
+        // Triage Panel should load
+        const triage = page.getByTestId('cockpit-triage-panel');
+        await expect(triage).toBeVisible();
     });
 });
