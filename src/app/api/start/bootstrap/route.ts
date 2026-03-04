@@ -17,7 +17,9 @@ export async function GET(req: Request) {
     const isPreview = env === 'preview' || process.env.NODE_ENV === 'development';
     
     try {
-        console.log(`[Bootstrap][${traceId}] Handshake start. Env: ${env}`);
+        const dbUrl = process.env.DATABASE_URL || '';
+        const dbFingerprint = dbUrl.split('@')[1] || 'undefined';
+        console.log(`[Bootstrap][${traceId}] Handshake start. Env: ${env} | SAFE_DB_FINGERPRINT: ${dbFingerprint}`);
 
         // 1. Session Check (Independent of DB)
         const supabase = await createClient();
