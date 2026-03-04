@@ -10,6 +10,7 @@ import { logout } from "@/app/login/actions";
 import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
 import { AdminSidebarNav } from "@/components/admin/AdminSidebarNav";
+import { COCKPIT_CONTRACT_VERSION } from "@/lib/versions";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export default async function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    console.log("[AdminGuard] Start validation v3.2");
+    console.log(`[AdminGuard] Global Cockpit v${COCKPIT_CONTRACT_VERSION} validation`);
     
     const access = await resolveSuperadminAccess();
     
@@ -128,7 +129,7 @@ export default async function AdminLayout({
             <main className="flex-1 overflow-y-auto">
                 <header className="h-16 bg-white/80 backdrop-blur-md dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v4.6.0</h2>
+                        <h2 className="text-slate-500 font-bold italic tracking-tight">Global Cockpit v{COCKPIT_CONTRACT_VERSION}</h2>
                         <span 
                             className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2.5 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm"
                             data-testid="superadmin-mode-badge"

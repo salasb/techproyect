@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { Suspense } from "react";
+import { COCKPIT_CONTRACT_VERSION, APP_VERSION } from "@/lib/versions";
 
 function BlockContainer({ status, children, label, message, traceId }: { status: OperationalBlockStatus, children: React.ReactNode, label: string, message?: string, traceId: string }) {
     if (status === 'degraded_config') {
@@ -62,8 +63,8 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
     const debugCockpit = searchParams.debugCockpit === '1';
     const qaScreenshot = searchParams.qaScreenshot === '1';
 
-    console.log(`[COCKPIT_V4.8.1] Rendering Dashboard (Scope: ${scopeMode}, IncludeNonProd: ${includeNonProductive}, QA: ${qaScreenshot})`);
-    
+    console.log(`[COCKPIT_v${COCKPIT_CONTRACT_VERSION}] Rendering Dashboard (Scope: ${scopeMode}, App: ${APP_VERSION})`);
+
     // 0. Unified Data Fetch (Isolated Blocks)
     const { blocks, systemStatus, loadTimeMs, hygiene } = await getCockpitDataSafe({ 
         scopeMode, 
@@ -191,7 +192,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
             {/* DBG OVERLAY */}
             {(debugCockpit && !qaScreenshot) && (
                 <div className="fixed bottom-4 right-4 z-[9999] bg-black/90 text-green-400 p-4 rounded-xl text-[10px] font-mono whitespace-pre shadow-2xl max-w-sm overflow-auto border border-white/10">
-                    <p className="font-bold text-white mb-2">FORENSICS OVERLAY v4.7.2.1</p>
+                    <p className="font-bold text-white mb-2">FORENSICS OVERLAY v{COCKPIT_CONTRACT_VERSION}</p>
                     <p>Build SHA: {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,7) || 'local'}</p>
                     <p>openOperational: {hygiene.totalOperationalIncidents}</p>
                     <p>totalRaw: {hygiene.totalRawIncidents}</p>
@@ -235,7 +236,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
                             <div className={cn("w-1.5 h-1.5 rounded-full", isSafeMode ? "bg-amber-500" : "bg-emerald-500 animate-pulse")} />
                             {isSafeMode ? 'Safe Mode' : 'Operational'}
                         </div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v4.7.2</h1>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v{COCKPIT_CONTRACT_VERSION}</h1>
                     </div>
                     <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Panel de Orquestación y Gobernanza de SLA.</p>
                 </div>
