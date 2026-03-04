@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createOrganizationAction } from "@/actions/organizations";
 import { logout } from "@/app/login/actions";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Building2, User, CheckCircle2, AlertCircle, LogOut, ChevronRight, Sparkles, Loader2, RotateCcw } from "lucide-react";
+import { Building2, User, CheckCircle2, AlertCircle, LogOut, ChevronRight, Sparkles, Loader2, RotateCcw, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -21,28 +21,24 @@ export default function StartPage() {
     const [bootstrapData, setBootstrapData] = useState<any>(null);
     const [selectingId, setSelectingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadBootstrap();
-    }, []);
-
-    const loadBootstrap = async () => {
+    const loadBootstrap = useCallback(async () => {
         setStatus('loading');
         try {
-            console.log("[StartPage] Fetching bootstrap data...");
+            console.log("[StartPage] Loading bootstrap data...");
             const res = await fetch('/api/start/bootstrap', { 
                 cache: 'no-store',
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
+                credentials: 'include'
             });
             
-            // Check if response is HTML (likely a middleware redirect)
+            // A) Content-Type Check (Middleware Redirect Detection)
             const contentType = res.headers.get("content-type");
             if (contentType && contentType.includes("text/html")) {
-                console.error("[StartPage] Bootstrap returned HTML instead of JSON. Potential redirect loop.");
                 setBootstrapData({ 
                     ok: false, 
                     code: 'BOOTSTRAP_RETURNED_HTML', 
-                    message: "El servidor devolvió una respuesta inesperada (HTML). Esto indica un problema de enrutamiento.",
-                    traceId: 'HTML-ERR' 
+                    message: "El servidor devolvió HTML (posible bucle de middleware).",
+                    traceId: 'HTML-REDIR' 
                 });
                 setStatus('error');
                 return;
@@ -50,16 +46,17 @@ export default function StartPage() {
 
             const data = await res.json();
             
+            // B) Auth Failure Handling
             if (res.status === 401 || data.code === 'SESSION_EXPIRED') {
                 toast.error("Tu sesión ha expirado.");
                 router.push('/login');
                 return;
             }
 
+            // C) Success Path
             if (data.ok) {
                 setBootstrapData(data);
                 
-                // Auto-enter logic (v1.5)
                 if (data.shouldAutoEnter && data.activeOrgId) {
                     handleSelect(data.activeOrgId, true);
                     return;
@@ -67,19 +64,29 @@ export default function StartPage() {
                 
                 setStatus('ready');
             } else {
+                // D) Known API Failures (e.g. ENV_MISSING_DATABASE_URL)
                 setBootstrapData(data);
                 setStatus('error');
             }
         } catch (e: any) {
             console.error("[StartPage] Bootstrap fetch failed:", e.message);
-            setBootstrapData({ ok: false, code: 'NETWORK_ERROR', message: "Error de red al conectar con el servidor.", traceId: 'NET-ERR' });
+            setBootstrapData({ 
+                ok: false, 
+                code: 'NETWORK_ERROR', 
+                message: "Error de red al conectar con el servidor central.", 
+                traceId: 'NET-ERR' 
+            });
             setStatus('error');
         }
-    };
+    }, [router]);
+
+    useEffect(() => {
+        loadBootstrap();
+    }, [loadBootstrap]);
 
     const handleSelect = async (orgId: string, isAuto = false) => {
         setSelectingId(orgId);
-        const toastId = isAuto ? null : toast.loading("Estableciendo conexión segura...");
+        const toastId = isAuto ? null : toast.loading("Estableciendo conexión...");
         
         try {
             const res = await fetch('/api/org/select', {
@@ -91,15 +98,15 @@ export default function StartPage() {
 
             if (data.ok) {
                 if (!isAuto) toast.success("Sincronizado.", { id: toastId! });
-                // Force a hard navigation to ensure fresh context
+                // Force fresh server state via hard navigation
                 window.location.assign(data.redirectTo || '/dashboard');
             } else {
-                if (!isAuto) toast.error(data.message || "Error al entrar.");
+                if (!isAuto) toast.error(data.message || "No se pudo entrar.", { id: toastId! });
                 setSelectingId(null);
                 setStatus('ready');
             }
         } catch (e) {
-            if (!isAuto) toast.error("Fallo de red al guardar contexto.");
+            if (!isAuto) toast.error("Error técnico al guardar contexto.");
             setSelectingId(null);
             setStatus('ready');
         }
@@ -111,14 +118,14 @@ export default function StartPage() {
                 <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-6" />
                 <div className="text-center space-y-1">
                     <p className="font-black uppercase text-[10px] tracking-[0.3em] text-slate-400">Onboarding Safe-Harbor</p>
-                    <p className="text-sm font-bold text-slate-600 italic">Sincronizando configuración central...</p>
+                    <p className="text-sm font-bold text-slate-600 italic animate-pulse">Sincronizando configuración...</p>
                 </div>
             </div>
         );
     }
 
     if (status === 'error') {
-        const errorMsg = bootstrapData?.message || "Error desconocido al inicializar.";
+        const errorMsg = bootstrapData?.message || "Fallo inesperado al inicializar.";
         const traceId = bootstrapData?.traceId;
         const code = bootstrapData?.code;
 
@@ -126,7 +133,7 @@ export default function StartPage() {
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-500">
                 <div className="max-w-md w-full bg-white rounded-[3rem] p-12 shadow-2xl border border-rose-100 text-center space-y-8">
                     <div className="w-20 h-20 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto text-rose-500 rotate-3 shadow-inner">
-                        <AlertCircle className="w-10 h-10" />
+                        <ShieldAlert className="w-10 h-10" />
                     </div>
                     
                     <div className="space-y-2">
@@ -134,14 +141,14 @@ export default function StartPage() {
                         <p className="text-slate-500 text-sm font-medium italic leading-relaxed">{errorMsg}</p>
                     </div>
 
-                    <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
+                    <div className="bg-slate-50 p-4 rounded-2xl space-y-2 border border-slate-100">
                         <div className="flex justify-between items-center text-[9px] font-black uppercase text-slate-400 tracking-widest">
-                            <span>Código</span>
+                            <span>Diagnostic Code</span>
                             <span>Trace ID</span>
                         </div>
                         <div className="flex justify-between items-center font-mono text-[11px] font-bold text-slate-600">
-                            <span className="bg-white px-2 py-0.5 rounded border border-slate-100">{code || 'UNKNOWN'}</span>
-                            <span className="bg-rose-50 px-2 py-0.5 rounded border border-rose-100 text-rose-600">{traceId || 'N/A'}</span>
+                            <span className="bg-white px-2 py-0.5 rounded border border-slate-100">{code || 'BST_ERROR'}</span>
+                            <span className="bg-rose-50 px-2 py-0.5 rounded border border-rose-100 text-rose-600 uppercase">{traceId || 'N/A'}</span>
                         </div>
                     </div>
 
@@ -168,7 +175,7 @@ export default function StartPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans">
-            <div className="mb-12 flex flex-col items-center">
+            <div className="mb-12 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
                 <img src="/techwise logo negro.png" alt="TechWise" className="h-10 w-auto grayscale opacity-50" />
                 <div className="mt-2 h-0.5 w-8 bg-blue-600/30 rounded-full" />
             </div>
@@ -178,17 +185,17 @@ export default function StartPage() {
                 <div className="lg:col-span-5 flex flex-col justify-center space-y-8 py-8 animate-in fade-in slide-in-from-left-4 duration-1000">
                     <div className="space-y-4">
                         <h1 className="text-5xl font-black text-slate-900 tracking-tighter leading-none italic uppercase">
-                            Empieza <span className="text-blue-600">Hoy.</span>
+                            Hola <span className="text-blue-600">Nuevamente.</span>
                         </h1>
                         <p className="text-lg text-slate-500 font-medium leading-relaxed max-w-sm italic">
-                            Configura tu entorno de trabajo profesional en segundos.
+                            Tu centro de operaciones tecnológicas está a un paso.
                         </p>
                     </div>
 
                     <div className="space-y-6 pt-4">
                         {[
-                            { title: "Multi-Org", desc: "Cambia entre empresas sin cerrar sesión." },
-                            { title: "Seguridad B2B", desc: "Roles y permisos configurables por equipo." },
+                            { title: "Control Total", desc: "Gestión de proyectos, costos y márgenes en tiempo real." },
+                            { title: "Enterprise Ready", desc: "Soporte multi-empresa y roles B2B desde el inicio." },
                         ].map((item, i) => (
                             <div key={i} className="flex gap-4 group">
                                 <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-sm group-hover:border-blue-200 group-hover:shadow-lg transition-all shrink-0">
@@ -209,9 +216,9 @@ export default function StartPage() {
                             <CardHeader className="p-10 pb-6">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
-                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Espacios Disponibles</span>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Selección de Entorno</span>
                                 </div>
-                                <CardTitle className="text-3xl font-black tracking-tighter italic uppercase text-slate-900">Selecciona Entorno</CardTitle>
+                                <CardTitle className="text-3xl font-black tracking-tighter italic uppercase text-slate-900">Tu Espacio de Trabajo</CardTitle>
                             </CardHeader>
                             <CardContent className="p-10 pt-0 space-y-8">
                                 <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">

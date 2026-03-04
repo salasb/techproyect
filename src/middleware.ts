@@ -2,10 +2,10 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Middleware Recovery Mode (v1.2)
- * Goal: Zero redirect loops.
- * Responsibility: ONLY validate Supabase session. 
- * Business routing logic (org context, onboarding) belongs to Node runtime.
+ * Middleware Recovery Mode (v1.3)
+ * Goal: Absolute prevention of redirect loops.
+ * Responsibility: ONLY validate basic session. 
+ * Routing logic (context, memberships) belongs strictly to Node runtime.
  */
 export async function updateSession(request: NextRequest) {
     const traceId = Math.random().toString(36).substring(7).toUpperCase();
@@ -50,22 +50,22 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // A) TOTAL BYPASS (Public & Bootstrap routes)
-    // These routes MUST ALWAYS load to prevent loops or blocked recovery
-    const publicPrefixes = [
+    // A) CRITICAL BYPASS (Public & Onboarding routes)
+    // These routes MUST NEVER be redirected by middleware to prevent loops.
+    const bypassPrefixes = [
         '/login', '/signup', '/forgot-password', 
         '/auth', '/api', '/_next', '/favicon.ico', 
-        '/start', '/pending-activation'
+        '/start', '/pending-activation', '/logout'
     ];
-    const isPublic = publicPrefixes.some(p => pathname.startsWith(p));
+    const shouldBypass = bypassPrefixes.some(p => pathname.startsWith(p));
     const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|css|js)$/);
 
-    if (isPublic || isAsset) {
+    if (shouldBypass || isAsset) {
         return response;
     }
 
-    // B) CORE SESSION GUARD
-    // Only redirect if there is absolutely no user session
+    // B) SESSION GUARD
+    // Only redirect to login if there is no session at all
     if (!user) {
         const target = '/login';
         const res = NextResponse.redirect(new URL(target, request.url));
@@ -75,8 +75,9 @@ export async function updateSession(request: NextRequest) {
         return res;
     }
 
-    // C) AUTHENTICATED -> Pass through
-    // Redirection based on org context happens in Server Components (Layouts/Pages)
+    // C) AUTHENTICATED PASS-THROUGH
+    // Context resolution and routing (e.g. /dashboard -> /start) 
+    // MUST happen in Node runtime components.
     return response
 }
 

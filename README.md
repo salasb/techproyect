@@ -1,5 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Deployment Notes
+
+### Environment Variables
+For the system to function correctly (especially the bootstrap and commercial logic), ensures these variables are set in both Production and **Preview** environments:
+- `DATABASE_URL`: Prisma connection string. (Recommended: use a separate DB for Preview/Staging).
+- `NEXT_PUBLIC_SUPABASE_URL` & `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase project credentials.
+- `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Stripe integration.
+- `INTERNAL_WORKER_SECRET`: Token for internal background workers.
+
+### Vercel Preview
+If `/start` or `/dashboard` show technical errors in a Preview branch, check that the `DATABASE_URL` is correctly configured for that specific deployment.
+
 ## Getting Started
 
 First, run the development server:
