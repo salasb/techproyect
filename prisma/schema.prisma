@@ -1,11 +1,10 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["public"]
+  url      = env("DATABASE_URL")
 }
 
 model Settings {
@@ -16,7 +15,7 @@ model Settings {
   yellowThresholdDays     Int     @default(7)
   isSoloMode              Boolean @default(false)
 
-  @@schema("public")
+
 }
 
 model Company {
@@ -31,7 +30,7 @@ model Company {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   projects       Project[]
 
-  @@schema("public")
+
 }
 
 model Project {
@@ -74,7 +73,7 @@ model Project {
   saleNote           SaleNote?
   tasks              Task[]
 
-  @@schema("public")
+
 }
 
 model SaleNote {
@@ -88,7 +87,7 @@ model SaleNote {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id])
 
-  @@schema("public")
+
 }
 
 model QuoteItem {
@@ -107,7 +106,7 @@ model QuoteItem {
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   quote          Quote?        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  @@schema("public")
+
 }
 
 model CostEntry {
@@ -121,7 +120,7 @@ model CostEntry {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@schema("public")
+
 }
 
 model ProjectLog {
@@ -134,7 +133,7 @@ model ProjectLog {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@schema("public")
+
 }
 
 model Product {
@@ -153,7 +152,7 @@ model Product {
   stockEntries       ProductStock[]
   purchaseOrderItems PurchaseOrderItem[]
 
-  @@schema("public")
+
 }
 
 model InventoryMovement {
@@ -173,7 +172,7 @@ model InventoryMovement {
   product        Product      @relation(fields: [productId], references: [id])
   project        Project?     @relation(fields: [projectId], references: [id])
 
-  @@schema("public")
+
 }
 
 model Location {
@@ -188,7 +187,7 @@ model Location {
   stockEntries       ProductStock[]
   purchaseOrderItems PurchaseOrderItem[]
 
-  @@schema("public")
+
 }
 
 model ProductStock {
@@ -204,7 +203,7 @@ model ProductStock {
   product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, locationId])
-  @@schema("public")
+
 }
 
 model AuditLog {
@@ -220,7 +219,7 @@ model AuditLog {
   Project        Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   Profile        Profile?      @relation(fields: [userId], references: [id], onUpdate: NoAction)
 
-  @@schema("public")
+
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -244,7 +243,7 @@ model Client {
   Project        Project[]
   purchaseOrders PurchaseOrder[] @relation("VendorPO")
 
-  @@schema("public")
+
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -259,7 +258,7 @@ model Contact {
   updatedAt DateTime @default(now()) @db.Timestamptz(6)
   Client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@schema("public")
+
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -276,7 +275,7 @@ model Interaction {
   organization   Organization?   @relation(fields: [organizationId], references: [id])
   Project        Project?        @relation(fields: [projectId], references: [id], onUpdate: NoAction)
 
-  @@schema("public")
+
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -299,7 +298,7 @@ model Profile {
   SupportMessage     SupportMessage[]
   ActiveContext      ActiveContext?
 
-  @@schema("public")
+
 }
 
 model Organization {
@@ -353,7 +352,7 @@ model Organization {
   customRoles           CustomRole[]
   activeContexts        ActiveContext[]
 
-  @@schema("public")
+
 }
 
 model ActiveContext {
@@ -366,7 +365,7 @@ model ActiveContext {
   organization   Organization? @relation(fields: [orgId], references: [id])
   profile        Profile       @relation(fields: [userId], references: [id])
 
-  @@schema("public")
+
 }
 
 model WebhookEndpoint {
@@ -383,7 +382,7 @@ model WebhookEndpoint {
   organization   Organization @relation(fields: [organizationId], references: [id])
   logs           WebhookLog[]
 
-  @@schema("public")
+
 }
 
 model WebhookLog {
@@ -400,7 +399,7 @@ model WebhookLog {
   
   endpoint          WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
 
-  @@schema("public")
+
 }
 
 model SupportTicket {
@@ -419,7 +418,7 @@ model SupportTicket {
   profile        Profile       @relation(fields: [userId], references: [id])
   messages       SupportMessage[]
 
-  @@schema("public")
+
 }
 
 model SupportMessage {
@@ -433,7 +432,7 @@ model SupportMessage {
   ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   profile        Profile       @relation(fields: [userId], references: [id])
 
-  @@schema("public")
+
 }
 
 enum TicketStatus {
@@ -441,7 +440,7 @@ enum TicketStatus {
   IN_PROGRESS
   RESOLVED
 
-  @@schema("public")
+
 }
 
 enum TicketPriority {
@@ -450,7 +449,7 @@ enum TicketPriority {
   P2
   P3
 
-  @@schema("public")
+
 }
 
 model StripeEvent {
@@ -467,7 +466,7 @@ model StripeEvent {
   attempts    Int       @default(0)
   nextRetryAt DateTime?
 
-  @@schema("public")
+
 }
 
 model Subscription {
@@ -490,7 +489,7 @@ model Subscription {
   source                 String?            @default("STRIPE")
   organization           Organization       @relation(fields: [organizationId], references: [id])
 
-  @@schema("public")
+
 }
 
 model OrganizationMember {
@@ -506,7 +505,7 @@ model OrganizationMember {
   customRole     CustomRole?      @relation(fields: [customRoleId], references: [id])
 
   @@unique([organizationId, userId])
-  @@schema("public")
+
 }
 
 model UserInvitation {
@@ -530,7 +529,7 @@ model UserInvitation {
   @@index([organizationId, email, status])
   @@index([tokenHash])
   @@index([organizationId, createdAt])
-  @@schema("public")
+
 }
 
 model CustomRole {
@@ -547,7 +546,7 @@ model CustomRole {
   invitations    UserInvitation[]
 
   @@unique([organizationId, name])
-  @@schema("public")
+
 }
 
 model Task {
@@ -565,7 +564,7 @@ model Task {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@schema("public")
+
 }
 
 model Quote {
@@ -586,7 +585,7 @@ model Quote {
   revisions    Quote[]     @relation("QuoteVersions")
   items        QuoteItem[]
 
-  @@schema("public")
+
 }
 
 model Invoice {
@@ -609,7 +608,7 @@ model Invoice {
   quote               Quote?          @relation(fields: [quoteId], references: [id])
   payments            PaymentRecord[]
 
-  @@schema("public")
+
 }
 
 model PaymentRecord {
@@ -625,7 +624,7 @@ model PaymentRecord {
   invoice        Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  @@schema("public")
+
 }
 
 model PurchaseOrder {
@@ -646,7 +645,7 @@ model PurchaseOrder {
   receipts       PurchaseOrderReceipt[]
 
   @@unique([organizationId, poNumber])
-  @@schema("public")
+
 }
 
 model PurchaseOrderReceipt {
@@ -663,7 +662,7 @@ model PurchaseOrderReceipt {
   items           ReceiptItem[]
 
   @@unique([organizationId, purchaseOrderId, receiptNumber])
-  @@schema("public")
+
 }
 
 model ReceiptItem {
@@ -674,7 +673,7 @@ model ReceiptItem {
   purchaseOrderItem      PurchaseOrderItem    @relation(fields: [purchaseOrderItemId], references: [id])
   receipt                PurchaseOrderReceipt @relation(fields: [purchaseOrderReceiptId], references: [id], onDelete: Cascade)
 
-  @@schema("public")
+
 }
 
 model PurchaseOrderItem {
@@ -696,7 +695,7 @@ model PurchaseOrderItem {
   purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   receiptItems     ReceiptItem[]
 
-  @@schema("public")
+
 }
 
 model Opportunity {
@@ -717,7 +716,7 @@ model Opportunity {
   client              Client?       @relation(fields: [clientId], references: [id])
   organization        Organization? @relation(fields: [organizationId], references: [id])
 
-  @@schema("public")
+
 }
 
 model SentinelAlert {
@@ -733,7 +732,7 @@ model SentinelAlert {
   updatedAt      DateTime         @updatedAt
   organization   Organization     @relation(fields: [organizationId], references: [id])
 
-  @@schema("public")
+
 }
 
 model OrganizationStats {
@@ -754,7 +753,7 @@ model OrganizationStats {
   ttvDays           Float?
   organization      Organization @relation(fields: [organizationId], references: [id])
 
-  @@schema("public")
+
 }
 
 model ActivationEvent {
@@ -769,7 +768,7 @@ model ActivationEvent {
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, eventName])
-  @@schema("public")
+
 }
 
 model Experiment {
@@ -781,7 +780,7 @@ model Experiment {
   endAt       DateTime?
   assignments ExperimentAssignment[]
 
-  @@schema("public")
+
 }
 
 model ExperimentAssignment {
@@ -794,7 +793,7 @@ model ExperimentAssignment {
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, experimentId])
-  @@schema("public")
+
 }
 
 model EmailEventLog {
@@ -809,7 +808,7 @@ model EmailEventLog {
   organization      Organization @relation(fields: [organizationId], references: [id])
   profile           Profile      @relation(fields: [userId], references: [id])
 
-  @@schema("public")
+
 }
 
 model NudgeDismissed {
@@ -823,7 +822,7 @@ model NudgeDismissed {
   profile        Profile      @relation(fields: [userId], references: [id])
 
   @@unique([userId, organizationId, dedupeKey])
-  @@schema("public")
+
 }
 
 model PaymentIssue {
@@ -838,7 +837,7 @@ model PaymentIssue {
   updatedAt         DateTime           @updatedAt
   organization      Organization       @relation(fields: [organizationId], references: [id])
 
-  @@schema("public")
+
 }
 
 model CancelIntent {
@@ -852,7 +851,7 @@ model CancelIntent {
   createdAt      DateTime           @default(now())
   organization   Organization       @relation(fields: [organizationId], references: [id])
 
-  @@schema("public")
+
 }
 
 model ShareLink {
@@ -871,7 +870,7 @@ model ShareLink {
 
   @@index([tokenHash])
   @@index([entityId, entityType])
-  @@schema("public")
+
 }
 
 model SuperadminAlert {
@@ -891,7 +890,7 @@ model SuperadminAlert {
   organization   Organization?            @relation(fields: [organizationId], references: [id])
   notifications  SuperadminNotification[]
 
-  @@schema("public")
+
 }
 
 model SuperadminNotification {
@@ -906,7 +905,7 @@ model SuperadminNotification {
   metadata    Json?            @default("{}")
   alert       SuperadminAlert? @relation(fields: [alertId], references: [id])
 
-  @@schema("public")
+
 }
 
 enum MovementType {
@@ -915,7 +914,7 @@ enum MovementType {
   ADJUST
   TRANSFER
 
-  @@schema("public")
+
 }
 
 enum InvitationStatus {
@@ -924,7 +923,7 @@ enum InvitationStatus {
   EXPIRED
   REVOKED
 
-  @@schema("public")
+
 }
 
 enum OrganizationStatus {
@@ -932,7 +931,7 @@ enum OrganizationStatus {
   ACTIVE
   INACTIVE
 
-  @@schema("public")
+
 }
 
 enum OrganizationPlan {
@@ -941,14 +940,14 @@ enum OrganizationPlan {
   ENTERPRISE
   INVENTORY_ONLY
 
-  @@schema("public")
+
 }
 
 enum OrganizationMode {
   SOLO
   TEAM
 
-  @@schema("public")
+
 }
 
 enum SubscriptionStatus {
@@ -958,7 +957,7 @@ enum SubscriptionStatus {
   PAST_DUE
   CANCELED
 
-  @@schema("public")
+
 }
 
 enum MembershipStatus {
@@ -967,7 +966,7 @@ enum MembershipStatus {
   INACTIVE
   REMOVED
 
-  @@schema("public")
+
 }
 
 enum MembershipRole {
@@ -977,7 +976,7 @@ enum MembershipRole {
   VIEWER
   SUPERADMIN
 
-  @@schema("public")
+
 }
 
 enum ProjectStatus {
@@ -987,7 +986,7 @@ enum ProjectStatus {
   CERRADO
   CANCELADO
 
-  @@schema("public")
+
 }
 
 enum ProjectStage {
@@ -999,7 +998,7 @@ enum ProjectStage {
   SOPORTE
   COTIZACION
 
-  @@schema("public")
+
 }
 
 enum CostCategory {
@@ -1009,7 +1008,7 @@ enum CostCategory {
   LOGISTICA
   OTROS
 
-  @@schema("public")
+
 }
 
 enum ClientStatus {
@@ -1018,7 +1017,7 @@ enum ClientStatus {
   CLIENT
   CHURNED
 
-  @@schema("public")
+
 }
 
 enum InteractionType {
@@ -1027,21 +1026,21 @@ enum InteractionType {
   MEETING
   NOTE
 
-  @@schema("public")
+
 }
 
 enum TaskType {
   MANUAL
   SENTINEL
 
-  @@schema("public")
+
 }
 
 enum TaskStatus {
   PENDING
   COMPLETED
 
-  @@schema("public")
+
 }
 
 enum InvoiceStatus {
@@ -1051,7 +1050,7 @@ enum InvoiceStatus {
   VOID
   PARTIALLY_PAID
 
-  @@schema("public")
+
 }
 
 enum PurchaseOrderStatus {
@@ -1062,7 +1061,7 @@ enum PurchaseOrderStatus {
   RECEIVED
   CANCELED
 
-  @@schema("public")
+
 }
 
 enum SentinelType {
@@ -1075,7 +1074,7 @@ enum SentinelType {
   WEBHOOK_FAILURE
   ORG_PAST_DUE
 
-  @@schema("public")
+
 }
 
 enum SentinelSeverity {
@@ -1084,7 +1083,7 @@ enum SentinelSeverity {
   S2
   S3
 
-  @@schema("public")
+
 }
 
 enum AlertStatus {
@@ -1092,7 +1091,7 @@ enum AlertStatus {
   ACK
   RESOLVED
 
-  @@schema("public")
+
 }
 
 enum CloseReason {
@@ -1103,7 +1102,7 @@ enum CloseReason {
   DISCARDED
   OTHER
 
-  @@schema("public")
+
 }
 
 enum QuoteStatus {
@@ -1113,7 +1112,7 @@ enum QuoteStatus {
   REVISED
   REJECTED
 
-  @@schema("public")
+
 }
 
 enum PaymentIssueStatus {
@@ -1121,7 +1120,7 @@ enum PaymentIssueStatus {
   RESOLVED
   EXPIRED
 
-  @@schema("public")
+
 }
 
 enum CancellationReason {
@@ -1135,7 +1134,7 @@ enum CancellationReason {
   SUPPORT_ISSUE
   OTHER
 
-  @@schema("public")
+
 }
 
 enum CancelOutcome {
@@ -1146,14 +1145,14 @@ enum CancelOutcome {
   COMPLETED
   RECOVERED
 
-  @@schema("public")
+
 }
 
 enum ShareLinkType {
   QUOTE
   INVOICE
 
-  @@schema("public")
+
 }
 
 enum SuperadminAlertType {
@@ -1165,7 +1164,7 @@ enum SuperadminAlertType {
   WEBHOOK_ERRORS_RECENT
   SYSTEM_INFO
 
-  @@schema("public")
+
 }
 
 enum SuperadminAlertSeverity {
@@ -1173,7 +1172,7 @@ enum SuperadminAlertSeverity {
   WARNING
   CRITICAL
 
-  @@schema("public")
+
 }
 
 enum SuperadminAlertStatus {
@@ -1181,5 +1180,5 @@ enum SuperadminAlertStatus {
   ACKNOWLEDGED
   RESOLVED
 
-  @@schema("public")
+
 }
