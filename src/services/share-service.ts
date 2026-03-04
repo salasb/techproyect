@@ -29,7 +29,7 @@ export class ShareService {
         const crypto = require('crypto');
         const hash = crypto.createHash('sha256').update(token).digest('hex');
 
-        const shareLink = await prisma.quoteShareLink.findUnique({
+        const shareLink = await prisma.quoteShareLink.findFirst({
             where: { 
                 tokenHash: hash,
                 status: 'ACTIVE',

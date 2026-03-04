@@ -4,18 +4,33 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, CreditCard, Clock, FileText, Building2, ShieldCheck, ArrowRight } from "lucide-react";
+import { CheckCircle2, CreditCard, Clock, FileText, Building2, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { acceptPublicQuoteAction, payPublicInvoiceAction } from "@/actions/public-quotes";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 export const dynamic = 'force-dynamic';
 
-export default async function PublicQuotePage(props: { params: Promise<{ token: string }> }) {
+export default async function PublicQuotePage(props: { params: Promise<{ token: string }>, searchParams: Promise<{ payment?: string }> }) {
     const { token } = await props.params;
+    const searchParams = await props.searchParams;
     const shareLink = await ShareService.resolveToken(token);
 
-    if (!shareLink) notFound();
+    if (!shareLink) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-center">
+                <Card className="max-w-md w-full rounded-[2.5rem] p-12 space-y-6 shadow-2xl">
+                    <div className="bg-rose-50 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto text-rose-600">
+                        <Clock className="w-8 h-8" />
+                    </div>
+                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">Enlace No Disponible</h2>
+                    <p className="text-slate-500 text-sm font-medium italic leading-relaxed">
+                        Este enlace ha expirado, ha sido revocado o es inválido. Por favor, solicita una nueva versión a tu proveedor.
+                    </p>
+                </Card>
+            </div>
+        );
+    }
 
     const quote = shareLink.quote;
     const org = shareLink.organization;
@@ -24,6 +39,7 @@ export default async function PublicQuotePage(props: { params: Promise<{ token: 
     const isPending = quote.status === 'PENDING' || quote.status === 'DRAFT';
     const isAccepted = quote.status === 'ACCEPTED';
     const isPaid = invoice?.status === 'PAID';
+    const isProcessingPayment = searchParams.payment === 'success' && !isPaid;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-12 font-sans selection:bg-blue-100">
@@ -116,22 +132,34 @@ export default async function PublicQuotePage(props: { params: Promise<{ token: 
 
                                 {isAccepted && !isPaid && (
                                     <div className="space-y-4">
-                                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex items-start gap-3">
-                                            <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
-                                            <p className="text-[10px] text-blue-700 dark:text-blue-300 font-medium italic leading-relaxed">
-                                                Cotización aceptada. Puedes proceder al pago seguro para iniciar el proyecto.
-                                            </p>
-                                        </div>
-                                        <form action={async () => {
-                                            'use server';
-                                            const res = await payPublicInvoiceAction(token);
-                                            const { redirect } = await import("next/navigation");
-                                            if (res.url) redirect(res.url);
-                                        }}>
-                                            <Button className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase italic tracking-widest shadow-xl shadow-emerald-900/30 group">
-                                                Pagar con Stripe <CreditCard className="w-5 h-5 ml-2 group-hover:scale-110 transition-transform" />
-                                            </Button>
-                                        </form>
+                                        {isProcessingPayment ? (
+                                            <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-3xl border border-blue-100 dark:border-blue-800/50 text-center space-y-3 animate-pulse">
+                                                <Loader2 className="w-10 h-10 text-blue-600 mx-auto animate-spin" />
+                                                <h3 className="font-black uppercase italic tracking-tight text-blue-900 dark:text-blue-100">Procesando Pago</h3>
+                                                <p className="text-[10px] text-blue-700/70 dark:text-blue-400 font-medium italic">
+                                                    Estamos confirmando tu transacción con el banco. Esto puede tardar unos segundos.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex items-start gap-3">
+                                                    <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
+                                                    <p className="text-[10px] text-blue-700 dark:text-blue-300 font-medium italic leading-relaxed">
+                                                        Cotización aceptada. Puedes proceder al pago seguro para iniciar el proyecto.
+                                                    </p>
+                                                </div>
+                                                <form action={async () => {
+                                                    'use server';
+                                                    const res = await payPublicInvoiceAction(token);
+                                                    const { redirect } = await import("next/navigation");
+                                                    if (res.url) redirect(res.url);
+                                                }}>
+                                                    <Button className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase italic tracking-widest shadow-xl shadow-emerald-900/30 group">
+                                                        Pagar con Stripe <CreditCard className="w-5 h-5 ml-2 group-hover:scale-110 transition-transform" />
+                                                    </Button>
+                                                </form>
+                                            </>
+                                        )}
                                     </div>
                                 )}
 

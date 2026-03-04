@@ -7,6 +7,8 @@ import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { getStripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { rateLimit } from "@/lib/security/rate-limit";
+import { headers } from "next/headers";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -29,6 +31,11 @@ export async function createQuoteShareLinkAction(quoteId: string) {
  * Idempotent by design.
  */
 export async function acceptPublicQuoteAction(token: string) {
+    // 1. Anti-abuse: Rate Limit by Token + IP
+    const clientIp = (await headers()).get('x-forwarded-for') || 'unknown';
+    const limit = await rateLimit(`accept_${token}_${clientIp}`, 5, 60000);
+    if (!limit.success) throw new Error(`Demasiados intentos. Reintenta en ${limit.retryAfter} segundos.`);
+
     const shareLink = await ShareService.resolveToken(token);
     if (!shareLink) throw new Error("Link inválido o expirado.");
 
@@ -57,6 +64,11 @@ export async function acceptPublicQuoteAction(token: string) {
  * Generates a Stripe Checkout Session for a public invoice.
  */
 export async function payPublicInvoiceAction(token: string) {
+    // 1. Anti-abuse
+    const clientIp = (await headers()).get('x-forwarded-for') || 'unknown';
+    const limit = await rateLimit(`pay_${token}_${clientIp}`, 5, 60000);
+    if (!limit.success) throw new Error(`Demasiados intentos. Reintenta en ${limit.retryAfter} segundos.`);
+
     const shareLink = await ShareService.resolveToken(token);
     if (!shareLink) throw new Error("Link inválido.");
 
