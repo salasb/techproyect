@@ -89,7 +89,14 @@ export async function GET(req: Request) {
         return response;
 
     } catch (error: any) {
-        const response = NextResponse.json({ ok: false, code: 'INTERNAL_ERROR', details: error.message, traceId }, { status: 500 });
+        console.error(`[OrgActive][${traceId}] FATAL:`, error.message, error.code);
+        const response = NextResponse.json({ 
+            ok: false, 
+            code: error.code ? 'DB_ERROR' : 'INTERNAL_ERROR', 
+            prismaCode: error.code,
+            details: error.message, 
+            traceId 
+        }, { status: 500 });
         response.headers.set('Cache-Control', 'no-store');
         return response;
     }

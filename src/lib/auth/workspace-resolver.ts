@@ -82,17 +82,31 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         console.log(`[WorkspaceResolver] User: ${user.email}, ID: ${user.id}`);
 
         // 1. Fetch memberships & Profile via Prisma
-        const membershipsPromise = prisma.organizationMember.findMany({
-            where: { userId: user.id, status: 'ACTIVE' },
-            include: { organization: true, customRole: true }
-        });
+        let memberships = [];
+        let profile = null;
 
-        const profilePromise = prisma.profile.findUnique({
-            where: { id: user.id },
-            select: { role: true, organizationId: true, name: true }
-        });
+        try {
+            const membershipsPromise = prisma.organizationMember.findMany({
+                where: { userId: user.id, status: 'ACTIVE' },
+                include: { organization: true, customRole: true }
+            });
 
-        const [memberships, profile] = await fetchWithTimeout(Promise.all([membershipsPromise, profilePromise]));
+            const profilePromise = prisma.profile.findUnique({
+                where: { id: user.id },
+                select: { role: true, organizationId: true, name: true }
+            });
+
+            [memberships, profile] = await fetchWithTimeout(Promise.all([membershipsPromise, profilePromise]));
+        } catch (err: any) {
+            console.error("[WorkspaceResolver] Database query failed:", err.message);
+            // Return degraded state instead of crashing
+            return {
+                status: 'WORKSPACE_ERROR',
+                ...unauthBase,
+                userId: user.id,
+                error: `Error de base de datos (${err.code || 'UNKNOWN'}). Por favor reintenta.`
+            };
+        }
 
         if (!profile) {
             console.warn(`[WorkspaceResolver] State: PROFILE_MISSING for ${user.id}`);

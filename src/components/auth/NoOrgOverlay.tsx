@@ -115,12 +115,21 @@ export function NoOrgOverlay() {
                     <p className="text-slate-500 text-sm font-medium italic leading-relaxed">
                         {errorData?.code === 'ENV_MISSING_DATABASE_URL' 
                             ? "Configuración de base de datos faltante en Preview (DATABASE_URL). Contacta a soporte/ops."
+                            : errorData?.code === 'DB_UNREACHABLE'
+                            ? `No pudimos conectar con la base de datos (${errorData.prismaCode || 'ERR'}). Por favor reintenta.`
                             : errorData?.message || "No pudimos inicializar tu sesión comercial."}
                     </p>
                     {errorData?.traceId && (
-                        <code className="block p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-[10px] text-slate-400">Trace: {errorData.traceId}</code>
+                        <div className="space-y-1">
+                            <code className="block p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-[10px] text-slate-400 font-mono">Trace: {errorData.traceId}</code>
+                            {errorData.prismaCode && (
+                                <code className="block p-1 text-[9px] text-rose-400 font-mono">Prisma: {errorData.prismaCode}</code>
+                            )}
+                        </div>
                     )}
-                    <Button onClick={loadOrgs} className="w-full h-14 bg-blue-600 rounded-2xl font-black uppercase">Reintentar</Button>
+                    <Button onClick={loadOrgs} className="w-full h-14 bg-blue-600 rounded-2xl font-black uppercase shadow-lg shadow-blue-900/20">
+                        Reintentar
+                    </Button>
                 </Card>
             </div>
         );

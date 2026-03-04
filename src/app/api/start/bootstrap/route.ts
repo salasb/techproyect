@@ -7,13 +7,14 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * Bootstrap API (v1.8)
- * Robust initial state orchestrator.
- * Designed to NEVER return HTML and handle environment issues gracefully.
+ * Bootstrap API (v1.9)
+ * Definitive initial state orchestrator.
+ * Designed to NEVER return HTML and handle environment/Prisma issues gracefully.
  */
 export async function GET(req: Request) {
     const traceId = `BST-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const env = process.env.VERCEL_ENV || 'development';
+    const isPreview = env === 'preview' || process.env.NODE_ENV === 'development';
     
     try {
         console.log(`[Bootstrap][${traceId}] Handshake start. Env: ${env}`);
@@ -44,7 +45,6 @@ export async function GET(req: Request) {
         }
 
         // 3. Fetch Data (Prisma)
-        // We wrap this in another try/catch to identify DB-specific errors
         let memberships = [];
         let activeOrgId = null;
 
@@ -61,12 +61,13 @@ export async function GET(req: Request) {
                 getActiveOrg(user.id).catch(() => null)
             ]);
         } catch (dbError: any) {
-            console.error(`[Bootstrap][${traceId}] Database access failed:`, dbError.message);
+            console.error(`[Bootstrap][${traceId}] Database access failed:`, dbError.message, dbError.code);
             return NextResponse.json({
                 ok: false,
-                code: 'DATABASE_CONNECTION_FAILED',
+                code: 'DB_UNREACHABLE',
+                prismaCode: dbError.code, // e.g. P1001, P2002
                 message: "No pudimos conectar con la base de datos de organizaciones.",
-                details: isPreview() ? dbError.message : undefined,
+                details: isPreview ? dbError.message : undefined,
                 traceId
             }, { status: 500 });
         }
@@ -80,6 +81,9 @@ export async function GET(req: Request) {
 
         // 5. Decision Logic
         const isContextValid = activeOrgId && orgs.some(o => o.id === activeOrgId);
+        
+        // Auto-enter logic (Internal handshake)
+        // If we only have 1 org, we consider it the target.
         const shouldAutoEnter = (orgs.length === 1 && !activeOrgId) || isContextValid;
         const targetOrgId = isContextValid ? activeOrgId : (orgs.length === 1 ? orgs[0].id : null);
 
@@ -108,12 +112,8 @@ export async function GET(req: Request) {
             ok: false, 
             code: 'BOOTSTRAP_FAILED', 
             message: "Fallo crítico en la inicialización del sistema.",
-            details: isPreview() ? error.message : undefined,
+            details: isPreview ? error.message : undefined,
             traceId 
         }, { status: 500 });
     }
-}
-
-function isPreview() {
-    return process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development';
 }
