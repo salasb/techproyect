@@ -28,6 +28,19 @@ export function NoOrgOverlay() {
         setStatus('loading');
         try {
             const res = await fetch('/api/start/bootstrap', { cache: 'no-store' });
+            
+            // Check for HTML response (Loop detection)
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("text/html")) {
+                setErrorData({ 
+                    code: 'BOOTSTRAP_RETURNED_HTML', 
+                    message: "El servidor devolvió HTML inesperadamente. Probablemente un bucle de redirección del middleware.",
+                    traceId: 'HTML-LOOP'
+                });
+                setStatus('error');
+                return;
+            }
+
             const data = await res.json();
             if (data.ok) {
                 setOrgs(data.orgs || []);
@@ -36,8 +49,8 @@ export function NoOrgOverlay() {
                 setErrorData(data);
                 setStatus('error');
             }
-        } catch (e) {
-            setErrorData({ message: "Fallo de conexión con el servidor." });
+        } catch (e: any) {
+            setErrorData({ message: "Fallo de conexión con el servidor.", details: e.message });
             setStatus('error');
         }
     };
