@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrganizationAction } from "@/actions/organizations";
+import { logout } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -253,11 +254,7 @@ export default function StartPage() {
 
                     {/* Footer */}
                     <div className="mt-8 flex justify-end px-6">
-                        <form action={async () => {
-                            'use server';
-                            const { logout } = await import("@/app/login/actions");
-                            await logout();
-                        }}>
+                        <form action={logout}>
                             <Button variant="ghost" type="submit" className="text-slate-400 hover:text-rose-600 text-[10px] font-black uppercase tracking-widest">
                                 <LogOut className="w-3.5 h-3.5 mr-2" /> Cerrar Sesión
                             </Button>
