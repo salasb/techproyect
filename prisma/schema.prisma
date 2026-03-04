@@ -9,7 +9,7 @@ datasource db {
 model QuoteShareLink {
   id             String   @id @default(cuid())
   quoteId        String
-  organizationId String
+  organizationId String   @db.Uuid
   tokenHash      String   @unique
   status         String   @default("ACTIVE") // ACTIVE, REVOKED
   expiresAt      DateTime
@@ -358,6 +358,7 @@ model Organization {
   SaleNote              SaleNote[]
   alerts                SentinelAlert[]
   shareLinks            ShareLink[]
+  quoteShareLinks       QuoteShareLink[]
   subscription          Subscription?
   superadminAlerts      SuperadminAlert[]
   tasks                 Task[]
