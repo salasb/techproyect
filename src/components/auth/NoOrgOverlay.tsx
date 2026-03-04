@@ -129,9 +129,14 @@ export function NoOrgOverlay() {
                             )}
                         </div>
                     )}
-                    <Button onClick={loadOrgs} className="w-full h-14 bg-blue-600 rounded-2xl font-black uppercase shadow-lg shadow-blue-900/20">
-                        Reintentar
-                    </Button>
+                    <div className="flex gap-3 mt-2">
+                        <Button onClick={loadOrgs} className="flex-1 h-14 bg-blue-600 rounded-2xl font-black uppercase shadow-lg shadow-blue-900/20">
+                            Reintentar
+                        </Button>
+                        <Button variant="outline" onClick={() => window.location.assign('/api/auth/logout')} className="flex-1 h-14 rounded-2xl font-black uppercase border-slate-200">
+                            Volver al Login
+                        </Button>
+                    </div>
                 </Card>
             </div>
         );

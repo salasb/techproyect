@@ -61,7 +61,8 @@ export async function GET(req: Request) {
                 getActiveOrg(user.id).catch(() => null)
             ]);
         } catch (dbError: any) {
-            console.error(`[Bootstrap][${traceId}] Database access failed:`, dbError.message, dbError.code);
+            const safeDbUrl = process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]*@/, ':***@') : 'undefined';
+            console.error(`[Bootstrap][${traceId}] Database access failed:`, dbError.message, dbError.code, "DB URL:", safeDbUrl, "Meta:", dbError.meta, "Stack:", dbError.stack);
             
             // Explicit check for Schema Mismatch (P2022: column missing, P2021: table missing)
             if (dbError.code === 'P2022' || dbError.code === 'P2021') {

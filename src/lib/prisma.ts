@@ -11,7 +11,21 @@ const prismaClientSingleton = () => {
     const adapter = new PrismaPg(pool)
 
     // Pass adapter to PrismaClient
-    return new PrismaClient({ adapter })
+    const client = new PrismaClient({ adapter })
+    
+    // DB Schema Guard: Log latest applied migration on initialization (Server log only)
+    if (typeof window === 'undefined') {
+        client.$queryRawUnsafe('SELECT migration_name, started_at FROM _prisma_migrations ORDER BY started_at DESC LIMIT 1')
+            .then((res: any) => {
+                const latest = res?.[0]?.migration_name || 'None';
+                console.log(`[DB Guard] Prisma initialized. Latest migration: ${latest}`);
+            })
+            .catch(err => {
+                console.warn(`[DB Guard] Prisma initialized. Could not verify migrations: ${err.message}`);
+            });
+    }
+
+    return client;
 }
 
 declare const globalThis: {
