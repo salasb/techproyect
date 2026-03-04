@@ -1,5 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { SUBSCRIPTION_PLANS, PLAN_LABELS, PlanTier, PlanFeatures } from "@/config/subscription-plans";
 import { CreditCard, Users, TrendingUp, AlertTriangle, Building2 } from "lucide-react";
 import Link from "next/link";
@@ -8,71 +6,53 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
+import prisma from "@/lib/prisma";
+import { resolveSuperadminAccess } from "@/lib/auth/server-resolver";
+
+export const dynamic = 'force-dynamic';
 
 export default async function AdminSubscriptionsPage() {
     const traceId = `SUB-PAGE-${Math.random().toString(36).substring(7).toUpperCase()}`;
-    console.log(`[ADMIN_SUBS][${traceId}] Loading start v4.3.0`);
     
-    let orgsWithUsage: { 
-        id: string; 
-        name: string; 
-        currentPlan: string; 
-        userCount: number; 
-        projectCount: number; 
-        limits: PlanFeatures; 
-        isNearLimit: boolean; 
-        isOverLimit: boolean;
-    }[] = [];
-    
+    let orgsWithUsage: any[] = [];
     let totalMRR = 0;
     const planCounts: Record<string, number> = { FREE: 0, PRO: 0, ENTERPRISE: 0 };
     let errorState: { message: string; code: string; traceId: string } | null = null;
 
     try {
-        const isAdminConfigured = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-        const supabase = isAdminConfigured ? createAdminClient() : await createClient();
+        await resolveSuperadminAccess();
 
-        const { data: orgs, error } = await supabase
-            .from("Organization")
-            .select(`
-                id,
-                name,
-                plan,
-                settings,
-                members:OrganizationMember(count),
-                projects:Project(count)
-            `);
-
-        if (error) throw error;
+        // Direct DB Query with Prisma
+        const orgs = await prisma.organization.findMany({
+            select: {
+                id: true,
+                name: true,
+                plan: true,
+                settings: true,
+                _count: {
+                    select: { OrganizationMember: true, projects: true }
+                }
+            }
+        });
 
         const mrrEstimate: Record<string, number> = { FREE: 0, PRO: 29, ENTERPRISE: 99 };
 
-        const rawOrgs = (orgs as { 
-            id: string; 
-            name: string; 
-            plan: string | null; 
-            settings: unknown; 
-            members: { count: number }[]; 
-            projects: { count: number }[] 
-        }[]) || [];
-        
-        orgsWithUsage = rawOrgs.map((org) => {
-            if (!org) return null;
-            const plan: PlanTier = (org.plan as PlanTier) || (org.settings as Record<string, unknown>)?.plan as PlanTier || 'FREE';
+        orgsWithUsage = orgs.map((org) => {
+            const plan: PlanTier = (org.plan as PlanTier) || (org.settings as any)?.plan as PlanTier || 'FREE';
 
             if (planCounts[plan] !== undefined) planCounts[plan]++;
             totalMRR += mrrEstimate[plan] || 0;
 
             const limits = SUBSCRIPTION_PLANS[plan] || SUBSCRIPTION_PLANS['FREE'];
-            const userCount = org.members?.[0]?.count || 0;
-            const projectCount = org.projects?.[0]?.count || 0;
+            const userCount = org._count.OrganizationMember;
+            const projectCount = org._count.projects;
 
             const isNearLimit = (userCount >= (limits?.maxUsers || 1) * 0.9) || (projectCount >= (limits?.maxProjects || 1) * 0.9);
             const isOverLimit = (userCount > (limits?.maxUsers || 0)) || (projectCount > (limits?.maxProjects || 0));
 
             return {
-                id: org.id || 'unknown',
-                name: org.name || 'Sin nombre',
+                id: org.id,
+                name: org.name,
                 currentPlan: plan,
                 userCount,
                 projectCount,
@@ -80,7 +60,7 @@ export default async function AdminSubscriptionsPage() {
                 isNearLimit,
                 isOverLimit
             };
-        }).filter((o): o is NonNullable<typeof o> => o !== null);
+        });
 
         orgsWithUsage.sort((a, b) => (b.isOverLimit ? 1 : 0) - (a.isOverLimit ? 1 : 0));
 
@@ -93,7 +73,6 @@ export default async function AdminSubscriptionsPage() {
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12">
             
-            {/* Error State Hardening (Anti-[object Object]) */}
             {errorState && (
                 <div className="bg-rose-50 border border-rose-200 p-6 rounded-[2rem] flex items-start gap-4 shadow-sm animate-in zoom-in duration-300">
                     <div className="bg-rose-100 p-2 rounded-xl">
@@ -102,7 +81,7 @@ export default async function AdminSubscriptionsPage() {
                     <div>
                         <h3 className="text-rose-900 font-black uppercase text-[10px] tracking-widest mb-1">Error de Cálculo</h3>
                         <p className="text-rose-700 text-xs font-medium leading-relaxed">{errorState.message}</p>
-                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Block: Usage_Engine | Code: {errorState.code} | Trace: {errorState.traceId} | v4.3.0</p>
+                        <p className="text-rose-400 text-[9px] font-mono mt-1 uppercase">Direct DB Mode | Code: {errorState.code} | Trace: {errorState.traceId}</p>
                     </div>
                 </div>
             )}
@@ -110,7 +89,7 @@ export default async function AdminSubscriptionsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
                 <div>
                     <h1 className="text-3xl font-black italic tracking-tight text-slate-900 dark:text-white uppercase">Suscripciones & Uso</h1>
-                    <p className="text-slate-500 font-medium text-sm italic">Análisis de consumo y rentabilidad v4.3.0</p>
+                    <p className="text-slate-500 font-medium text-sm italic">Análisis de consumo y rentabilidad (Direct DB)</p>
                 </div>
             </div>
 
