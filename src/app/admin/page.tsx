@@ -237,7 +237,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ [k
                             <div className={cn("w-1.5 h-1.5 rounded-full", isSafeMode ? "bg-amber-500" : "bg-emerald-500 animate-pulse")} />
                             {isSafeMode ? 'Safe Mode' : 'Operational'}
                         </div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit v{COCKPIT_CONTRACT_VERSION}</h1>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-transparent italic uppercase">Global Cockpit</h1>
                     </div>
                     <p className="text-muted-foreground font-medium underline decoration-blue-500/20 underline-offset-8 tracking-tight italic">Panel de Orquestación y Gobernanza de SLA.</p>
                 </div>

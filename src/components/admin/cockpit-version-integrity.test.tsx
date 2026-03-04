@@ -17,8 +17,8 @@ describe('Cockpit Versioning Integrity', () => {
     });
   });
 
-  it('should use COCKPIT_CONTRACT_VERSION for version display', () => {
-    const pageContent = readFileSync('src/app/admin/page.tsx', 'utf-8');
-    expect(pageContent).toContain('v{COCKPIT_CONTRACT_VERSION}');
+  it('should use COCKPIT_CONTRACT_VERSION for version display in layout', () => {
+    const layoutContent = readFileSync('src/app/admin/layout.tsx', 'utf-8');
+    expect(layoutContent).toContain('v{COCKPIT_CONTRACT_VERSION}');
   });
 });

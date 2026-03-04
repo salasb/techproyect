@@ -13,8 +13,8 @@ A partir de la versión v4.7.2, el Global Cockpit debe utilizar **exclusivamente
 3. El build SHA se extrae automáticamente de `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`.
 
 ### Estructura de Visualización
-- **H1 (Dashboard)**: `Global Cockpit v{COCKPIT_CONTRACT_VERSION}`
-- **Header (Layout)**: `Global Cockpit v{COCKPIT_CONTRACT_VERSION}`
+- **Header (Layout)**: `Global Cockpit v{COCKPIT_CONTRACT_VERSION}` (Ubicación Oficial)
+- **H1 (Dashboard)**: `Global Cockpit` (Limpio, sin versión para evitar duplicidad)
 - **Diagnostics**: `v{COCKPIT_CONTRACT_VERSION} • App {APP_VERSION} ({BUILD_SHA})`
 
 ---
