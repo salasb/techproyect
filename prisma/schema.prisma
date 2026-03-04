@@ -6,6 +6,21 @@ datasource db {
   provider = "postgresql"
 }
 
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float    @default(0)
+  currency    String   @default("CLP")
+  interval    String   @default("month")
+  isActive    Boolean  @default(true)
+  limits      Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
 model Settings {
   id                      Int     @id @default(autoincrement())
   currency                String  @default("CLP")
@@ -486,7 +501,9 @@ model Subscription {
   compedReason           String?
   compedUntil            DateTime?
   source                 String?            @default("STRIPE")
+  planId                 String?
   organization           Organization       @relation(fields: [organizationId], references: [id])
+  plan                   Plan?              @relation(fields: [planId], references: [id])
 
 
 }

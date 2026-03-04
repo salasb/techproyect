@@ -11,7 +11,7 @@ import { Pencil, Plus, CreditCard, AlertTriangle, Users, Zap } from "lucide-reac
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
-import { AdminMasterService } from "@/lib/admin/admin-master-service";
+import { PlansMasterService } from "@/lib/admin/plans-master-service";
 
 export const dynamic = 'force-dynamic';
 
@@ -22,12 +22,7 @@ export default async function AdminPlansPage() {
     let errorState: { message: string; code: string; traceId: string } | null = null;
 
     try {
-        // En este proyecto, los planes parecen estar definidos en el JSON de Settings 
-        // o en un modelo 'Plan' que el generador de Prisma podría no haber detectado 
-        // si no está en schema.prisma. Por ahora, manejamos el listado desde Settings.
-        const settings = await AdminMasterService.getGlobalPlans();
-        // Fallback: Si no hay modelo Plan, mostramos mensaje claro o data de ejemplo controlada
-        plans = []; 
+        plans = await PlansMasterService.getPlans();
     } catch (err: unknown) {
         const normalized = normalizeOperationalError(err);
         console.error(`[ADMIN_PLANS][${traceId}][${normalized.code}] ${normalized.message}`);
@@ -81,15 +76,41 @@ export default async function AdminPlansPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {plans.map((p) => (
-                                    <TableRow key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors group">
-                                        <TableCell className="px-8 py-5">
-                                            <div className="font-bold text-slate-900 dark:text-white uppercase tracking-tight">{p.name}</div>
-                                            <div className="text-[10px] font-mono text-muted-foreground uppercase opacity-60">{p.id}</div>
-                                        </TableCell>
-                                        {/* ... resto de celdas ... */}
-                                    </TableRow>
-                                ))}
+                                {plans.map((p) => {
+                                    const limits = (p.limits as Record<string, any>) || {};
+                                    return (
+                                        <TableRow key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors group">
+                                            <TableCell className="px-8 py-5">
+                                                <div className="font-bold text-slate-900 dark:text-white uppercase tracking-tight">{p.name}</div>
+                                                <div className="text-[10px] font-mono text-muted-foreground uppercase opacity-60">{p.id}</div>
+                                            </TableCell>
+                                            <TableCell className="px-8 py-5 font-black text-blue-600 text-lg tracking-tighter">
+                                                ${p.price.toLocaleString()} <span className="text-[9px] font-bold text-slate-400 uppercase ml-1 tracking-widest">{p.currency} / {p.interval}</span>
+                                            </TableCell>
+                                            <TableCell className="px-8 py-5 text-center">
+                                                <div className="inline-flex items-center gap-3 bg-slate-100 dark:bg-zinc-800 px-4 py-1.5 rounded-full text-[10px] font-black text-slate-600 dark:text-slate-400 border border-border shadow-inner uppercase tracking-widest">
+                                                    <Users className="w-3 h-3 text-blue-500" /> {limits.maxUsers || '∞'} 
+                                                    <span className="text-slate-300">|</span> 
+                                                    <Zap className="w-3 h-3 text-amber-500" /> {limits.maxProjects || '∞'}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="px-8 py-5 text-center">
+                                                {p.isActive ? (
+                                                    <Badge variant="outline" className="rounded-lg bg-emerald-50 text-emerald-700 border-emerald-200 uppercase text-[9px] font-black tracking-widest shadow-sm">Activo</Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="rounded-lg bg-slate-50 text-slate-400 border-slate-200 uppercase text-[9px] font-black tracking-widest opacity-50">Inactivo</Badge>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="px-8 py-5 text-right">
+                                                <Link href={`/admin/plans/${p.id}`}>
+                                                    <Button variant="ghost" size="icon" className="rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-400 hover:text-blue-600 transition-all active:scale-90">
+                                                        <Pencil className="w-4 h-4" />
+                                                    </Button>
+                                                </Link>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     </div>
