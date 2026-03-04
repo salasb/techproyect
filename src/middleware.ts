@@ -2,10 +2,9 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Middleware Recovery Mode (v1.3)
- * Goal: Absolute prevention of redirect loops.
- * Responsibility: ONLY validate basic session. 
- * Routing logic (context, memberships) belongs strictly to Node runtime.
+ * Middleware Recovery Mode (v1.4)
+ * Goal: Eliminate all redirect loops.
+ * Strategy: TOTAL BYPASS for infrastructure routes. Only session check for others.
  */
 export async function updateSession(request: NextRequest) {
     const traceId = Math.random().toString(36).substring(7).toUpperCase();
@@ -50,34 +49,32 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // A) CRITICAL BYPASS (Public & Onboarding routes)
-    // These routes MUST NEVER be redirected by middleware to prevent loops.
-    const bypassPrefixes = [
+    // A) INFRASTRUCTURE BYPASS
+    // These routes MUST NEVER be redirected by middleware.
+    const bypassList = [
         '/login', '/signup', '/forgot-password', 
         '/auth', '/api', '/_next', '/favicon.ico', 
         '/start', '/pending-activation', '/logout'
     ];
-    const shouldBypass = bypassPrefixes.some(p => pathname.startsWith(p));
-    const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|css|js)$/);
+    const isBypass = bypassList.some(p => pathname.startsWith(p));
+    const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|css|js|woff2?)$/);
 
-    if (shouldBypass || isAsset) {
+    if (isBypass || isAsset) {
         return response;
     }
 
     // B) SESSION GUARD
-    // Only redirect to login if there is no session at all
     if (!user) {
         const target = '/login';
         const res = NextResponse.redirect(new URL(target, request.url));
-        res.headers.set('x-redirect-reason', 'unauthed_protected_access');
+        res.headers.set('x-redirect-reason', 'unauthed_access');
         res.headers.set('x-redirect-target', target);
         res.headers.set('x-trace-id', traceId);
         return res;
     }
 
-    // C) AUTHENTICATED PASS-THROUGH
-    // Context resolution and routing (e.g. /dashboard -> /start) 
-    // MUST happen in Node runtime components.
+    // C) AUTHENTICATED -> Let it pass. 
+    // Business routing logic (org selection) belongs strictly to Node runtime components.
     return response
 }
 

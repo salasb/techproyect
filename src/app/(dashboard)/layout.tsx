@@ -33,15 +33,14 @@ export default async function DashboardLayout({
         recommendedRoute: workspace.recommendedRoute
     });
 
-    // In layout, we only redirect if it's a critical mismatch (e.g. not authed or no org context)
-    if (redirectPath && redirectPath !== '/dashboard') {
-        // Safe harbor check: don't redirect if we are already on a valid target path
-        // For layouts, since they wrap multiple routes, we only redirect if it's a structural jump.
-        if (redirectPath === '/login' || redirectPath === '/start' || redirectPath === '/org/select' || (workspace.isSuperadmin && redirectPath === '/admin')) {
-            const { redirect } = await import("next/navigation");
-            redirect(redirectPath);
-        }
+    // In layout, we only redirect if it's a critical auth mismatch
+    if (redirectPath === '/login') {
+        const { redirect } = await import("next/navigation");
+        redirect('/login');
     }
+
+    // NEW: Don't redirect to /start. Instead, we show the overlay if activeOrgId is missing.
+    const showNoOrgOverlay = !workspace.activeOrgId;
 
     let profile = null;
     if (user) {
@@ -86,9 +85,13 @@ export default async function DashboardLayout({
         }
     }
 
+    const { NoOrgOverlay } = await import("@/components/auth/NoOrgOverlay");
+
     return (
         <PaywallProvider>
-            <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans">
+            <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans relative">
+                {showNoOrgOverlay && <NoOrgOverlay />}
+                
                 <AppSidebar 
                     profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }} 
                     settings={settings} 
