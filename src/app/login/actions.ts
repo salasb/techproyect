@@ -125,23 +125,30 @@ export async function signup(formData: FormData) {
     }
 }
 
+import { getURL } from '@/lib/auth/utils'
+
 export async function forgotPassword(formData: FormData) {
+    const traceId = Math.random().toString(36).substring(7).toUpperCase()
     const supabase = await createClient()
     const rawEmail = formData.get('email') as string
     const email = rawEmail.trim().toLowerCase()
 
+    console.log(`[AUTH][${traceId}] Password reset request for: ${email}`)
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback?next=/settings/profile`,
+        redirectTo: getURL('/auth/update-password'),
     })
 
     if (error) {
-        console.error(`[AUTH ERROR] resetPassword: ${error.message}`)
+        console.error(`[AUTH][${traceId}] resetPassword error: ${error.message}`)
+        // We still return success to prevent enumeration, but log the real error
     }
 
     // Anti-enumeration: always return success
     return {
         success: true,
-        message: 'Si el correo está registrado, te enviaremos un enlace para restablecer tu contraseña.'
+        traceId,
+        message: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña. Revisa tu carpeta de spam.'
     }
 }
 
