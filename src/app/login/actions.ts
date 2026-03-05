@@ -128,7 +128,7 @@ export async function signup(formData: FormData) {
 import { getURL } from '@/lib/auth/utils'
 
 export async function forgotPassword(formData: FormData) {
-    const traceId = Math.random().toString(36).substring(7).toUpperCase()
+    const traceId = `REC-${Math.random().toString(36).substring(7).toUpperCase()}`
     const supabase = await createClient()
     const rawEmail = formData.get('email') as string
     const email = rawEmail.trim().toLowerCase()
@@ -140,15 +140,33 @@ export async function forgotPassword(formData: FormData) {
     })
 
     if (error) {
-        console.error(`[AUTH][${traceId}] resetPassword error: ${error.message}`)
-        // We still return success to prevent enumeration, but log the real error
+        console.error(`[AUTH][${traceId}] Supabase Error:`, error.message, "Status:", error.status)
+        
+        // Errores de infraestructura: SÍ los reportamos de forma neutral
+        const infraErrors = [
+            'rate limit', 
+            'not authorized', 
+            'provider', 
+            'smtp', 
+            'limit exceeded'
+        ]
+        
+        if (infraErrors.some(msg => error.message.toLowerCase().includes(msg)) || error.status === 429) {
+            return { 
+                error: 'No pudimos enviar el correo en este momento. Intenta más tarde.',
+                traceId 
+            }
+        }
+
+        // Para otros errores (como redirect_uri not allowed), mantenemos la privacidad
+        // pero logueamos el error real en el servidor con el traceId.
     }
 
-    // Anti-enumeration: always return success
+    // Respuesta exitosa genérica (Anti-enumeración)
     return {
         success: true,
         traceId,
-        message: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña. Revisa tu carpeta de spam.'
+        message: 'Si el correo es válido, recibirás un enlace en breve. Revisa Spam y espera 2 minutos.'
     }
 }
 

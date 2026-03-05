@@ -15,7 +15,7 @@ export default function UpdatePasswordPage() {
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useState<{msg: string, traceId?: string} | null>(null)
     const [success, setSuccess] = useState(false)
     const [isValidSession, setIsValidSession] = useState<boolean | null>(null)
 
@@ -40,17 +40,18 @@ export default function UpdatePasswordPage() {
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault()
+        const currentTraceId = Math.random().toString(36).substring(7).toUpperCase()
         setLoading(true)
         setError(null)
 
         if (password.length < 6) {
-            setError('La contraseña debe tener al menos 6 caracteres.')
+            setError({ msg: 'La contraseña debe tener al menos 6 caracteres.' })
             setLoading(false)
             return
         }
 
         if (password !== confirmPassword) {
-            setError('Las contraseñas no coinciden.')
+            setError({ msg: 'Las contraseñas no coinciden.' })
             setLoading(false)
             return
         }
@@ -60,12 +61,12 @@ export default function UpdatePasswordPage() {
         })
 
         if (error) {
-            setError(error.message)
+            console.error(`[UPDATE_PWD][${currentTraceId}] Error:`, error.message)
+            setError({ msg: error.message, traceId: currentTraceId })
             setLoading(false)
         } else {
             setSuccess(true)
             setLoading(false)
-            // Redirect after 3 seconds
             setTimeout(() => router.push('/login'), 3000)
         }
     }
@@ -133,9 +134,14 @@ export default function UpdatePasswordPage() {
                             </div>
 
                             {error && (
-                                <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-start gap-3 animate-in fade-in duration-300">
-                                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                                    <p className="text-rose-700 text-xs font-bold">{error}</p>
+                                <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex flex-col gap-1 animate-in fade-in duration-300">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                                        <p className="text-rose-700 text-xs font-bold">{error.msg}</p>
+                                    </div>
+                                    {error.traceId && (
+                                        <p className="text-[9px] text-rose-400 font-mono ml-7 uppercase tracking-widest">ID Seguimiento: {error.traceId}</p>
+                                    )}
                                 </div>
                             )}
 
