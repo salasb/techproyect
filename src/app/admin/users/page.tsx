@@ -4,6 +4,7 @@ import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table";
 import { UserAdminRow } from "@/components/admin/UserAdminRow";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
 import { AdminMasterService } from "@/lib/admin/admin-master-service";
+import { PurgeUsersTool } from "@/components/admin/PurgeUsersTool";
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,8 @@ export default async function AdminUsersPage() {
                     <div className="text-4xl font-black text-blue-600 tracking-tighter italic">{count}</div>
                 </div>
             </div>
+
+            <PurgeUsersTool />
 
             <Card className="rounded-[3rem] border-border shadow-2xl overflow-hidden bg-card transition-all hover:shadow-blue-500/5">
                 <CardHeader className="bg-slate-50/50 dark:bg-zinc-900/50 border-b border-border p-8">
