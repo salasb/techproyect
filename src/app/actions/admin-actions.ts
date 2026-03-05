@@ -3,7 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
-import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
+import { resolveSuperadminAccess } from "@/lib/auth/server-resolver";
 
 /**
  * Overrides a subscription to be "Comped" (Free).

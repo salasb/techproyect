@@ -8,7 +8,7 @@ import {
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { logout } from "@/app/login/actions";
 import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
-import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
+import { resolveSuperadminAccess } from "@/lib/auth/server-resolver";
 import { AdminSidebarNav } from "@/components/admin/AdminSidebarNav";
 import { COCKPIT_CONTRACT_VERSION } from "@/lib/versions";
 

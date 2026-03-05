@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { normalizeOperationalError } from "@/lib/superadmin/error-normalizer";
-import { resolveSuperadminAccess } from "@/lib/auth/superadmin-guard";
+import { resolveSuperadminAccess } from "@/lib/auth/server-resolver";
 
 /**
  * Updates the activation status of an organization.

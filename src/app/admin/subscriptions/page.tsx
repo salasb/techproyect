@@ -183,7 +183,7 @@ export default async function AdminSubscriptionsPage() {
                                                 </span>
                                                 <div className="w-28 h-2 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden shadow-inner border border-border">
                                                     <div
-                                                        className={cn("h-full rounded-full transition-all duration-700", org.projectCount >= org.limits.maxProjects ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-emerald-500')}
+                                                        className={cn("h-full rounded-full transition-all duration-700", org.projectCount >= org.limits.maxProjects ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-emerald-50')}
                                                         style={{ width: `${Math.min((org.projectCount / org.limits.maxProjects) * 100, 100)}%` }}
                                                     ></div>
                                                 </div>

@@ -22,7 +22,7 @@ export async function triggerAlertsEvaluation(): Promise<OperationalActionResult
     const executedAt = new Date().toISOString();
     
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
 
         if (!access.ok) {
@@ -85,7 +85,7 @@ export async function acknowledgeCockpitAlert(fingerprint: string): Promise<Oper
     const traceId = `ACK-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -109,7 +109,7 @@ export async function snoozeCockpitAlert(fingerprint: string, preset: "1h" | "24
     const hours = snoozeMap[preset] || 1;
 
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -130,7 +130,7 @@ export async function resolveCockpitAlert(fingerprint: string, note?: string): P
     const traceId = `RESOLVE-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -151,7 +151,7 @@ export async function assignCockpitAlertOwner(fingerprint: string, ownerType: "u
     const traceId = `OWNER-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -172,7 +172,7 @@ export async function toggleCockpitPlaybookStep(fingerprint: string, stepId: str
     const traceId = `STEP-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -193,7 +193,7 @@ export async function logPlaybookOpenedAction(fingerprint: string): Promise<Oper
     const traceId = `OPEN-PLAY-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -211,7 +211,7 @@ export async function logPlaybookOpenedAction(fingerprint: string): Promise<Oper
 export async function acknowledgeAlert(alertId: string): Promise<OperationalActionResult> {
     const traceId = `ACK-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Sesión sin privilegios suficientes.", meta: { traceId } };
 
@@ -238,7 +238,7 @@ export async function resetCockpitPlaybookAction(fingerprint: string): Promise<O
     const traceId = `RESET-PLAY-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -257,7 +257,7 @@ export async function resetCockpitPlaybookAction(fingerprint: string): Promise<O
 export async function markNotificationRead(notificationId: string): Promise<OperationalActionResult> {
     const traceId = `NOTIF-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acción denegada.", meta: { traceId } };
 
@@ -289,7 +289,7 @@ export async function persistGlobalSettings(_formData: FormData): Promise<Operat
     }
 
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -317,7 +317,7 @@ export async function bulkAcknowledgeCockpitAlerts(fingerprints: string[]): Prom
     const traceId = `BULK-ACK-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -341,7 +341,7 @@ export async function bulkSnoozeCockpitAlerts(fingerprints: string[], preset: "1
     const hours = snoozeMap[preset] || 1;
 
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 
@@ -362,7 +362,7 @@ export async function bulkResolveCockpitAlerts(fingerprints: string[], note: str
     const traceId = `BULK-RESOLVE-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const executedAt = new Date().toISOString();
     try {
-        const { resolveSuperadminAccess } = await import('@/lib/auth/superadmin-guard');
+        const { resolveSuperadminAccess } = await import('@/lib/auth/server-resolver');
         const access = await resolveSuperadminAccess();
         if (!access.ok) return { ok: false, code: "UNAUTHORIZED", message: "Acceso denegado.", meta: { traceId, executedAt } };
 

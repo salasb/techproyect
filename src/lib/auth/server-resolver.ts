@@ -86,3 +86,10 @@ export async function requirePermission(permission: Permission): Promise<Operati
 
     return scope;
 }
+
+/**
+ * Superadmin Access Resolver (v1.0)
+ * Deterministic source of truth for Global Cockpit access.
+ */
+import { resolveSuperadminAccess } from './superadmin-guard';
+export { resolveSuperadminAccess };
