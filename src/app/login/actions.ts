@@ -4,48 +4,56 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ActivationService } from '@/services/activation-service'
+import { getURL } from '@/lib/auth/utils'
 
-function translateAuthError(errorMessage: string, type: 'login' | 'signup' | 'reset' = 'login'): string {
+/**
+ * Enhanced Error Translator for better Auth UX and debugging
+ */
+function translateAuthError(errorMessage: string, status: number = 0, type: 'login' | 'signup' | 'reset' = 'login'): string {
     const error = errorMessage.toLowerCase()
-    console.log(`[AUTH DEBUG] Error real (${type}): ${errorMessage}`)
+    
+    // 1. Explicit Infrastructure / Config Errors
+    if (status === 429 || error.includes('rate limit')) {
+        return 'Demasiados intentos. Por favor espera unos minutos antes de intentar de nuevo.'
+    }
+    
+    if (error.includes('redirect_uri_not_allowed')) {
+        return 'Error de configuración en el servidor (Redirect URI). Contacta a soporte.'
+    }
 
+    if (error.includes('email_not_confirmed') || error.includes('not confirmed')) {
+        return 'Tu correo electrónico aún no ha sido confirmado. Revisa tu bandeja de entrada.'
+    }
+
+    // 2. Specific Action Errors
     if (type === 'login') {
-        // Anti-enumeration: same message for wrong password or non-existent user
         if (error.includes('invalid login credentials') || error.includes('user not found')) {
-            return 'Correo o contraseña incorrectos.'
+            return 'El correo o la contraseña son incorrectos.'
         }
     }
 
     if (type === 'signup') {
         if (error.includes('user already registered')) {
-            return 'No pudimos crear la cuenta con esos datos.'
+            return 'Esta cuenta ya existe. Intenta iniciar sesión o recuperar tu clave.'
         }
-    }
-
-    if (error.includes('email rate limit exceeded')) {
-        return 'Demasiados intentos. Por favor espera unos minutos.'
     }
     
     if (error.includes('password should be at least')) {
         return 'La contraseña debe tener al menos 6 caracteres.'
     }
 
-    if (error.includes('email not confirmed')) {
-        return 'Tu correo aún no ha sido verificado.'
-    }
-
-    // Generic fallback for any other error
-    return 'Ocurrió un error en el proceso. Inténtalo de nuevo.'
+    // 3. Generic Fallback (Secure)
+    return 'Ocurrió un problema con la autenticación. Intenta nuevamente.'
 }
 
 export async function login(formData: FormData) {
+    const traceId = `LOG-${Math.random().toString(36).substring(7).toUpperCase()}`
     const supabase = await createClient()
-
     const rawEmail = formData.get('email') as string
     const password = formData.get('password') as string
-
-    // UX Validation & Normalization
     const email = rawEmail.trim().toLowerCase()
+
+    console.log(`[AUTH][${traceId}] Attempting login for: ${email}`)
 
     const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -53,10 +61,9 @@ export async function login(formData: FormData) {
     })
 
     if (error) {
-        // We don't track failure by org here to prevent enumeration
-        console.warn(`[AUTH] Login failed for ${email}`);
+        console.warn(`[AUTH][${traceId}] Login failed for ${email}: ${error.message} (Status: ${error.status})`);
         
-        // Attempt to track a general failure event if email exists in profile
+        // Track analytics only if user is somewhat known (has a profile)
         const { data: profile } = await supabase
             .from('Profile')
             .select('organizationId')
@@ -64,10 +71,10 @@ export async function login(formData: FormData) {
             .maybeSingle();
         
         if (profile?.organizationId) {
-            await ActivationService.trackFunnelEvent('PORTAL_LOGIN_FAILED', profile.organizationId, `login_fail_${email}_${Date.now()}`);
+            await ActivationService.trackFunnelEvent('PORTAL_LOGIN_FAILED', profile.organizationId, `${traceId}_${email}_${Date.now()}`);
         }
 
-        return { error: translateAuthError(error.message, 'login') }
+        return { error: translateAuthError(error.message, error.status || 0, 'login'), traceId }
     }
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -96,73 +103,27 @@ export async function login(formData: FormData) {
     redirect('/dashboard')
 }
 
-export async function signup(formData: FormData) {
-    const supabase = await createClient()
-
-    const rawEmail = formData.get('email') as string
-    const password = formData.get('password') as string
-    
-    // UX Normalization
-    const email = rawEmail.trim().toLowerCase()
-
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-    })
-
-    if (error) {
-        return { error: translateAuthError(error.message, 'signup') }
-    }
-
-    if (data.session) {
-        revalidatePath('/', 'layout')
-        redirect('/dashboard')
-    }
-
-    return {
-        success: true,
-        message: 'Si los datos son válidos, hemos enviado un correo de confirmación.'
-    }
-}
-
-import { getURL } from '@/lib/auth/utils'
-
 export async function forgotPassword(formData: FormData) {
     const traceId = `REC-${Math.random().toString(36).substring(7).toUpperCase()}`
     const supabase = await createClient()
     const rawEmail = formData.get('email') as string
     const email = rawEmail.trim().toLowerCase()
-
-    console.log(`[AUTH][${traceId}] Password reset request for: ${email}`)
+    
+    const redirectTo = getURL('/auth/update-password')
+    console.log(`[AUTH][${traceId}] Recovery request for: ${email} (RedirectTo: ${redirectTo})`)
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: getURL('/auth/update-password'),
+        redirectTo,
     })
 
     if (error) {
-        console.error(`[AUTH][${traceId}] Supabase Error:`, error.message, "Status:", error.status)
-        
-        // Errores de infraestructura: SÍ los reportamos de forma neutral
-        const infraErrors = [
-            'rate limit', 
-            'not authorized', 
-            'provider', 
-            'smtp', 
-            'limit exceeded'
-        ]
-        
-        if (infraErrors.some(msg => error.message.toLowerCase().includes(msg)) || error.status === 429) {
-            return { 
-                error: 'No pudimos enviar el correo en este momento. Intenta más tarde.',
-                traceId 
-            }
+        console.error(`[AUTH][${traceId}] Reset Error: ${error.message} (Status: ${error.status})`)
+        return { 
+            error: translateAuthError(error.message, error.status || 0, 'reset'),
+            traceId 
         }
-
-        // Para otros errores (como redirect_uri not allowed), mantenemos la privacidad
-        // pero logueamos el error real en el servidor con el traceId.
     }
 
-    // Respuesta exitosa genérica (Anti-enumeración)
     return {
         success: true,
         traceId,
