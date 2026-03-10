@@ -131,6 +131,37 @@ export async function forgotPassword(formData: FormData) {
     }
 }
 
+export async function signup(formData: FormData) {
+    const traceId = `REG-${Math.random().toString(36).substring(7).toUpperCase()}`
+    const supabase = await createClient()
+    const rawEmail = formData.get('email') as string
+    const password = formData.get('password') as string
+    const email = rawEmail.trim().toLowerCase()
+
+    console.log(`[AUTH][${traceId}] Attempting signup for: ${email}`)
+
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+    })
+
+    if (error) {
+        console.error(`[AUTH][${traceId}] Signup Error: ${error.message} (Status: ${error.status})`)
+        return { error: translateAuthError(error.message, error.status || 0, 'signup'), traceId }
+    }
+
+    if (data.session) {
+        revalidatePath('/', 'layout')
+        redirect('/dashboard')
+    }
+
+    return {
+        success: true,
+        traceId,
+        message: 'Si los datos son válidos, hemos enviado un correo de confirmación. Revisa tu bandeja de entrada.'
+    }
+}
+
 export async function logout() {
     const supabase = await createClient()
     await supabase.auth.signOut()
