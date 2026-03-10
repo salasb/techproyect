@@ -104,29 +104,40 @@ export async function createClientAction(formData: FormData) {
 
 export async function createQuickClient(formData: FormData) {
     const traceId = `CQC-${Math.random().toString(36).substring(7).toUpperCase()}`;
-    const scope = await requirePermission('CRM_MANAGE');
-    await ensureNotPaused(scope.orgId);
+    console.log(`[AUTH][${traceId}] Starting createQuickClient`);
     
-    // Unified approach: Use Supabase Data API for consistency and RLS safety
-    const supabase = await createClient();
-
-    const name = formData.get('name') as string;
-    const email = formData.get('email') as string;
-    const phone = formData.get('phone') as string;
-
-    console.log(`[${traceId}] Creating quick client: ${name} for org: ${scope.orgId}`);
-
-    const clientId = crypto.randomUUID();
-
     try {
+        const scope = await requirePermission('CRM_MANAGE');
+        console.log(`[AUTH][${traceId}] Context: orgId=${scope.orgId}, userId=${scope.userId}`);
+        
+        await ensureNotPaused(scope.orgId);
+        
+        // Unified approach: Use Supabase Data API for consistency and RLS safety
+        const supabase = await createClient();
+
+        const name = formData.get('name') as string;
+        const email = formData.get('email') as string;
+        const phone = formData.get('phone') as string;
+
+        if (!name || name.trim() === '') {
+            console.warn(`[AUTH][${traceId}] Validation failed: Missing client name`);
+            return { success: false, error: "El nombre es requerido", traceId };
+        }
+
+        console.log(`[AUTH][${traceId}] Payload: name=${name}, email=${email}, phone=${phone}`);
+
+        const clientId = crypto.randomUUID();
+
+        // 1. ATTEMPT INSERT
+        console.log(`[AUTH][${traceId}] Attempting Supabase insert for clientId: ${clientId}`);
         const { data: newClient, error: clientError } = await supabase
             .from('Client')
             .insert({
                 id: clientId,
                 organizationId: scope.orgId,
-                name,
-                email: email || null,
-                phone: phone || null,
+                name: name.trim(),
+                email: email?.trim() || null,
+                phone: phone?.trim() || null,
                 status: 'PROSPECT',
                 updatedAt: new Date().toISOString(),
                 createdAt: new Date().toISOString()
@@ -135,24 +146,48 @@ export async function createQuickClient(formData: FormData) {
             .single();
 
         if (clientError) {
-            console.error(`[${traceId}] Supabase Insert Error:`, clientError.message);
-            return { success: false, error: clientError.message };
+            console.error(`[AUTH][${traceId}] Supabase Insert Error:`, clientError.message, clientError.details, clientError.hint);
+            return { success: false, error: `Error en base de datos: ${clientError.message}`, traceId };
         }
 
-        // [Activation] Track Milestone
-        await ActivationService.trackFirst('FIRST_CLIENT_CREATED', scope.orgId, undefined, clientId);
+        console.log(`[AUTH][${traceId}] Insert successful. Client created.`);
 
-        revalidatePath('/clients');
+        // 2. TRACK MILESTONE
+        try {
+            await ActivationService.trackFirst('FIRST_CLIENT_CREATED', scope.orgId, undefined, clientId);
+            console.log(`[AUTH][${traceId}] Milestone tracked.`);
+        } catch (trackErr) {
+            console.warn(`[AUTH][${traceId}] Non-blocking error tracking milestone:`, trackErr);
+        }
+
+        // 3. REVALIDATE
+        console.log(`[AUTH][${traceId}] Revalidating paths...`);
+        try {
+            revalidatePath('/clients');
+            revalidatePath('/projects/new'); 
+            console.log(`[AUTH][${traceId}] Revalidation triggered.`);
+        } catch (revalErr) {
+            console.warn(`[AUTH][${traceId}] Revalidation warning:`, revalErr);
+        }
         
-        // Return normalized object (ISO strings) to prevent serialization errors in Next.js 14
+        // Return MINIMAL serializable data to avoid hydration/render errors in production
+        // Next.js 14 can crash if the returned object has complex prototypes or non-primitive types
         return { 
             success: true, 
-            client: normalizeClient(newClient),
+            client: {
+                id: String(newClient.id),
+                name: String(newClient.name)
+            },
             traceId
         };
     } catch (error: any) {
-        console.error(`[${traceId}] Unexpected Error:`, error);
-        return { success: false, error: "Error interno al crear cliente rápido", traceId };
+        console.error(`[AUTH][${traceId}] CRITICAL UNEXPECTED ERROR:`, error.message, error.stack);
+        // If it's a ScopeError or Permission error, it might be caught here
+        return { 
+            success: false, 
+            error: error.message || "Error interno inesperado", 
+            traceId 
+        };
     }
 }
 
