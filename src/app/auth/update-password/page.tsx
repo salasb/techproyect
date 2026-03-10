@@ -45,13 +45,13 @@ export default function UpdatePasswordPage() {
         setError(null)
 
         if (password.length < 6) {
-            setError({ msg: 'La contraseña debe tener al menos 6 caracteres.' })
+            setError({ msg: 'Tu nueva contraseña debe tener al menos 6 caracteres para ser segura.' })
             setLoading(false)
             return
         }
 
         if (password !== confirmPassword) {
-            setError({ msg: 'Las contraseñas no coinciden.' })
+            setError({ msg: 'Las contraseñas ingresadas no coinciden. Por favor verifícalas.' })
             setLoading(false)
             return
         }
@@ -62,12 +62,18 @@ export default function UpdatePasswordPage() {
 
         if (error) {
             console.error(`[UPDATE_PWD][${currentTraceId}] Error:`, error.message)
-            setError({ msg: error.message, traceId: currentTraceId })
+            // Handle common error like same password
+            if (error.message.toLowerCase().includes('same as old')) {
+                setError({ msg: 'La nueva contraseña no puede ser igual a la anterior.', traceId: currentTraceId })
+            } else {
+                setError({ msg: 'No pudimos actualizar tu contraseña. Es posible que el enlace haya expirado.', traceId: currentTraceId })
+            }
             setLoading(false)
         } else {
             setSuccess(true)
             setLoading(false)
-            setTimeout(() => router.push('/login'), 3000)
+            // Longer delay for user to read success message
+            setTimeout(() => router.push('/login?message=Contraseña actualizada correctamente'), 4000)
         }
     }
 
