@@ -1,44 +1,31 @@
 import prisma from "@/lib/prisma";
 import { SubscriptionStatus } from "@prisma/client";
+import { getWriteAccessContext } from "@/lib/auth/write-guard";
 
 /**
  * Checks if an organization is in a read-only state (PAUSED or canceled trial).
+ * Deprecated: Use getWriteAccessContext() from @/lib/auth/write-guard instead.
  */
 export async function isOrganizationPaused(organizationId: string): Promise<boolean> {
-    const subscription = await prisma.subscription.findUnique({
-        where: { organizationId },
-        select: {
-            status: true,
-            trialEndsAt: true
-        }
-    });
-
-    if (!subscription) return false;
-
-    // Paused if explicitly paused or canceled
-    const status = subscription.status;
-    if (status === SubscriptionStatus.PAUSED || status === SubscriptionStatus.CANCELED) {
-        return true;
-    }
-
-    // Trial validation
-    if (subscription.status === SubscriptionStatus.TRIALING && subscription.trialEndsAt) {
-        return new Date() > subscription.trialEndsAt;
-    }
-
-    return false;
+    const context = await getWriteAccessContext();
+    return !context.allowed && (context.reason === 'BILLING_PAUSED' || context.reason === 'BILLING_CANCELED' || context.reason === 'TRIAL_EXPIRED');
 }
 
 /**
- * Guard for Server Actions. Throws an error if the organization is paused.
+ * Guard for Server Actions. Throws an error if the organization is in read-only mode.
  * Use this at the beginning of any create, update, or delete action.
  * The message "READ_ONLY_MODE" is intercepted by the PaywallProvider.
  */
 export async function ensureNotPaused(organizationId: string) {
-    const paused = await isOrganizationPaused(organizationId);
-    if (paused) {
-        throw new Error("READ_ONLY_MODE");
+    const context = await getWriteAccessContext();
+    if (!context.allowed) {
+        // Log the reason for auditability
+        console.log(`[WriteGuard][Blocked] orgId=${organizationId}, reason=${context.reason}`);
+        
+        // We throw the specific message so PaywallContext can show it to the user
+        throw new Error(`READ_ONLY_MODE:${context.message}`);
     }
+    return context;
 }
 
 /**

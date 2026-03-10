@@ -14,11 +14,24 @@ const PaywallContext = createContext<PaywallContextType | undefined>(undefined);
 export function PaywallProvider({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
 
-    const showPaywall = useCallback(() => setIsOpen(true), []);
-    const hidePaywall = useCallback(() => setIsOpen(false), []);
+    const [message, setMessage] = useState<string | undefined>(undefined);
+
+    const showPaywall = useCallback((msg?: string) => {
+        setMessage(msg);
+        setIsOpen(true);
+    }, []);
+
+    const hidePaywall = useCallback(() => {
+        setIsOpen(false);
+        setMessage(undefined);
+    }, []);
 
     const handleActionError = useCallback((error: any) => {
-        if (error?.message === "READ_ONLY_MODE" || error === "READ_ONLY_MODE") {
+        const errorMsg = error?.message || error || "";
+        if (typeof errorMsg === 'string' && errorMsg.startsWith("READ_ONLY_MODE")) {
+            const parts = errorMsg.split(":");
+            const customMessage = parts.length > 1 ? parts.slice(1).join(":") : undefined;
+            setMessage(customMessage);
             setIsOpen(true);
             return true;
         }
@@ -28,7 +41,7 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
     return (
         <PaywallContext.Provider value={{ showPaywall, hidePaywall, handleActionError }}>
             {children}
-            <ReadOnlyModal isOpen={isOpen} onClose={hidePaywall} />
+            <ReadOnlyModal isOpen={isOpen} onClose={hidePaywall} message={message} />
         </PaywallContext.Provider>
     );
 }

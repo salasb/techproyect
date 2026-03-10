@@ -9,9 +9,10 @@ interface ReadOnlyModalProps {
     isOpen: boolean;
     onClose: () => void;
     variant?: 'A' | 'B';
+    message?: string;
 }
 
-export function ReadOnlyModal({ isOpen, onClose, variant = 'A' }: ReadOnlyModalProps) {
+export function ReadOnlyModal({ isOpen, onClose, variant = 'A', message }: ReadOnlyModalProps) {
     if (!isOpen) return null;
 
     return (
@@ -36,9 +37,9 @@ export function ReadOnlyModal({ isOpen, onClose, variant = 'A' }: ReadOnlyModalP
                             {variant === 'A' ? "Modo de solo lectura" : "Acceso restringido"}
                         </h3>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                            {variant === 'A'
+                            {message ? message : (variant === 'A'
                                 ? "Tu suscripción no está activa. Para realizar cambios o crear documentos, necesitas activar un plan."
-                                : "Tu trial ha terminado. No pierdas el trabajo avanzado, activa tu suscripción para seguir gestionando tus proyectos."}
+                                : "Tu trial ha terminado. No pierdas el trabajo avanzado, activa tu suscripción para seguir gestionando tus proyectos.")}
                         </p>
                     </div>
 

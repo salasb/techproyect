@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRut, cleanRut, formatRut } from "@/lib/rut";
 import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
-import { ensureNotPaused } from "@/lib/guards/subscription-guard";
+import { ensureWriteAccess } from "@/lib/auth/write-guard";
 import { ActivationService } from "@/services/activation-service";
 
 /**
@@ -34,7 +34,7 @@ export async function getClients() {
 
 export async function createClientAction(formData: FormData) {
     const scope = await requirePermission('CRM_MANAGE');
-    await ensureNotPaused(scope.orgId);
+    await ensureWriteAccess();
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -108,9 +108,8 @@ export async function createQuickClient(formData: FormData) {
     
     try {
         const scope = await requirePermission('CRM_MANAGE');
-        console.log(`[AUTH][${traceId}] Context: orgId=${scope.orgId}, userId=${scope.userId}`);
-        
-        await ensureNotPaused(scope.orgId);
+        const writeContext = await ensureWriteAccess();
+        console.log(`[AUTH][${traceId}] Context: orgId=${scope.orgId}, userId=${scope.userId}, reason=${writeContext.reason}`);
         
         // Unified approach: Use Supabase Data API for consistency and RLS safety
         const supabase = await createClient();
@@ -193,7 +192,7 @@ export async function createQuickClient(formData: FormData) {
 
 export async function updateClientAction(clientId: string, formData: FormData) {
     const scope = await requirePermission('CRM_MANAGE');
-    await ensureNotPaused(scope.orgId);
+    await ensureWriteAccess();
     const supabase = await createClient();
 
     const name = formData.get('name') as string;
@@ -259,7 +258,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 
 export async function deleteClientAction(clientId: string) {
     const scope = await requirePermission('CRM_MANAGE');
-    await ensureNotPaused(scope.orgId);
+    await ensureWriteAccess();
     const supabase = await createClient();
     const { error } = await supabase.from('Client').delete().eq('id', clientId).eq('organizationId', scope.orgId);
     if (error) throw new Error(error.message);
