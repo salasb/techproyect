@@ -4,13 +4,13 @@ import { requireOperationalScope } from "./server-resolver";
 
 export type WriteAccessReason = 
     | 'OK' 
-    | 'BILLING_PAUSED' 
-    | 'BILLING_CANCELED' 
-    | 'BILLING_PAST_DUE'
-    | 'TRIAL_EXPIRED'
-    | 'ORG_MISSING' 
+    | 'TRIAL_EXPIRED' 
+    | 'SUBSCRIPTION_PAUSED' 
+    | 'SUBSCRIPTION_CANCELED' 
+    | 'SUBSCRIPTION_PAST_DUE'
+    | 'NO_ACTIVE_ORG' 
     | 'NO_MEMBERSHIP' 
-    | 'PLAN_RESTRICTED' 
+    | 'STAFF_BYPASS' 
     | 'EXPLICIT_READ_ONLY'
     | 'UNAUTHORIZED';
 
@@ -18,14 +18,21 @@ export interface WriteAccessContext {
     allowed: boolean;
     reason: WriteAccessReason;
     message: string;
-    orgId?: string;
+    orgId: string | null;
+    subscriptionStatus: string | null;
+    trialEndsAt: Date | null;
+    bypassApplied: boolean;
+    userId?: string;
+    traceId: string;
 }
 
 /**
  * Canonical helper to check if the current context allows write operations.
- * Implements Rule 2 & Rule 3: Single source of truth and role-based bypass.
+ * Implements Rule 1, 2 & 3: Consolidated source of truth with observability.
  */
 export async function getWriteAccessContext(): Promise<WriteAccessContext> {
+    const traceId = `WRC-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    
     try {
         const scope = await requireOperationalScope();
         const { orgId, userId, role } = scope;
@@ -33,17 +40,35 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
         if (!orgId) {
             return {
                 allowed: false,
-                reason: 'ORG_MISSING',
-                message: 'No se ha seleccionado una organización activa.'
+                reason: 'NO_ACTIVE_ORG',
+                message: 'No se ha seleccionado una organización activa para operar.',
+                orgId: null,
+                subscriptionStatus: null,
+                trialEndsAt: null,
+                bypassApplied: false,
+                userId,
+                traceId
             };
         }
 
-        // Rule 3: SUPERADMIN bypass
+        // Rule 2: SUPERADMIN / Staff Bypass
+        // Internal staff should always be able to operate for support/demo purposes
         if (role === 'SUPERADMIN') {
-            return { allowed: true, reason: 'OK', message: 'Acceso total concedido (Superadmin).', orgId };
+            console.log(`[WriteGuard][${traceId}] STAFF BYPASS APPLIED for user ${userId} on org ${orgId}`);
+            return { 
+                allowed: true, 
+                reason: 'STAFF_BYPASS', 
+                message: 'Acceso administrativo concedido.', 
+                orgId,
+                subscriptionStatus: 'BYPASS',
+                trialEndsAt: null,
+                bypassApplied: true,
+                userId,
+                traceId
+            };
         }
 
-        // Fetch subscription state
+        // Fetch subscription state from DB
         const subscription = await prisma.subscription.findUnique({
             where: { organizationId: orgId },
             select: {
@@ -52,63 +77,111 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
             }
         });
 
+        const subStatus = subscription?.status || null;
+        const trialEnd = subscription?.trialEndsAt || null;
+
+        console.log(`[WriteGuard][${traceId}] Checking org: ${orgId}, Status: ${subStatus}, TrialEnd: ${trialEnd}`);
+
         if (!subscription) {
-            // If no subscription record, assume it is a legacy org or under special setup.
-            // For now, allow but log.
-            console.warn(`[WriteGuard] No subscription found for org ${orgId}. Allowing write access by default.`);
-            return { allowed: true, reason: 'OK', message: 'Acceso concedido.', orgId };
+            // No subscription record found. Rule: Default allow for legacy/bootstrap orgs
+            // but return OK with limited context.
+            return { 
+                allowed: true, 
+                reason: 'OK', 
+                message: 'Suscripción no configurada (Default Allow).', 
+                orgId,
+                subscriptionStatus: null,
+                trialEndsAt: null,
+                bypassApplied: false,
+                userId,
+                traceId
+            };
         }
 
-        const status = subscription.status;
-
-        if (status === SubscriptionStatus.PAUSED) {
+        // Evaluate business blocking rules (Rule 1)
+        if (subStatus === SubscriptionStatus.PAUSED) {
             return {
                 allowed: false,
-                reason: 'BILLING_PAUSED',
+                reason: 'SUBSCRIPTION_PAUSED',
                 message: 'Tu espacio está temporalmente en modo solo lectura porque la suscripción está pausada. Reanuda la suscripción para realizar cambios.',
-                orgId
+                orgId,
+                subscriptionStatus: subStatus,
+                trialEndsAt: trialEnd,
+                bypassApplied: false,
+                userId,
+                traceId
             };
         }
 
-        if (status === SubscriptionStatus.CANCELED) {
+        if (subStatus === SubscriptionStatus.CANCELED) {
             return {
                 allowed: false,
-                reason: 'BILLING_CANCELED',
+                reason: 'SUBSCRIPTION_CANCELED',
                 message: 'Tu espacio está en modo solo lectura porque la suscripción ha sido cancelada.',
-                orgId
+                orgId,
+                subscriptionStatus: subStatus,
+                trialEndsAt: trialEnd,
+                bypassApplied: false,
+                userId,
+                traceId
             };
         }
 
-        if (status === SubscriptionStatus.PAST_DUE) {
+        if (subStatus === SubscriptionStatus.PAST_DUE) {
             return {
                 allowed: false,
-                reason: 'BILLING_PAST_DUE',
+                reason: 'SUBSCRIPTION_PAST_DUE',
                 message: 'Tu espacio está en modo solo lectura por un pago pendiente. Actualiza tu método de pago para continuar.',
-                orgId
+                orgId,
+                subscriptionStatus: subStatus,
+                trialEndsAt: trialEnd,
+                bypassApplied: false,
+                userId,
+                traceId
             };
         }
 
         // Trial validation
-        if (status === SubscriptionStatus.TRIALING && subscription.trialEndsAt) {
-            const isExpired = new Date() > subscription.trialEndsAt;
+        if (subStatus === SubscriptionStatus.TRIALING && trialEnd) {
+            const isExpired = new Date() > trialEnd;
             if (isExpired) {
                 return {
                     allowed: false,
                     reason: 'TRIAL_EXPIRED',
                     message: 'Tu periodo de prueba ha expirado. Activa un plan para continuar creando clientes y proyectos.',
-                    orgId
+                    orgId,
+                    subscriptionStatus: subStatus,
+                    trialEndsAt: trialEnd,
+                    bypassApplied: false,
+                    userId,
+                    traceId
                 };
             }
         }
 
-        return { allowed: true, reason: 'OK', message: 'Acceso concedido.', orgId };
+        return { 
+            allowed: true, 
+            reason: 'OK', 
+            message: 'Acceso concedido.', 
+            orgId,
+            subscriptionStatus: subStatus,
+            trialEndsAt: trialEnd,
+            bypassApplied: false,
+            userId,
+            traceId
+        };
 
     } catch (error: any) {
-        console.error('[WriteGuard] Error resolving write access:', error.message);
+        console.error(`[WriteGuard][${traceId}] Error resolving write access:`, error.message);
         return {
             allowed: false,
             reason: 'UNAUTHORIZED',
-            message: 'No se pudo validar el permiso de escritura. Por favor reintenta o inicia sesión de nuevo.'
+            message: 'No se pudo validar el permiso de escritura. Por favor reintenta o inicia sesión de nuevo.',
+            orgId: null,
+            subscriptionStatus: null,
+            trialEndsAt: null,
+            bypassApplied: false,
+            traceId
         };
     }
 }
@@ -120,9 +193,6 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
 export async function ensureWriteAccess() {
     const context = await getWriteAccessContext();
     if (!context.allowed) {
-        // We still throw "READ_ONLY_MODE" for the UI interceptor, 
-        // but we should ideally pass the message.
-        // For now, let's keep the throw but we'll improve the UI to read the message if possible.
         throw new Error(`READ_ONLY_MODE:${context.message}`);
     }
     return context;

@@ -8,7 +8,7 @@ import { getWriteAccessContext } from "@/lib/auth/write-guard";
  */
 export async function isOrganizationPaused(organizationId: string): Promise<boolean> {
     const context = await getWriteAccessContext();
-    return !context.allowed && (context.reason === 'BILLING_PAUSED' || context.reason === 'BILLING_CANCELED' || context.reason === 'TRIAL_EXPIRED');
+    return !context.allowed && (context.reason === 'SUBSCRIPTION_PAUSED' || context.reason === 'SUBSCRIPTION_CANCELED' || context.reason === 'TRIAL_EXPIRED');
 }
 
 /**
