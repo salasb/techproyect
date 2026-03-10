@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ActivationService } from '@/services/activation-service'
 import { getURL } from '@/lib/auth/utils'
+import { getWorkspaceState } from '@/lib/auth/workspace-resolver'
 
 /**
  * Enhanced Error Translator for better Auth UX and debugging
@@ -62,45 +63,52 @@ export async function login(formData: FormData) {
 
     if (error) {
         console.warn(`[AUTH][${traceId}] Login failed for ${email}: ${error.message} (Status: ${error.status})`);
-        
-        // Track analytics only if user is somewhat known (has a profile)
-        const { data: profile } = await supabase
-            .from('Profile')
-            .select('organizationId')
-            .eq('email', email)
-            .maybeSingle();
-        
-        if (profile?.organizationId) {
-            await ActivationService.trackFunnelEvent('PORTAL_LOGIN_FAILED', profile.organizationId, `${traceId}_${email}_${Date.now()}`);
-        }
-
         return { error: translateAuthError(error.message, error.status || 0, 'login'), traceId }
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // After successful login, resolve canonical route
+    const state = await getWorkspaceState();
+    
+    console.log(`[AUTH][${traceId}] Login success for ${email}. State: ${state.status}, Recommended Route: ${state.recommendedRoute}`);
 
-    if (user) {
-        const { data: profile } = await supabase
-            .from('Profile')
-            .select('role, organizationId')
-            .eq('id', user.id)
-            .single();
-
-        if (profile?.organizationId) {
-            await ActivationService.trackFunnelEvent('PORTAL_LOGIN_SUCCESS', profile.organizationId, `login_${user.id}_${Date.now()}`, user.id);
-        }
-
-        revalidatePath('/', 'layout')
-
-        if (profile?.role === 'SUPERADMIN') {
-            redirect('/admin')
-        } else {
-            redirect('/dashboard')
-        }
+    if (state.activeOrgId) {
+        await ActivationService.trackFunnelEvent('PORTAL_LOGIN_SUCCESS', state.activeOrgId, `login_${state.userId}_${Date.now()}`, state.userId!);
     }
 
     revalidatePath('/', 'layout')
-    redirect('/dashboard')
+    redirect(state.recommendedRoute);
+}
+
+export async function signup(formData: FormData) {
+    const traceId = `REG-${Math.random().toString(36).substring(7).toUpperCase()}`
+    const supabase = await createClient()
+    const rawEmail = formData.get('email') as string
+    const password = formData.get('password') as string
+    const email = rawEmail.trim().toLowerCase()
+
+    console.log(`[AUTH][${traceId}] Attempting signup for: ${email}`)
+
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+    })
+
+    if (error) {
+        console.error(`[AUTH][${traceId}] Signup Error: ${error.message} (Status: ${error.status})`)
+        return { error: translateAuthError(error.message, error.status || 0, 'signup'), traceId }
+    }
+
+    if (data.session) {
+        const state = await getWorkspaceState();
+        revalidatePath('/', 'layout')
+        redirect(state.recommendedRoute);
+    }
+
+    return {
+        success: true,
+        traceId,
+        message: 'Si los datos son válidos, hemos enviado un correo de confirmación. Revisa tu bandeja de entrada.'
+    }
 }
 
 export async function forgotPassword(formData: FormData) {
@@ -128,37 +136,6 @@ export async function forgotPassword(formData: FormData) {
         success: true,
         traceId,
         message: 'Si el correo es válido, recibirás un enlace en breve. Revisa Spam y espera 2 minutos.'
-    }
-}
-
-export async function signup(formData: FormData) {
-    const traceId = `REG-${Math.random().toString(36).substring(7).toUpperCase()}`
-    const supabase = await createClient()
-    const rawEmail = formData.get('email') as string
-    const password = formData.get('password') as string
-    const email = rawEmail.trim().toLowerCase()
-
-    console.log(`[AUTH][${traceId}] Attempting signup for: ${email}`)
-
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-    })
-
-    if (error) {
-        console.error(`[AUTH][${traceId}] Signup Error: ${error.message} (Status: ${error.status})`)
-        return { error: translateAuthError(error.message, error.status || 0, 'signup'), traceId }
-    }
-
-    if (data.session) {
-        revalidatePath('/', 'layout')
-        redirect('/dashboard')
-    }
-
-    return {
-        success: true,
-        traceId,
-        message: 'Si los datos son válidos, hemos enviado un correo de confirmación. Revisa tu bandeja de entrada.'
     }
 }
 
