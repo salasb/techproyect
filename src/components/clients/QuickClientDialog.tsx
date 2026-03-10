@@ -5,25 +5,54 @@ import { Loader2, UserPlus } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { createQuickClient } from "@/actions/clients";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/Modal";
+import { usePaywall } from "@/components/dashboard/PaywallContext";
 
-export function QuickClientDialog({ isOpen, onClose, onClientCreated }: { isOpen: boolean; onClose: () => void; onClientCreated: (client: any) => void }) {
+interface QuickClientDialogProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onClientCreated: (client: { id: string; name: string }) => void;
+}
+
+export function QuickClientDialog({ isOpen, onClose, onClientCreated }: QuickClientDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    const { handleActionError } = usePaywall();
 
-    async function handleSubmit(formData: FormData) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
         setIsLoading(true);
+
+        const formData = new FormData(e.currentTarget);
+        
         try {
-            const res = await createQuickClient(formData);
-            if (res.success && res.client) {
-                toast({ type: 'success', message: "Cliente creado exitosamente" });
-                onClientCreated(res.client);
+            const result = await createQuickClient(formData);
+
+            if (result.success && result.client) {
+                toast({
+                    type: "success",
+                    message: "Cliente creado exitosamente."
+                });
+                onClientCreated(result.client);
                 onClose();
             } else {
-                throw new Error(res.error || "Error desconocido");
+                if (result.code) {
+                    handleActionError(`READ_ONLY_MODE:${result.error}`);
+                } else {
+                    toast({
+                        type: "error",
+                        message: result.error || "No se pudo crear el cliente"
+                    });
+                }
             }
-        } catch (error: any) {
-            toast({ type: 'error', message: error.message || "Error al crear cliente" });
+        } catch (err: any) {
+            console.error("[QuickClientDialog] Submission error:", err);
+            toast({
+                type: "error",
+                message: "Ocurrió un fallo en la comunicación con el servidor."
+            });
         } finally {
             setIsLoading(false);
         }
@@ -34,43 +63,43 @@ export function QuickClientDialog({ isOpen, onClose, onClientCreated }: { isOpen
             isOpen={isOpen}
             onClose={onClose}
             title="Nuevo Cliente Rápido"
-            description="Crea un cliente instantáneamente para continuar."
-            maxWidth="md"
+            description="Crea un prospecto rápidamente para asociarlo a este proyecto."
         >
-            <form action={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Nombre / Razón Social <span className="text-red-500">*</span></label>
-                    <input
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                    <Label htmlFor="name">Nombre o Razón Social *</Label>
+                    <Input
+                        id="name"
                         name="name"
+                        placeholder="Ej: Constructora Delta SpA"
                         required
-                        type="text"
-                        placeholder="Ej: Empresa SPA"
-                        autoFocus
-                        className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm dark:text-white"
+                        disabled={isLoading}
                     />
                 </div>
 
-                <div>
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Email de Contacto</label>
-                    <input
-                        name="email"
-                        type="email"
-                        placeholder="contacto@empresa.cl"
-                        className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm dark:text-white"
-                    />
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Correo</Label>
+                        <Input
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder="contacto@empresa.cl"
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="phone">Teléfono</Label>
+                        <Input
+                            id="phone"
+                            name="phone"
+                            placeholder="+56 9 ..."
+                            disabled={isLoading}
+                        />
+                    </div>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Teléfono</label>
-                    <input
-                        name="phone"
-                        type="tel"
-                        placeholder="+56 9 ..."
-                        className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm dark:text-white"
-                    />
-                </div>
-
-                <div className="pt-4 flex justify-end gap-3">
+                <div className="flex justify-end gap-3 pt-4">
                     <Button
                         type="button"
                         variant="outline"
@@ -82,10 +111,14 @@ export function QuickClientDialog({ isOpen, onClose, onClientCreated }: { isOpen
                     <Button
                         type="submit"
                         disabled={isLoading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="bg-primary text-primary-foreground"
                     >
-                        {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        Create Cliente
+                        {isLoading ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                            <UserPlus className="w-4 h-4 mr-2" />
+                        )}
+                        Crear Cliente
                     </Button>
                 </div>
             </form>

@@ -28,7 +28,7 @@ export interface WriteAccessContext {
 
 /**
  * Canonical helper to check if the current context allows write operations.
- * Implements Rule 1, 2 & 3: Consolidated source of truth with observability.
+ * Return-based (No throw) for safer Server Action integration.
  */
 export async function getWriteAccessContext(): Promise<WriteAccessContext> {
     const traceId = `WRC-${Math.random().toString(36).substring(7).toUpperCase()}`;
@@ -51,10 +51,7 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
             };
         }
 
-        // Rule 2: SUPERADMIN / Staff Bypass
-        // Internal staff should always be able to operate for support/demo purposes
         if (role === 'SUPERADMIN') {
-            console.log(`[WriteGuard][${traceId}] STAFF BYPASS APPLIED for user ${userId} on org ${orgId}`);
             return { 
                 allowed: true, 
                 reason: 'STAFF_BYPASS', 
@@ -68,7 +65,6 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
             };
         }
 
-        // Fetch subscription state from DB
         const subscription = await prisma.subscription.findUnique({
             where: { organizationId: orgId },
             select: {
@@ -80,15 +76,11 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
         const subStatus = subscription?.status || null;
         const trialEnd = subscription?.trialEndsAt || null;
 
-        console.log(`[WriteGuard][${traceId}] Checking org: ${orgId}, Status: ${subStatus}, TrialEnd: ${trialEnd}`);
-
         if (!subscription) {
-            // No subscription record found. Rule: Default allow for legacy/bootstrap orgs
-            // but return OK with limited context.
             return { 
                 allowed: true, 
                 reason: 'OK', 
-                message: 'Suscripción no configurada (Default Allow).', 
+                message: 'Acceso concedido.', 
                 orgId,
                 subscriptionStatus: null,
                 trialEndsAt: null,
@@ -98,12 +90,11 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
             };
         }
 
-        // Evaluate business blocking rules (Rule 1)
         if (subStatus === SubscriptionStatus.PAUSED) {
             return {
                 allowed: false,
                 reason: 'SUBSCRIPTION_PAUSED',
-                message: 'Tu espacio está temporalmente en modo solo lectura porque la suscripción está pausada. Reanuda la suscripción para realizar cambios.',
+                message: 'Tu espacio está temporalmente en modo solo lectura porque la suscripción está pausada.',
                 orgId,
                 subscriptionStatus: subStatus,
                 trialEndsAt: trialEnd,
@@ -131,7 +122,7 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
             return {
                 allowed: false,
                 reason: 'SUBSCRIPTION_PAST_DUE',
-                message: 'Tu espacio está en modo solo lectura por un pago pendiente. Actualiza tu método de pago para continuar.',
+                message: 'Tu espacio está en modo solo lectura por un pago pendiente.',
                 orgId,
                 subscriptionStatus: subStatus,
                 trialEndsAt: trialEnd,
@@ -141,10 +132,8 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
             };
         }
 
-        // Trial validation
         if (subStatus === SubscriptionStatus.TRIALING && trialEnd) {
-            const isExpired = new Date() > trialEnd;
-            if (isExpired) {
+            if (new Date() > trialEnd) {
                 return {
                     allowed: false,
                     reason: 'TRIAL_EXPIRED',
@@ -172,11 +161,11 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
         };
 
     } catch (error: any) {
-        console.error(`[WriteGuard][${traceId}] Error resolving write access:`, error.message);
+        console.error(`[WriteGuard][${traceId}] Error:`, error.message);
         return {
             allowed: false,
             reason: 'UNAUTHORIZED',
-            message: 'No se pudo validar el permiso de escritura. Por favor reintenta o inicia sesión de nuevo.',
+            message: 'No se pudo validar el permiso de escritura.',
             orgId: null,
             subscriptionStatus: null,
             trialEndsAt: null,
@@ -187,8 +176,8 @@ export async function getWriteAccessContext(): Promise<WriteAccessContext> {
 }
 
 /**
- * Throwing guard for Server Actions.
- * Throws an error with the localized message if not allowed.
+ * Throw-based guard for legacy compatibility or strict enforcement.
+ * USE WITH CAUTION in Server Actions.
  */
 export async function ensureWriteAccess() {
     const context = await getWriteAccessContext();
