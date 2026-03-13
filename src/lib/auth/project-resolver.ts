@@ -44,7 +44,7 @@ export async function resolveProjectAccess(projectRef: string): Promise<ProjectA
                 invoices: true,
                 quoteItems: true,
                 tasks: true,
-                SaleNote: true
+                saleNote: true
             }
         });
 
