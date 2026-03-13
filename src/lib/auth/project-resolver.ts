@@ -1,37 +1,45 @@
 import prisma from "@/lib/prisma";
-import { resolveAccessContext, AccessContext } from "./access-resolver";
+import { resolveSessionContext, SessionContext } from "./session-resolver";
 
 export type ProjectAccessResult =
   | {
       ok: true;
-      project: any; // Using any for compatibility with existing hydration
-      context: AccessContext;
+      projectId: string;
+      projectCode: string;
+      orgId: string;
       accessMode: 'GLOBAL' | 'TENANT';
+      project: any;
+      context: SessionContext;
     }
   | {
       ok: false;
       code:
-        | 'PROJECT_NOT_FOUND'
         | 'NO_AUTH'
+        | 'PROJECT_NOT_FOUND'
         | 'NO_MEMBERSHIP'
+        | 'CONTEXT_MISSING'
         | 'ORG_MISMATCH'
-        | 'FORBIDDEN'
+        | 'NO_PERMISSION'
         | 'DB_ERROR';
       message: string;
       traceId: string;
     };
 
 /**
- * PROJECT ACCESS RESOLVER (v1.0)
+ * PROJECT ACCESS RESOLVER (v2.0)
  * Canonical logic to determine if a user can access a specific project.
- * Implements Rule: Project access should NOT depend solely on the active org cookie.
+ * Completely immune to Vercel preview cookie drops.
  */
 export async function resolveProjectAccess(projectRef: string): Promise<ProjectAccessResult> {
     const traceId = `PRJ-RES-${Math.random().toString(36).substring(7).toUpperCase()}`;
     
     try {
-        // 1. Resolve Global Identity Context
-        const context = await resolveAccessContext();
+        // 1. Resolve Session Context (Robust)
+        const sessionContext = await resolveSessionContext();
+        
+        if (!sessionContext.isAuthenticated) {
+            return { ok: false, code: 'NO_AUTH', message: 'No estás autenticado.', traceId };
+        }
         
         // 2. Fetch Project and its ownership from DB (Strict Lookup)
         const project = await prisma.project.findUnique({
@@ -50,40 +58,50 @@ export async function resolveProjectAccess(projectRef: string): Promise<ProjectA
 
         if (!project) {
             console.warn(`[ProjectResolver][${traceId}] Project ${projectRef} not found in DB.`);
-            return { ok: false, code: 'PROJECT_NOT_FOUND', message: 'El proyecto no existe.', traceId };
+            return { ok: false, code: 'PROJECT_NOT_FOUND', message: 'El proyecto no existe o fue eliminado.', traceId };
         }
 
         const projectOrgId = project.organizationId;
+        const isGlobalOperator = sessionContext.globalRole === 'SUPERADMIN' || sessionContext.globalRole === 'STAFF';
 
         // 3. Evaluate Access Precedence
         
         // CASE A: Global Operator (Superadmin/Creator) -> Absolute Bypass
-        if (context.isGlobalOperator) {
+        if (isGlobalOperator) {
             console.log(`[ProjectResolver][${traceId}] GLOBAL ACCESS GRANTED for project ${projectRef} (Org: ${projectOrgId})`);
-            return { ok: true, project, context, accessMode: 'GLOBAL' };
+            return { 
+                ok: true, 
+                projectId: project.id, 
+                projectCode: project.id, 
+                orgId: projectOrgId as string, 
+                accessMode: 'GLOBAL', 
+                project, 
+                context: sessionContext 
+            };
         }
 
-        // CASE B: Regular User Check
-        // If the user is NOT a member of the organization that owns the project, deny access.
-        // We use Prisma to verify membership instead of relying on the cookie.
-        const membership = await prisma.organizationMember.findFirst({
-            where: {
-                organizationId: projectOrgId as string,
-                userId: context.userId
-            }
-        });
+        // CASE B: Regular User Check against robust memberships from session
+        const isMember = sessionContext.memberships.some(m => m.orgId === projectOrgId);
 
-        if (!membership) {
-            console.warn(`[ProjectResolver][${traceId}] Access denied: User ${context.userId} is not a member of Org ${projectOrgId}`);
-            return { ok: false, code: 'NO_MEMBERSHIP', message: 'No tienes permisos para ver este proyecto (Org Mismatch).', traceId };
+        if (!isMember) {
+            console.warn(`[ProjectResolver][${traceId}] Access denied: User ${sessionContext.userId} is not a member of Org ${projectOrgId}`);
+            return { ok: false, code: 'NO_MEMBERSHIP', message: 'No tienes permisos para ver este proyecto o no perteneces a la organización dueña.', traceId };
         }
 
         // 4. Access Granted
-        console.log(`[ProjectResolver][${traceId}] Access granted for user ${context.userId} to project ${projectRef}`);
-        return { ok: true, project, context, accessMode: 'TENANT' };
+        console.log(`[ProjectResolver][${traceId}] Access granted for user ${sessionContext.userId} to project ${projectRef}`);
+        return { 
+            ok: true, 
+            projectId: project.id, 
+            projectCode: project.id, 
+            orgId: projectOrgId as string, 
+            accessMode: 'TENANT', 
+            project, 
+            context: sessionContext 
+        };
 
     } catch (e: any) {
-        console.error(`[ProjectResolver][${traceId}] FATAL ERROR:`, e.message);
-        return { ok: false, code: 'DB_ERROR', message: 'Ocurrió un error al verificar el acceso al proyecto.', traceId };
+        console.error(`[ProjectResolver][${traceId}] FATAL ERROR:`, e.stack);
+        return { ok: false, code: 'DB_ERROR', message: 'Ocurrió un error inesperado al verificar el acceso al proyecto.', traceId };
     }
 }

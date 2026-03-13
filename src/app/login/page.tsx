@@ -1,12 +1,28 @@
 import { LoginForm } from '@/components/auth/LoginForm'
-import { createClient } from '@/lib/supabase/server'
+import { resolveSessionContext } from '@/lib/auth/session-resolver'
 import { Button } from '@/components/ui/button'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, ArrowRight } from 'lucide-react'
 
 export default async function LoginPage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const session = await resolveSessionContext();
+
+    // Reconstruct Context Action
+    async function continueToApp() {
+        'use server';
+        const ctx = await resolveSessionContext();
+        if (!ctx.isAuthenticated) {
+            redirect('/login');
+        }
+        if (ctx.globalRole === 'SUPERADMIN' || ctx.globalRole === 'STAFF') {
+            redirect('/admin');
+        }
+        if (ctx.activeOrgId) {
+            redirect('/dashboard');
+        }
+        redirect('/start');
+    }
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-black p-4">
@@ -24,23 +40,28 @@ export default async function LoginPage() {
                 </p>
             </div>
 
-            {user ? (
+            {session.isAuthenticated ? (
                 <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] p-10 shadow-2xl border border-slate-100 dark:border-zinc-800 text-center space-y-6 animate-in zoom-in duration-500">
+                    <div className="mx-auto w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                        <ShieldCheck className="w-8 h-8" />
+                    </div>
                     <div className="space-y-2">
                         <h2 className="text-xl font-black uppercase tracking-tight">Sesión Activa</h2>
-                        <p className="text-sm text-muted-foreground italic font-medium">Ya has iniciado sesión como <span className="text-foreground font-bold">{user.email}</span></p>
+                        <p className="text-sm text-muted-foreground italic font-medium">Autenticado como <br/><span className="text-foreground font-bold">{session.email}</span></p>
                     </div>
                     
-                    <Button asChild className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-900/20 transition-all">
-                        <Link href="/">
-                            Entrar al Dashboard
+                    <form action={continueToApp}>
+                        <Button type="submit" className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-900/20 transition-all">
+                            Entrar de Forma Segura
                             <ArrowRight className="w-4 h-4 ml-2" />
-                        </Link>
-                    </Button>
+                        </Button>
+                    </form>
 
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                        ¿No eres tú? <Link href="/logout" className="text-blue-600 hover:underline">Cerrar Sesión</Link>
-                    </p>
+                    <div className="pt-4 border-t border-slate-100 dark:border-zinc-800">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                            ¿No eres tú o quieres cambiar de cuenta? <br/><Link href="/logout" className="text-blue-600 hover:underline mt-1 inline-block">Cerrar Sesión Segura</Link>
+                        </p>
+                    </div>
                 </div>
             ) : (
                 <LoginForm />

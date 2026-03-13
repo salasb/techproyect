@@ -45,9 +45,6 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     const { project } = access;
     const supabase = await createClient();
 
-    // Fetch associated data using Supabase (Relying on the verified project ID and Org ownership)
-    // Note: We already have most data from resolveProjectAccess include, but we normalize here.
-
     // Normalizing SaleNote for frontend compatibility
     if (project && (project as any).SaleNote) {
         const noteData = (project as any).SaleNote;
@@ -76,50 +73,67 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         .eq('organizationId', project.organizationId)
         .order('name');
 
-    // Fetch or create default settings
+    // Fetch or create default settings safely
     let { data: settings } = await supabase
         .from('Settings')
         .select('*')
-        .single();
+        .eq('organizationId', project.organizationId)
+        .maybeSingle();
 
     if (!settings) {
-        const { data: newSettings } = await supabase
-            .from('Settings')
-            .insert({
-                currency: "CLP",
-                vatRate: 0.19,
-                defaultPaymentTermsDays: 30,
-                yellowThresholdDays: 7
-            })
-            .select()
-            .single();
-
-        settings = newSettings as Settings;
+        try {
+            const { data: newSettings, error } = await supabase
+                .from('Settings')
+                .insert({
+                    id: crypto.randomUUID(),
+                    organizationId: project.organizationId,
+                    currency: "CLP",
+                    vatRate: 0.19,
+                    defaultPaymentTermsDays: 30,
+                    yellowThresholdDays: 7
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            settings = newSettings as Settings;
+        } catch (e) {
+            console.warn(`[ProjectPage] Could not create default Settings for org ${project.organizationId}, using memory defaults.`);
+        }
     }
+
+    // Defensive fallback if settings is still null to avoid Digests in Calculator
+    const safeSettings = settings || {
+        organizationId: project.organizationId,
+        currency: "CLP",
+        vatRate: 0.19,
+        defaultPaymentTermsDays: 30,
+        yellowThresholdDays: 7
+    } as Settings;
 
     // Calculate financials
     const financials = calculateProjectFinancials(
         project,
         project.costEntries || [],
         project.invoices || [],
-        settings!,
+        safeSettings,
         project.quoteItems || []
     );
 
     // Calculate Risk
-    const risk = RiskEngine.calculateProjectRisk(project as any, settings!);
+    const risk = RiskEngine.calculateProjectRisk(project as any, safeSettings);
 
     // Fetch Exchange Rates
     const [exchangeRate, ufRate] = await Promise.all([
-        getDollarRate(),
-        getUfRate()
+        getDollarRate().catch(() => ({ value: 855 })),
+        getUfRate().catch(() => ({ value: 37000 }))
     ]);
 
     return (
         <ProjectDetailView
             project={project}
             financials={financials}
-            settings={settings}
+            settings={safeSettings}
             auditLogs={auditLogs || []}
             projectLogs={projectLogs || []}
             clients={clients || []}
