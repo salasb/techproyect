@@ -90,9 +90,11 @@ export async function createOpportunity(formData: FormData) {
     }
 
     const quickResult = await createQuickClient(quickClientFormData);
-    if (!quickResult.ok || !quickResult.client) {
+    
+    if (!quickResult.ok) {
         throw new Error(quickResult.message || "Error al crear prospecto");
     }
+    
     clientId = quickResult.client.id;
 
     if (!title || !clientId) {
