@@ -133,6 +133,7 @@ export async function createProject(formData: FormData) {
         await trackSlo('API_CRITICAL', true, scope.orgId, scope.userId);
 
         revalidatePath("/projects");
+        revalidatePath(`/projects/${project.id}`);
         return { success: true, projectId: project.id };
 
     } catch (error: any) {

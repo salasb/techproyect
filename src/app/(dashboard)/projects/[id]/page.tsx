@@ -6,38 +6,51 @@ import ProjectInventory from "@/components/projects/ProjectInventory";
 import { Database } from "@/types/supabase";
 import { RiskEngine } from "@/services/riskEngine";
 import { getDollarRate, getUfRate } from "@/services/currency";
+import { resolveProjectAccess } from "@/lib/auth/project-resolver";
+import { AlertCircle, Lock } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type Settings = Database['public']['Tables']['Settings']['Row']
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
+    
+    // 1. Resolve Access Canonically (Precedence: Identity > Cookie)
+    const access = await resolveProjectAccess(id);
+
+    if (!access.ok) {
+        if (access.code === 'PROJECT_NOT_FOUND') {
+            notFound();
+        }
+
+        // Handle access denial with a friendly UI instead of just crashing/404
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                <div className="bg-amber-50 p-6 rounded-full">
+                    <Lock className="w-12 h-12 text-amber-600" />
+                </div>
+                <div className="text-center max-w-md space-y-2">
+                    <h2 className="text-2xl font-bold text-slate-900">Acceso restringido</h2>
+                    <p className="text-slate-600">{access.message}</p>
+                    <p className="text-[10px] font-mono text-slate-400 uppercase mt-4">Trace: {access.traceId}</p>
+                </div>
+                <Button asChild variant="outline">
+                    <Link href="/projects">Volver a Proyectos</Link>
+                </Button>
+            </div>
+        );
+    }
+
+    const { project } = access;
     const supabase = await createClient();
 
-    // Fetch project with relations
-    const { data: project, error } = await supabase
-        .from('Project')
-        .select(`
-            *,
-            company:Company(*),
-            client:Client(*),
-            costEntries:CostEntry(*),
-            invoices:Invoice(*),
-            quoteItems:QuoteItem(*),
-            tasks:Task(*),
-            SaleNote(*),
-            purchaseOrderItems:PurchaseOrderItem(
-                purchaseOrder:PurchaseOrder(
-                    vendor:Client(*)
-                )
-            )
-        `)
-        .eq('id', id)
-        .single();
+    // Fetch associated data using Supabase (Relying on the verified project ID and Org ownership)
+    // Note: We already have most data from resolveProjectAccess include, but we normalize here.
 
-    // Normalizing for frontend compatibility
+    // Normalizing SaleNote for frontend compatibility
     if (project && (project as any).SaleNote) {
         const noteData = (project as any).SaleNote;
-        // If it's an array, take the first item. If it's an object, take it as is.
         (project as any).saleNote = Array.isArray(noteData) ? noteData[0] : noteData;
     }
 
@@ -56,15 +69,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         .eq('projectId', id)
         .order('createdAt', { ascending: false });
 
-    if (error || !project) {
-        console.error("Error fetching project:", error);
-        notFound();
-    }
-
-    // Fetch clients for selection
+    // Fetch clients for selection (Contextual to the project's org)
     const { data: clients } = await supabase
         .from('Client')
         .select('*')
+        .eq('organizationId', project.organizationId)
         .order('name');
 
     // Fetch or create default settings
@@ -85,13 +94,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             .select()
             .single();
 
-        settings = newSettings as Settings; // Cast safe here
+        settings = newSettings as Settings;
     }
-
-    // Adapt types for calculation service
-    // ensure casting or decoupling
-    // The service expects plain Row types for arrays, which we have.
-    // project has extras, but compatible.
 
     // Calculate financials
     const financials = calculateProjectFinancials(
@@ -105,7 +109,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     // Calculate Risk
     const risk = RiskEngine.calculateProjectRisk(project as any, settings!);
 
-    // 1.5 Fetch Exchange Rates (Server Side)
+    // Fetch Exchange Rates
     const [exchangeRate, ufRate] = await Promise.all([
         getDollarRate(),
         getUfRate()
