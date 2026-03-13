@@ -56,8 +56,8 @@ export async function resolveSessionContext(): Promise<SessionContext> {
     ]);
 
     // 2. Determine Global Role (with allowlist bootstrap support)
-    const allowlist = process.env.SUPERADMIN_ALLOWLIST?.split(/[,
-;]/).map(e => e.trim().toLowerCase()).filter(Boolean) || [];
+    const allowlistRaw = process.env.SUPERADMIN_ALLOWLIST || '';
+    const allowlist = allowlistRaw.split(/[,\n;]/).map(e => e.trim().toLowerCase()).filter(Boolean);
     const isCreator = allowlist.includes(email);
 
     let globalRole: GlobalRole = (profile?.role as GlobalRole) || 'USER';
