@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SUBSCRIPTION_PLANS, PlanTier, PlanFeatures } from "@/config/subscription-plans";
+import { resolveAccessContext } from "@/lib/auth/access-resolver";
 
 export type OrgUsage = {
     users: number;
@@ -41,17 +42,17 @@ export async function getOrganizationSubscription(orgId: string): Promise<OrgSub
     const [userCount, projectCount, quoteCount, invoiceCount] = await Promise.all([
         prisma.organizationMember.count({ where: { organizationId: orgId } }),
         prisma.project.count({ where: { organizationId: orgId } }),
-        prisma.quote.count({ 
-            where: { 
+        prisma.quote.count({
+            where: {
                 project: { organizationId: orgId },
                 createdAt: { gte: monthStart }
-            } 
+            }
         }),
-        prisma.invoice.count({ 
-            where: { 
+        prisma.invoice.count({
+            where: {
                 organizationId: orgId,
                 createdAt: { gte: monthStart }
-            } 
+            }
         })
     ]);
 
@@ -73,9 +74,20 @@ export async function getOrganizationSubscription(orgId: string): Promise<OrgSub
  * Checks if an organization can perform an action based on its plan limits.
  */
 export async function checkSubscriptionLimit(
-    orgId: string, 
+    orgId: string,
     resource: 'users' | 'projects' | 'quotes' | 'invoices'
 ): Promise<{ allowed: boolean; message?: string }> {
+    // 1. GLOBAL IDENTITY BYPASS: Superadmins can always bypass limits for testing
+    try {
+        const context = await resolveAccessContext();
+        if (context.isGlobalOperator) {
+            console.log(`[SubscriptionLimit] Bypassing ${resource} limit for Global Operator`);
+            return { allowed: true };
+        }
+    } catch (e) {
+        console.warn(`[SubscriptionLimit] Could not resolve access context for bypass check:`, e);
+    }
+
     const { usage, limits, plan, status } = await getOrganizationSubscription(orgId);
 
     // If PAUSED, nothing is allowed (write operations)

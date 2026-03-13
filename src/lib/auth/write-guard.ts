@@ -1,68 +1,65 @@
 import { resolveAccessContext, AccessContext } from "./access-resolver";
 
+export type WriteAccessResult =
+  | { ok: true; mode: 'GLOBAL' | 'TENANT_RW'; context: AccessContext }
+  | { ok: false; code: 'TRIAL_EXPIRED' | 'SUBSCRIPTION_PAUSED' | 'SUBSCRIPTION_CANCELED' | 'SUBSCRIPTION_PAST_DUE' | 'NO_ACTIVE_ORG' | 'NO_MEMBERSHIP' | 'TENANT_LOCKED'; message: string; context: AccessContext };
+
 /**
- * Compatibility export for getWriteAccessContext.
- * Returns the full context with explicit allowed/message for legacy consumption.
- * v2.0: Strictly honors GLOBAL bypass.
+ * Canonical function for Write Permission (v3.0)
+ * Evaluates GLOBAL IDENTITY FIRST.
  */
-export async function getWriteAccessContext() {
+export async function getWriteAccessContext(): Promise<WriteAccessResult> {
     const context = await resolveAccessContext();
-    const isGlobal = context.isGlobalOperator;
     
-    // Rule: Global bypass always allowed
-    const allowed = isGlobal || context.effectiveMode === 'TENANT_RW';
+    console.log(`[WriteGuard][${context.traceId}] Resolving write access for ${context.email} (Global: ${context.isGlobalOperator}, Mode: ${context.effectiveMode})`);
+
+    // Rule 1: Global operators always bypass local write restrictions
+    if (context.isGlobalOperator) {
+        return { ok: true, mode: 'GLOBAL', context };
+    }
+
+    // Rule 2: Tenant check
+    if (context.effectiveMode === 'TENANT_RW') {
+        return { ok: true, mode: 'TENANT_RW', context };
+    }
+
+    // Rule 3: Denied due to specific reason
+    const code = context.readOnlyReason === 'NONE' ? 'TENANT_LOCKED' : context.readOnlyReason;
     
-    return {
-        ...context,
-        allowed,
-        message: allowed ? 'Acceso concedido' : 'Modo de solo lectura'
-    };
+    let message = "Modo de solo lectura activado.";
+    if (code === 'TRIAL_EXPIRED') message = "Tu periodo de prueba ha expirado. Activa un plan para continuar.";
+    if (code === 'SUBSCRIPTION_PAUSED') message = "Suscripción pausada por falta de pago.";
+    if (code === 'NO_ACTIVE_ORG') message = "Selecciona una organización activa para operar.";
+    
+    return { ok: false, code: code as any, message, context };
 }
 
 /**
  * Throws a typed error if the context is read-only.
- * Uses the canonical resolveAccessContext for precedence.
- * v2.0: Mandatory for all CUD operations.
+ * Uses the canonical getWriteAccessContext for precedence.
  */
 export async function ensureWriteAccess(): Promise<AccessContext> {
-    const context = await resolveAccessContext();
+    const result = await getWriteAccessContext();
     
-    // Rule: Global operators bypass ALL tenant-level restrictions
-    if (context.isGlobalOperator) {
-        console.log(`[WriteGuard][${context.traceId}] GLOBAL BYPASS GRANTED for user ${context.email}`);
-        return context;
+    if (!result.ok) {
+        console.warn(`[WriteGuard][${result.context.traceId}] DENIED: ${result.code} - ${result.message}`);
+        throw new Error(`READ_ONLY_MODE:${result.code}`);
     }
 
-    // Determine if allowed for regular users
-    const isAllowed = context.effectiveMode === 'TENANT_RW';
-
-    if (!isAllowed) {
-        console.warn(`[WriteGuard][${context.traceId}] DENIED: mode=${context.effectiveMode}, reason=${context.readOnlyReason}`);
-        
-        // If not explicitly allowed (e.g. TRIAL_EXPIRED), we throw for the UI interceptor
-        if (context.effectiveMode === 'TENANT_RO') {
-            throw new Error(`READ_ONLY_MODE:${context.readOnlyReason}`);
-        }
-        
-        // Handle context errors (No org, No membership)
-        throw new Error(`ACCESS_DENIED:${context.readOnlyReason}`);
-    }
-
-    return context;
+    return result.context;
 }
 
 /**
- * Non-throwing version for UI components or soft checks.
- * v2.0: Correct precedence.
+ * Legacy support for components expecting an 'allowed' boolean
  */
 export async function getWriteAccessState() {
     try {
-        const context = await resolveAccessContext();
+        const result = await getWriteAccessContext();
         return {
-            allowed: context.isGlobalOperator || context.effectiveMode === 'TENANT_RW',
-            reason: context.readOnlyReason,
-            isGlobal: context.isGlobalOperator,
-            mode: context.effectiveMode
+            allowed: result.ok,
+            reason: result.ok ? 'NONE' : result.code,
+            isGlobal: result.context.isGlobalOperator,
+            mode: result.context.effectiveMode
         };
     } catch (e) {
         return { allowed: false, reason: 'UNAUTHORIZED', isGlobal: false, mode: 'NO_CONTEXT' };

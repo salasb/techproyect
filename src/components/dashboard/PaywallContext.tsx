@@ -30,7 +30,18 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
         const errorMsg = error?.message || error || "";
         if (typeof errorMsg === 'string' && errorMsg.startsWith("READ_ONLY_MODE")) {
             const parts = errorMsg.split(":");
-            const customMessage = parts.length > 1 ? parts.slice(1).join(":") : undefined;
+            // Expected format: READ_ONLY_MODE:CODE:Friendly Message
+            let customMessage = undefined;
+            if (parts.length > 2) {
+                customMessage = parts.slice(2).join(":"); // Extract just the friendly message
+            } else if (parts.length === 2) {
+                // Legacy support if just READ_ONLY_MODE:Friendly Message
+                if (['TRIAL_EXPIRED', 'SUBSCRIPTION_PAUSED', 'TENANT_LOCKED', 'NO_ACTIVE_ORG', 'NO_MEMBERSHIP'].includes(parts[1])) {
+                    // It's a code, use a default message
+                } else {
+                    customMessage = parts[1];
+                }
+            }
             setMessage(customMessage);
             setIsOpen(true);
             return true;

@@ -8,12 +8,13 @@ export type GlobalRole = 'SUPERADMIN' | 'STAFF' | 'USER';
 export interface AccessContext {
     userId: string;
     email: string;
-    globalRole: GlobalRole;
+    globalRole: GlobalRole | null;
+    isCreator: boolean;
     isGlobalOperator: boolean;
     activeOrgId: string | null;
     localMembershipRole: string | null;
-    subscriptionStatus: SubscriptionStatus | null;
-    trialEndsAt: Date | null;
+    subscriptionStatus: string | null;
+    trialEndsAt: string | null;
     billingGateApplies: boolean;
     readOnlyReason: 'NONE' | 'TRIAL_EXPIRED' | 'SUBSCRIPTION_PAUSED' | 'SUBSCRIPTION_CANCELED' | 'SUBSCRIPTION_PAST_DUE' | 'NO_ACTIVE_ORG' | 'NO_MEMBERSHIP' | 'TENANT_LOCKED';
     effectiveMode: 'GLOBAL' | 'TENANT_RW' | 'TENANT_RO' | 'NO_CONTEXT';
@@ -21,7 +22,7 @@ export interface AccessContext {
 }
 
 /**
- * RESOLVE ACCESS CONTEXT (v2.0)
+ * RESOLVE ACCESS CONTEXT (v3.0)
  * The Definitive Source of Truth for Identity and Precedence.
  * Implements: GLOBAL IDENTITY FIRST.
  */
@@ -35,14 +36,23 @@ export async function resolveAccessContext(): Promise<AccessContext> {
         throw new Error("UNAUTHORIZED");
     }
 
+    const email = user.email ? user.email.toLowerCase() : '';
+
     // 2. Resolve Global Profile (Strictly from DB)
     const profile = await prisma.profile.findUnique({
         where: { id: user.id },
         select: { email: true, role: true }
     });
 
-    const globalRole: GlobalRole = (profile?.role as GlobalRole) || 'USER';
-    const isGlobalOperator = globalRole === 'SUPERADMIN' || globalRole === 'STAFF';
+    const allowlist = process.env.SUPERADMIN_ALLOWLIST?.split(/[,\n;]/).map(e => e.trim().toLowerCase()).filter(Boolean) || [];
+    const isCreator = allowlist.includes(email);
+
+    let globalRole: GlobalRole = (profile?.role as GlobalRole) || 'USER';
+    if (isCreator && globalRole !== 'SUPERADMIN') {
+        globalRole = 'SUPERADMIN'; // Bootstrap dynamically if needed for the current context
+    }
+
+    const isGlobalOperator = isCreator || globalRole === 'SUPERADMIN' || globalRole === 'STAFF';
 
     // 3. Resolve Workspace State (Tenant Context)
     // We catch errors to prevent global operators from being blocked by tenant-level issues
@@ -57,7 +67,7 @@ export async function resolveAccessContext(): Promise<AccessContext> {
     const localRole = workspace?.userRole || null;
 
     // 4. Resolve Subscription / Billing for the active org
-    let subStatus: SubscriptionStatus | null = null;
+    let subStatus: string | null = null;
     let trialEnd: Date | null = null;
 
     if (activeOrgId) {
@@ -68,6 +78,8 @@ export async function resolveAccessContext(): Promise<AccessContext> {
         subStatus = sub?.status || null;
         trialEnd = sub?.trialEndsAt || null;
     }
+
+    const trialEndsAtStr = trialEnd ? trialEnd.toISOString() : null;
 
     // 5. Evaluate Context Reason
     let readOnlyReason: AccessContext['readOnlyReason'] = 'NONE';
@@ -85,7 +97,7 @@ export async function resolveAccessContext(): Promise<AccessContext> {
     let effectiveMode: AccessContext['effectiveMode'] = 'NO_CONTEXT';
     
     if (isGlobalOperator) {
-        // Superadmin bypasses all tenant-level read-only reasons for operational purposes
+        // Superadmin/Creator bypasses all tenant-level read-only reasons for operational purposes
         effectiveMode = 'GLOBAL';
         readOnlyReason = 'NONE'; // Force NONE to avoid confusing UI messages in global mode
     } else if (activeOrgId) {
@@ -94,20 +106,21 @@ export async function resolveAccessContext(): Promise<AccessContext> {
 
     const context: AccessContext = {
         userId: user.id,
-        email: user.email!,
+        email: email,
         globalRole,
+        isCreator,
         isGlobalOperator,
         activeOrgId,
         localMembershipRole: localRole,
         subscriptionStatus: subStatus,
-        trialEndsAt: trialEnd,
+        trialEndsAt: trialEndsAtStr,
         billingGateApplies,
         readOnlyReason,
         effectiveMode,
         traceId
     };
 
-    console.log(`[AccessResolver][${traceId}] RESOLVED: email=${user.email}, role=${globalRole}, mode=${effectiveMode}, org=${activeOrgId}, reason=${readOnlyReason}, bypass=${isGlobalOperator}`);
+    console.log(`[AccessResolver][${traceId}] RESOLVED: email=${email}, role=${globalRole}, creator=${isCreator}, mode=${effectiveMode}, org=${activeOrgId}, reason=${readOnlyReason}`);
     
     return context;
 }
