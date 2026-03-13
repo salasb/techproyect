@@ -3,8 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRut, cleanRut, formatRut } from "@/lib/rut";
-import { requirePermission } from "@/lib/auth/server-resolver";
-import { getWriteAccessContext } from "@/lib/auth/write-guard";
+import { resolveAccessContext } from "@/lib/auth/access-resolver";
+import { ensureWriteAccess } from "@/lib/auth/write-guard";
 import { ActivationService } from "@/services/activation-service";
 
 /**
@@ -62,24 +62,13 @@ async function performClientCreation(orgId: string, name: string, email?: string
 
 export async function createQuickClient(formData: FormData) {
     const traceId = `CQC-${Math.random().toString(36).substring(7).toUpperCase()}`;
-    console.log(`[Clients][${traceId}] Starting createQuickClient`);
     
     try {
-        // 1. Permission Check
-        const scope = await requirePermission('CRM_MANAGE');
+        // 1. Ensure Write Access (Handles Global Bypass)
+        const context = await ensureWriteAccess();
+        const orgId = context.activeOrgId;
         
-        // 2. Write Guard (NO THROW version)
-        const writeContext = await getWriteAccessContext();
-        
-        if (!writeContext.allowed) {
-            console.warn(`[Clients][${traceId}] Write blocked: ${writeContext.reason}`);
-            return { 
-                success: false, 
-                error: writeContext.message,
-                code: writeContext.reason,
-                traceId 
-            };
-        }
+        if (!orgId) throw new Error("Se requiere una organización activa.");
 
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
@@ -89,20 +78,18 @@ export async function createQuickClient(formData: FormData) {
             return { success: false, error: "El nombre es requerido", traceId };
         }
 
-        // 3. Database Operation
-        const newClient = await performClientCreation(scope.orgId, name, email, phone);
+        // 2. Database Operation
+        const newClient = await performClientCreation(orgId, name, email, phone);
 
-        // 4. Milestones & Revalidation
+        // 3. Milestones & Revalidation
         try {
-            await ActivationService.trackFirst('FIRST_CLIENT_CREATED', scope.orgId, undefined, newClient.id);
+            await ActivationService.trackFirst('FIRST_CLIENT_CREATED', orgId, undefined, newClient.id);
             revalidatePath('/clients');
             revalidatePath('/projects/new'); 
         } catch (e) {
             console.warn(`[Clients][${traceId}] Background task warning:`, e);
         }
         
-        console.log(`[Clients][${traceId}] Success: Quick Client ${newClient.id} created.`);
-
         return { 
             success: true, 
             client: normalizeClient(newClient),
@@ -110,22 +97,29 @@ export async function createQuickClient(formData: FormData) {
         };
 
     } catch (error: any) {
-        console.error(`[Clients][${traceId}] UNEXPECTED FATAL ERROR:`, error.message, error.stack);
-        return { 
-            success: false, 
-            error: "Ocurrió un error inesperado al crear el cliente.", 
-            traceId 
-        };
+        const errorMsg = error.message || "";
+        if (errorMsg.startsWith("READ_ONLY_MODE") || errorMsg.startsWith("ACCESS_DENIED")) {
+            return { 
+                success: false, 
+                error: errorMsg.split(":")[1] === 'TRIAL_EXPIRED' 
+                    ? "Tu periodo de prueba ha expirado. Activa un plan para continuar."
+                    : "Modo de solo lectura activado.",
+                code: errorMsg.split(":")[1],
+                traceId 
+            };
+        }
+
+        console.error(`[Clients][${traceId}] FATAL:`, error.message);
+        return { success: false, error: "Error inesperado al crear cliente.", traceId };
     }
 }
 
-// ... rest of the file stays consistent ...
 export async function createClientAction(formData: FormData) {
     const traceId = `CLT-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
-        const scope = await requirePermission('CRM_MANAGE');
-        const writeContext = await getWriteAccessContext();
-        if (!writeContext.allowed) throw new Error(`READ_ONLY_MODE:${writeContext.message}`);
+        const context = await ensureWriteAccess();
+        const orgId = context.activeOrgId;
+        if (!orgId) throw new Error("No active org");
 
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
@@ -143,7 +137,7 @@ export async function createClientAction(formData: FormData) {
         const supabase = await createClient();
         const { error } = await supabase.from('Client').insert({
             id: crypto.randomUUID(),
-            organizationId: scope.orgId,
+            organizationId: orgId,
             name, email, phone, address, taxId, contactName,
             updatedAt: new Date().toISOString(),
             createdAt: new Date().toISOString()
@@ -161,9 +155,9 @@ export async function createClientAction(formData: FormData) {
 export async function updateClientAction(clientId: string, formData: FormData) {
     const traceId = `UPC-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
-        const scope = await requirePermission('CRM_MANAGE');
-        const writeContext = await getWriteAccessContext();
-        if (!writeContext.allowed) throw new Error(`READ_ONLY_MODE:${writeContext.message}`);
+        const context = await ensureWriteAccess();
+        const orgId = context.activeOrgId;
+        if (!orgId) throw new Error("No active org");
 
         const supabase = await createClient();
         const { error } = await supabase.from('Client').update({
@@ -174,7 +168,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
             taxId: formData.get('taxId') as string,
             contactName: formData.get('contactName') as string,
             updatedAt: new Date().toISOString()
-        }).eq('id', clientId).eq('organizationId', scope.orgId);
+        }).eq('id', clientId).eq('organizationId', orgId);
 
         if (error) throw error;
         revalidatePath('/clients');
@@ -188,12 +182,12 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 export async function deleteClientAction(clientId: string) {
     const traceId = `DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
-        const scope = await requirePermission('CRM_MANAGE');
-        const writeContext = await getWriteAccessContext();
-        if (!writeContext.allowed) throw new Error(`READ_ONLY_MODE:${writeContext.message}`);
+        const context = await ensureWriteAccess();
+        const orgId = context.activeOrgId;
+        if (!orgId) throw new Error("No active org");
 
         const supabase = await createClient();
-        const { error } = await supabase.from('Client').delete().eq('id', clientId).eq('organizationId', scope.orgId);
+        const { error } = await supabase.from('Client').delete().eq('id', clientId).eq('organizationId', orgId);
         if (error) throw error;
         revalidatePath('/clients');
         return { success: true, traceId };

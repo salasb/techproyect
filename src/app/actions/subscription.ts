@@ -8,63 +8,87 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function requestUpgrade(planId: string) {
-    const scope = await requireOperationalScope();
-    const supabase = await createClient();
+    const traceId = `UPG-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const scope = await requireOperationalScope();
+        const supabase = await createClient();
 
-    // 1. Get User Info
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+        // 1. Get User Info
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Unauthorized");
 
-    // Milestone: Upgrade Clicked
-    await ActivationService.trackFunnelEvent('UPGRADE_CLICKED', scope.orgId, `upgrade_click_${scope.orgId}_${planId}_${Date.now()}`, user.id);
-
-    await prisma.auditLog.create({
-        data: {
-            organizationId: scope.orgId,
-            userId: user.id,
-            action: 'UPGRADE_INTENT',
-            details: `User requested upgrade to plan ${planId}`
+        // Milestone: Upgrade Clicked
+        if (scope.orgId !== 'GLOBAL_CONTEXT') {
+            await ActivationService.trackFunnelEvent('UPGRADE_CLICKED', scope.orgId, `upgrade_click_${scope.orgId}_${planId}_${Date.now()}`, user.id);
         }
-    });
 
-    // 2. Validate Plan Exists
-    const { data: plan } = await supabase.from('Plan').select('name').eq('id', planId).single();
-    if (!plan) throw new Error("Plan not found");
+        await prisma.auditLog.create({
+            data: {
+                organizationId: scope.orgId === 'GLOBAL_CONTEXT' ? null : scope.orgId,
+                userId: user.id,
+                action: 'UPGRADE_INTENT',
+                details: `User requested upgrade to plan ${planId} [Trace: ${traceId}]`
+            }
+        });
 
-    // 3. Log the Request (In a real app, this would email Sales/Admin)
-    // For now, we'll insert into a 'ContactRequest' or just AuditLog
-    await supabase.from('AuditLog').insert({
-        organizationId: scope.orgId,
-        actorId: user.id || null, // Ensure actorId is not undefined if user exists
-        action: 'SUBSCRIPTION_UPGRADE_REQUEST',
-        details: `Solicitud de actualización a Plan ${plan.name} (${planId})`,
-        createdAt: new Date().toISOString()
-    });
+        // 2. Validate Plan Exists
+        const { data: plan } = await supabase.from('Plan').select('name').eq('id', planId).single();
+        if (!plan) throw new Error("Plan no encontrado.");
 
-    // 4. Create Notification Implementation (Placeholder for now)
-    console.log(`[SUBSCRIPTION] Upgrade requested for Org ${scope.orgId} to ${planId} by ${user.email}`);
+        // 3. Log the Request
+        if (scope.orgId !== 'GLOBAL_CONTEXT') {
+            await supabase.from('AuditLog').insert({
+                organizationId: scope.orgId,
+                actorId: user.id,
+                action: 'SUBSCRIPTION_UPGRADE_REQUEST',
+                details: `Solicitud de actualización a Plan ${plan.name} (${planId})`,
+                createdAt: new Date().toISOString()
+            });
+        }
 
-    return { success: true, message: "Solicitud enviada. Un ejecutivo te contactará en breve." };
+        return { success: true, message: "Solicitud enviada. Un ejecutivo te contactará en breve." };
+    } catch (e: any) {
+        console.error(`[Subscription][${traceId}] RequestUpgrade Error:`, e.message);
+        return { success: false, error: e.message || "Error al procesar la solicitud." };
+    }
 }
 
 export async function createCustomerPortalSession() {
-    const scope = await requireOperationalScope();
-    const prisma = (await import("@/lib/prisma")).default;
-    const { getStripe } = await import("@/lib/stripe");
+    const traceId = `CPS-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    let portalUrl: string | null = null;
 
-    const subscription = await prisma.subscription.findUnique({
-        where: { organizationId: scope.orgId }
-    });
+    try {
+        const scope = await requireOperationalScope();
+        const prisma = (await import("@/lib/prisma")).default;
+        const { getStripe } = await import("@/lib/stripe");
 
-    if (!subscription?.providerCustomerId) {
-        throw new Error("No customer ID found for this organization");
+        if (scope.orgId === 'GLOBAL_CONTEXT') {
+            throw new Error("No puedes gestionar facturación global desde un contexto de organización individual.");
+        }
+
+        const subscription = await prisma.subscription.findUnique({
+            where: { organizationId: scope.orgId }
+        });
+
+        if (!subscription?.providerCustomerId) {
+            throw new Error("Esta organización no tiene un perfil de cliente en la pasarela de pagos.");
+        }
+
+        const stripe = getStripe();
+        const session = await stripe.billingPortal.sessions.create({
+            customer: subscription.providerCustomerId,
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/settings/billing`,
+        });
+
+        portalUrl = session.url;
+    } catch (e: any) {
+        console.error(`[Subscription][${traceId}] PortalSession Error:`, e.message);
+        // We cannot return a regular object because createCustomerPortalSession is used in a form action that expects a redirect or nothing
+        // But since we want to handle it, we might redirect to an error page or back with a query param
+        redirect(`/settings/billing?error=${encodeURIComponent(e.message)}&traceId=${traceId}`);
     }
 
-    const stripe = getStripe();
-    const session = await stripe.billingPortal.sessions.create({
-        customer: subscription.providerCustomerId,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/settings/billing`,
-    });
-
-    redirect(session.url);
+    if (portalUrl) {
+        redirect(portalUrl);
+    }
 }

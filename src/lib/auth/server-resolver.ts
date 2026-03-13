@@ -1,28 +1,12 @@
 import { getWorkspaceState } from "./workspace-resolver";
 import { redirect } from "next/navigation";
-import { Permission, hasPermission } from "./rbac";
+import { Permission, getRolePermissions } from "./rbac";
+import { resolveAccessContext } from "./access-resolver";
 
 /**
- * Resolves the active organization for Server Components and Server Actions.
- * If no active organization is found, it may redirect or return null.
- * @deprecated Use requireOperationalScope instead for stricter multi-org isolation.
+ * Operational Scope (v2.0)
+ * Canonical result of a multi-org authorization check.
  */
-export async function resolveActiveOrganization(): Promise<string> {
-    const state = await getWorkspaceState();
-
-    if (state.activeOrgId) {
-        return state.activeOrgId;
-    }
-
-    if (state.error === 'Not authenticated') {
-        redirect('/login');
-    }
-
-    // Fallback: This should ideally not be reached due to Auto-provisioning,
-    // but if it is, we redirect to dashboard to trigger the Setup UI.
-    redirect('/dashboard');
-}
-
 export interface OperationalScope {
     orgId: string;
     userId: string;
@@ -40,47 +24,72 @@ export class ScopeError extends Error {
 }
 
 /**
- * Canonical Scope Resolver (v1.5)
- * Call this at the very beginning of any API route, Server Action, or Page that requires Multi-Org context.
- * It strictly returns a valid OperationalScope or throws a ScopeError.
- *
- * Usage in API:
- * try { const scope = await requireOperationalScope(); } catch (e) { return new Response(e.message, { status: 403 }) }
+ * Canonical Scope Resolver (v2.0)
+ * Implements GLOBAL IDENTITY FIRST.
+ * Returns a valid OperationalScope or throws a ScopeError.
  */
 export async function requireOperationalScope(): Promise<OperationalScope> {
-    const state = await getWorkspaceState();
+    const context = await resolveAccessContext();
 
-    if (state.status === 'NOT_AUTHENTICATED') {
-        console.warn(`[AuthZ] Denial: User not authenticated.`);
+    // 1. Check Authentication
+    if (!context.userId) {
         throw new ScopeError('User not authenticated', 'UNAUTHORIZED');
     }
 
-    // If superadmin but no active org is set, they MUST select one to operate commercially.
-    if (!state.activeOrgId) {
-        console.warn(`[AuthZ] Denial: No active organization context for user ${state.userId}.`);
+    // 2. Handle Global Operator (Rule 1)
+    if (context.isGlobalOperator) {
+        // If superadmin but no active org, they can still have a "Virtual Scope"
+        // for global admin pages, but commercial actions will eventually need an orgId.
+        return {
+            orgId: context.activeOrgId || 'GLOBAL_CONTEXT',
+            userId: context.userId,
+            isSuperadmin: true,
+            role: 'SUPERADMIN',
+            permissions: getRolePermissions('SUPERADMIN' as any),
+            isPaused: false // Global operators are never paused
+        };
+    }
+
+    // 3. Handle Regular User Org Context
+    if (!context.activeOrgId) {
+        console.warn(`[AuthZ][${context.traceId}] Denial: No active organization context for user ${context.userId}.`);
         throw new ScopeError('Se requiere seleccionar una organización activa para operar.', 'NO_ORG_CONTEXT');
     }
 
     return {
-        orgId: state.activeOrgId,
-        userId: state.userId as string,
-        isSuperadmin: state.isSuperadmin,
-        role: state.userRole || null,
-        permissions: state.permissions || [],
-        isPaused: state.subscriptionStatus === 'PAUSED'
+        orgId: context.activeOrgId,
+        userId: context.userId,
+        isSuperadmin: false,
+        role: context.localMembershipRole,
+        permissions: getRolePermissions((context.localMembershipRole as any) || 'MEMBER'),
+        isPaused: context.subscriptionStatus === 'PAUSED'
     };
 }
 
 /**
- * Enhanced RBAC Guard (v1.0)
+ * Enhanced RBAC Guard (v2.0)
  * Verifies both OperationalScope AND specific granular permission.
+ * Strictly respects GLOBAL BYPASS.
  */
 export async function requirePermission(permission: Permission): Promise<OperationalScope> {
+    const context = await resolveAccessContext();
+
+    // RULE 1: Global operators bypass granular permission checks for operational actions
+    if (context.isGlobalOperator) {
+        return {
+            orgId: context.activeOrgId || 'GLOBAL_CONTEXT',
+            userId: context.userId,
+            isSuperadmin: true,
+            role: 'SUPERADMIN',
+            permissions: getRolePermissions('SUPERADMIN' as any),
+            isPaused: false
+        };
+    }
+
     const scope = await requireOperationalScope();
 
-    // isSuperadmin implicitly has all permissions for ops
-    if (!scope.isSuperadmin && !scope.permissions.includes(permission)) {
-        console.error(`[RBAC] Access denied for user ${scope.userId} (Role: ${scope.role}) requesting ${permission}`);
+    if (!scope.permissions.includes(permission)) {
+        console.error(`[RBAC] Access denied for user ${scope.userId} requesting ${permission}`);
         throw new ScopeError(`No tienes permiso (${permission}) para realizar esta acción.`, 'FORBIDDEN');
     }
 
@@ -88,8 +97,12 @@ export async function requirePermission(permission: Permission): Promise<Operati
 }
 
 /**
- * Superadmin Access Resolver (v1.0)
- * Deterministic source of truth for Global Cockpit access.
+ * Legacy Support
  */
+export async function resolveActiveOrganization(): Promise<string> {
+    const scope = await requireOperationalScope();
+    return scope.orgId;
+}
+
 import { resolveSuperadminAccess } from './superadmin-guard';
 export { resolveSuperadminAccess };

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ActivationService } from '@/services/activation-service'
 import { getURL } from '@/lib/auth/utils'
 import { getWorkspaceState } from '@/lib/auth/workspace-resolver'
+import { resolveAccessContext } from '@/lib/auth/access-resolver'
 
 /**
  * Enhanced Error Translator for better Auth UX and debugging
@@ -67,15 +68,23 @@ export async function login(formData: FormData) {
     }
 
     // After successful login, resolve canonical route
-    const state = await getWorkspaceState();
+    const context = await resolveAccessContext();
     
-    console.log(`[AUTH][${traceId}] Login success for ${email}. State: ${state.status}, Recommended Route: ${state.recommendedRoute}`);
+    console.log(`[AUTH][${traceId}] Login success for ${email}. Mode: ${context.effectiveMode}, GlobalRole: ${context.globalRole}`);
 
-    if (state.activeOrgId) {
-        await ActivationService.trackFunnelEvent('PORTAL_LOGIN_SUCCESS', state.activeOrgId, `login_${state.userId}_${Date.now()}`, state.userId!);
+    if (context.activeOrgId) {
+        await ActivationService.trackFunnelEvent('PORTAL_LOGIN_SUCCESS', context.activeOrgId, `login_${context.userId}_${Date.now()}`, context.userId!);
     }
 
     revalidatePath('/', 'layout')
+
+    // RULE: Global operators land in /admin by default
+    if (context.isGlobalOperator) {
+        redirect('/admin');
+    }
+
+    // Default: land in recommended tenant route
+    const state = await getWorkspaceState();
     redirect(state.recommendedRoute);
 }
 

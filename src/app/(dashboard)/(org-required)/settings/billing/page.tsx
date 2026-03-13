@@ -1,40 +1,85 @@
-import { getOrganizationId } from "@/lib/current-org";
+import { resolveAccessContext } from "@/lib/auth/access-resolver";
 import { getOrganizationSubscription } from "@/lib/subscriptions";
 import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database, CreditCard, FileText, Receipt } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { BillingClient } from "@/components/settings/BillingClient";
+import { redirect } from "next/navigation";
 
 export default async function BillingPage() {
-    const orgId = await getOrganizationId();
-    const { plan, usage, limits } = await getOrganizationSubscription(orgId);
+    const context = await resolveAccessContext();
+    
+    // RULE 5: Settings/Billing should not crash for Global Operators
+    if (!context.activeOrgId) {
+        if (context.isGlobalOperator) {
+            console.log(`[BillingPage][${context.traceId}] Superadmin with no active org. Redirecting to global cockpit.`);
+            redirect('/admin/orgs');
+        }
+        console.warn(`[BillingPage][${context.traceId}] No active org for user ${context.userId}. Redirecting to selection.`);
+        redirect('/org/select');
+    }
+
+    const orgId = context.activeOrgId;
+    
+    // Defensive fetching of subscription data
+    let planData;
+    try {
+        planData = await getOrganizationSubscription(orgId);
+    } catch (e) {
+        console.error(`[BillingPage][${context.traceId}] Failed to fetch subscription for ${orgId}:`, e);
+        // Fallback to minimal data to avoid total crash
+        planData = {
+            plan: 'FREE',
+            status: 'ACTIVE',
+            usage: { users: 0, projects: 0, quotesMonth: 0, invoicesMonth: 0, storage: 0 },
+            limits: { maxUsers: 1, maxProjects: 1, maxQuotesPerMonth: 5, maxInvoicesPerMonth: 5 }
+        };
+    }
+
+    const { plan, usage, limits } = planData;
 
     const subscription = await prisma.subscription.findUnique({
         where: { organizationId: orgId },
         include: { organization: true }
     });
 
-    // Fetch all active plans for upgrade options
+    // Fetch all active plans for upgrade options - with safety fallback
     const supabase = await createClient();
-    const { data: allPlans } = await supabase
+    const { data: allPlans, error: plansError } = await supabase
         .from('Plan')
         .select('*')
         .eq('isActive', true)
         .order('price', { ascending: true });
+    
+    if (plansError) {
+        console.error(`[BillingPage][${context.traceId}] Supabase Plans fetch error:`, plansError.message);
+    }
 
-    const percentUsers = Math.min((usage.users / (limits.maxUsers || 1)) * 100, 100);
-    const percentProjects = Math.min((usage.projects / (limits.maxProjects || 1)) * 100, 100);
-    const percentQuotes = Math.min((usage.quotesMonth / (limits.maxQuotesPerMonth || 1)) * 100, 100);
-    const percentInvoices = Math.min((usage.invoicesMonth / (limits.maxInvoicesPerMonth || 1)) * 100, 100);
+    // Safety math for percentages (prevent NaN/Infinity)
+    const safeLimit = (val: number | null | undefined) => (val && val > 0) ? val : 1;
+    const percentUsers = Math.min(((usage?.users || 0) / safeLimit(limits?.maxUsers)) * 100, 100);
+    const percentProjects = Math.min(((usage?.projects || 0) / safeLimit(limits?.maxProjects)) * 100, 100);
+    const percentQuotes = Math.min(((usage?.quotesMonth || 0) / safeLimit(limits?.maxQuotesPerMonth)) * 100, 100);
+    const percentInvoices = Math.min(((usage?.invoicesMonth || 0) / safeLimit(limits?.maxInvoicesPerMonth)) * 100, 100);
 
     // Find current plan details from DB list or fallback
     const currentPlanDetails = allPlans?.find(p => p.id === plan);
-
     const hasPaymentMethod = !!subscription?.providerCustomerId;
 
     return (
         <div className="space-y-12 animate-in fade-in pb-10">
+            {/* Context Banner for Global Operators */}
+            {context.isGlobalOperator && (
+                <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-xl flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    <div>
+                        <p className="text-sm text-amber-800 font-bold uppercase tracking-tight">Modo de Operador Global</p>
+                        <p className="text-xs text-amber-700">Estás viendo la facturación de la organización <strong>{subscription?.organization?.name || orgId}</strong>. Tienes bypass de restricciones comerciales.</p>
+                    </div>
+                </div>
+            )}
+
             {subscription?.status === 'PAUSED' && (
                 <div className="bg-rose-600 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8 animate-in slide-in-from-top-4 duration-700">
                     <div className="flex items-center gap-6">
@@ -131,9 +176,9 @@ export default async function BillingPage() {
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Asientos (Seats)</span>
                     <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white">{usage.users}</span>
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">{usage?.users || 0}</span>
                         <span className="text-slate-400 font-bold">/</span>
-                        <span className="text-lg font-bold text-slate-500">{subscription?.seatLimit || limits.maxUsers || '1'}</span>
+                        <span className="text-lg font-bold text-slate-500">{subscription?.seatLimit || limits?.maxUsers || '1'}</span>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">Usuarios activos en tu organización.</p>
                 </div>
@@ -157,14 +202,14 @@ export default async function BillingPage() {
                             <Users className="w-5 h-5 text-slate-500" />
                             <h4 className="font-bold text-slate-700 dark:text-slate-200">Usuarios</h4>
                         </div>
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage.users >= limits.maxUsers ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage?.users >= (limits?.maxUsers || 0) ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
                             }`}>
-                            {usage.users} / {limits.maxUsers || '∞'}
+                            {usage?.users || 0} / {limits?.maxUsers || '∞'}
                         </span>
                     </div>
                     <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
-                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage.users >= limits.maxUsers ? 'bg-red-500' : 'bg-blue-500'
+                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage?.users >= (limits?.maxUsers || 0) ? 'bg-red-500' : 'bg-blue-500'
                                 }`}
                             style={{ width: `${percentUsers}%` }}
                         ></div>
@@ -178,58 +223,16 @@ export default async function BillingPage() {
                             <Building2 className="w-5 h-5 text-slate-500" />
                             <h4 className="font-bold text-slate-700 dark:text-slate-200">Proyectos</h4>
                         </div>
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage.projects >= limits.maxProjects ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage?.projects >= (limits?.maxProjects || 0) ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
                             }`}>
-                            {usage.projects} / {limits.maxProjects || '∞'}
+                            {usage?.projects || 0} / {limits?.maxProjects || '∞'}
                         </span>
                     </div>
                     <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
-                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage.projects >= limits.maxProjects ? 'bg-red-500' : 'bg-emerald-500'
+                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage?.projects >= (limits?.maxProjects || 0) ? 'bg-red-500' : 'bg-emerald-500'
                                 }`}
                             style={{ width: `${percentProjects}%` }}
-                        ></div>
-                    </div>
-                </div>
-
-                {/* Quotes Usage (Monthly) */}
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-slate-500" />
-                            <h4 className="font-bold text-slate-700 dark:text-slate-200">Cotizaciones (Mes)</h4>
-                        </div>
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage.quotesMonth >= limits.maxQuotesPerMonth ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
-                            }`}>
-                            {usage.quotesMonth} / {limits.maxQuotesPerMonth || '∞'}
-                        </span>
-                    </div>
-                    <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage.quotesMonth >= limits.maxQuotesPerMonth ? 'bg-red-500' : 'bg-blue-500'
-                                }`}
-                            style={{ width: `${percentQuotes}%` }}
-                        ></div>
-                    </div>
-                </div>
-
-                {/* Invoices Usage (Monthly) */}
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-2">
-                            <Receipt className="w-5 h-5 text-slate-500" />
-                            <h4 className="font-bold text-slate-700 dark:text-slate-200">Facturas (Mes)</h4>
-                        </div>
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${usage.invoicesMonth >= limits.maxInvoicesPerMonth ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
-                            }`}>
-                            {usage.invoicesMonth} / {limits.maxInvoicesPerMonth || '∞'}
-                        </span>
-                    </div>
-                    <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full transition-all duration-1000 ease-out rounded-full ${usage.invoicesMonth >= limits.maxInvoicesPerMonth ? 'bg-red-500' : 'bg-emerald-500'
-                                }`}
-                            style={{ width: `${percentInvoices}%` }}
                         ></div>
                     </div>
                 </div>
@@ -238,97 +241,85 @@ export default async function BillingPage() {
             {/* Plans List */}
             <div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Planes Disponibles</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {allPlans?.map((p) => {
-                        const isCurrent = p.id === plan;
-                        const pLimits = p.limits as any;
-                        const pFeatures = p.features as any;
+                {!allPlans || allPlans.length === 0 ? (
+                    <div className="p-12 border-2 border-dashed border-slate-200 rounded-3xl text-center text-slate-400">
+                        No se pudieron cargar los planes comerciales en este momento.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {allPlans.map((p) => {
+                            const isCurrent = p.id === plan;
+                            const pLimits = (p.limits as any) || {};
+                            const pFeatures = (p.features as any) || {};
 
-                        return (
-                            <div
-                                key={p.id}
-                                className={`rounded-3xl border p-8 flex flex-col relative ${isCurrent
-                                    ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10 dark:bg-blue-900/10'
-                                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm hover:shadow-md transition-all'
-                                    }`}
-                            >
-                                {isCurrent && (
-                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
-                                        Plan Actual
-                                    </span>
-                                )}
-
-                                <div className="mb-6">
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{p.name}</h3>
-                                    <p className="text-sm text-slate-500 mt-1 min-h-[40px]">{p.description}</p>
-                                </div>
-
-                                <div className="mb-6">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-4xl font-black text-slate-900 dark:text-white">
-                                            ${p.price.toLocaleString()}
+                            return (
+                                <div
+                                    key={p.id}
+                                    className={`rounded-3xl border p-8 flex flex-col relative ${isCurrent
+                                        ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10 dark:bg-blue-900/10'
+                                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm hover:shadow-md transition-all'
+                                        }`}
+                                >
+                                    {isCurrent && (
+                                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
+                                            Plan Actual
                                         </span>
-                                        <span className="text-sm font-medium text-slate-500">/{p.interval === 'month' ? 'mes' : 'año'}</span>
+                                    )}
+
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">{p.name}</h3>
+                                        <p className="text-sm text-slate-500 mt-1 min-h-[40px]">{p.description}</p>
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-4xl font-black text-slate-900 dark:text-white">
+                                                ${p.price.toLocaleString()}
+                                            </span>
+                                            <span className="text-sm font-medium text-slate-500">/{p.interval === 'month' ? 'mes' : 'año'}</span>
+                                        </div>
+                                    </div>
+
+                                    <ul className="space-y-4 mb-8 flex-1">
+                                        <li className="flex items-start gap-3 text-sm">
+                                            <Users className="w-5 h-5 text-slate-400 shrink-0" />
+                                            <span>
+                                                <strong className="text-slate-900 dark:text-white">{pLimits.maxUsers || 'Ilimitados'}</strong> usuarios
+                                            </span>
+                                        </li>
+                                        <li className="flex items-start gap-3 text-sm">
+                                            <Building2 className="w-5 h-5 text-slate-400 shrink-0" />
+                                            <span>
+                                                <strong className="text-slate-900 dark:text-white">{pLimits.maxProjects || 'Ilimitados'}</strong> proyectos
+                                            </span>
+                                        </li>
+                                        <li className="flex items-start gap-3 text-sm">
+                                            <Database className="w-5 h-5 text-slate-400 shrink-0" />
+                                            <span>
+                                                <strong className="text-slate-900 dark:text-white">{pLimits.maxStorageGB || 1} GB</strong> almacenamiento
+                                            </span>
+                                        </li>
+                                    </ul>
+
+                                    <div className="mt-auto">
+                                        {isCurrent ? (
+                                            <Button className="w-full" disabled variant="outline">Plan Actual</Button>
+                                        ) : (
+                                            <form action={async () => {
+                                                'use server';
+                                                await import("@/app/actions/subscription").then(m => m.requestUpgrade(p.id));
+                                            }}>
+                                                <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 font-bold" variant="default">
+                                                    {p.price > (currentPlanDetails?.price || 0) ? 'Mejorar Plan' : 'Cambiar Plan'}
+                                                </Button>
+                                            </form>
+                                        )}
                                     </div>
                                 </div>
-
-                                <ul className="space-y-4 mb-8 flex-1">
-                                    <li className="flex items-start gap-3 text-sm">
-                                        <Users className="w-5 h-5 text-slate-400 shrink-0" />
-                                        <span>
-                                            <strong className="text-slate-900 dark:text-white">{pLimits.maxUsers || 'Ilimitados'}</strong> usuarios
-                                        </span>
-                                    </li>
-                                    <li className="flex items-start gap-3 text-sm">
-                                        <Building2 className="w-5 h-5 text-slate-400 shrink-0" />
-                                        <span>
-                                            <strong className="text-slate-900 dark:text-white">{pLimits.maxProjects || 'Ilimitados'}</strong> proyectos
-                                        </span>
-                                    </li>
-                                    <li className="flex items-start gap-3 text-sm">
-                                        <Database className="w-5 h-5 text-slate-400 shrink-0" />
-                                        <span>
-                                            <strong className="text-slate-900 dark:text-white">{pLimits.maxStorageGB} GB</strong> almacenamiento
-                                        </span>
-                                    </li>
-                                    {pFeatures?.canAccessAPI && (
-                                        <li className="flex items-center gap-3 text-sm">
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                                            <span>Acceso a API</span>
-                                        </li>
-                                    )}
-                                    {pFeatures?.customDomain && (
-                                        <li className="flex items-center gap-3 text-sm">
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                                            <span>Dominio Personalizado</span>
-                                        </li>
-                                    )}
-                                    {pFeatures?.supportLevel === 'PRIORITY' && (
-                                        <li className="flex items-center gap-3 text-sm">
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                                            <span>Soporte Prioritario</span>
-                                        </li>
-                                    )}
-                                </ul>
-
-                                <div className="mt-auto">
-                                    {isCurrent ? (
-                                        <Button className="w-full" disabled variant="outline">Plan Actual</Button>
-                                    ) : (
-                                        <form action={async () => {
-                                            'use server';
-                                            await import("@/app/actions/subscription").then(m => m.requestUpgrade(p.id));
-                                        }}>
-                                            <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 font-bold" variant="default">
-                                                {p.price > (currentPlanDetails?.price || 0) ? 'Mejorar Plan' : 'Cambiar Plan'}
-                                            </Button>
-                                        </form>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );

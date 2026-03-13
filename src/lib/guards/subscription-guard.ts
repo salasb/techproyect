@@ -8,7 +8,7 @@ import { getWriteAccessContext } from "@/lib/auth/write-guard";
  */
 export async function isOrganizationPaused(organizationId: string): Promise<boolean> {
     const context = await getWriteAccessContext();
-    return !context.allowed && (context.reason === 'SUBSCRIPTION_PAUSED' || context.reason === 'SUBSCRIPTION_CANCELED' || context.reason === 'TRIAL_EXPIRED');
+    return !context.allowed && (context.readOnlyReason === 'SUBSCRIPTION_PAUSED' || context.readOnlyReason === 'SUBSCRIPTION_CANCELED' || context.readOnlyReason === 'TRIAL_EXPIRED');
 }
 
 /**
@@ -20,7 +20,7 @@ export async function ensureNotPaused(organizationId: string) {
     const context = await getWriteAccessContext();
     if (!context.allowed) {
         // Log the reason for auditability
-        console.log(`[WriteGuard][Blocked] orgId=${organizationId}, reason=${context.reason}`);
+        console.log(`[WriteGuard][Blocked] orgId=${organizationId}, reason=${context.readOnlyReason}`);
         
         // We throw the specific message so PaywallContext can show it to the user
         throw new Error(`READ_ONLY_MODE:${context.message}`);
