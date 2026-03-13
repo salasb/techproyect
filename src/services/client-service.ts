@@ -1,6 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { validateRut, formatRut } from "@/lib/rut";
+import { Prisma } from "@prisma/client";
 
 export type CreateClientData = {
     organizationId: string;
@@ -10,20 +10,26 @@ export type CreateClientData = {
     address?: string | null;
     taxId?: string | null;
     contactName?: string | null;
-    status?: 'PROSPECT' | 'ACTIVE' | 'INACTIVE';
+    status?: 'LEAD' | 'PROSPECT' | 'CLIENT' | 'CHURNED';
 };
 
 export type ClientServiceResult = 
     | { ok: true; client: { id: string; name: string; email: string | null; phone: string | null } }
-    | { ok: false; code: 'VALIDATION_ERROR' | 'DUPLICATE_CLIENT' | 'DB_ERROR'; message: string; fieldErrors?: Record<string, string> };
+    | { 
+        ok: false; 
+        code: 'VALIDATION_ERROR' | 'DUPLICATE_CLIENT' | 'FOREIGN_KEY_ERROR' | 'DB_ERROR' | 'SCHEMA_MISMATCH'; 
+        message: string; 
+        fieldErrors?: Record<string, string>;
+        prismaCode?: string;
+    };
 
 /**
- * CLIENT SERVICE (v1.0)
- * Centralized logic for Client/Prospect lifecycle.
+ * CLIENT SERVICE (v2.0)
+ * Centralized logic for Client/Prospect lifecycle using Prisma for strict schema alignment.
  */
 export const ClientService = {
     /**
-     * Creates a new client or prospect with validation.
+     * Creates a new client or prospect with validation and robust error mapping.
      */
     async create(data: CreateClientData): Promise<ClientServiceResult> {
         const traceId = `SVC-CLT-${Math.random().toString(36).substring(7).toUpperCase()}`;
@@ -34,20 +40,7 @@ export const ClientService = {
                 return { ok: false, code: 'VALIDATION_ERROR', message: 'El nombre es requerido.', fieldErrors: { name: 'Requerido' } };
             }
 
-            // 2. Duplicate Check (within the same organization)
-            if (data.email) {
-                const existing = await prisma.client.findFirst({
-                    where: { 
-                        organizationId: data.organizationId,
-                        email: data.email.trim().toLowerCase()
-                    }
-                });
-                if (existing) {
-                    return { ok: false, code: 'DUPLICATE_CLIENT', message: 'Ya existe un cliente con este correo en tu organización.', fieldErrors: { email: 'Correo duplicado' } };
-                }
-            }
-
-            // 3. RUT/TaxId Validation if provided
+            // 2. RUT/TaxId Validation if provided
             let taxId = data.taxId;
             if (taxId && taxId.trim() !== '') {
                 if (!validateRut(taxId)) {
@@ -56,14 +49,9 @@ export const ClientService = {
                 taxId = formatRut(taxId);
             }
 
-            // 4. Persistence via Supabase (to maintain RLS context if needed) or Prisma
-            const supabase = await createClient();
-            const clientId = crypto.randomUUID();
-            
-            const { data: newClient, error } = await supabase
-                .from('Client')
-                .insert({
-                    id: clientId,
+            // 3. Persistence via Prisma (Guarantees Schema Alignment)
+            const newClient = await prisma.client.create({
+                data: {
                     organizationId: data.organizationId,
                     name: data.name.trim(),
                     email: data.email?.trim().toLowerCase() || null,
@@ -72,16 +60,16 @@ export const ClientService = {
                     taxId: taxId || null,
                     contactName: data.contactName?.trim() || null,
                     status: data.status || 'PROSPECT',
-                    updatedAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString()
-                })
-                .select()
-                .single();
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true
+                }
+            });
 
-            if (error) {
-                console.error(`[ClientService][${traceId}] Supabase Error:`, error.message);
-                return { ok: false, code: 'DB_ERROR', message: 'Error de base de datos al guardar el cliente.' };
-            }
+            console.log(`[ClientService][${traceId}] Success: Client created with ID ${newClient.id}`);
 
             return {
                 ok: true,
@@ -94,8 +82,55 @@ export const ClientService = {
             };
 
         } catch (error: any) {
-            console.error(`[ClientService][${traceId}] Unexpected Error:`, error.message);
-            return { ok: false, code: 'DB_ERROR', message: 'Ocurrió un fallo interno procesando la solicitud.' };
+            console.error(`[ClientService][${traceId}] DB ERROR:`, {
+                message: error.message,
+                code: error.code,
+                meta: error.meta
+            });
+
+            // 4. Map Prisma Error Codes to Canonical Contract
+            if (error instanceof Prisma.PrismaClientKnownRequestError) {
+                // Unique constraint failed (e.g. Email already exists in this org)
+                if (error.code === 'P2002') {
+                    const target = (error.meta?.target as string[]) || [];
+                    const isEmail = target.includes('email');
+                    return { 
+                        ok: false, 
+                        code: 'DUPLICATE_CLIENT', 
+                        message: isEmail ? 'Ya existe un cliente con este correo.' : 'Este cliente ya está registrado.',
+                        fieldErrors: isEmail ? { email: 'Duplicado' } : { name: 'Duplicado' },
+                        prismaCode: error.code
+                    };
+                }
+
+                // Foreign key constraint failed (e.g. orgId doesn't exist)
+                if (error.code === 'P2003') {
+                    return { 
+                        ok: false, 
+                        code: 'FOREIGN_KEY_ERROR', 
+                        message: 'Error de integridad: La organización o referencia no existe.',
+                        prismaCode: error.code
+                    };
+                }
+
+                // Field value out of range or invalid enum
+                if (error.code === 'P2005' || error.code === 'P2006') {
+                    return { 
+                        ok: false, 
+                        code: 'SCHEMA_MISMATCH', 
+                        message: 'Error de formato: Algunos datos no coinciden con el esquema de la base de datos.',
+                        prismaCode: error.code
+                    };
+                }
+            }
+
+            // Fallback for truly unexpected errors
+            return { 
+                ok: false, 
+                code: 'DB_ERROR', 
+                message: 'Ocurrió un fallo al guardar en la base de datos. Verifica los datos e intenta nuevamente.',
+                prismaCode: error.code || 'UNKNOWN'
+            };
         }
     }
 };

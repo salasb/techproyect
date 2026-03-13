@@ -24,10 +24,13 @@ export type CreateQuickClientResult =
         | 'NO_ACTIVE_ORG'
         | 'NO_PERMISSION'
         | 'DUPLICATE_CLIENT'
+        | 'FOREIGN_KEY_ERROR'
+        | 'SCHEMA_MISMATCH'
         | 'READ_ONLY'
         | 'DB_ERROR';
       message: string;
       fieldErrors?: Record<string, string>;
+      prismaCode?: string;
       traceId: string;
     };
 
@@ -46,8 +49,8 @@ export async function getClients() {
 }
 
 /**
- * QUICK CLIENT ACTION (v2.0)
- * Uses ClientService for robust creation and validation.
+ * QUICK CLIENT ACTION (v2.1)
+ * Uses ClientService with strict trace tracking and error mapping.
  */
 export async function createQuickClient(formData: FormData): Promise<CreateQuickClientResult> {
     const traceId = `ACT-CQC-${Math.random().toString(36).substring(7).toUpperCase()}`;
@@ -69,6 +72,7 @@ export async function createQuickClient(formData: FormData): Promise<CreateQuick
 
         const orgId = context.activeOrgId;
         if (!orgId) {
+            console.error(`[Actions][${traceId}] Critical: No activeOrgId in authorized context.`);
             return { ok: false, code: 'NO_ACTIVE_ORG', message: 'Se requiere una organización activa.', traceId };
         }
 
@@ -77,9 +81,9 @@ export async function createQuickClient(formData: FormData): Promise<CreateQuick
         const email = formData.get('email') as string;
         const phone = formData.get('phone') as string;
 
-        console.log(`[Actions][${traceId}] Attempting quick client: name=${name}, org=${orgId}`);
+        console.log(`[Actions][${traceId}] Creation request: user=${context.email}, org=${orgId}, name=${name}`);
 
-        // 3. Service Call
+        // 3. Service Call (The source of truth for DB operations)
         const result = await ClientService.create({
             organizationId: orgId,
             name,
@@ -89,28 +93,28 @@ export async function createQuickClient(formData: FormData): Promise<CreateQuick
         });
 
         if (!result.ok) {
-            console.warn(`[Actions][${traceId}] Service failure: ${result.code} - ${result.message}`);
+            console.warn(`[Actions][${traceId}] Service failure: ${result.code} (Prisma: ${result.prismaCode})`);
             return { ...result, traceId };
         }
 
-        // 4. Post-Creation Tasks (Async/Background)
+        // 4. Post-Creation Tasks
         try {
             await ActivationService.trackFirst('FIRST_CLIENT_CREATED', orgId, undefined, result.client.id);
             revalidatePath('/clients');
             revalidatePath('/projects/new'); 
         } catch (e) {
-            console.warn(`[Actions][${traceId}] Background tasks warning:`, e);
+            console.warn(`[Actions][${traceId}] Non-critical background task warning:`, e);
         }
         
-        console.log(`[Actions][${traceId}] Success: Client ${result.client.id} created.`);
+        console.log(`[Actions][${traceId}] Success: Client ${result.client.id} registered.`);
         return { ok: true, client: result.client, traceId };
 
     } catch (error: any) {
-        console.error(`[Actions][${traceId}] FATAL UNEXPECTED:`, error.message);
+        console.error(`[Actions][${traceId}] CRITICAL ACTION FAILURE:`, error.message);
         return { 
             ok: false, 
             code: 'DB_ERROR', 
-            message: 'Error inesperado al procesar la creación del cliente.', 
+            message: 'Ocurrió un error inesperado al procesar la acción del cliente.', 
             traceId 
         };
     }
