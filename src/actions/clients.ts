@@ -138,7 +138,7 @@ export async function createClientAction(formData: FormData) {
             address: formData.get('address') as string,
             taxId: formData.get('taxId') as string,
             contactName: formData.get('contactName') as string,
-            status: 'ACTIVE'
+            status: 'CLIENT'
         });
 
         if (!result.ok) throw new Error(result.message);
