@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { createClientAction, deleteClientAction, updateClientAction } from "@/actions/clients";
-import { Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, FileText, Eye, LayoutGrid, List } from "lucide-react";
+import { 
+    Plus, Search, MapPin, Phone, Mail, User, Trash2, Edit2, Loader2, X, 
+    FileText, Eye, LayoutGrid, List, AlertCircle, Building2 
+} from "lucide-react";
 import { formatRut, validateRut } from "@/lib/rut";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -30,10 +33,6 @@ interface ClientData {
     Contact?: ContactData[];
 }
 
-import { AlertCircle, Building2, LayoutGrid, List, Loader2, Mail, MapPin, Phone, Plus, Search, Trash2, Edit2, User, X, FileText, Eye } from "lucide-react";
-
-// ... existing interfaces ...
-
 export function ClientsClientView({ 
     initialClients, 
     activeOrgId 
@@ -41,8 +40,6 @@ export function ClientsClientView({
     initialClients: ClientData[], 
     activeOrgId: string | null 
 }) {
-    // ... (rest of states)
-    const [clients] = useState(initialClients);
     const [view, setView] = useState<'list' | 'board'>('list');
 
     const [isAdding, setIsAdding] = useState(false);
@@ -52,7 +49,11 @@ export function ClientsClientView({
     const router = useRouter();
     const { toast } = useToast();
 
-    // ... (rest of states like taxIdError, phoneType, rawPhone, contacts)
+    // Form State
+    const [taxIdError, setTaxIdError] = useState<string | null>(null);
+    const [phoneType, setPhoneType] = useState<'mobile' | 'landline'>('mobile');
+    const [rawPhone, setRawPhone] = useState('');
+    const [contacts, setContacts] = useState<ContactData[]>([]);
 
     const filteredClients = initialClients.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -105,8 +106,6 @@ export function ClientsClientView({
             }
         });
     }
-
-    // ... (handleDelete, openModal, addContactRow, removeContactRow, updateContactRow unchanged)
 
     async function handleDelete(id: string) {
         if (!confirm("¿Eliminar cliente?")) return;
@@ -294,7 +293,7 @@ export function ClientsClientView({
                 </div>
             ) : (
                 <div className="overflow-x-auto pb-4" data-testid="clients-board">
-                    <PipelineBoard clients={filteredClients.length > 0 ? filteredClients : (clients as any[])} />
+                    <PipelineBoard clients={filteredClients.length > 0 ? filteredClients : (initialClients as any[])} />
                 </div>
             )}
 
