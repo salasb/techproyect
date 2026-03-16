@@ -125,8 +125,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
     // Fetch Exchange Rates
     const [exchangeRate, ufRate] = await Promise.all([
-        getDollarRate().catch(() => ({ value: 855 })),
-        getUfRate().catch(() => ({ value: 37000 }))
+        getDollarRate().catch(() => ({ value: 855, code: 'USD', date: new Date().toISOString(), source: 'FALLBACK' })),
+        getUfRate().catch(() => ({ value: 37000, code: 'UF', date: new Date().toISOString(), source: 'FALLBACK' }))
     ]);
 
     return (
