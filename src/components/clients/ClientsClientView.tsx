@@ -112,11 +112,19 @@ export function ClientsClientView({
 
         startTransition(async () => {
             try {
-                await deleteClientAction(id);
-                toast({ type: 'success', message: "Cliente eliminado" });
-                router.refresh();
+                const result = await deleteClientAction(id);
+                if (result.success) {
+                    toast({ type: 'success', message: "Cliente eliminado correctamente." });
+                    router.refresh();
+                } else {
+                    toast({ 
+                        type: 'error', 
+                        message: result.message || "Error al eliminar cliente.",
+                        description: `Trace: ${result.traceId}`
+                    } as any);
+                }
             } catch (error) {
-                toast({ type: 'error', message: "Error al eliminar cliente" });
+                toast({ type: 'error', message: "Error crítico al procesar la eliminación." });
             }
         });
     }

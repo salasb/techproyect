@@ -137,20 +137,15 @@ export const ClientService = {
     },
 
     /**
-     * Lists all clients for a specific organization with explicit scoping.
+     * Lists all clients for a specific organization or all if organizationId is null (Global Mode).
      */
-    async list(organizationId: string) {
+    async list(organizationId: string | null) {
         const traceId = `SVC-CLT-LST-${Math.random().toString(36).substring(7).toUpperCase()}`;
-        console.log(`[ClientService][${traceId}] List request for org=${organizationId}`);
-
-        if (!organizationId) {
-            console.warn(`[ClientService][${traceId}] Blocked: No organizationId provided for list.`);
-            return [];
-        }
+        console.log(`[ClientService][${traceId}] List request for org=${organizationId || 'GLOBAL'}`);
 
         try {
             const clients = await prisma.client.findMany({
-                where: { organizationId },
+                where: organizationId ? { organizationId } : {},
                 orderBy: { name: 'asc' },
                 include: {
                     _count: {
@@ -163,6 +158,71 @@ export const ClientService = {
         } catch (error: any) {
             console.error(`[ClientService][${traceId}] DB ERROR on list:`, error.message);
             return [];
+        }
+    },
+
+    /**
+     * Gets a client by ID with optional organization scoping.
+     */
+    async getById(id: string, organizationId: string | null) {
+        const traceId = `SVC-CLT-GET-${Math.random().toString(36).substring(7).toUpperCase()}`;
+        console.log(`[ClientService][${traceId}] Fetch intent: id=${id}, scope=${organizationId || 'GLOBAL'}`);
+
+        try {
+            const client = await prisma.client.findUnique({
+                where: organizationId ? { id, organizationId } : { id },
+                include: {
+                    Contact: { orderBy: { createdAt: 'desc' } },
+                    Project: { orderBy: { updatedAt: 'desc' } },
+                    Interaction: {
+                        orderBy: { date: 'desc' },
+                        include: { project: { select: { name: true } } }
+                    }
+                }
+            });
+
+            if (!client) {
+                console.warn(`[ClientService][${traceId}] Result: NOT_FOUND. The record doesn't exist or belongs to another organization.`);
+                return { ok: false, code: 'NOT_FOUND', message: 'Cliente no encontrado o fuera de contexto.' };
+            }
+
+            console.log(`[ClientService][${traceId}] Result: OK. Found "${client.name}"`);
+            return { ok: true, client };
+        } catch (error: any) {
+            console.error(`[ClientService][${traceId}] Result: DB_ERROR.`, error.message);
+            return { ok: false, code: 'DB_ERROR', message: 'Error crítico al consultar el cliente.' };
+        }
+    },
+
+    /**
+     * Deletes a client with scoping.
+     */
+    async delete(id: string, organizationId: string | null) {
+        const traceId = `SVC-CLT-DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
+        console.log(`[ClientService][${traceId}] Delete intent: id=${id}, scope=${organizationId || 'GLOBAL'}`);
+
+        try {
+            // Check existence and scope first
+            const existing = await prisma.client.findUnique({
+                where: organizationId ? { id, organizationId } : { id },
+                select: { id: true, name: true }
+            });
+
+            if (!existing) {
+                console.warn(`[ClientService][${traceId}] Result: ABORTED. Record not found or scope violation.`);
+                return { ok: false, code: 'NOT_FOUND', message: 'No se puede eliminar: el cliente no existe en este contexto.' };
+            }
+
+            console.log(`[ClientService][${traceId}] Proceeding to delete "${existing.name}"...`);
+            await prisma.client.delete({
+                where: { id }
+            });
+
+            console.log(`[ClientService][${traceId}] Result: SUCCESS.`);
+            return { ok: true };
+        } catch (error: any) {
+            console.error(`[ClientService][${traceId}] Result: DB_ERROR.`, error.message);
+            return { ok: false, code: 'DB_ERROR', message: 'No se pudo completar la eliminación en la base de datos.' };
         }
     },
 

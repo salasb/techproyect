@@ -37,25 +37,53 @@ export type CreateQuickClientResult =
 import { resolveAccessContext } from "@/lib/auth/access-resolver";
 
 /**
- * GET CLIENTS (v3.0)
- * Scoped by active organization using ClientService (Prisma).
+ * GET CLIENTS (v3.1)
+ * Scoped by active organization or Global for superadmins.
  */
 export async function getClients() {
-    const traceId = `ACT-CLT-GET-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const traceId = `ACT-CLT-LST-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const context = await resolveAccessContext();
-        const orgId = context.activeOrgId;
-
-        if (!orgId) {
-            console.warn(`[Actions][${traceId}] getClients blocked: No active organization context.`);
+        
+        if (!context.activeOrgId && !context.isGlobalOperator) {
+            console.warn(`[Actions][${traceId}] getClients blocked: No organization context for non-global user.`);
             return [];
         }
 
-        console.log(`[Actions][${traceId}] Fetching clients for org=${orgId} (User: ${context.email})`);
-        return await ClientService.list(orgId);
+        console.log(`[Actions][${traceId}] Fetching clients. mode=${context.effectiveMode}, org=${context.activeOrgId}`);
+        return await ClientService.list(context.activeOrgId);
     } catch (error: any) {
         console.error(`[Actions][${traceId}] Error in getClients:`, error.message);
         return [];
+    }
+}
+
+/**
+ * GET CLIENT DETAILS ACTION (v1.0)
+ * Centralized entry point for client detail view using Service (Prisma).
+ */
+export async function getClientDetailsAction(clientId: string) {
+    const traceId = `ACT-CLT-DET-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const context = await resolveAccessContext();
+        
+        if (!context.activeOrgId && !context.isGlobalOperator) {
+            return { ok: false, code: 'NO_CONTEXT', message: 'Debes seleccionar una organización.' };
+        }
+
+        // Fetch via Service (Prisma) - Standardizes scoping and data shape
+        const result = await ClientService.getById(clientId, context.activeOrgId);
+        
+        if (!result.ok) return { ...result, traceId };
+
+        return { 
+            ok: true, 
+            client: result.client, 
+            traceId 
+        };
+    } catch (error: any) {
+        console.error(`[Actions][${traceId}] Critical failure:`, error.message);
+        return { ok: false, code: 'ERROR', message: 'Error interno al cargar el detalle.' };
     }
 }
 
@@ -217,24 +245,28 @@ export async function updateClientAction(clientId: string, formData: FormData) {
     }
 }
 
+/**
+ * DELETE CLIENT ACTION (v2.2)
+ */
 export async function deleteClientAction(clientId: string) {
-    const traceId = `ACT-DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const traceId = `ACT-CLT-DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const context = await ensureWriteAccess();
-        const orgId = context.activeOrgId;
-        if (!orgId) throw new Error("No active org");
+        
+        console.log(`[Actions][${traceId}] Delete intent: id=${clientId}, org=${context.activeOrgId}`);
 
-        console.log(`[Actions][${traceId}] Deleting client ${clientId} from org=${orgId}`);
+        // Scoping is handled within Service.delete (allows null orgId for global operators)
+        const result = await ClientService.delete(clientId, context.activeOrgId);
 
-        await prisma.client.delete({
-            where: { id: clientId, organizationId: orgId }
-        });
+        if (!result.ok) {
+            return { success: false, message: result.message, traceId };
+        }
 
         revalidatePath('/clients');
         return { success: true, traceId };
     } catch (error: any) {
-        console.error(`[Actions][${traceId}] Error:`, error.message);
-        throw error;
+        console.error(`[Actions][${traceId}] Error in delete:`, error.message);
+        return { success: false, message: "No tienes permisos de escritura o falta contexto.", traceId };
     }
 }
 
