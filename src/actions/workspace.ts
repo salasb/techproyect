@@ -53,20 +53,9 @@ export async function switchWorkspaceContext(orgId: string) {
             }
         })
 
-        // Set the cookie
-        cookieStore.set(ORG_CONTEXT_COOKIE, orgId, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 7, // 1 week
-            path: '/',
-        })
-
-        // Update Profile DB
-        await prisma.profile.update({
-            where: { id: user.id },
-            data: { organizationId: orgId }
-        })
+        // Use canonical setActiveOrg to persist in both Cookie and DB Fallback
+        const { setActiveOrg } = await import('@/lib/auth/active-context');
+        await setActiveOrg(user.id, orgId, workspace.isSuperadmin ? 'auto' : 'select');
 
         return { success: true }
 

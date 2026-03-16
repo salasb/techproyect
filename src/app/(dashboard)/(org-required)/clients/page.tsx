@@ -1,9 +1,11 @@
 import { getClients } from "@/actions/clients";
-import { ClientsClientView } from "@/components/clients/ClientsClientView"; // Client Component for interactivity
+import { ClientsClientView } from "@/components/clients/ClientsClientView";
+import { resolveAccessContext } from "@/lib/auth/access-resolver";
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientsPage() {
+    const context = await resolveAccessContext();
     const clients = await getClients();
 
     return (
@@ -15,7 +17,10 @@ export default async function ClientsPage() {
                 </div>
             </div>
 
-            <ClientsClientView initialClients={clients} />
+            <ClientsClientView 
+                initialClients={clients} 
+                activeOrgId={context.activeOrgId} 
+            />
         </div>
     );
 }

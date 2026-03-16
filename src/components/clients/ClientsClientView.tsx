@@ -30,7 +30,18 @@ interface ClientData {
     Contact?: ContactData[];
 }
 
-export function ClientsClientView({ initialClients }: { initialClients: ClientData[] }) {
+import { AlertCircle, Building2, LayoutGrid, List, Loader2, Mail, MapPin, Phone, Plus, Search, Trash2, Edit2, User, X, FileText, Eye } from "lucide-react";
+
+// ... existing interfaces ...
+
+export function ClientsClientView({ 
+    initialClients, 
+    activeOrgId 
+}: { 
+    initialClients: ClientData[], 
+    activeOrgId: string | null 
+}) {
+    // ... (rest of states)
     const [clients] = useState(initialClients);
     const [view, setView] = useState<'list' | 'board'>('list');
 
@@ -41,11 +52,7 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
     const router = useRouter();
     const { toast } = useToast();
 
-    // Form State
-    const [taxIdError, setTaxIdError] = useState<string | null>(null);
-    const [phoneType, setPhoneType] = useState<'mobile' | 'landline'>('mobile');
-    const [rawPhone, setRawPhone] = useState('');
-    const [contacts, setContacts] = useState<ContactData[]>([]);
+    // ... (rest of states like taxIdError, phoneType, rawPhone, contacts)
 
     const filteredClients = initialClients.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,6 +60,11 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
     );
 
     async function handleSubmit(formData: FormData) {
+        if (!activeOrgId && !editingClient) {
+            toast({ type: 'error', message: "Debes seleccionar una organización antes de crear un cliente." });
+            return;
+        }
+
         setTaxIdError(null);
 
         // Client-side Validation
@@ -67,18 +79,23 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
 
         startTransition(async () => {
             try {
+                let result: any;
                 if (editingClient) {
-                    await updateClientAction(editingClient.id, formData);
-                    toast({ type: 'success', message: "Cliente actualizado correctamente" });
+                    result = await updateClientAction(editingClient.id, formData);
                 } else {
-                    await createClientAction(formData);
-                    toast({ type: 'success', message: "Cliente creado correctamente" });
+                    result = await createClientAction(formData);
                 }
 
-                setIsAdding(false);
-                setEditingClient(null);
-                setTaxIdError(null);
-                router.refresh();
+                if (result.success || result.ok) {
+                    toast({ type: 'success', message: editingClient ? "Cliente actualizado" : "Cliente creado correctamente" });
+                    setIsAdding(false);
+                    setEditingClient(null);
+                    setTaxIdError(null);
+                    router.refresh();
+                } else {
+                    toast({ type: 'error', message: result.message || "Error al procesar cliente." });
+                }
+
             } catch (error: any) {
                 console.error(error);
                 const msg = error.message?.includes("RUT inválido")
@@ -88,6 +105,8 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
             }
         });
     }
+
+    // ... (handleDelete, openModal, addContactRow, removeContactRow, updateContactRow unchanged)
 
     async function handleDelete(id: string) {
         if (!confirm("¿Eliminar cliente?")) return;
@@ -144,13 +163,24 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
 
     return (
         <div className="space-y-6" data-testid="clients-view">
-            <div className="flex justify-between items-center gap-4">
+            {!activeOrgId && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800 animate-in fade-in slide-in-from-top-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <div className="text-sm">
+                        <p className="font-bold">Contexto no seleccionado</p>
+                        <p className="opacity-90">Debes seleccionar una organización en el selector superior para ver o crear clientes.</p>
+                    </div>
+                </div>
+            )}
+
+            <div className={`flex justify-between items-center gap-4 ${!activeOrgId ? 'opacity-50 pointer-events-none' : ''}`}>
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
                     <input
                         type="text"
                         placeholder="Buscar cliente..."
                         data-testid="search-clients-input"
+                        disabled={!activeOrgId}
                         className="pl-9 pr-4 py-2 w-full rounded-lg border border-input bg-background text-sm"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -160,6 +190,7 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
                     <button
                         onClick={() => setView('list')}
                         data-testid="view-list-btn"
+                        disabled={!activeOrgId}
                         className={`p-2 rounded-md transition-all ${view === 'list' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
                         title="Lista"
                     >
@@ -168,6 +199,7 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
                     <button
                         onClick={() => setView('board')}
                         data-testid="view-board-btn"
+                        disabled={!activeOrgId}
                         className={`p-2 rounded-md transition-all ${view === 'board' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
                         title="Tablero Kanban"
                     >
@@ -176,17 +208,28 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
                 </div>
                 <button
                     onClick={() => openModal()}
+                    disabled={!activeOrgId}
                     data-testid="add-client-btn"
-                    className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                    className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:bg-zinc-300 disabled:cursor-not-allowed"
                 >
                     <Plus className="w-4 h-4 mr-2" />
                     Nuevo Cliente
                 </button>
             </div>
 
-            {view === 'list' ? (
+            {!activeOrgId ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl space-y-4">
+                    <div className="bg-white p-4 rounded-full shadow-sm border border-slate-100">
+                        <Building2 className="w-10 h-10 text-slate-300" />
+                    </div>
+                    <div className="text-center space-y-1">
+                        <p className="font-bold text-slate-900">Esperando Selección de Contexto</p>
+                        <p className="text-sm text-slate-500">Selecciona una organización para gestionar su cartera de clientes.</p>
+                    </div>
+                </div>
+            ) : view === 'list' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="clients-list">
-                    {filteredClients.map((client) => (
+                    {filteredClients.length > 0 ? filteredClients.map((client) => (
                         <div key={client.id} data-testid={`client-card-${client.id}`} className="group bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
@@ -243,7 +286,11 @@ export function ClientsClientView({ initialClients }: { initialClients: ClientDa
                                 )}
                             </div>
                         </div>
-                    ))}
+                    )) : (
+                        <div className="col-span-full py-20 text-center">
+                            <p className="text-zinc-500 italic">No se encontraron clientes.</p>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="overflow-x-auto pb-4" data-testid="clients-board">

@@ -1,10 +1,10 @@
 'use server'
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { ensureWriteAccess } from "@/lib/auth/write-guard";
 import { ActivationService } from "@/services/activation-service";
 import { ClientService } from "@/services/client-service";
+import prisma from "@/lib/prisma";
 
 export type CreateQuickClientResult =
   | {
@@ -34,18 +34,49 @@ export type CreateQuickClientResult =
       traceId: string;
     };
 
-export async function getClients() {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-        .from('Client')
-        .select('*')
-        .order('name');
+import { resolveAccessContext } from "@/lib/auth/access-resolver";
 
-    if (error) {
-        console.error("[getClients] error:", error.message);
+/**
+ * GET CLIENTS (v3.0)
+ * Scoped by active organization using ClientService (Prisma).
+ */
+export async function getClients() {
+    const traceId = `ACT-CLT-GET-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const context = await resolveAccessContext();
+        const orgId = context.activeOrgId;
+
+        if (!orgId) {
+            console.warn(`[Actions][${traceId}] getClients blocked: No active organization context.`);
+            return [];
+        }
+
+        console.log(`[Actions][${traceId}] Fetching clients for org=${orgId} (User: ${context.email})`);
+        return await ClientService.list(orgId);
+    } catch (error: any) {
+        console.error(`[Actions][${traceId}] Error in getClients:`, error.message);
         return [];
     }
-    return data || [];
+}
+
+/**
+ * SEARCH CLIENTS ACTION (v1.0)
+ * Scoped search for autocomplete/header search.
+ */
+export async function searchClientsAction(query: string) {
+    const traceId = `ACT-CLT-SRCH-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const context = await resolveAccessContext();
+        const orgId = context.activeOrgId;
+
+        if (!orgId || !query || query.length < 2) return [];
+
+        console.log(`[Actions][${traceId}] Searching clients for org=${orgId}, query="${query}"`);
+        return await ClientService.search(orgId, query);
+    } catch (error: any) {
+        console.error(`[Actions][${traceId}] Error in searchClientsAction:`, error.message);
+        return [];
+    }
 }
 
 /**
@@ -73,7 +104,7 @@ export async function createQuickClient(formData: FormData): Promise<CreateQuick
         const orgId = context.activeOrgId;
         if (!orgId) {
             console.error(`[Actions][${traceId}] Critical: No activeOrgId in authorized context.`);
-            return { ok: false, code: 'NO_ACTIVE_ORG', message: 'Se requiere una organización activa.', traceId };
+            return { ok: false, code: 'NO_ACTIVE_ORG', message: 'Se requiere una organización activa para crear clientes.', traceId };
         }
 
         // 2. Data Extraction
@@ -124,11 +155,14 @@ export async function createQuickClient(formData: FormData): Promise<CreateQuick
  * Standard Create Client Action
  */
 export async function createClientAction(formData: FormData) {
-    const traceId = `ACT-CLT-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const traceId = `ACT-CLT-CRT-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const context = await ensureWriteAccess();
         const orgId = context.activeOrgId;
-        if (!orgId) throw new Error("No active org");
+        
+        if (!orgId) {
+            return { ok: false, message: "Debes seleccionar una organización antes de crear un cliente.", traceId };
+        }
 
         const result = await ClientService.create({
             organizationId: orgId,
@@ -151,6 +185,7 @@ export async function createClientAction(formData: FormData) {
     }
 }
 
+
 export async function updateClientAction(clientId: string, formData: FormData) {
     const traceId = `ACT-UPC-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
@@ -158,19 +193,23 @@ export async function updateClientAction(clientId: string, formData: FormData) {
         const orgId = context.activeOrgId;
         if (!orgId) throw new Error("No active org");
 
-        const supabase = await createClient();
-        const { error } = await supabase.from('Client').update({
-            name: formData.get('name') as string,
-            email: formData.get('email') as string,
-            phone: formData.get('phone') as string,
-            address: formData.get('address') as string,
-            taxId: formData.get('taxId') as string,
-            contactName: formData.get('contactName') as string,
-            updatedAt: new Date().toISOString()
-        }).eq('id', clientId).eq('organizationId', orgId);
+        console.log(`[Actions][${traceId}] Updating client ${clientId} for org=${orgId}`);
 
-        if (error) throw error;
+        await prisma.client.update({
+            where: { id: clientId, organizationId: orgId },
+            data: {
+                name: formData.get('name') as string,
+                email: formData.get('email') as string,
+                phone: formData.get('phone') as string,
+                address: formData.get('address') as string,
+                taxId: formData.get('taxId') as string,
+                contactName: formData.get('contactName') as string,
+                updatedAt: new Date()
+            }
+        });
+
         revalidatePath('/clients');
+        revalidatePath(`/clients/${clientId}`);
         return { success: true, traceId };
     } catch (error: any) {
         console.error(`[Actions][${traceId}] Error:`, error.message);
@@ -185,9 +224,12 @@ export async function deleteClientAction(clientId: string) {
         const orgId = context.activeOrgId;
         if (!orgId) throw new Error("No active org");
 
-        const supabase = await createClient();
-        const { error } = await supabase.from('Client').delete().eq('id', clientId).eq('organizationId', orgId);
-        if (error) throw error;
+        console.log(`[Actions][${traceId}] Deleting client ${clientId} from org=${orgId}`);
+
+        await prisma.client.delete({
+            where: { id: clientId, organizationId: orgId }
+        });
+
         revalidatePath('/clients');
         return { success: true, traceId };
     } catch (error: any) {
@@ -195,3 +237,4 @@ export async function deleteClientAction(clientId: string) {
         throw error;
     }
 }
+

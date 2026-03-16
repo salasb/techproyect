@@ -1,8 +1,14 @@
-import { cookies } from 'next/headers'
-import { ORG_CONTEXT_COOKIE } from './auth/constants'
+import { resolveAccessContext } from './auth/access-resolver';
 
+/**
+ * Robustly gets the current organization ID with DB fallback.
+ * Uses the canonical resolveAccessContext.
+ */
 export async function getOrganizationId() {
-    const cookieStore = await cookies()
-    const orgId = cookieStore.get(ORG_CONTEXT_COOKIE)?.value
-    return orgId || ''
+    try {
+        const context = await resolveAccessContext();
+        return context.activeOrgId || '';
+    } catch (e) {
+        return '';
+    }
 }

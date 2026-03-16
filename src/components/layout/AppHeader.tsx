@@ -11,6 +11,7 @@ import { PaywallBanner } from "./PaywallBanner";
 import { DunningBanner } from "../dashboard/DunningBanner";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { NotificationCenter } from "./NotificationCenter";
+import { globalSearchAction } from "@/actions/search";
 
 export function AppHeader({
     profile,
@@ -83,51 +84,43 @@ export function AppHeader({
 
     async function handleSearch(query: string) {
         setSearchQuery(query);
-        if (query.length < 2) {
+        if (query.trim().length < 2) {
             setSearchResults([]);
             setShowResults(false);
             return;
         }
 
-        const supabase = createClient();
+        try {
+            const results = await globalSearchAction(query);
+            
+            // Map results for consistent display
+            const projectResults = results.projects.map(p => ({
+                id: p.id,
+                name: p.name,
+                type: 'PROJECT',
+                clientName: p.clientName
+            }));
 
-        // 1. Search Projects by Name
-        const { data: projectsByName } = await supabase
-            .from('Project')
-            .select('id, name, client:Client(name), company:Company(name)')
-            .ilike('name', `%${query}%`)
-            .limit(5);
+            const clientResults = results.clients.map(c => ({
+                id: c.id,
+                name: c.name,
+                type: 'CLIENT',
+                projectNames: c.projects.map(p => p.name).join(', ')
+            }));
 
-        // 2. Search Clients by Name
-        const { data: foundClients } = await supabase
-            .from('Client')
-            .select('id')
-            .ilike('name', `%${query}%`)
-            .limit(5);
+            const allResults = [...projectResults, ...clientResults];
 
-        let projectsByClient: any[] = [];
-        if (foundClients && foundClients.length > 0) {
-            const clientIds = foundClients.map(c => c.id);
-            const { data } = await supabase
-                .from('Project')
-                .select('id, name, client:Client(name), company:Company(name)')
-                .in('clientId', clientIds)
-                .limit(5);
-            projectsByClient = data || [];
-        }
-
-        // Combine and Deduplicate
-        const allProjects = [...(projectsByName || []), ...projectsByClient];
-
-        // Deduplicate by ID
-        const uniqueProjects = Array.from(new Map(allProjects.map(item => [item.id, item])).values());
-
-        if (uniqueProjects.length > 0) {
-            setSearchResults(uniqueProjects);
-            setShowResults(true);
-        } else {
+            if (allResults.length > 0) {
+                setSearchResults(allResults);
+                setShowResults(true);
+            } else {
+                setSearchResults([]);
+                setShowResults(true); // Show "No results"
+            }
+        } catch (e) {
+            console.error("[AppHeader] Search failed:", e);
             setSearchResults([]);
-            setShowResults(true); // Show "No results"
+            setShowResults(false);
         }
     }
 
@@ -174,19 +167,31 @@ export function AppHeader({
                                 <div className="absolute top-full left-0 w-full mt-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                                     {searchResults.length > 0 ? (
                                         <ul className="py-1">
-                                            {searchResults.map((project) => (
-                                                <li key={project.id}>
+                                            {searchResults.map((item) => (
+                                                <li key={`${item.type}-${item.id}`}>
                                                     <button
                                                         onClick={() => {
-                                                            router.push(`/projects/${project.id}`);
+                                                            const route = item.type === 'PROJECT' 
+                                                                ? `/projects/${item.id}` 
+                                                                : `/clients/${item.id}`;
+                                                            router.push(route);
                                                             setShowResults(false);
                                                             setSearchQuery("");
                                                         }}
-                                                        className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex flex-col"
+                                                        className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex flex-col border-b border-border/50 last:border-none"
                                                     >
-                                                        <span className="font-medium text-sm text-foreground">{project.name}</span>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {(project.client && project.client.name) || (project.company && project.company.name) || 'Sin cliente asignado'}
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[9px] px-1 py-0.5 rounded font-bold uppercase tracking-tighter ${
+                                                                item.type === 'PROJECT' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                                            }`}>
+                                                                {item.type === 'PROJECT' ? 'Proyecto' : 'Cliente'}
+                                                            </span>
+                                                            <span className="font-medium text-sm text-foreground truncate">{item.name}</span>
+                                                        </div>
+                                                        <span className="text-xs text-muted-foreground mt-0.5 ml-[46px] truncate">
+                                                            {item.type === 'PROJECT' 
+                                                                ? item.clientName 
+                                                                : item.projectNames || 'Sin proyectos activos'}
                                                         </span>
                                                     </button>
                                                 </li>
