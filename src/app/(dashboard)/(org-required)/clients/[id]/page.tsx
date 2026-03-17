@@ -44,6 +44,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
         );
     }
 
+    // result.ok is true here, TypeScript now knows client exists
     const client = result.client;
     const contacts = (client as any).Contact || [];
     const interactions = (client as any).Interaction || [];

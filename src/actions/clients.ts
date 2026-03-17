@@ -59,22 +59,22 @@ export async function getClients() {
 }
 
 /**
- * GET CLIENT DETAILS ACTION (v1.0)
+ * GET CLIENT DETAILS ACTION (v1.1)
  * Centralized entry point for client detail view using Service (Prisma).
  */
-export async function getClientDetailsAction(clientId: string) {
+export async function getClientDetailsAction(clientId: string): Promise<{ ok: true, client: any, traceId: string } | { ok: false, code: string, message: string, traceId: string }> {
     const traceId = `ACT-CLT-DET-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const context = await resolveAccessContext();
         
         if (!context.activeOrgId && !context.isGlobalOperator) {
-            return { ok: false, code: 'NO_CONTEXT', message: 'Debes seleccionar una organización.' };
+            return { ok: false, code: 'NO_CONTEXT', message: 'Debes seleccionar una organización.', traceId };
         }
 
         // Fetch via Service (Prisma) - Standardizes scoping and data shape
         const result = await ClientService.getById(clientId, context.activeOrgId);
         
-        if (!result.ok) return { ...result, traceId };
+        if (!result.ok) return { ok: false, code: result.code, message: result.message, traceId };
 
         return { 
             ok: true, 
@@ -83,7 +83,7 @@ export async function getClientDetailsAction(clientId: string) {
         };
     } catch (error: any) {
         console.error(`[Actions][${traceId}] Critical failure:`, error.message);
-        return { ok: false, code: 'ERROR', message: 'Error interno al cargar el detalle.' };
+        return { ok: false, code: 'ERROR', message: 'Error interno al cargar el detalle.', traceId };
     }
 }
 
