@@ -176,7 +176,7 @@ export const ClientService = {
                     Project: { orderBy: { updatedAt: 'desc' } },
                     Interaction: {
                         orderBy: { date: 'desc' },
-                        include: { project: { select: { name: true } } }
+                        include: { Project: { select: { name: true } } }
                     }
                 }
             });
