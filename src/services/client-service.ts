@@ -195,34 +195,69 @@ export const ClientService = {
     },
 
     /**
-     * Deletes a client with scoping.
+     * Deletes a client with scoping and dependency protection.
      */
     async delete(id: string, organizationId: string | null) {
         const traceId = `SVC-CLT-DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
-        console.log(`[ClientService][${traceId}] Delete intent: id=${id}, scope=${organizationId || 'GLOBAL'}`);
+        console.log(`[ClientService][${traceId}] Delete attempt: id=${id}, scope=${organizationId || 'GLOBAL'}`);
 
         try {
-            // Check existence and scope first
-            const existing = await prisma.client.findUnique({
+            // 1. Resolve entity and validate scope
+            const client = await prisma.client.findUnique({
                 where: organizationId ? { id, organizationId } : { id },
-                select: { id: true, name: true }
+                include: {
+                    _count: {
+                        select: {
+                            Project: true,
+                            opportunities: true,
+                            purchaseOrders: true
+                        }
+                    }
+                }
             });
 
-            if (!existing) {
-                console.warn(`[ClientService][${traceId}] Result: ABORTED. Record not found or scope violation.`);
+            if (!client) {
+                console.warn(`[ClientService][${traceId}] Result: NOT_FOUND. Record does not exist or out of scope.`);
                 return { ok: false, code: 'NOT_FOUND', message: 'No se puede eliminar: el cliente no existe en este contexto.' };
             }
 
-            console.log(`[ClientService][${traceId}] Proceeding to delete "${existing.name}"...`);
+            // 2. Dependency Check (Integrity Guard)
+            const deps = client._count;
+            const hasDependencies = deps.Project > 0 || deps.opportunities > 0 || deps.purchaseOrders > 0;
+
+            if (hasDependencies) {
+                const depList = [];
+                if (deps.Project > 0) depList.push(`${deps.Project} proyectos`);
+                if (deps.opportunities > 0) depList.push(`${deps.opportunities} oportunidades`);
+                if (deps.purchaseOrders > 0) depList.push(`${deps.purchaseOrders} órdenes de compra`);
+
+                console.warn(`[ClientService][${traceId}] Result: BLOCKED. Dependencies found: ${depList.join(', ')}`);
+                
+                return { 
+                    ok: false, 
+                    code: 'DEPENDENCIES_EXIST', 
+                    message: `No se puede eliminar este cliente porque tiene historial activo: ${depList.join(', ')}. Te recomendamos cambiar su estado a ARCHIVADO.`
+                };
+            }
+
+            // 3. Execution (Hard Delete)
+            console.log(`[ClientService][${traceId}] Proceeding to physical delete of "${client.name}"...`);
             await prisma.client.delete({
                 where: { id }
             });
 
             console.log(`[ClientService][${traceId}] Result: SUCCESS.`);
             return { ok: true };
+
         } catch (error: any) {
             console.error(`[ClientService][${traceId}] Result: DB_ERROR.`, error.message);
-            return { ok: false, code: 'DB_ERROR', message: 'No se pudo completar la eliminación en la base de datos.' };
+            
+            // Map Prisma Foreign Key Errors just in case of race conditions
+            if (error.code === 'P2003') {
+                return { ok: false, code: 'DB_RESTRICT', message: 'La base de datos impidió el borrado por una restricción de integridad.' };
+            }
+
+            return { ok: false, code: 'DB_ERROR', message: 'Fallo inesperado al eliminar de la base de datos.' };
         }
     },
 
