@@ -208,17 +208,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     let subscription = null;
     let org = null;
     let activationData = null;
+    let realProjectsCount = 0;
 
     if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
         try {
-            [orgStats, subscription, org, activationData] = await Promise.all([
+            const results = await Promise.all([
                 prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
                 prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
                 prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } }),
                 import("@/services/activation-service").then(({ ActivationService }) => 
                     ActivationService.getActivationChecklist(orgId)
-                )
+                ),
+                prisma.project.count({ where: { organizationId: orgId } })
             ]);
+            
+            orgStats = results[0];
+            subscription = results[1];
+            org = results[2];
+            activationData = results[3];
+            realProjectsCount = results[4];
         } catch (e: any) {
             console.error("[Dashboard] Supplementary data fetch failed:", e.message);
         }
@@ -398,7 +406,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         <h3 className="text-xl font-bold">¡Bienvenido a TechProyect!</h3>
                     </div>
                     <p className="text-blue-50 opacity-90 max-w-2xl">
-                        Hemos creado un espacio de trabajo inicial llamado "Mi Organización" de forma automática.
+                        Hemos creado un espacio de trabajo inicial llamado &quot;Mi Organización&quot; de forma automática.
                     </p>
                 </div>
             )}
@@ -435,12 +443,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
 
             {/* Activation Checklist (Only if org exists and NO projects yet) */}
-            {orgId && projects.length === 0 && activationData && (
+            {orgId && realProjectsCount === 0 && activationData && !isExplore && (
                 <ActivationChecklist data={activationData} />
             )}
 
             {/* Main Content Areas */}
-            {workspace.status === 'ORG_ACTIVE_SELECTED' && projects.length === 0 && !isExplore ? (
+            {workspace.status === 'ORG_ACTIVE_SELECTED' && realProjectsCount === 0 && !isExplore ? (
                 <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl p-12 text-center shadow-sm animate-in fade-in max-w-3xl mx-auto mt-12">
                     <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                         <QrCode className="w-8 h-8 text-primary" />

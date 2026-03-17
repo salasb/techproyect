@@ -62,10 +62,15 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
                 include: {
                     company: true,
                     client: true,
+                    quoteItems: {
+                        select: { priceNet: true, quantity: true }
+                    },
                     quotes: {
+                        include: { items: true },
                         orderBy: { version: 'desc' },
                         take: 1
                     },
+
                     _count: {
                         select: { quoteItems: true }
                     }
@@ -83,20 +88,49 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         const hasNextPage = page < totalPages;
         const hasPrevPage = page > 1;
 
-        // Map unified data structure
+        // Map unified data structure for display
         const quotes = projectsWithQuotes.map(p => {
             const lastQuote = p.quotes[0];
+            
+            // Resolve Amount Strategy:
+            // 1. If snapshot exists, recalculate from its snapshot items to ensure consistency
+            // 2. If snapshot items empty, use totalNet
+            // 3. If no snapshot, calculate from project's live items
+            // 4. Fallback to project's budgetNet
+            
+            let resolvedAmount = 0;
+
+            if (lastQuote) {
+                // We trust the items within the quote record if they exist
+                if (lastQuote.items && lastQuote.items.length > 0) {
+                    resolvedAmount = lastQuote.items.reduce((acc, item) => 
+                        acc + ((item.priceNet || 0) * (item.quantity || 1)), 0);
+                }
+                
+                // If calculation gave 0, use totalNet if it's not 0
+                if (resolvedAmount === 0 && lastQuote.totalNet) {
+                    resolvedAmount = lastQuote.totalNet;
+                }
+            } else if (p.quoteItems && p.quoteItems.length > 0) {
+                // Live Draft calculation
+                resolvedAmount = p.quoteItems.reduce((acc, item) => 
+                    acc + ((item.priceNet || 0) * (item.quantity || 1)), 0);
+            } else {
+                resolvedAmount = p.budgetNet || 0;
+            }
+
             return {
                 id: lastQuote?.id || `draft-${p.id}`,
                 projectId: p.id,
                 project: p,
                 status: lastQuote?.status || (p.quoteSentDate ? 'SENT' : 'DRAFT'),
                 version: lastQuote?.version || 0,
-                totalNet: lastQuote?.totalNet || p.budgetNet,
+                totalNet: resolvedAmount,
                 createdAt: lastQuote?.createdAt || p.createdAt,
                 isDraft: !lastQuote
             };
         });
+
 
         // Grouping for List View
         const groupedQuotes: Record<string, any[]> = {};
