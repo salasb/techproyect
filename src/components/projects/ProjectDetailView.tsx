@@ -414,134 +414,137 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             )}
 
             {/* Project Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-foreground tracking-tight flex items-center gap-3">
-                    {project.name}
-                    <StatusBadge status={displayProject.status} type="PROJECT" />
-                    {isLocked && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium rounded-full border border-zinc-200 dark:border-zinc-700" title="Proyecto bloqueado - Facturación completa o finalizado">
-                            <Lock className="w-3 h-3" />
-                            <span>Contenido Sellado</span>
-                        </div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div className="min-w-0 flex-1">
+                    <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight flex flex-wrap items-center gap-3">
+                        <span className="truncate">{project.name}</span>
+                        <StatusBadge status={displayProject.status} type="PROJECT" />
+                        {isLocked && (
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium rounded-full border border-zinc-200 dark:border-zinc-700" title="Proyecto bloqueado - Facturación completa o finalizado">
+                                <Lock className="w-3 h-3" />
+                                <span className="whitespace-nowrap">Contenido Sellado</span>
+                            </div>
+                        )}
+                    </h1>
+                    <p className="text-muted-foreground mt-1 text-base md:text-lg truncate">{project.company?.name || 'Cliente Sin Nombre'}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 justify-start md:justify-end shrink-0">
+                    <Link href={`/projects/${project.id}/quote`}>
+                        <button className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap">
+                            <FileText className="w-3 h-3 mr-1.5" />
+                            Ver Cotización
+                        </button>
+                    </Link>
+
+                    {/* CANCELLED STATE ACTIONS */}
+                    {project.status === 'CANCELADO' && (
+                        <button
+                            onClick={() => requestQuoteAction('REOPEN')}
+                            disabled={isUpdatingStatus}
+                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
+                        >
+                            <RefreshCw className="w-3 h-3 mr-1.5" />
+                            Reabrir Proyecto
+                        </button>
                     )}
-                </h1>
-                <p className="text-muted-foreground mt-2 text-lg">{project.company?.name || 'Cliente Sin Nombre'}</p>
-            </div>
 
-            <div className="flex gap-2 justify-end -mt-4 mb-4">
-                <Link href={`/projects/${project.id}/quote`}>
-                    <button className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center">
-                        <FileText className="w-3 h-3 mr-1.5" />
-                        Ver Cotización
-                    </button>
-                </Link>
+                    {/* ACTIVE STATE ACTIONS */}
+                    {project.status !== 'CERRADO' && project.status !== 'CANCELADO' && (
+                        <>
+                            {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
+                                <>
+                                    <button
+                                        onClick={() => requestQuoteAction('SEND')}
+                                        disabled={isUpdatingStatus}
+                                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
+                                    >
+                                        <Sparkles className="w-3 h-3 mr-1.5" />
+                                        Enviar Cotización
+                                    </button>
 
-                {/* CANCELLED STATE ACTIONS */}
-                {project.status === 'CANCELADO' && (
-                    <button
-                        onClick={() => requestQuoteAction('REOPEN')}
-                        disabled={isUpdatingStatus}
-                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                    >
-                        <RefreshCw className="w-3 h-3 mr-1.5" />
-                        Reabrir Proyecto
-                    </button>
-                )}
+                                    <button
+                                        onClick={handleManualQuoteSent}
+                                        disabled={isUpdatingStatus}
+                                        className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
+                                        title="Registrar envío sin abrir correo"
+                                    >
+                                        <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                        Registrar Envío
+                                    </button>
+                                </>
+                            )}
 
-                {/* ACTIVE STATE ACTIONS */}
-                {project.status !== 'CERRADO' && project.status !== 'CANCELADO' && (
-                    <>
-                        {/* Show Send Options if Quote NOT Sent and Stage is LEVANTAMIENTO (or undefined) and not Started/Cancelled */}
-                        {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
-                            <>
-                                <button
-                                    onClick={() => requestQuoteAction('SEND')}
-                                    disabled={isUpdatingStatus}
-                                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                                >
-                                    <Sparkles className="w-3 h-3 mr-1.5" />
-                                    Enviar Cotización
-                                </button>
-
-                                <button
-                                    onClick={handleManualQuoteSent}
-                                    disabled={isUpdatingStatus}
-                                    className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                                    title="Registrar envío sin abrir correo"
-                                >
-                                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                                    Registrar Envío
-                                </button>
-                            </>
-                        )}
-
-                        {/* Show Response Options if Quote HAS BEEN SENT */}
-                        {project.quoteSentDate && project.status === 'EN_ESPERA' && (
-                            <>
-                                <button
-                                    onClick={() => requestQuoteAction('ACCEPT')}
-                                    disabled={isUpdatingStatus}
-                                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                                >
-                                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                                    Registrar Aceptación
-                                </button>
-                                <button
-                                    onClick={() => requestQuoteAction('REJECT')}
-                                    disabled={isUpdatingStatus}
-                                    className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-                                >
-                                    <X className="w-3 h-3 mr-1.5" />
-                                    Rechazar
-                                </button>
-                            </>
-                        )}
-                    </>
-                )}
+                            {project.quoteSentDate && project.status === 'EN_ESPERA' && (
+                                <>
+                                    <button
+                                        onClick={() => requestQuoteAction('ACCEPT')}
+                                        disabled={isUpdatingStatus}
+                                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
+                                    >
+                                        <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                        Registrar Aceptación
+                                    </button>
+                                    <button
+                                        onClick={() => requestQuoteAction('REJECT')}
+                                        disabled={isUpdatingStatus}
+                                        className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
+                                    >
+                                        <X className="w-3 h-3 mr-1.5" />
+                                        Rechazar
+                                    </button>
+                                </>
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Header / Navigation Tabs */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-2 rounded-xl shadow-sm sticky top-4 z-30 backdrop-blur-md bg-opacity-90">
-                <div className="flex p-1 bg-muted/50 rounded-lg w-full sm:w-auto">
-                    {[
-                        { id: 'overview', label: 'Visión General', icon: LayoutDashboard },
-                        { id: 'items', label: 'Ítems', icon: FileText },
-                        { id: 'financials', label: 'Finanzas', icon: DollarSign },
-                        { id: 'inventory', label: 'Inventario', icon: Package },
-                        { id: 'sales', label: 'Ventas', icon: FileText },
-                        { id: 'purchases', label: 'Compras', icon: Truck },
-                        { id: 'logs', label: 'Bitácora', icon: History },
-                        { id: 'settings', label: 'Configuración', icon: Settings },
-                    ].map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex-1 sm:flex-none justify-center border group
-                                ${activeTab === tab.id
-                                    ? 'bg-blue-600 text-white border-blue-700 shadow-md shadow-blue-500/20'
-                                    : 'bg-transparent text-zinc-600 border-transparent hover:bg-blue-50 hover:text-blue-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-blue-400'
-                                }`}
-                        >
-                            <tab.icon className={`w-4 h-4 mr-2 ${activeTab === tab.id ? 'text-blue-100' : 'text-zinc-400 group-hover:text-blue-500'}`} />
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
+            <div className="bg-card border border-border p-1.5 rounded-xl shadow-sm sticky top-4 z-30 backdrop-blur-md bg-opacity-90 overflow-hidden">
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                    <div className="flex p-1 bg-muted/50 rounded-lg overflow-x-auto no-scrollbar scroll-smooth touch-pan-x">
+                        <div className="flex gap-1 min-w-max">
+                            {[
+                                { id: 'overview', label: 'Visión General', icon: LayoutDashboard },
+                                { id: 'items', label: 'Ítems', icon: FileText },
+                                { id: 'financials', label: 'Finanzas', icon: DollarSign },
+                                { id: 'inventory', label: 'Inventario', icon: Package },
+                                { id: 'sales', label: 'Ventas', icon: FileText },
+                                { id: 'purchases', label: 'Compras', icon: Truck },
+                                { id: 'logs', label: 'Bitácora', icon: History },
+                                { id: 'settings', label: 'Configuración', icon: Settings },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap border group
+                                        ${activeTab === tab.id
+                                            ? 'bg-blue-600 text-white border-blue-700 shadow-sm'
+                                            : 'bg-transparent text-zinc-600 border-transparent hover:bg-blue-50 hover:text-blue-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-blue-400'
+                                        }`}
+                                >
+                                    <tab.icon className={`w-3.5 h-3.5 mr-2 ${activeTab === tab.id ? 'text-blue-100' : 'text-zinc-400 group-hover:text-blue-500'}`} />
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-                <div className="flex items-center gap-1 w-full sm:w-auto p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
-
-                    {['CLP', 'USD'].map((c) => (
-                        <button
-                            key={c}
-                            onClick={() => setCurrency(c as 'CLP' | 'UF' | 'USD')}
-                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all min-w-[3.5rem] text-center
-                                        ${currency === c
-                                    ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-700'
-                                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-700 dark:text-zinc-400'}`}
-                        >
-                            {c}
-                        </button>
-                    ))}
+                    <div className="flex items-center justify-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 self-center sm:self-auto shrink-0">
+                        {['CLP', 'USD'].map((c) => (
+                            <button
+                                key={c}
+                                onClick={() => setCurrency(c as 'CLP' | 'UF' | 'USD')}
+                                className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all min-w-[3.5rem] text-center uppercase tracking-widest
+                                            ${currency === c
+                                        ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-700'
+                                        : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-700 dark:text-zinc-400'}`}
+                            >
+                                {c}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div >
 

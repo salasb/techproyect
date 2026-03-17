@@ -430,8 +430,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
             </div>
 
-            {/* Activation Checklist (Only if org exists) */}
-            {orgId && <ActivationChecklist stats={orgStats} orgMode={orgMode} />}
+            {/* Activation Checklist (Only if org exists and NO projects yet) */}
+            {orgId && projects.length === 0 && (
+                <ActivationChecklist stats={orgStats} orgMode={orgMode} />
+            )}
 
             {/* Main Content Areas */}
             {workspace.status === 'ORG_ACTIVE_SELECTED' && projects.length === 0 && !isExplore ? (
