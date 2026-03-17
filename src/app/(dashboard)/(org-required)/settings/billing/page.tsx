@@ -1,6 +1,6 @@
 import { resolveAccessContext } from "@/lib/auth/access-resolver";
 import { getOrganizationSubscription } from "@/lib/subscriptions";
-import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database, CreditCard, FileText, Receipt, AlertCircle } from "lucide-react";
+import { CheckCircle2, Crown, Zap, AlertTriangle, Building2, Users, Database, CreditCard, AlertCircle } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -8,50 +8,50 @@ import { BillingClient } from "@/components/settings/BillingClient";
 import { redirect } from "next/navigation";
 
 export default async function BillingPage() {
-    const traceId = `SET-BILL-${Math.random().toString(36).substring(7).toUpperCase()}`;
-    
+    let context;
     try {
-        const context = await resolveAccessContext();
+        context = await resolveAccessContext();
+    } catch (e) {
+        redirect("/login");
+    }
+
+    const { traceId, activeOrgId, isGlobalOperator } = context;
+    
+    if (!activeOrgId) {
+        return (
+            <div className="p-12 text-center bg-muted/20 rounded-xl border-2 border-dashed border-border m-8">
+                <AlertCircle className="mx-auto h-12 w-12 text-amber-500 mb-4" />
+                <h3 className="text-lg font-bold">Facturación y Planes</h3>
+                <p className="text-muted-foreground">Debes seleccionar una organización activa para gestionar su facturación.</p>
+                <div className="mt-4 p-2 bg-white/50 rounded font-mono text-[10px] opacity-60">Trace: {traceId}</div>
+            </div>
+        );
+    }
+
+    try {
+        console.log(`[Settings][Billing][${traceId}] Loading billing for org=${activeOrgId}`);
         
-        // RULE 5: Settings/Billing should not crash for Global Operators
-        if (!context.activeOrgId) {
-            if (context.isGlobalOperator) {
-                console.log(`[BillingPage][${traceId}] Superadmin with no active org. Redirecting to global cockpit.`);
-                redirect('/admin/orgs');
-            }
-            console.warn(`[BillingPage][${traceId}] No active org for user ${context.userId}. Redirecting to selection.`);
-            redirect('/org/select');
-        }
-
-        const orgId = context.activeOrgId;
-        console.log(`[BillingPage][${traceId}] Loading billing for org=${orgId}`);
-        
-        // Defensive fetching of subscription data
-        let planData;
-        try {
-            planData = await getOrganizationSubscription(orgId);
-        } catch (e) {
-            console.error(`[BillingPage][${traceId}] Failed to fetch subscription for ${orgId}:`, e);
-            // Fallback to minimal data to avoid total crash
-            planData = {
-                plan: 'FREE',
-                status: 'ACTIVE',
-                usage: { users: 0, projects: 0, quotesMonth: 0, invoicesMonth: 0, storage: 0 },
-                limits: { maxUsers: 1, maxProjects: 1, maxQuotesPerMonth: 5, maxInvoicesPerMonth: 5 }
-            };
-        }
-
-        const { plan, usage, limits } = planData;
-
-        const [subscription, supabase] = await Promise.all([
+        // 1. Fetch Subscription and Plans in Parallel
+        const [planData, subscription, supabase] = await Promise.all([
+            getOrganizationSubscription(activeOrgId).catch(e => {
+                console.error(`[BillingPage][${traceId}] Failed to fetch subscription for ${activeOrgId}:`, e);
+                return {
+                    plan: 'FREE',
+                    status: 'ACTIVE',
+                    usage: { users: 0, projects: 0, quotesMonth: 0, invoicesMonth: 0, storage: 0 },
+                    limits: { maxUsers: 1, maxProjects: 1, maxQuotesPerMonth: 5, maxInvoicesPerMonth: 5 }
+                };
+            }),
             prisma.subscription.findUnique({
-                where: { organizationId: orgId },
+                where: { organizationId: activeOrgId },
                 include: { organization: true }
             }),
             createClient()
         ]);
 
-        // Fetch all active plans for upgrade options - with safety fallback
+        const { plan, usage, limits } = planData;
+
+        // Fetch all active plans for upgrade options
         const { data: allPlans, error: plansError } = await supabase
             .from('Plan')
             .select('*')
@@ -62,24 +62,23 @@ export default async function BillingPage() {
             console.error(`[BillingPage][${traceId}] Supabase Plans fetch error:`, plansError.message);
         }
 
-        // Safety math for percentages (prevent NaN/Infinity)
+        // Safety math for percentages
         const safeLimit = (val: number | null | undefined) => (val && val > 0) ? val : 1;
         const percentUsers = Math.min(((usage?.users || 0) / safeLimit(limits?.maxUsers)) * 100, 100);
         const percentProjects = Math.min(((usage?.projects || 0) / safeLimit(limits?.maxProjects)) * 100, 100);
 
-        // Find current plan details from DB list or fallback
         const currentPlanDetails = allPlans?.find(p => p.id === plan);
         const hasPaymentMethod = !!subscription?.providerCustomerId;
 
         return (
             <div className="space-y-12 animate-in fade-in pb-10">
                 {/* Context Banner for Global Operators */}
-                {context.isGlobalOperator && (
+                {isGlobalOperator && (
                     <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-xl flex items-center gap-3">
                         <AlertTriangle className="w-5 h-5 text-amber-600" />
                         <div>
                             <p className="text-sm text-amber-800 font-bold uppercase tracking-tight">Modo de Operador Global</p>
-                            <p className="text-xs text-amber-700">Estás viendo la facturación de la organización <strong>{subscription?.organization?.name || orgId}</strong>. Tienes bypass de restricciones comerciales.</p>
+                            <p className="text-xs text-amber-700">Estás viendo la facturación de la organización <strong>{subscription?.organization?.name || activeOrgId}</strong>. Tienes bypass de restricciones comerciales.</p>
                         </div>
                     </div>
                 )}
@@ -118,7 +117,7 @@ export default async function BillingPage() {
                             <div>
                                 <h3 className="text-2xl font-black italic tracking-tighter uppercase italic">Configuración de Facturación Pendiente</h3>
                                 <p className="text-indigo-100 text-sm max-w-xl leading-relaxed font-medium">
-                                    Tu organización está operando bajo un entorno restringido. Completa la configuración de pagos para asegurar la continuidad de tus proyectos y activar Sentinel.
+                                    Tu organización está operando bajo un entorno restringido. Completa la configuración de pagos para asegurar la continuidad de tus proyectos.
                                 </p>
                             </div>
                         </div>
@@ -323,7 +322,7 @@ export default async function BillingPage() {
             <div className="p-12 text-center bg-rose-50 border-2 border-rose-200 rounded-xl m-8 text-rose-900">
                 <AlertCircle className="mx-auto h-12 w-12 text-rose-500 mb-4" />
                 <h3 className="text-lg font-bold uppercase tracking-tight">Fallo en Servicios de Facturación</h3>
-                <p className="max-w-md mx-auto mt-2">Hubo un error al conectar con el procesador de pagos. Por favor reintenta en unos momentos.</p>
+                <p className="max-w-md mx-auto mt-2">Hubo un error al conectar con el procesador de pagos o la base de datos de planes. Por favor reintenta en unos momentos.</p>
                 <div className="mt-4 p-2 bg-white/50 rounded font-mono text-[10px] opacity-60">Trace: {traceId}</div>
             </div>
         );

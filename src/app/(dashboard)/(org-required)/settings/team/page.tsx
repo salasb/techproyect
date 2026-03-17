@@ -1,84 +1,43 @@
-import { ShieldAlert, Users, AlertCircle } from "lucide-react";
-import prisma from "@/lib/prisma";
+import { ShieldAlert, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getOrganizationId } from "@/lib/current-org";
-import { createClient } from "@/lib/supabase/server";
-import { isAdmin, isOwner } from "@/lib/permissions";
+import { resolveAccessContext } from "@/lib/auth/access-resolver";
+import { isAdmin } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { TeamMemberList } from "@/components/team/member-list";
 import { TeamInvitationList } from "@/components/team/invitation-list";
 import { InviteMemberForm } from "@/components/team/invite-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SettingsCoreService } from "@/services/settings-core-service";
 
 export default async function TeamSettingsPage() {
-    const traceId = `SET-TEAM-${Math.random().toString(36).substring(7).toUpperCase()}`;
-    
+    let context;
     try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        
-        if (authError || !user) {
-            console.warn(`[Settings][Team][${traceId}] Unauthorized access attempt`);
-            redirect("/login");
-        }
+        context = await resolveAccessContext();
+    } catch (e) {
+        redirect("/login");
+    }
 
-        const orgId = await getOrganizationId();
-        if (!orgId) {
-            console.warn(`[Settings][Team][${traceId}] No active context selected`);
-            return (
-                <div className="p-12 text-center bg-muted/20 rounded-xl border-2 border-dashed border-border m-8">
-                    <AlertCircle className="mx-auto h-12 w-12 text-amber-500 mb-4" />
-                    <h3 className="text-lg font-bold">Configuración de Equipo</h3>
-                    <p className="text-muted-foreground">Debes seleccionar una organización activa para gestionar el equipo.</p>
-                </div>
-            );
-        }
+    const { traceId, activeOrgId } = context;
 
-        console.log(`[Settings][Team][${traceId}] Loading settings for org=${orgId}, user=${user.email}`);
+    if (!activeOrgId) {
+        return (
+            <div className="p-12 text-center bg-muted/20 rounded-xl border-2 border-dashed border-border m-8">
+                <AlertCircle className="mx-auto h-12 w-12 text-amber-500 mb-4" />
+                <h3 className="text-lg font-bold">Configuración de Equipo</h3>
+                <p className="text-muted-foreground">Debes seleccionar una organización activa para gestionar el equipo.</p>
+                <div className="mt-4 p-2 bg-white/50 rounded font-mono text-[10px] opacity-60">Trace: {traceId}</div>
+            </div>
+        );
+    }
 
-        // 1. Get current member and validate permissions
-        const currentMember = await prisma.organizationMember.findUnique({
-            where: { organizationId_userId: { organizationId: orgId, userId: user.id } },
-            include: { organization: true }
-        });
+    try {
+        console.log(`[Settings][Team][${traceId}] Loading settings for org=${activeOrgId}, user=${context.email}`);
 
-        if (!currentMember || !isAdmin(currentMember.role)) {
-            console.warn(`[Settings][Team][${traceId}] Access denied: user is not admin`);
-            redirect("/dashboard"); 
-        }
+        const data = await SettingsCoreService.getTeamData(context);
+        const { currentMember, members, invitations, customRoles, org } = data;
 
-        // 2. Fetch members and invitations in parallel
-        const [members, invitations, customRoles, org] = await Promise.all([
-            prisma.organizationMember.findMany({
-                where: { organizationId: orgId },
-                include: {
-                    profile: true,
-                    customRole: true
-                },
-                orderBy: { createdAt: 'asc' }
-            }),
-            prisma.userInvitation.findMany({
-                where: {
-                    organizationId: orgId,
-                    status: 'PENDING',
-                    expiresAt: { gt: new Date() }
-                },
-                orderBy: { createdAt: 'desc' }
-            }),
-            prisma.customRole.findMany({
-                where: { organizationId: orgId }
-            }),
-            prisma.organization.findUnique({
-                where: { id: orgId },
-                include: { subscription: true }
-            })
-        ]);
-
-        const isUserOwner = isOwner(currentMember.role);
         const seatsUsed = members.filter((m: any) => m.status === 'ACTIVE').length;
-
-        // v1.1 Activation Check: Lack of Admins
         const adminCount = members.filter(m => isAdmin(m.role)).length;
         const hasNoAdmins = adminCount === 0;
 
@@ -93,7 +52,7 @@ export default async function TeamSettingsPage() {
         }
 
         return (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Gestión de Equipo</h1>
@@ -130,7 +89,7 @@ export default async function TeamSettingsPage() {
                         <CardHeader>
                             <CardTitle>Miembros e Invitaciones</CardTitle>
                             <CardDescription>
-                                Gestiona quién tiene acceso a {currentMember.organization.name}.
+                                Gestiona quién tiene acceso a {org.name}.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -143,9 +102,9 @@ export default async function TeamSettingsPage() {
                                 <TabsContent value="members">
                                     <TeamMemberList
                                         members={members as any}
-                                        currentUserId={user.id}
-                                        isOwner={isUserOwner}
-                                        orgId={orgId}
+                                        currentUserId={context.userId}
+                                        isOwner={context.localMembershipRole === 'OWNER'}
+                                        orgId={activeOrgId}
                                         customRoles={customRoles as any}
                                     />
                                 </TabsContent>
@@ -153,7 +112,7 @@ export default async function TeamSettingsPage() {
                                 <TabsContent value="invitations">
                                     <TeamInvitationList
                                         invitations={invitations as any}
-                                        orgId={orgId}
+                                        orgId={activeOrgId}
                                     />
                                 </TabsContent>
                             </Tabs>
@@ -170,9 +129,9 @@ export default async function TeamSettingsPage() {
                             </CardHeader>
                             <CardContent>
                                 <InviteMemberForm
-                                    orgId={orgId}
+                                    orgId={activeOrgId}
                                     canInvite={seatsUsed < maxSeats}
-                                    orgMode={currentMember.organization.mode as any}
+                                    orgMode={org.mode as any}
                                     customRoles={customRoles as any}
                                 />
                                 {seatsUsed >= maxSeats && (
@@ -212,12 +171,21 @@ export default async function TeamSettingsPage() {
             </div>
         );
     } catch (error: any) {
-        console.error(`[Settings][Team][${traceId}] Application exception:`, error.message);
+        console.error(`[Settings][Team][${traceId}] Critical failure:`, error.message);
+        
+        const isForbidden = error.message === 'FORBIDDEN';
+        
         return (
             <div className="p-12 text-center bg-rose-50 border-2 border-rose-200 rounded-xl m-8 text-rose-900">
                 <AlertCircle className="mx-auto h-12 w-12 text-rose-500 mb-4" />
-                <h3 className="text-lg font-bold uppercase tracking-tight">Fallo en Servicios de Equipo</h3>
-                <p className="max-w-md mx-auto mt-2">Hubo un error al cargar la configuración de los miembros. Por favor reintenta en unos momentos.</p>
+                <h3 className="text-lg font-bold uppercase tracking-tight">
+                    {isForbidden ? "Acceso Denegado" : "Error de Infraestructura de Equipo"}
+                </h3>
+                <p className="max-w-md mx-auto mt-2">
+                    {isForbidden 
+                        ? "No tienes permisos suficientes para gestionar el equipo de esta organización."
+                        : "Hubo un error al cargar la configuración de los miembros. Por favor reintenta en unos momentos."}
+                </p>
                 <div className="mt-4 p-2 bg-white/50 rounded font-mono text-[10px] opacity-60">Trace: {traceId}</div>
             </div>
         );

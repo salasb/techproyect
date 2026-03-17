@@ -1,13 +1,9 @@
 import React from "react";
-import { createClient } from "@/lib/supabase/server";
 import { OrganizationProfileForm } from "@/components/settings/OrganizationProfileForm";
 import { updateOrganizationAction } from "@/actions/organizations";
-import { getOrganizationId } from "@/lib/current-org";
-import prisma from "@/lib/prisma";
 import { 
     Activity, 
     ShieldCheck, 
-    Zap, 
     CheckCircle2, 
     ChevronRight,
     Building2,
@@ -15,88 +11,57 @@ import {
     Receipt,
     History,
     AlertCircle,
-    Users
+    Users,
+    Zap
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { TeamMemberList } from "@/components/team/member-list";
-import { isAdmin } from "@/lib/permissions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { AcceptQuoteButton } from "@/components/commercial/AcceptQuoteButton";
 import { InvoicePdfButton } from "@/components/invoices/InvoicePdfButton";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { redirect } from "next/navigation";
+import { resolveAccessContext } from "@/lib/auth/access-resolver";
+import { SettingsCoreService } from "@/services/settings-core-service";
 
 export default async function OrganizationHubPage(props: { searchParams: Promise<{ tab?: string }> }) {
-    const traceId = `SET-ORG-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-    
+    let context;
     try {
-        const searchParams = await props.searchParams;
-        const initialTab = searchParams.tab || "overview";
-        const orgId = await getOrganizationId();
+        context = await resolveAccessContext();
+    } catch (e) {
+        redirect("/login");
+    }
 
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        
-        if (authError || !user) redirect("/login");
+    const { traceId, activeOrgId } = context;
+    const searchParams = await props.searchParams;
+    const initialTab = searchParams.tab || "overview";
 
-        if (!orgId) {
-            return (
-                <div className="p-12 text-center bg-muted/20 rounded-xl border-2 border-dashed border-border m-8">
-                    <AlertCircle className="mx-auto h-12 w-12 text-amber-500 mb-4" />
-                    <h3 className="text-lg font-bold">Gestión de Organización</h3>
-                    <p className="text-muted-foreground">Debes seleccionar una organización activa para ver el dashboard corporativo.</p>
-                </div>
-            );
-        }
+    if (!activeOrgId) {
+        return (
+            <div className="p-12 text-center bg-muted/20 rounded-xl border-2 border-dashed border-border m-8">
+                <AlertCircle className="mx-auto h-12 w-12 text-amber-500 mb-4" />
+                <h3 className="text-lg font-bold">Gestión de Organización</h3>
+                <p className="text-muted-foreground">Debes seleccionar una organización activa para ver el dashboard corporativo.</p>
+                <div className="mt-4 p-2 bg-white/50 rounded font-mono text-[10px] opacity-60">Trace: {traceId}</div>
+            </div>
+        );
+    }
 
-        console.log(`[OrgHub][${traceId}] Loading hub for org=${orgId}`);
+    try {
+        console.log(`[Settings][OrgHub][${traceId}] Loading hub for org=${activeOrgId}`);
 
-        const org = await prisma.organization.findUnique({
-            where: { id: orgId },
-            include: { 
-                subscription: true,
-                stats: true,
-                OrganizationMember: {
-                    include: { profile: true }
-                },
-                _count: {
-                    select: { projects: true }
-                }
-            }
-        });
-
-        if (!org) {
-            return <div className="p-8 text-center text-muted-foreground italic">Organización no encontrada</div>;
-        }
-
-        // Parallel data fetching for performance
-        const [quotes, invoices] = await Promise.all([
-            prisma.quote.findMany({
-                where: { project: { organizationId: orgId } },
-                include: { project: true },
-                orderBy: { createdAt: 'desc' },
-                take: 10
-            }),
-            prisma.invoice.findMany({
-                where: { organizationId: orgId },
-                include: { project: true },
-                orderBy: { updatedAt: 'desc' },
-                take: 10
-            })
-        ]);
+        const data = await SettingsCoreService.getOrganizationData(context);
+        const { org, quotes, invoices } = data;
 
         const subscription = org.subscription;
         const isPastDue = subscription?.status === 'PAST_DUE';
         
         const members = org.OrganizationMember;
-        const adminCount = members.filter(m => isAdmin(m.role)).length;
-        const hasAdmins = adminCount > 0;
         const hasProjects = org._count.projects > 0;
         const hasSentQuote = quotes.some(q => q.status === 'SENT' || q.status === 'ACCEPTED');
 
@@ -111,14 +76,14 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
             {
                 id: "team",
                 title: "Gobernanza de Equipo",
-                description: "Asegura al menos un administrador.",
-                completed: hasAdmins,
+                description: "Administra miembros y roles.",
+                completed: members.length > 0,
                 href: "?tab=team"
             },
             {
                 id: "billing",
                 title: "Setup Financiero",
-                description: "Método de pago vinculado en Stripe.",
+                description: "Método de pago vinculado.",
                 completed: !!subscription?.providerCustomerId,
                 href: "/settings/billing"
             },
@@ -171,17 +136,17 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
                 <Tabs defaultValue={initialTab} className="w-full">
                     <div className="bg-zinc-100 dark:bg-zinc-900/50 p-1.5 rounded-[2rem] mb-10 inline-flex w-full md:w-auto overflow-x-auto no-scrollbar">
                         <TabsList className="bg-transparent h-auto gap-1">
-                            <TabsTrigger value="overview" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2">
-                                Dashboard
+                            <TabsTrigger value="overview" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2 text-zinc-600 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-white">
+                                <Zap className="w-3.5 h-3.5 mr-2" /> Dashboard
                             </TabsTrigger>
-                            <TabsTrigger value="commercial" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2">
-                                Comercial
+                            <TabsTrigger value="commercial" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2 text-zinc-600 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-white">
+                                <FileText className="w-3.5 h-3.5 mr-2" /> Comercial
                             </TabsTrigger>
-                            <TabsTrigger value="team" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2">
-                                Miembros
+                            <TabsTrigger value="team" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2 text-zinc-600 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-white">
+                                <Users className="w-3.5 h-3.5 mr-2" /> Miembros
                             </TabsTrigger>
-                            <TabsTrigger value="profile" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2">
-                                Perfil
+                            <TabsTrigger value="profile" className="rounded-[1.5rem] px-8 py-2.5 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg dark:data-[state=active]:bg-zinc-800 transition-all gap-2 text-zinc-600 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-white">
+                                <Building2 className="w-3.5 h-3.5 mr-2" /> Perfil
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -233,7 +198,7 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
                                             {invoices.slice(0, 4).map(inv => (
                                                 <li key={inv.id} className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
                                                     <div className="min-w-0">
-                                                        <p className="text-[10px] font-black uppercase truncate italic">{inv.project?.name}</p>
+                                                        <p className="text-[10px] font-black uppercase truncate italic">{inv.project?.name || "Proyecto"}</p>
                                                         <p className="text-[9px] font-bold text-zinc-400">${(inv.amountInvoicedGross || 0).toLocaleString()} • {format(new Date(inv.updatedAt || ""), 'dd MMM', { locale: es })}</p>
                                                     </div>
                                                     <StatusBadge status={inv.status as any} type="INVOICE" />
@@ -269,7 +234,7 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <Badge variant="outline" className="text-[8px] font-bold px-1.5 h-4 border-zinc-200 bg-white">v{q.version}</Badge>
-                                                    <h4 className="font-black text-xs uppercase tracking-tight truncate italic">{q.project?.name}</h4>
+                                                    <h4 className="font-black text-xs uppercase tracking-tight truncate italic">{q.project?.name || "Proyecto"}</h4>
                                                 </div>
                                                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">
                                                     Total: ${(q.totalNet || 0).toLocaleString()} • {format(new Date(q.createdAt || ""), 'dd MMM yyyy', { locale: es })}
@@ -301,7 +266,7 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
                                     {invoices.map(inv => (
                                         <div key={inv.id} className="p-5 rounded-3xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 hover:border-emerald-200 dark:hover:border-emerald-800 transition-all flex items-center justify-between group">
                                             <div className="min-w-0">
-                                                <h4 className="font-black text-xs uppercase tracking-tight truncate italic mb-1">{inv.project?.name}</h4>
+                                                <h4 className="font-black text-xs uppercase tracking-tight truncate italic mb-1">{inv.project?.name || "Proyecto"}</h4>
                                                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">
                                                     Neto: ${(inv.amountInvoicedGross || 0).toLocaleString()} • Vence: {inv.dueDate ? format(new Date(inv.dueDate), 'dd MMM yyyy', { locale: es }) : 'N/A'}
                                                 </p>
@@ -340,9 +305,9 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
                             </CardHeader>
                             <TeamMemberList
                                 members={members as any}
-                                currentUserId={user.id}
-                                isOwner={true} 
-                                orgId={orgId}
+                                currentUserId={context.userId}
+                                isOwner={context.localMembershipRole === 'OWNER'} 
+                                orgId={activeOrgId}
                             />
                         </Card>
                     </TabsContent>
@@ -360,11 +325,20 @@ export default async function OrganizationHubPage(props: { searchParams: Promise
         );
     } catch (error: any) {
         console.error(`[Settings][OrgHub][${traceId}] Critical failure:`, error.message);
+        
+        const isNotFound = error.message === 'NOT_FOUND';
+        
         return (
             <div className="p-12 text-center bg-rose-50 border-2 border-rose-200 rounded-xl m-8 text-rose-900">
                 <AlertCircle className="mx-auto h-12 w-12 text-rose-500 mb-4" />
-                <h3 className="text-lg font-bold uppercase tracking-tight">Fallo en Servicios Organizacionales</h3>
-                <p className="max-w-md mx-auto mt-2">Hubo un error al cargar la configuración de la organización. Por favor reintenta en unos momentos.</p>
+                <h3 className="text-lg font-bold uppercase tracking-tight">
+                    {isNotFound ? "Organización no Encontrada" : "Error de Infraestructura Organizacional"}
+                </h3>
+                <p className="max-w-md mx-auto mt-2">
+                    {isNotFound 
+                        ? "La organización solicitada no existe o ha sido eliminada."
+                        : "Hubo un error al cargar la configuración de la organización. Por favor reintenta en unos momentos."}
+                </p>
                 <div className="mt-4 p-2 bg-white/50 rounded font-mono text-[10px] opacity-60">Trace: {traceId}</div>
             </div>
         );
