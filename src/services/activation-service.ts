@@ -213,27 +213,67 @@ export class ActivationService {
     }
 
     /**
-     * Returns the activation checklist for an organization.
+     * Returns the activation checklist for an organization based on REAL domain data.
+     * v2.0: Canonical source of truth from Projects, Quotes and Items.
      */
     static async getActivationChecklist(organizationId: string) {
-        const events = await (prisma as any).activationEvent.findMany({
-            where: { organizationId }
-        });
+        const traceId = `ACT-CHK-${Math.random().toString(36).substring(7).toUpperCase()}`;
+        
+        try {
+            // Fetch real counts from DB
+            const [projectsCount, quotes, quoteItemsCount] = await Promise.all([
+                prisma.project.count({ where: { organizationId } }),
+                prisma.quote.findMany({ 
+                    where: { project: { organizationId } },
+                    select: { status: true }
+                }),
+                prisma.quoteItem.count({ where: { organizationId } })
+            ]);
 
-        const hasEvent = (name: string) => events.some((e: any) => e.eventName === name);
+            const hasProjects = projectsCount >= 1;
+            const hasItems = quoteItemsCount >= 1;
+            const hasQuotes = quotes.length >= 1;
+            const hasSentQuotes = quotes.some(q => q.status === 'SENT' || q.status === 'ACCEPTED');
 
-        const items = [
-            { id: 'org_created', label: 'Cuenta creada', completed: true }, // By definition
-            { id: 'admin_assigned', label: 'Administrador asignado', completed: hasEvent('ADMIN_ASSIGNED') },
-            { id: 'quote_created', label: 'Primera cotización borrador', completed: hasEvent('QUOTE_CREATED') || hasEvent('FIRST_QUOTE_DRAFT_CREATED') },
-            { id: 'quote_sent', label: 'Primera cotización enviada', completed: hasEvent('QUOTE_SENT') || hasEvent('FIRST_QUOTE_SENT') },
-            { id: 'quote_accepted', label: 'Primera cotización aceptada', completed: hasEvent('QUOTE_ACCEPTED') },
-            { id: 'billing_configured', label: 'Facturación configurada', completed: hasEvent('BILLING_CONFIGURED') || hasEvent('CHECKOUT_COMPLETED') }
-        ];
+            const items = [
+                { 
+                    id: 'FIRST_PROJECT_CREATED', 
+                    label: 'Crea tu primer proyecto', 
+                    completed: hasProjects,
+                    description: 'Define el nombre y presupuesto para organizar tus costos.'
+                },
+                { 
+                    id: 'ITEMS_ADDED', 
+                    label: 'Puebla tu proyecto', 
+                    completed: hasItems,
+                    description: 'Agrega ítems, materiales o servicios a la estructura de costos.',
+                    locked: !hasProjects
+                },
+                { 
+                    id: 'FIRST_QUOTE_DRAFT_CREATED', 
+                    label: 'Genera una propuesta', 
+                    completed: hasQuotes,
+                    description: 'Crea el primer borrador de cotización basado en tus ítems.',
+                    locked: !hasItems
+                },
+                { 
+                    id: 'FIRST_QUOTE_SENT', 
+                    label: 'Envía tu primera oferta', 
+                    completed: hasSentQuotes,
+                    description: 'Comparte el PDF con tu cliente para cerrar el negocio.',
+                    locked: !hasQuotes
+                }
+            ];
 
-        const completedCount = items.filter(i => i.completed).length;
-        const progress = Math.round((completedCount / items.length) * 100);
+            const completedCount = items.filter(i => i.completed).length;
+            const progress = Math.round((completedCount / items.length) * 100);
 
-        return { items, progress };
+            console.log(`[Activation][${traceId}] Resolved for org=${organizationId}: projects=${projectsCount}, items=${quoteItemsCount}, quotes=${quotes.length}, progress=${progress}%`);
+
+            return { items, progress, totalSteps: items.length, completedCount };
+        } catch (error: any) {
+            console.error(`[Activation][${traceId}] Failed to resolve checklist:`, error.message);
+            return { items: [], progress: 0, totalSteps: 0, completedCount: 0 };
+        }
     }
 }
