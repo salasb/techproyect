@@ -1,107 +1,96 @@
 'use server'
 
 import { revalidatePath } from "next/cache";
+import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { Database } from "@/types/supabase";
-
-type ProjectUpdate = Database['public']['Tables']['Project']['Update'];
+import { AuditService } from "@/services/auditService";
 
 export async function updateProjectSettings(
     projectId: string,
-    data: ProjectUpdate,
+    data: any,
     conversion?: { convertValues: boolean, conversionFactor: number }
 ) {
-    const supabase = await createClient();
+    const traceId = `PRJ-SET-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        let userName = 'Sistema';
+        if (user) {
+            userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Usuario';
+        }
 
-    console.log(`[UPDATE_SETTINGS] ProjectId: ${projectId}`, data);
+        console.log(`[Projects][${traceId}] Updating settings for project=${projectId}, user=${userName}`);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    let userName = 'Sistema';
-    let userEmail = 'sistema@techwise.com';
+        // Sanitize data for Prisma (remove non-db fields if any)
+        const { id, organizationId, createdAt, ...cleanData } = data;
+        
+        const updatePayload = {
+            ...cleanData,
+            updatedAt: new Date(),
+            responsible: userName
+        };
 
-    if (user) {
-        // Fetch profile/metadata if possible, or use metadata
-        userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Usuario';
-        userEmail = user.email || '';
+        // We use a transaction if conversion is needed
+        await prisma.$transaction(async (tx) => {
+            // 1. Update Project
+            await tx.project.update({
+                where: { id: projectId },
+                data: updatePayload
+            });
+
+            // 2. Handle currency conversion if requested
+            if (conversion?.convertValues && conversion.conversionFactor && conversion.conversionFactor !== 1) {
+                const factor = conversion.conversionFactor;
+                console.log(`[Projects][${traceId}] Applying conversion factor: ${factor}`);
+
+                // A. Update Costs
+                await tx.costEntry.updateMany({
+                    where: { projectId },
+                    data: { amountNet: { multiply: factor } }
+                });
+
+                // B. Update Quote Items (Manual updateMany doesn't support multiply easily in all Prisma versions, we iterate if necessary or use executeRaw)
+                // For safety and compatibility, we'll do direct updates
+                const items = await tx.quoteItem.findMany({ where: { projectId }, select: { id: true, priceNet: true, costNet: true } });
+                for (const item of items) {
+                    await tx.quoteItem.update({
+                        where: { id: item.id },
+                        data: {
+                            priceNet: item.priceNet * factor,
+                            costNet: (item.costNet || 0) * factor
+                        }
+                    });
+                }
+
+                // C. Update Invoices
+                const invoices = await tx.invoice.findMany({ where: { projectId }, select: { id: true, amountInvoicedGross: true, amountPaidGross: true } });
+                for (const inv of invoices) {
+                    await tx.invoice.update({
+                        where: { id: inv.id },
+                        data: {
+                            amountInvoicedGross: inv.amountInvoicedGross * factor,
+                            amountPaidGross: inv.amountPaidGross * factor
+                        }
+                    });
+                }
+            }
+        });
+
+        // Audit Log
+        const changedFields = Object.keys(cleanData).join(', ');
+        await AuditService.logAction(projectId, 'UPDATE_SETTINGS', `Campos actualizados: ${changedFields}. Por: ${userName}`);
+
+        console.log(`[Projects][${traceId}] Update successful`);
+
+        revalidatePath(`/projects/${projectId}`);
+        revalidatePath(`/projects/${projectId}/quote`);
+        revalidatePath('/projects');
+        
+        return { success: true };
+
+    } catch (error: any) {
+        console.error(`[Projects][${traceId}] Critical error in updateProjectSettings:`, error.message);
+        return { success: false, error: "Error al actualizar la configuración del proyecto.", traceId };
     }
-
-    // Auto-update responsible to the current user who is editing
-    const updateData = {
-        ...data,
-        updatedAt: new Date().toISOString(),
-        responsible: userName // Always set responsible to last editor as requested
-    };
-
-    console.log(`[UPDATE_SETTINGS] ProjectId: ${projectId}`, updateData);
-
-    const { error } = await supabase
-        .from('Project')
-        .update(updateData)
-        .eq('id', projectId);
-
-    // Handle currency conversion if requested
-    if (conversion?.convertValues && conversion.conversionFactor && conversion.conversionFactor !== 1) {
-        const factor = conversion.conversionFactor;
-
-        // 1. Project Budget (budgetNet)
-        if (data.budgetNet !== undefined) {
-            // Already updated by 'data' object if included
-        } else {
-            // If implicit update needed
-            const { data: proj } = await supabase.from('Project').select('budgetNet').eq('id', projectId).single();
-            if (proj && proj.budgetNet) {
-                await supabase.from('Project').update({ budgetNet: proj.budgetNet * factor }).eq('id', projectId);
-            }
-        }
-
-        // 2. Costs (CostEntry: amountNet)
-        const { data: costs } = await supabase.from('CostEntry').select('id, amountNet').eq('projectId', projectId);
-        if (costs) {
-            for (const c of costs) {
-                await supabase.from('CostEntry').update({ amountNet: c.amountNet * factor }).eq('id', c.id);
-            }
-        }
-
-        // 3. Quotes Items (QuoteItem: priceNet, costNet)
-        const { data: items } = await supabase.from('QuoteItem').select('id, priceNet, costNet').eq('projectId', projectId);
-        if (items) {
-            for (const item of items) {
-                await supabase.from('QuoteItem').update({
-                    priceNet: item.priceNet * factor,
-                    costNet: (item.costNet || 0) * factor
-                }).eq('id', item.id);
-            }
-        }
-
-        // 4. Invoices (Invoice: amountInvoicedGross, amountPaidGross)
-        const { data: invoices } = await supabase.from('Invoice').select('id, amountInvoicedGross, amountPaidGross').eq('projectId', projectId);
-        if (invoices) {
-            for (const inv of invoices) {
-                await supabase.from('Invoice').update({
-                    amountInvoicedGross: inv.amountInvoicedGross * factor,
-                    amountPaidGross: inv.amountPaidGross * factor
-                }).eq('id', inv.id);
-            }
-        }
-    }
-
-    if (error) {
-        console.error("Error updating project:", error);
-        throw new Error(`Error updating project: ${error.message}`);
-    }
-
-    // Audit Log
-    const changes = Object.keys(data).join(', ');
-    await supabase.from('AuditLog').insert({
-        projectId,
-        action: 'UPDATE_SETTINGS',
-        details: `Updated fields: ${changes}`,
-        userName: userName
-    });
-
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath(`/quotes/${projectId}`);
-    revalidatePath('/projects');
-    revalidatePath('/');
-    revalidatePath('/', 'layout'); // Ensure global layout refresh
 }

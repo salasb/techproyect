@@ -144,45 +144,52 @@ export async function createProject(formData: FormData) {
 }
 
 export async function deleteProject(projectId: string) {
+    const traceId = `PRJ-DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
-    const supabase = await createClient();
+    
+    const prisma = (await import("@/lib/prisma")).default;
 
     try {
-        // manually cascade delete related records to prevent FK constraints issues
-        // (If DB has cascade, this is redundant but safe)
+        console.log(`[Projects][${traceId}] Attempting deletion of project=${projectId} for org=${scope.orgId}`);
 
-        // 1. Delete associated Logs
-        await supabase.from('ProjectLog').delete().eq('projectId', projectId);
-        await supabase.from('AuditLog').delete().eq('projectId', projectId); // If AuditLog has tight FK
+        // Verify ownership and existence before destructive action
+        const project = await prisma.project.findUnique({
+            where: { id: projectId, organizationId: scope.orgId }
+        });
 
-        // 2. Delete Financials / Items
-        await supabase.from('CostEntry').delete().eq('projectId', projectId);
-        await supabase.from('Invoice').delete().eq('projectId', projectId);
-        await supabase.from('QuoteItem').delete().eq('projectId', projectId);
-        await supabase.from('SaleNote').delete().eq('projectId', projectId); // Fixed: Add SaleNote deletion
-
-        // 3. Delete Project
-        const { error } = await supabase
-            .from('Project')
-            .delete()
-            .eq('id', projectId)
-            .eq('organizationId', scope.orgId);
-
-        if (error) {
-            console.error("Error deleting project:", error);
-            return { success: false, error: error.message };
+        if (!project) {
+            console.warn(`[Projects][${traceId}] Project not found or unauthorized: ${projectId}`);
+            return { success: false, error: "Proyecto no encontrado o no tienes permisos para eliminarlo." };
         }
 
-        // Log action (using null project ID as it's gone)
-        await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto ID: ${projectId} eliminado permanentemente.`);
+        // Hard Delete with Prisma (Bypasses PostgREST schema public permissions)
+        // We use a transaction to ensure all related commercial/operational data is cleared
+        await prisma.$transaction([
+            prisma.projectLog.deleteMany({ where: { projectId } }),
+            prisma.auditLog.deleteMany({ where: { projectId } }),
+            prisma.costEntry.deleteMany({ where: { projectId } }),
+            prisma.invoice.deleteMany({ where: { projectId } }),
+            prisma.quoteItem.deleteMany({ where: { projectId } }),
+            prisma.saleNote.deleteMany({ where: { projectId } }),
+            prisma.project.delete({ where: { id: projectId } })
+        ]);
+
+        console.log(`[Projects][${traceId}] Deletion successful`);
+
+        // Log final action
+        await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto "${project.name}" (ID: ${projectId}) eliminado permanentemente por ${scope.userId}.`);
 
         revalidatePath("/projects");
         return { success: true };
 
-    } catch (error) {
-        console.error("Server Error deleting project:", error);
-        return { success: false, error: "Error interno al eliminar proyecto" };
+    } catch (error: any) {
+        console.error(`[Projects][${traceId}] Critical error during deletion:`, error.message);
+        return { 
+            success: false, 
+            error: "No se pudo eliminar el proyecto debido a dependencias activas o error de base de datos.",
+            traceId 
+        };
     }
 }
 

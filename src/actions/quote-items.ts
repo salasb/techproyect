@@ -1,80 +1,85 @@
 'use server'
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { AuditService } from "@/services/auditService";
+import prisma from "@/lib/prisma";
 
 export async function addQuoteItem(projectId: string, data: FormData) {
+    const traceId = `ITM-ADD-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
-        const supabase = await createClient();
 
-        const sku = data.get('sku') as string;
+        const sku = data.get('sku') as string || '';
         const detail = data.get('detail') as string;
-        const quantity = parseFloat(data.get('quantity') as string);
-        const unit = data.get('unit') as string;
-        const priceNet = parseFloat(data.get('priceNet') as string);
+        const quantity = parseFloat(data.get('quantity') as string) || 1;
+        const unit = data.get('unit') as string || 'UN';
+        const priceNet = parseFloat(data.get('priceNet') as string) || 0;
         const costNet = parseFloat(data.get('costNet') as string) || 0;
 
-        const { error } = await supabase.from('QuoteItem').insert({
-            id: crypto.randomUUID(),
-            organizationId: scope.orgId,
-            projectId,
-            sku,
-            detail,
-            quantity,
-            unit,
-            priceNet,
-            costNet
-        });
+        console.log(`[QuoteItems][${traceId}] Adding item to project=${projectId}, org=${scope.orgId}`);
 
-        if (error) {
-            console.error("Error adding quote item:", error);
-            throw new Error(`Failed to add item: ${error.message}`);
-        }
+        const newItem = await prisma.quoteItem.create({
+            data: {
+                id: crypto.randomUUID(),
+                organizationId: scope.orgId,
+                projectId,
+                sku,
+                detail,
+                quantity,
+                unit,
+                priceNet,
+                costNet,
+                isSelected: true
+            }
+        });
 
         // Audit
         await AuditService.logAction(projectId, 'ADD_ITEM', `Added item: ${detail} (${quantity} ${unit}) - $${priceNet}`);
 
         revalidatePath(`/projects/${projectId}`);
-    } catch (error) {
-        console.error("Critical error in addQuoteItem:", error);
-        throw error;
+        revalidatePath(`/projects/${projectId}/quote`);
+        return { success: true, itemId: newItem.id };
+    } catch (error: any) {
+        console.error(`[QuoteItems][${traceId}] Critical error in addQuoteItem:`, error.message);
+        return { success: false, error: "Error al guardar el ítem en la cotización.", traceId };
     }
 }
 
 export async function removeQuoteItem(itemId: string, projectId: string) {
+    const traceId = `ITM-DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
-        const supabase = await createClient();
 
-        // 1. Delete Item -> Make sure it belongs to the active scope via a nested or direct check if organizationId exists on QuoteItem, or just eq project.organizationId if we had it. QuoteItem *has* organizationId in our schema thankfully.
-        const { error } = await supabase.from('QuoteItem').delete().eq('id', itemId).eq('organizationId', scope.orgId);
+        console.log(`[QuoteItems][${traceId}] Deleting item=${itemId} from project=${projectId}`);
 
-        if (error) {
-            console.error("Error deleting quote item:", error);
-            throw new Error(`Failed to delete item: ${error.message}`);
-        }
+        await prisma.quoteItem.delete({
+            where: { 
+                id: itemId,
+                organizationId: scope.orgId
+            }
+        });
 
-        // 2. Audit (Safe logging)
+        // Audit
         await AuditService.logAction(projectId, 'DELETE_ITEM', `Deleted item ID: ${itemId}`);
 
         revalidatePath(`/projects/${projectId}`);
-    } catch (error) {
-        console.error("Critical error in removeQuoteItem:", error);
-        throw error; // Let the client handle it, but now with better logging
+        revalidatePath(`/projects/${projectId}/quote`);
+        return { success: true };
+    } catch (error: any) {
+        console.error(`[QuoteItems][${traceId}] Critical error in removeQuoteItem:`, error.message);
+        return { success: false, error: "Error al eliminar el ítem.", traceId };
     }
 }
 
 export async function updateQuoteItem(itemId: string, projectId: string, data: FormData) {
+    const traceId = `ITM-UPD-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
-        const supabase = await createClient();
 
         const sku = data.get('sku') as string;
         const detail = data.get('detail') as string;
@@ -83,83 +88,68 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
         const priceNet = parseFloat(data.get('priceNet') as string);
         const costNet = parseFloat(data.get('costNet') as string) || 0;
 
-        const { error } = await supabase.from('QuoteItem').update({
-            sku,
-            detail,
-            quantity,
-            unit,
-            priceNet,
-            costNet
-        }).eq('id', itemId).eq('organizationId', scope.orgId);
+        console.log(`[QuoteItems][${traceId}] Updating item=${itemId} in project=${projectId}`);
 
-        if (error) {
-            console.error("Error updating quote item:", error);
-            throw new Error(`Failed to update item: ${error.message}`);
-        }
+        await prisma.quoteItem.update({
+            where: { id: itemId, organizationId: scope.orgId },
+            data: {
+                sku,
+                detail,
+                quantity,
+                unit,
+                priceNet,
+                costNet
+            }
+        });
 
         // Audit
-        await AuditService.logAction(projectId, 'UPDATE_ITEM', `Updated item: ${detail} (${quantity} ${unit}) - $${priceNet}`);
+        await AuditService.logAction(projectId, 'UPDATE_ITEM', `Updated item: ${detail}`);
 
         revalidatePath(`/projects/${projectId}`);
         revalidatePath(`/projects/${projectId}/quote`);
-    } catch (error) {
-        console.error("Critical error in updateQuoteItem:", error);
-        throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error(`[QuoteItems][${traceId}] Critical error in updateQuoteItem:`, error.message);
+        return { success: false, error: "Error al actualizar el ítem.", traceId };
     }
 }
 
 export async function toggleQuoteItemSelection(itemId: string, projectId: string, isSelected: boolean) {
     try {
         const scope = await requirePermission('QUOTES_MANAGE');
-        await ensureNotPaused(scope.orgId);
-        const supabase = await createClient();
-
-        const { error } = await supabase.from('QuoteItem').update({
-            isSelected
-        }).eq('id', itemId).eq('organizationId', scope.orgId);
-
-        if (error) {
-            console.error("Error toggling item selection:", error);
-            throw new Error(`Failed to toggle selection: ${error.message}`);
-        }
-
-        console.log("Update success, revalidating:", `/projects/${projectId}`);
+        await prisma.quoteItem.update({
+            where: { id: itemId, organizationId: scope.orgId },
+            data: { isSelected }
+        });
         revalidatePath(`/projects/${projectId}`);
+        return { success: true };
     } catch (error) {
-        console.error("Critical error in toggleQuoteItemSelection:", error);
-        throw error;
+        return { success: false };
     }
 }
 
 export async function toggleAllQuoteItems(projectId: string, isSelected: boolean) {
     try {
         const scope = await requirePermission('QUOTES_MANAGE');
-        await ensureNotPaused(scope.orgId);
-        const supabase = await createClient();
-
-        const { error } = await supabase.from('QuoteItem').update({
-            isSelected
-        }).eq('projectId', projectId).eq('organizationId', scope.orgId);
-
-        if (error) {
-            console.error("Error toggling all items:", error);
-            throw new Error(`Failed to toggle all items: ${error.message}`);
-        }
-
+        await prisma.quoteItem.updateMany({
+            where: { projectId, organizationId: scope.orgId },
+            data: { isSelected }
+        });
         revalidatePath(`/projects/${projectId}`);
+        return { success: true };
     } catch (error) {
-        console.error("Critical error in toggleAllQuoteItems:", error);
-        throw error;
+        return { success: false };
     }
 }
 
 export async function addQuoteItemsBulk(projectId: string, items: any[]) {
+    const traceId = `ITM-BLK-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const scope = await requirePermission('QUOTES_MANAGE');
         await ensureNotPaused(scope.orgId);
-        const supabase = await createClient();
 
-        // Map items to match DB schema
+        console.log(`[QuoteItems][${traceId}] Adding ${items.length} items to project=${projectId}`);
+
         const itemsToInsert = items.map(item => ({
             id: crypto.randomUUID(),
             organizationId: scope.orgId,
@@ -173,19 +163,18 @@ export async function addQuoteItemsBulk(projectId: string, items: any[]) {
             isSelected: true
         }));
 
-        const { error } = await supabase.from('QuoteItem').insert(itemsToInsert);
-
-        if (error) {
-            console.error("Error adding bulk quote items:", error);
-            throw new Error(`Failed to add bulk items: ${error.message}`);
-        }
+        await prisma.quoteItem.createMany({
+            data: itemsToInsert
+        });
 
         // Audit
-        await AuditService.logAction(projectId, 'ADD_ITEMS_BULK', `Added ${items.length} items via AI Generator`);
+        await AuditService.logAction(projectId, 'ADD_ITEMS_BULK', `Added ${items.length} items via bulk operation`);
 
         revalidatePath(`/projects/${projectId}`);
-    } catch (error) {
-        console.error("Critical error in addQuoteItemsBulk:", error);
-        throw error;
+        revalidatePath(`/projects/${projectId}/quote`);
+        return { success: true };
+    } catch (error: any) {
+        console.error(`[QuoteItems][${traceId}] Critical error in addQuoteItemsBulk:`, error.message);
+        return { success: false, error: "Error en la operación masiva de ítems.", traceId };
     }
 }
