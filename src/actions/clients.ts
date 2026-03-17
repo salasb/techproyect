@@ -27,7 +27,8 @@ export type CreateQuickClientResult =
         | 'FOREIGN_KEY_ERROR'
         | 'SCHEMA_MISMATCH'
         | 'READ_ONLY'
-        | 'DB_ERROR';
+        | 'DB_ERROR'
+        | 'NOT_FOUND';
       message: string;
       fieldErrors?: Record<string, string>;
       prismaCode?: string;
