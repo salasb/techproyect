@@ -500,7 +500,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 </div>
             </div>
 
-            {/* Header / Navigation Tabs */}
+            {/* Header / Navigation Tabs - FIXED OVERFLOW */}
             <div className="bg-card border border-border p-1.5 rounded-xl shadow-sm sticky top-4 z-30 backdrop-blur-md bg-opacity-90 overflow-hidden">
                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
                     <div className="flex p-1 bg-muted/50 rounded-lg overflow-x-auto no-scrollbar scroll-smooth touch-pan-x">
@@ -531,20 +531,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 self-center sm:self-auto shrink-0">
-                        {['CLP', 'USD'].map((c) => (
-                            <button
-                                key={c}
-                                onClick={() => setCurrency(c as 'CLP' | 'UF' | 'USD')}
-                                className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all min-w-[3.5rem] text-center uppercase tracking-widest
-                                            ${currency === c
-                                        ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-700'
-                                        : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-700 dark:text-zinc-400'}`}
-                            >
-                                {c}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Currency Switcher Removed from global top bar */}
                 </div>
             </div >
 
@@ -1014,6 +1001,46 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     <div className="grid gap-8 grid-cols-1 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         {/* Left Column: Management */}
                         <div className="lg:col-span-2 space-y-8">
+                            {/* Currency Selection & FX Info Block (NEW) */}
+                            <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="space-y-1 text-center md:text-left">
+                                    <h4 className="text-sm font-bold text-foreground flex items-center justify-center md:justify-start gap-2">
+                                        <DollarSign className="w-4 h-4 text-primary" />
+                                        Configuración de Moneda
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground">Cambia la visualización de los montos para este proyecto.</p>
+                                </div>
+
+                                <div className="flex flex-col items-center md:items-end gap-3">
+                                    <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 w-fit">
+                                        {['CLP', 'USD'].map((c) => (
+                                            <button
+                                                key={c}
+                                                onClick={() => setCurrency(c as 'CLP' | 'USD')}
+                                                className={`px-6 py-2 rounded-md text-[10px] font-black transition-all min-w-[4.5rem] text-center uppercase tracking-widest
+                                                    ${currency === c
+                                                        ? 'bg-blue-600 text-white shadow-md ring-1 ring-blue-700'
+                                                        : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-700 dark:text-zinc-400'}`}
+                                            >
+                                                {c}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {currency === 'USD' && exchangeRate && (
+                                        <div className="flex flex-col items-center md:items-end animate-in fade-in slide-in-from-top-1">
+                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded border border-emerald-100 dark:border-emerald-800/50">
+                                                <RefreshCw className="w-2.5 h-2.5" />
+                                                USD/CLP: ${exchangeRate.value.toLocaleString('es-CL')}
+                                            </div>
+                                            <span className="text-[9px] text-zinc-400 mt-1 italic">
+                                                Fuente: Banco Central de Chile ({format(new Date(exchangeRate.date), "dd/MM/yyyy")})
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             <section>
                                 <CostsManager
                                     projectId={project.id}
