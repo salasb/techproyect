@@ -13,6 +13,7 @@ import { AcceptQuoteButton } from "@/components/commercial/AcceptQuoteButton";
 import { QuotePdfButton } from "@/components/quotes/QuotePdfButton";
 import { getOrganizationId } from "@/lib/current-org";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ page?: string, q?: string, view?: string }> }) {
     const traceId = `QUO-LST-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -36,7 +37,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         console.log(`[QuotesList][${traceId}] Loading quotes for org=${orgId}, query="${queryTerm}"`);
 
         // UNIFIED DOMAIN QUERY
-        const commonWhere = {
+        const commonWhere: Prisma.ProjectWhereInput = {
             organizationId: orgId,
             AND: [
                 {
