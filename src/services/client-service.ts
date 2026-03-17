@@ -17,7 +17,7 @@ export type ClientServiceResult =
     | { ok: true; client: { id: string; name: string; email: string | null; phone: string | null } }
     | { 
         ok: false; 
-        code: 'VALIDATION_ERROR' | 'DUPLICATE_CLIENT' | 'FOREIGN_KEY_ERROR' | 'DB_ERROR' | 'SCHEMA_MISMATCH'; 
+        code: 'VALIDATION_ERROR' | 'DUPLICATE_CLIENT' | 'FOREIGN_KEY_ERROR' | 'DB_ERROR' | 'SCHEMA_MISMATCH' | 'NOT_FOUND'; 
         message: string; 
         fieldErrors?: Record<string, string>;
         prismaCode?: string;

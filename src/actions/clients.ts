@@ -74,7 +74,14 @@ export async function getClientDetailsAction(clientId: string): Promise<{ ok: tr
         // Fetch via Service (Prisma) - Standardizes scoping and data shape
         const result = await ClientService.getById(clientId, context.activeOrgId);
         
-        if (!result.ok) return { ok: false, code: result.code, message: result.message, traceId };
+        if (!result.ok) {
+            return { 
+                ok: false, 
+                code: (result as any).code || 'NOT_FOUND', 
+                message: (result as any).message || 'No encontrado', 
+                traceId 
+            };
+        }
 
         return { 
             ok: true, 
