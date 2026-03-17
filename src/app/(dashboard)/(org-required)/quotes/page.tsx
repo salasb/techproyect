@@ -36,20 +36,28 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         console.log(`[QuotesList][${traceId}] Loading quotes for org=${orgId}, query="${queryTerm}"`);
 
         // UNIFIED DOMAIN QUERY
-        const [projectsWithQuotes, count] = await Promise.all([
-            prisma.project.findMany({
-                where: {
-                    organizationId: orgId,
+        const commonWhere = {
+            organizationId: orgId,
+            AND: [
+                {
                     OR: [
                         { name: { contains: queryTerm, mode: 'insensitive' } },
                         { company: { name: { contains: queryTerm, mode: 'insensitive' } } },
                         { client: { name: { contains: queryTerm, mode: 'insensitive' } } }
-                    ],
+                    ]
+                },
+                {
                     OR: [
                         { quoteItems: { some: {} } },
                         { quoteSentDate: { not: null } }
                     ]
-                },
+                }
+            ]
+        };
+
+        const [projectsWithQuotes, count] = await Promise.all([
+            prisma.project.findMany({
+                where: commonWhere,
                 include: {
                     company: true,
                     client: true,
@@ -66,13 +74,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
                 take: itemsPerPage
             }),
             prisma.project.count({
-                where: {
-                    organizationId: orgId,
-                    OR: [
-                        { quoteItems: { some: {} } },
-                        { quoteSentDate: { not: null } }
-                    ]
-                }
+                where: commonWhere
             })
         ]);
 
