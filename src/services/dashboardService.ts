@@ -78,10 +78,25 @@ export class DashboardService {
 
         const now = new Date();
 
-        // 0. Onboarding "First Value" Injector (For Trialing users)
-        if (isTrialing) {
+        // 0. Contextual Recommendation Engine (v2.0)
+        // Find actual projects that need commercial attention
+        const projectNeedingQuote = projects.find(p => (p.status === 'EN_ESPERA' || p.status === 'EN_CURSO') && !p.quoteSentDate);
+        
+        if (projectNeedingQuote) {
+            actions.push({
+                id: `contextual-quote-${projectNeedingQuote.id}`,
+                projectId: projectNeedingQuote.id,
+                projectName: projectNeedingQuote.name,
+                companyName: projectNeedingQuote.company?.name || 'Cliente',
+                type: 'TASK',
+                title: '💰 Generar Cotización',
+                message: `El proyecto "${projectNeedingQuote.name}" está activo pero no tiene cotización enviada. Genera la propuesta formal.`,
+                priority: 'HIGH',
+                dueDate: now
+            });
+        } else if (isTrialing) {
+            // Fallback to legacy onboarding only if no real projects found
             const attr = orgStats?.attributes || {};
-
             if (!attr.FIRST_PROJECT_CREATED) {
                 actions.push({
                     id: 'onboarding-project',
@@ -89,16 +104,6 @@ export class DashboardService {
                     type: 'TASK',
                     title: '🚀 Primer Paso: Crear un Proyecto',
                     message: 'Define lo que vas a cotizar. Es la base para tu flujo comercial.',
-                    priority: 'HIGH',
-                    dueDate: now
-                });
-            } else if (!attr.FIRST_QUOTE_SENT) {
-                actions.push({
-                    id: 'onboarding-quote',
-                    companyName: 'Onboarding',
-                    type: 'TASK',
-                    title: '💰 Segundo Paso: Generar Cotización',
-                    message: 'Entra a tu proyecto y agrega los ítems para ver el total y margen.',
                     priority: 'HIGH',
                     dueDate: now
                 });
@@ -594,63 +599,40 @@ export class DashboardService {
             previousStartDate = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
             previousEndDate = startDate;
         } else {
-            // Default 30d
-            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            previousStartDate = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-            previousEndDate = startDate;
+            // Default: Year To Date (YTD) for Command Center totals
+            startDate = new Date(now.getFullYear(), 0, 1);
+            previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
+            previousEndDate = new Date(now.getFullYear() - 1, 11, 31);
         }
 
         // Helper to sum logic
         const calculateMetrics = (start: Date, end: Date) => {
             let billing = 0;
-            let cost = 0;
             let margin = 0;
 
             projects.forEach(p => {
                 const isUsd = p.currency === 'USD';
                 const rate = isUsd ? dollarValue : 1;
 
-                // Billing (Invoices Sent/Paid in range)
-                // Using 'sentDate' for "Facturación" (Billing) as typical in Sales Dashboards, or 'amountPaid' for Cash Flow.
-                // Request says "Facturación Real" -> usually Invoiced. 
-                p.invoices?.forEach(inv => {
-                    if (inv.sent && inv.sentDate) {
-                        const d = new Date(inv.sentDate);
-                        if (d >= start && d < end) {
-                            billing += (inv.amountInvoicedGross * rate);
-                        }
-                    }
-                });
-
-                // Margin (Price - Cost) *for projects updated/active in range*? 
-                // Or Margin of *invoiced* items?
-                // Global Margin is tricky providing limited data. 
-                // Let's approximate: Global Margin of *Invoices* in this period.
-                // Est. Margin % * Invoiced Amount.
-                // If we don't have itemized invoice cost, we use Project Margin % * Invoice Amount.
-
-                // Calculate Project Margin %
                 let marginPct = 0;
                 try {
                     const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
                     marginPct = (fin?.priceNet > 0) ? (fin.marginAmountNet / fin.priceNet) : 0;
-                } catch (e) {
-                    console.warn(`[DashboardService] Financial calculation failed for project ${p.id}:`, e);
-                }
+                } catch (e) { }
 
-                if (p.invoices) {
-                    p.invoices.forEach(inv => {
-                        if (inv.sent && inv.sentDate) {
-                            const d = new Date(inv.sentDate);
-                            if (d >= start && d < end) {
-                                // Net Billing approx (assuming VAT included in Gross)
-                                const vatRate = settings?.vatRate || 0.19;
-                                const amountNet = (inv.amountInvoicedGross || 0) / (1 + vatRate);
-                                margin += (amountNet * marginPct * rate);
-                            }
+                p.invoices?.forEach(inv => {
+                    if (inv.sent && inv.sentDate) {
+                        const d = new Date(inv.sentDate);
+                        if (d >= start && d < end) {
+                            const val = (inv.amountInvoicedGross * rate);
+                            billing += val;
+
+                            const vatRate = settings?.vatRate || 0.19;
+                            const amountNet = (inv.amountInvoicedGross || 0) / (1 + vatRate);
+                            margin += (amountNet * marginPct * rate);
                         }
-                    });
-                }
+                    }
+                });
             });
 
             return { billing, margin };

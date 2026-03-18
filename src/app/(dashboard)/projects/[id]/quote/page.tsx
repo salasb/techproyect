@@ -109,46 +109,52 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
     });
     const isPaused = subscription?.status === 'PAUSED' || subscription?.status === 'PAST_DUE';
 
+    // 5. Serialization Sanitization (CRITICAL FIX)
+    // Convert all Dates to ISO strings before passing to Client Components
+    const sanitizedProject = JSON.parse(JSON.stringify(displayProject));
+    const sanitizedQuotes = JSON.parse(JSON.stringify(allQuotes));
+    const sanitizedSelectedQuote = selectedQuote ? JSON.parse(JSON.stringify(selectedQuote)) : null;
+
     return (
         <div className="min-h-screen bg-zinc-100 dark:bg-zinc-900 p-8 print:p-0 print:bg-white animate-in fade-in duration-500">
             {/* Toolbar - Hidden when printing */}
             <div className="max-w-[210mm] mx-auto mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 print:hidden">
                 <QuoteAcceptance
-                    projectId={project.id}
-                    initialAccepted={!!project.acceptedAt}
+                    projectId={sanitizedProject.id}
+                    initialAccepted={!!sanitizedProject.acceptedAt}
                     isPaused={isPaused}
                 />
                 <QuoteActions
-                    projectId={project.id}
-                    clientId={project.clientId}
-                    projectStatus={project.status}
-                    projectName={project.name}
-                    quoteSentDate={project.quoteSentDate}
+                    projectId={sanitizedProject.id}
+                    clientId={sanitizedProject.clientId}
+                    projectStatus={sanitizedProject.status}
+                    projectName={sanitizedProject.name}
+                    quoteSentDate={sanitizedProject.quoteSentDate}
                     isPaused={isPaused}
-                    quote={selectedQuote}
+                    quote={sanitizedSelectedQuote}
                 />
                 <div className="flex gap-2 items-center">
                     <QuoteVersionSelector
-                        quotes={allQuotes.map(q => ({
+                        quotes={sanitizedQuotes.map((q: any) => ({
                             id: q.id,
                             version: q.version,
                             status: q.status,
-                            createdAt: q.createdAt.toISOString(),
+                            createdAt: q.createdAt,
                             totalNet: q.totalNet || 0
                         }))}
-                        currentQuoteId={selectedQuote?.id || ''}
+                        currentQuoteId={sanitizedSelectedQuote?.id || ''}
                     />
-                    <Link href={`/projects/${project.id}`} className="bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center h-10">
+                    <Link href={`/projects/${sanitizedProject.id}`} className="bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center h-10">
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         Volver
                     </Link>
                     <QuotePrintButton variant="solid" />
-                    <ShareDialog entityType="QUOTE" entityId={selectedQuote?.id || ''} />
+                    <ShareDialog entityType="QUOTE" entityId={sanitizedSelectedQuote?.id || ''} />
                 </div>
             </div>
 
             {/* Render Document */}
-            <QuoteDocument project={displayProject as any} settings={settings as any} />
+            <QuoteDocument project={sanitizedProject as any} settings={settings as any} />
         </div>
     )
 }

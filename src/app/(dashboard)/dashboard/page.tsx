@@ -77,75 +77,80 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     console.log(`[Dashboard] Context: User=${user?.email || 'unknown'}, Role=${workspace.userRole}, Org=${orgId || 'none'}, Status=${workspace.status}`);
 
-    // 1. Fetch Data (Server Side)
-    let settingsRes: any = { data: null };
-    let projectsRes: any = { data: [] };
-    let opportunitiesRes: any = { data: [] };
-    let tasksRes: any = { data: [] };
-    let dollarRate = { value: 855 }; // Safe default
-    let isDataTimeout = false;
+    // 1. Fetch Data (Server Side via Prisma)
+    let settings: any = {
+        vatRate: DEFAULT_VAT_RATE,
+        yellowThresholdDays: YELLOW_THRESHOLD_DAYS,
+        defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
+        currency: DEFAULT_CURRENCY
+    };
+    let projects: any[] = [];
+    let opportunities: any[] = [];
+    let dollarRate = { value: 855 };
 
     if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
         try {
-            const fetchPromises = Promise.all([
-                supabase.from('Settings').select('*').eq('organizationId', orgId).maybeSingle(),
-                supabase.from('Project')
-                    .select(`
-                        *,
-                        company:Company(id, name, contactName, phone, email),
-                        costEntries:CostEntry(id, amountNet, date, description),
-                        invoices:Invoice(id, amountInvoicedGross, amountPaidGross, sent, sentDate, dueDate, paymentTermsDays),
-                        quoteItems:QuoteItem(id, priceNet, costNet, quantity, isSelected)
-                    `)
-                    .eq('organizationId', orgId)
-                    .order('updatedAt', { ascending: false }),
-                supabase.from('Opportunity').select('*').eq('organizationId', orgId),
-                supabase.from('Task')
-                    .select('*, project:Project(id, name, company:Company(name))')
-                    .eq('organizationId', orgId)
-                    .eq('status', 'PENDING')
-                    .order('priority', { ascending: false })
-                    .order('dueDate', { ascending: true })
-                    .limit(20),
+            console.log(`[Dashboard] Loading core data via Prisma for org=${orgId}`);
+            
+            const results = await Promise.all([
+                prisma.settings.findUnique({ where: { organizationId: orgId } }),
+                prisma.project.findMany({
+                    where: { organizationId: orgId },
+                    include: {
+                        company: { select: { id: true, name: true, contactName: true, phone: true, email: true } },
+                        costEntries: { select: { id: true, amountNet: true, date: true, description: true } },
+                        invoices: { select: { id: true, amountInvoicedGross: true, amountPaidGross: true, sent: true, sentDate: true, dueDate: true, paymentTermsDays: true } },
+                        quoteItems: { select: { id: true, priceNet: true, costNet: true, quantity: true, isSelected: true } }
+                    },
+                    orderBy: { updatedAt: 'desc' }
+                }),
+                prisma.opportunity.findMany({
+                    where: { organizationId: orgId }
+                }),
                 getDollarRate().catch(e => {
                     console.warn("[Dashboard] Currency service failed:", e.message);
                     return { value: 855 };
                 })
             ]);
 
-            const timeoutPromise = new Promise<any[]>((resolve) =>
-                setTimeout(() => {
-                    isDataTimeout = true;
-                    console.warn("[Dashboard] Data fetch TIMEOUT (6s) for org:", orgId);
-                    resolve([{ data: null }, { data: [] }, { data: [] }, { data: [] }, { value: 855 }]);
-                }, 6000)
-            );
+            if (results[0]) settings = results[0];
+            projects = results[1] || [];
+            opportunities = results[2] || [];
+            dollarRate = results[3];
 
-            const results = await Promise.race([fetchPromises, timeoutPromise]);
-
-            settingsRes = { data: results[0]?.data || null };
-            projectsRes = { data: results[1]?.data || [] };
-            opportunitiesRes = { data: results[2]?.data || [] };
-            tasksRes = { data: results[3]?.data || [] };
-            dollarRate = results[4] || { value: 855 };
         } catch (error: any) {
-            console.error("[Dashboard] Critical data fetch error:", error.message);
-            // Non-fatal: the UI will handle empty states
+            console.error("[Dashboard] Critical Prisma fetch error:", error.message);
         }
     }
 
-    const settings = settingsRes.data || {
-        vatRate: DEFAULT_VAT_RATE,
-        yellowThresholdDays: YELLOW_THRESHOLD_DAYS,
-        defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
-        currency: DEFAULT_CURRENCY
-    } as Settings;
-    const projects = projectsRes.data || [];
-    const opportunities = opportunitiesRes.data || [];
+    // 2. Fetch Tasks (Separate query for better management)
+    let tasks: any[] = [];
+    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
+        try {
+            tasks = await prisma.task.findMany({
+                where: {
+                    organizationId: orgId,
+                    status: 'PENDING'
+                },
+                include: {
+                    project: {
+                        select: { id: true, name: true, company: { select: { name: true } } }
+                    }
+                },
+                orderBy: [
+                    { priority: 'desc' },
+                    { dueDate: 'asc' }
+                ],
+                take: 20
+            });
+        } catch (e: any) {
+            console.warn("[Dashboard] Task fetch failed:", e.message);
+        }
+    }
 
-    // 2. Trigger Sentinel Analysis (Proactive Layer)
+    // 3. Trigger Sentinel Analysis (Proactive Layer)
     let sentinelAlerts: any[] = [];
-    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED' && !isDataTimeout) {
+    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
         try {
             const sentinelPromises = Promise.all([
                 SentinelService.runAnalysis(orgId, isSentinelForce),
@@ -167,7 +172,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         }
     }
 
-    // 3. Calculate Dashboard Data - Extremely Defensive
+    // 4. Calculate Dashboard Data - Extremely Defensive
     let kpis;
     try {
         kpis = (orgId && !isExplore)
@@ -203,10 +208,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             { name: 'Global Tech', value: 3000000 }
         ] : [];
 
-    // 4. Fetch Stats & Activation Data
+    // 5. Fetch Stats & Activation Data
     let orgStats = null;
     let subscription = null;
-    let org = null;
+    let orgData: any = null;
     let activationData = null;
     let realProjectsCount = 0;
 
@@ -224,7 +229,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             
             orgStats = results[0];
             subscription = results[1];
-            org = results[2];
+            orgData = results[2];
             activationData = results[3];
             realProjectsCount = results[4];
         } catch (e: any) {
@@ -233,7 +238,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
 
     const isTrialing = subscription?.status === 'TRIALING';
-    const orgMode = (org?.mode as 'SOLO' | 'TEAM') || 'SOLO';
+    const orgMode = (orgData?.mode as 'SOLO' | 'TEAM') || 'SOLO';
 
     let sortedActions: any[] = [];
     let nextBestAction: any = null;
@@ -243,7 +248,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             projects as any,
             settings,
             opportunities as any,
-            tasksRes.data || [],
+            tasks,
             sentinelAlerts || [],
             orgStats,
             isTrialing
@@ -259,10 +264,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className={`space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto relative ${isSuperadmin && orgId ? 'pt-12' : ''}`}>
-            {isSuperadmin && orgId && org?.name && (
+            {isSuperadmin && orgId && orgData?.name && (
                 <div className="fixed top-0 left-0 right-0 z-[100] md:left-64 print:hidden">
                     <OperatingContextBanner 
-                        orgName={org.name} 
+                        orgName={orgData.name} 
                         isSuperadmin={true} 
                     />
                 </div>

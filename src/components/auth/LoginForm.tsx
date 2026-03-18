@@ -209,7 +209,7 @@ export function LoginForm() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="ejemplo@empresa.com"
-                                    className="w-full pl-12 pr-4 h-14 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 font-bold focus:bg-white transition-all outline-none focus:ring-4 focus:ring-blue-500/10"
+                                    className="w-full pl-12 pr-4 h-14 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-zinc-900 transition-all outline-none focus:ring-4 focus:ring-blue-500/10"
                                 />
                             </div>
                         </div>
@@ -234,7 +234,7 @@ export function LoginForm() {
                                     type={isVisible ? 'text' : 'password'}
                                     required
                                     placeholder="********"
-                                    className="w-full pl-12 pr-12 h-14 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 font-bold focus:bg-white transition-all outline-none focus:ring-4 focus:ring-blue-500/10"
+                                    className="w-full pl-12 pr-12 h-14 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-zinc-900 transition-all outline-none focus:ring-4 focus:ring-blue-500/10"
                                 />
                                 <button
                                     type="button"
