@@ -32,7 +32,13 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
     const itemsPerPage = 12;
     const skip = (page - 1) * itemsPerPage;
 
-    let data;
+    let data: {
+        quotes: UIQuote[],
+        groupedQuotes: Record<string, UIQuote[]>,
+        totalPages: number,
+        hasNextPage: boolean,
+        hasPrevPage: boolean
+    };
     try {
         console.log(`[QuotesList][${traceId}] Loading quotes for org=${orgId}, query="${queryTerm}"`);
 
@@ -133,11 +139,11 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
 
 
         // Grouping for List View
-        const groupedQuotes: Record<string, unknown[]> = {};
+        const groupedQuotes: Record<string, UIQuote[]> = {};
         quotes.forEach(q => {
             const status = q.status || 'OTRO';
             if (!groupedQuotes[status]) groupedQuotes[status] = [];
-            groupedQuotes[status].push(q);
+            groupedQuotes[status].push(q as UIQuote);
         });
 
         data = {
@@ -191,16 +197,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
                                 <span className="text-sm text-muted-foreground font-medium">({groupQuotes.length})</span>
                             </div>
                             <div className="space-y-2">
-                                {(groupQuotes as { 
-                                    id: string; 
-                                    projectId: string; 
-                                    project: unknown; 
-                                    status: string; 
-                                    version: number; 
-                                    totalNet: number; 
-                                    createdAt: Date; 
-                                    isDraft: boolean 
-                                }[]).map((quote) => (
+                                {groupQuotes.map((quote) => (
                                     <QuoteListItem key={quote.id} quote={quote} />
                                 ))}
                             </div>
