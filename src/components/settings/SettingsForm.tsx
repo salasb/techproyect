@@ -67,6 +67,23 @@ export function SettingsForm({ settings, updateSettingsAction }: Props) {
                         />
                         <p className="text-xs text-zinc-500 mt-1">Días predeterminados para vencimiento de facturas.</p>
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Recargo Comercial Dólar (CLP)
+                        </label>
+                        <div className="relative">
+                            <input
+                                name="dollarSurcharge"
+                                type="number"
+                                step="0.5"
+                                defaultValue={(settings as any).dollarSurcharge || 5.0}
+                                className="w-full pl-3 pr-12 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 font-mono"
+                            />
+                            <span className="absolute right-3 top-2 text-zinc-500 text-xs font-bold uppercase">CLP</span>
+                        </div>
+                        <p className="text-xs text-zinc-500 mt-1">Se sumará al valor observado oficial del día.</p>
+                    </div>
                 </div>
 
                 {/* Alerts & UX */}

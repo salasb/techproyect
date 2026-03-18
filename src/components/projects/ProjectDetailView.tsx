@@ -288,7 +288,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
     const formatMoney = (amount: number) => {
         const baseCurrency = project.currency || 'CLP';
         let value = amount;
-        let targetCurrency = currency;
+        const targetCurrency = currency;
 
         // 1. Calculate Value in Target Currency
         if (baseCurrency !== targetCurrency) {
@@ -1029,12 +1029,22 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
                                     {currency === 'USD' && exchangeRate && (
                                         <div className="flex flex-col items-center md:items-end animate-in fade-in slide-in-from-top-1">
-                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded border border-emerald-100 dark:border-emerald-800/50">
-                                                <RefreshCw className="w-2.5 h-2.5" />
-                                                USD/CLP: ${exchangeRate.value.toLocaleString('es-CL')}
+                                            <div className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-tighter bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded border border-emerald-100 dark:border-emerald-800/50 shadow-sm">
+                                                <div className="flex justify-between gap-4 text-zinc-500">
+                                                    <span>USD Observado:</span>
+                                                    <span>${(exchangeRate as any).observedValue?.toLocaleString('es-CL') || exchangeRate.value - ((exchangeRate as any).surcharge || 5)}</span>
+                                                </div>
+                                                <div className="flex justify-between gap-4 text-emerald-600">
+                                                    <span>Recargo Comercial:</span>
+                                                    <span>+${(exchangeRate as any).surcharge || 5}</span>
+                                                </div>
+                                                <div className="flex justify-between gap-4 pt-1 border-t border-emerald-200/50 text-emerald-700 dark:text-emerald-400 text-xs">
+                                                    <span className="flex items-center gap-1"><RefreshCw className="w-2.5 h-2.5" /> USD Aplicado:</span>
+                                                    <span>${exchangeRate.value.toLocaleString('es-CL')}</span>
+                                                </div>
                                             </div>
                                             <span className="text-[9px] text-zinc-400 mt-1 italic">
-                                                Fuente: Banco Central de Chile ({format(new Date(exchangeRate.date), "dd/MM/yyyy")})
+                                                Fuente: Banco Central de Chile ({exchangeRate.date ? format(new Date(exchangeRate.date), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy")})
                                             </span>
                                         </div>
                                     )}
@@ -1308,21 +1318,4 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             <ConfirmDialog {...confirmConfig} onCancel={closeConfirm} isLoading={isUpdatingStatus} />
         </div >
     );
-}
-
-function MetricCard({ title, value, icon: Icon, trend, trendColor = "text-muted-foreground" }: any) {
-    return (
-        <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
-            <div className="flex items-center justify-between">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                    <Icon className="w-5 h-5 text-primary" />
-                </div>
-            </div>
-            <div className="mt-4">
-                <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
-                <p className="text-2xl font-bold text-foreground mt-1">{value}</p>
-                {trend && <p className={`text-xs mt-1 ${trendColor} font-medium`}>{trend}</p>}
-            </div>
-        </div>
-    )
 }

@@ -186,12 +186,12 @@ export async function deleteProject(projectId: string) {
 export async function closeProject(projectId: string) {
     return await updateProjectStatus(projectId, 'CERRADO');
 }
-
 export async function associateProjectToClient(projectId: string, clientId: string) {
     const traceId = `PRJ-ASC-${Math.random().toString(36).substring(7).toUpperCase()}`;
     try {
         const scope = await requireOperationalScope();
         await ensureNotPaused(scope.orgId);
+        const prisma = (await import("@/lib/prisma")).default;
 
         console.log(`[Projects][${traceId}] Associating project=${projectId} to client=${clientId}`);
 
@@ -200,6 +200,9 @@ export async function associateProjectToClient(projectId: string, clientId: stri
             data: { clientId, updatedAt: new Date() }
         });
 
+        // Trigger Auto-transition
+        await autoTransitionProjectState(projectId, 'CLIENT_ASSIGNED');
+
         revalidatePath(`/projects/${projectId}`);
         return { success: true };
     } catch (error: any) {
@@ -207,3 +210,58 @@ export async function associateProjectToClient(projectId: string, clientId: stri
         throw new Error("No se pudo asociar el cliente.");
     }
 }
+
+/**
+ * INTELLIGENT STATE MACHINE (v1.0)
+ * Automatically transitions project state from 'EN_ESPERA' to 'EN_CURSO'
+ * based on real commercial activity triggers.
+ */
+export async function autoTransitionProjectState(projectId: string, trigger: 'LOG_ADDED' | 'COST_ADDED' | 'ITEM_ADDED' | 'CLIENT_ASSIGNED' | 'QUOTE_GENERATED') {
+    const traceId = `PRJ-AUTO-ST-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const prisma = (await import("@/lib/prisma")).default;
+
+        // 1. Fetch current state
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { status: true, name: true, organizationId: true, clientId: true }
+        });
+
+        if (!project || project.status !== 'EN_ESPERA') return;
+
+        // 2. Evaluate rules
+        // For now, any significant activity transitions to 'EN_CURSO' if a client is assigned
+        if (!project.clientId) {
+            console.log(`[Projects][${traceId}] Auto-transition skipped: No client assigned to "${project.name}"`);
+            return;
+        }
+
+        console.log(`[Projects][${traceId}] Auto-transitioning project "${project.name}" to EN_CURSO (Trigger: ${trigger})`);
+
+        await prisma.$transaction([
+            prisma.project.update({
+                where: { id: projectId },
+                data: { 
+                    status: 'EN_CURSO' as ProjectStatus,
+                    updatedAt: new Date()
+                }
+            }),
+            prisma.projectLog.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    projectId,
+                    organizationId: project.organizationId,
+                    type: 'STATUS_CHANGE',
+                    content: `Estado actualizado automáticamente a EN CURSO (Hito comercial detectado: ${trigger})`
+                }
+            })
+        ]);
+
+        revalidatePath(`/projects/${projectId}`);
+        revalidatePath(`/dashboard`);
+
+    } catch (error: any) {
+        console.warn(`[Projects][${traceId}] Non-blocking auto-transition failed:`, error.message);
+    }
+}
+

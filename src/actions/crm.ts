@@ -107,19 +107,26 @@ export async function addInteraction(clientId: string, formData: FormData) {
 }
 
 export async function updateClientStatus(clientId: string, status: Database['public']['Enums']['ClientStatus']) {
-    const scope = await requirePermission('CRM_MANAGE');
-    await ensureNotPaused(scope.orgId);
-    const supabase = await createClient();
+    const traceId = `CLT-ST-UPD-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const scope = await requirePermission('CRM_MANAGE');
+        await ensureNotPaused(scope.orgId);
+        const prisma = (await import("@/lib/prisma")).default;
 
-    const { error } = await supabase.from('Client').update({
-        status
-    })
-        .eq('id', clientId)
-        .eq('organizationId', scope.orgId);
+        console.log(`[CRM][${traceId}] Updating client=${clientId} status to ${status} for org=${scope.orgId}`);
 
-    if (error) throw new Error(error.message);
-    revalidatePath(`/clients/${clientId}`);
-    revalidatePath(`/clients`);
+        await prisma.client.update({
+            where: { id: clientId, organizationId: scope.orgId },
+            data: { status: status as any, updatedAt: new Date() }
+        });
+
+        revalidatePath(`/clients/${clientId}`);
+        revalidatePath(`/clients`);
+        return { success: true };
+    } catch (error: any) {
+        console.error(`[CRM][${traceId}] Critical failure:`, error.message);
+        throw new Error("No se pudo actualizar el estado del cliente.");
+    }
 }
 
 export async function getPipelineProjects() {

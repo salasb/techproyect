@@ -68,7 +68,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             currency: "CLP",
             vatRate: 0.19,
             defaultPaymentTermsDays: 30,
-            yellowThresholdDays: 7
+            yellowThresholdDays: 7,
+            dollarSurcharge: 5.0
+        };
+
+        // Apply Commercial Surcharge to the Observed Rate (FX Policy v1.0)
+        const surcharge = (safeSettings as any).dollarSurcharge ?? 5.0;
+        const appliedExchangeRate = {
+            ...exchangeRate,
+            observedValue: exchangeRate.value,
+            surcharge: surcharge,
+            value: exchangeRate.value + surcharge
         };
 
         const financials = calculateProjectFinancials(
@@ -117,7 +127,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             projectLogs={operationalData.projectLogs as any[]}
             clients={operationalData.clients as any[]}
             risk={operationalData.risk}
-            exchangeRate={operationalData.exchangeRate}
+            exchangeRate={appliedExchangeRate}
             ufRate={operationalData.ufRate}
             tasks={(project as any).tasks || []}
             inventoryWidget={<ProjectInventory projectId={id} orgId={orgId} />}

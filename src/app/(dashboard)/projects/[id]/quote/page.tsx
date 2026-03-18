@@ -87,9 +87,16 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
         displayProject.quoteItems.sort((a: any, b: any) => (a.sku || '').localeCompare(b.sku || ''));
     }
 
-    // 3. Load Project Settings (Legacy check for vatRate)
-    let settings = await prisma.settings.findFirst();
-    if (!settings) settings = { vatRate: 0.19 } as any;
+    // 3. Parallel Fetch: Settings and Subscription
+    const [settings, subscription] = await Promise.all([
+        prisma.settings.findFirst().then(s => s || { vatRate: 0.19 } as any),
+        prisma.subscription.findUnique({
+            where: { organizationId: project.organizationId as string },
+            select: { status: true }
+        })
+    ]);
+
+    const isPaused = subscription?.status === 'PAUSED' || subscription?.status === 'PAST_DUE';
 
     const financials = calculateProjectFinancials(
         displayProject, 
@@ -99,59 +106,76 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
         displayProject.quoteItems || []
     );
 
-    // 4. Resolve Subscription / Paywall
-    const subscription = await prisma.subscription.findUnique({
-        where: { organizationId: project.organizationId as string },
-        select: { status: true }
-    });
-    const isPaused = subscription?.status === 'PAUSED' || subscription?.status === 'PAST_DUE';
+    // 5. Serialization Sanitization (v2.0)
+    // One-pass sanitization for all data passed to Client Components
+    const sanitizedData = JSON.parse(JSON.stringify({
+        project: displayProject,
+        allQuotes,
+        selectedQuote
+    }));
 
-    // 5. Serialization Sanitization (CRITICAL FIX)
-    // Convert all Dates to ISO strings before passing to Client Components
-    const sanitizedProject = JSON.parse(JSON.stringify(displayProject));
-    const sanitizedQuotes = JSON.parse(JSON.stringify(allQuotes));
-    const sanitizedSelectedQuote = selectedQuote ? JSON.parse(JSON.stringify(selectedQuote)) : null;
+    const { project: sanitizedProject, allQuotes: sanitizedQuotes, selectedQuote: sanitizedSelectedQuote } = sanitizedData;
 
     return (
-        <div className="min-h-screen bg-zinc-100 dark:bg-zinc-900 p-8 print:p-0 print:bg-white animate-in fade-in duration-500">
-            {/* Toolbar - Hidden when printing */}
-            <div className="max-w-[210mm] mx-auto mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 print:hidden">
-                <QuoteAcceptance
-                    projectId={sanitizedProject.id}
-                    initialAccepted={!!sanitizedProject.acceptedAt}
-                    isPaused={isPaused}
-                />
-                <QuoteActions
-                    projectId={sanitizedProject.id}
-                    clientId={sanitizedProject.clientId}
-                    projectStatus={sanitizedProject.status}
-                    projectName={sanitizedProject.name}
-                    quoteSentDate={sanitizedProject.quoteSentDate}
-                    isPaused={isPaused}
-                    quote={sanitizedSelectedQuote}
-                />
-                <div className="flex gap-2 items-center">
-                    <QuoteVersionSelector
-                        quotes={sanitizedQuotes.map((q: any) => ({
-                            id: q.id,
-                            version: q.version,
-                            status: q.status,
-                            createdAt: q.createdAt,
-                            totalNet: q.totalNet || 0
-                        }))}
-                        currentQuoteId={sanitizedSelectedQuote?.id || ''}
-                    />
-                    <Link href={`/projects/${sanitizedProject.id}`} className="bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center h-10">
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Volver
+        <div className="min-h-screen bg-zinc-100 dark:bg-zinc-900 p-8 print:p-0 print:bg-white animate-in fade-in duration-500 pb-20">
+            {/* Unified Commercial Toolbar */}
+            <div className="max-w-[210mm] mx-auto mb-8 flex flex-col gap-6 print:hidden">
+                {/* Top Row: Navigation & Meta */}
+                <div className="flex justify-between items-center">
+                    <Link href={`/projects/${sanitizedProject.id}`} className="inline-flex items-center text-zinc-500 hover:text-zinc-900 transition-colors text-sm font-bold uppercase tracking-widest group">
+                        <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                        Volver al Proyecto
                     </Link>
-                    <QuotePrintButton variant="solid" />
-                    <ShareDialog entityType="QUOTE" entityId={sanitizedSelectedQuote?.id || ''} />
+                    <div className="flex items-center gap-3">
+                        <QuoteVersionSelector
+                            quotes={sanitizedQuotes.map((q: any) => ({
+                                id: q.id,
+                                version: q.version,
+                                status: q.status,
+                                createdAt: q.createdAt,
+                                totalNet: q.totalNet || 0
+                            }))}
+                            currentQuoteId={sanitizedSelectedQuote?.id || ''}
+                        />
+                    </div>
+                </div>
+
+                {/* Main Action Bar */}
+                <div className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-6">
+                    {/* Group 1: Configuration (Digital Acceptance) */}
+                    <div className="flex items-center gap-4 border-r border-border pr-6">
+                        <QuoteAcceptance
+                            projectId={sanitizedProject.id}
+                            initialAccepted={!!sanitizedProject.acceptedAt}
+                            isPaused={isPaused}
+                        />
+                    </div>
+
+                    {/* Group 2: Status Lifecycle */}
+                    <div className="flex-1 flex items-center gap-3">
+                        <QuoteActions
+                            projectId={sanitizedProject.id}
+                            clientId={sanitizedProject.clientId}
+                            projectStatus={sanitizedProject.status}
+                            projectName={sanitizedProject.name}
+                            quoteSentDate={sanitizedProject.quoteSentDate}
+                            isPaused={isPaused}
+                            quote={sanitizedSelectedQuote}
+                        />
+                    </div>
+
+                    {/* Group 3: Export & Distribution */}
+                    <div className="flex items-center gap-2 pl-6 border-l border-border">
+                        <QuotePrintButton variant="solid" />
+                        <ShareDialog entityType="QUOTE" entityId={sanitizedSelectedQuote?.id || ''} />
+                    </div>
                 </div>
             </div>
 
             {/* Render Document */}
-            <QuoteDocument project={sanitizedProject as any} settings={settings as any} />
+            <div className="shadow-2xl shadow-black/5 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                <QuoteDocument project={sanitizedProject as any} settings={settings as any} />
+            </div>
         </div>
     )
 }

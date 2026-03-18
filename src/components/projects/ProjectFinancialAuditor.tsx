@@ -13,7 +13,6 @@ export default function ProjectFinancialAuditor({ projectId }: { projectId: stri
     async function handleAudit() {
         setIsLoading(true);
         try {
-            // Call Server Action directly (Deterministic Logic)
             const result = await performFinancialAudit(projectId);
             setAudit(result);
         } catch (error: any) {
@@ -30,124 +29,97 @@ export default function ProjectFinancialAuditor({ projectId }: { projectId: stri
 
     if (!audit && !isLoading) {
         return (
-            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-6 text-center">
-                <Calculator className="w-8 h-8 mx-auto text-indigo-500 mb-2" />
-                <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-300">Auditoría Financiera</h3>
-                <p className="text-sm text-indigo-700 dark:text-indigo-400 mb-4 max-w-sm mx-auto">
-                    Analiza automáticamente tus costos, márgenes y riesgos utilizando modelos financieros en tiempo real.
-                </p>
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        <Calculator className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h3 className="text-xs font-bold text-foreground uppercase tracking-tight">Auditoría Financiera</h3>
+                        <p className="text-[10px] text-muted-foreground">Analiza márgenes y riesgos en tiempo real.</p>
+                    </div>
+                </div>
                 <button
                     onClick={handleAudit}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-md hover:shadow-lg flex items-center mx-auto"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm active:scale-95"
                 >
-                    <Calculator className="w-4 h-4 mr-2" />
-                    Ejecutar Auditoría
+                    Ejecutar
                 </button>
             </div>
         );
     }
 
     return (
-        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-            <div className="p-4 border-b border-border bg-muted/30 flex justify-between items-center">
-                <h3 className="font-semibold flex items-center gap-2">
-                    <Calculator className="w-4 h-4 text-indigo-500" />
-                    Reporte de Auditoría
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2">
+            <div className="p-3 border-b border-border bg-muted/20 flex justify-between items-center">
+                <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                    <Calculator className="w-3.5 h-3.5 text-indigo-500" />
+                    Reporte de Salud
                 </h3>
                 {isLoading ? (
-                    <span className="text-xs text-muted-foreground flex items-center">
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Analizando...
+                    <span className="text-[10px] text-muted-foreground flex items-center font-bold">
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" /> ANALIZANDO...
                     </span>
                 ) : (
-                    <button onClick={handleAudit} className="text-xs text-indigo-600 hover:underline">
-                        Re-analizar
+                    <button onClick={handleAudit} className="text-[10px] font-bold text-indigo-600 hover:underline uppercase">
+                        Recalcular
                     </button>
                 )}
             </div>
 
             {isLoading && !audit && (
-                <div className="p-8 text-center bg-background/50">
-                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground animate-pulse">Calculando métricas del proyecto...</p>
+                <div className="p-6 text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mx-auto mb-2" />
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Analizando KPIs...</p>
                 </div>
             )}
 
             {audit && (
-                <div className="p-6">
-                    {/* Header Score */}
-                    <div className="flex items-center gap-6 mb-6">
-                        <div className="relative w-20 h-20 flex items-center justify-center">
+                <div className="p-4 space-y-4">
+                    {/* Header Score - Compact */}
+                    <div className="flex items-center gap-4">
+                        <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
                             <svg className="w-full h-full transform -rotate-90">
-                                <circle
-                                    className="text-gray-200 dark:text-gray-700"
-                                    strokeWidth="8"
-                                    stroke="currentColor"
-                                    fill="transparent"
-                                    r="32"
-                                    cx="40"
-                                    cy="40"
-                                />
+                                <circle className="text-gray-100 dark:text-zinc-800" strokeWidth="4" stroke="currentColor" fill="transparent" r="22" cx="24" cy="24" />
                                 <circle
                                     className={`${audit.healthScore > 80 ? 'text-green-500' : audit.healthScore > 50 ? 'text-yellow-500' : 'text-red-500'} transition-all duration-1000 ease-out`}
-                                    strokeWidth="8"
-                                    strokeDasharray={201} // 2 * pi * 32
-                                    strokeDashoffset={201 - (201 * audit.healthScore) / 100}
+                                    strokeWidth="4"
+                                    strokeDasharray={138} 
+                                    strokeDashoffset={138 - (138 * audit.healthScore) / 100}
                                     strokeLinecap="round"
                                     stroke="currentColor"
                                     fill="transparent"
-                                    r="32"
-                                    cx="40"
-                                    cy="40"
+                                    r="22"
+                                    cx="24"
+                                    cy="24"
                                 />
                             </svg>
-                            <span className="absolute text-xl font-bold">{audit.healthScore}</span>
+                            <span className="absolute text-xs font-black">{audit.healthScore}</span>
                         </div>
-                        <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">{audit.summary}</p>
-                            <div className="flex gap-2 mt-2">
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border
-                                    ${audit.sentiment === 'POSITIVE' ? 'bg-green-50 text-green-700 border-green-200' :
-                                        audit.sentiment === 'NEGATIVE' ? 'bg-red-50 text-red-700 border-red-200' :
-                                            'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                                    {audit.sentiment === 'POSITIVE' ? 'Positivo' : audit.sentiment === 'NEGATIVE' ? 'Negativo' : 'Neutral'}
-                                </span>
+                        <div className="min-w-0">
+                            <p className="text-xs font-bold text-foreground line-clamp-2 leading-tight">{audit.summary}</p>
+                            <div className={`inline-block mt-1 text-[8px] px-1.5 py-0.5 rounded font-black uppercase border
+                                ${audit.sentiment === 'POSITIVE' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    audit.sentiment === 'NEGATIVE' ? 'bg-red-50 text-red-700 border-red-200' :
+                                        'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                                {audit.sentiment === 'POSITIVE' ? 'Positivo' : audit.sentiment === 'NEGATIVE' ? 'Negativo' : 'Neutral'}
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Issues List */}
-                        <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Alertas Detectadas</h4>
-                            {audit.issues.length === 0 ? (
-                                <p className="text-sm text-muted-foreground italic">No se detectaron problemas críticos.</p>
-                            ) : (
-                                audit.issues.map((issue, i) => (
-                                    <div key={i} className={`p-3 rounded-lg border text-sm
-                                        ${issue.severity === 'CRITICAL' ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/10' :
-                                            issue.severity === 'WARNING' ? 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/10' :
-                                                'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/10'}`}>
-                                        <div className="flex items-center font-semibold mb-1">
-                                            {issue.severity === 'CRITICAL' ? <AlertTriangle className="w-4 h-4 mr-2" /> : <Info className="w-4 h-4 mr-2" />}
-                                            {issue.title}
-                                        </div>
-                                        <p className="opacity-90 text-xs">{issue.description}</p>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
-                        {/* Recommendations */}
-                        <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Recomendaciones</h4>
-                            {audit.recommendations.map((rec, i) => (
-                                <div key={i} className="flex gap-3 text-sm text-foreground bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-lg">
-                                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                                    <span>{rec}</span>
+                    {/* Alerts - Mini List */}
+                    {audit.issues.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-border">
+                            {audit.issues.map((issue, i) => (
+                                <div key={i} className="flex items-start gap-2 text-[10px]">
+                                    {issue.severity === 'CRITICAL' ? <AlertTriangle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> : <Info className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" />}
+                                    <span className="text-zinc-600 dark:text-zinc-400 font-medium">
+                                        <strong className="text-foreground">{issue.title}:</strong> {issue.description}
+                                    </span>
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
         </div>

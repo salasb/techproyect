@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Database } from "@/types/supabase";
 import { addCost, deleteCost, updateCost } from "@/app/actions/costs";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Plus, Trash2, Calendar, Tag, DollarSign, Loader2, Edit2, Save, X, Info } from "lucide-react";
+import { Plus, Trash2, Calendar, Tag, Loader2, Edit2, Save } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
@@ -42,12 +43,13 @@ export function CostsManager({
     const [isAdding, setIsAdding] = useState(false);
     const [editingCost, setEditingCost] = useState<CostEntry | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
 
     // Helper for currency conversion and formatting
     const formatMoney = (amount: number) => {
         let value = amount;
-        let targetCurrency = displayCurrency;
+        const targetCurrency = displayCurrency;
 
         // 1. Calculate Value in Target Currency
         if (baseCurrency !== targetCurrency) {
@@ -86,19 +88,27 @@ export function CostsManager({
     async function handleAddCost(formData: FormData) {
         setIsLoading(true);
         try {
+            let result;
             if (editingCost) {
-                await updateCost(projectId, editingCost.id, formData);
-                setEditingCost(null);
-                toast({ type: 'success', message: "Costo actualizado correctamente" });
+                result = await updateCost(projectId, editingCost.id, formData);
             } else {
-                await addCost(projectId, formData);
+                result = await addCost(projectId, formData);
+            }
+
+            if (result.success) {
+                setEditingCost(null);
                 setIsAdding(false);
-                const form = document.getElementById('add-cost-form') as HTMLFormElement;
-                form?.reset();
-                toast({ type: 'success', message: "Costo registrado correctamente" });
+                if (!editingCost) {
+                    const form = document.getElementById('add-cost-form') as HTMLFormElement;
+                    form?.reset();
+                }
+                toast({ type: 'success', message: editingCost ? "Costo actualizado" : "Costo registrado" });
+                router.refresh();
+            } else {
+                toast({ type: 'error', message: result.error || "Error al procesar costo" });
             }
         } catch (error) {
-            toast({ type: 'error', message: "Error al agregar costo" });
+            toast({ type: 'error', message: "Error crítico al procesar la operación" });
             console.error(error);
         } finally {
             setIsLoading(false);

@@ -235,27 +235,27 @@ function QuoteGridCard({ quote }: { quote: any }) {
     return (
         <div className="group bg-card hover:bg-slate-50 dark:hover:bg-slate-900 border border-border hover:border-blue-200 dark:hover:border-blue-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
             <Link href={`/projects/${quote.projectId}/quote`} className="flex-1">
-                <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
+                <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                            {quote.isDraft ? (
-                                <Badge variant="outline" className="text-[8px] font-bold bg-amber-50 text-amber-700 border-amber-200 uppercase">Borrador</Badge>
-                            ) : (
-                                <Badge variant="outline" className="text-[8px] font-bold bg-blue-50 text-blue-700 border-blue-200">v{quote.version}</Badge>
+                            {!quote.isDraft && (
+                                <Badge variant="outline" className="text-[8px] font-bold bg-blue-50 text-blue-700 border-blue-200 shrink-0">v{quote.version}</Badge>
                             )}
-                            <h3 className="font-bold text-lg text-foreground group-hover:text-blue-600 transition-colors line-clamp-1" title={quote.project?.name}>
+                            <h3 className="font-bold text-lg text-foreground group-hover:text-blue-600 transition-colors truncate" title={quote.project?.name}>
                                 {quote.project?.name}
                             </h3>
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-1">
-                            {quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}
-                        </p>
+                        <div className="flex items-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                            <span className="truncate">{quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}</span>
+                        </div>
                     </div>
-                    <StatusBadge status={quote.status} type="QUOTE" />
+                    <div className="shrink-0 ml-2">
+                        <StatusBadge status={quote.status} type="QUOTE" />
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                    <span className="bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
+                <div className="flex items-center gap-2 text-[10px] text-zinc-400 mb-4 font-bold uppercase tracking-widest italic">
+                    <span className="bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
                         {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}
                     </span>
                 </div>
@@ -263,15 +263,15 @@ function QuoteGridCard({ quote }: { quote: any }) {
 
             <div className="border-t border-border pt-4 mt-auto">
                 <div className="flex justify-between items-end mb-4">
-                    <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Valor Estimado</div>
+                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Valor Neto</div>
                     <div className="font-mono font-bold text-xl text-foreground">
                         {formattedTotal}
                     </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild className="rounded-lg h-8 text-[10px] font-black uppercase flex-1">
-                        <Link href={`/projects/${quote.projectId}/quote`}>Ver Cotización</Link>
+                    <Button variant="outline" size="sm" asChild className="rounded-lg h-9 text-[10px] font-black uppercase flex-1 border-zinc-200 hover:border-blue-300">
+                        <Link href={`/projects/${quote.projectId}/quote`}>Ver Detalle</Link>
                     </Button>
                     {!quote.isDraft && (
                         <div className="flex items-center gap-1">
@@ -294,19 +294,17 @@ function QuoteListItem({ quote }: { quote: any }) {
         <div className="group flex items-center justify-between bg-card hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-border hover:border-blue-200 dark:hover:border-blue-800 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200">
             <Link href={`/projects/${quote.projectId}/quote`} className="flex-1 min-w-0 pr-4">
                 <div className="flex items-center gap-3 mb-1">
-                    {quote.isDraft ? (
-                        <Badge variant="outline" className="text-[8px] font-bold bg-amber-50 text-amber-700 border-amber-200 uppercase">Borrador</Badge>
-                    ) : (
+                    {!quote.isDraft && (
                         <Badge variant="outline" className="text-[8px] font-bold bg-blue-50 text-blue-700 border-blue-200">v{quote.version}</Badge>
                     )}
                     <h3 className="font-bold text-base text-foreground group-hover:text-blue-600 transition-colors truncate">
                         {quote.project?.name}
                     </h3>
-                    <span className="shrink-0 text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                    <span className="shrink-0 text-[10px] font-bold uppercase text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
                         {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM', { locale: es }) : '-'}
                     </span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate">
+                <p className="text-sm text-muted-foreground truncate font-medium">
                     {quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}
                 </p>
             </Link>
@@ -318,10 +316,10 @@ function QuoteListItem({ quote }: { quote: any }) {
                     </div>
                 </div>
                 <StatusBadge status={quote.status} type="QUOTE" />
-                <div className="flex items-center gap-2 min-w-[140px] justify-end">
+                <div className="flex items-center gap-2 min-w-[120px] justify-end">
                     {!quote.isDraft && <QuotePdfButton quote={quote} />}
-                    <Button variant="ghost" size="sm" asChild className="rounded-lg h-8 w-8 p-0">
-                        <Link href={`/projects/${quote.projectId}/quote`}><Search className="w-4 h-4" /></Link>
+                    <Button variant="ghost" size="sm" asChild className="rounded-lg h-8 w-8 p-0 hover:bg-blue-50">
+                        <Link href={`/projects/${quote.projectId}/quote`}><Search className="w-4 h-4 text-zinc-400 hover:text-blue-600" /></Link>
                     </Button>
                 </div>
             </div>

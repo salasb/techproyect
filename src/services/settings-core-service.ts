@@ -45,7 +45,11 @@ export const SettingsCoreService = {
             })
         ]);
 
-        if (!currentMember || (!isAdmin(currentMember.role) && !context.isGlobalOperator)) {
+        if (!currentMember && !context.isGlobalOperator) {
+            throw new Error("FORBIDDEN");
+        }
+
+        if (currentMember && !isAdmin(currentMember.role) && !context.isGlobalOperator) {
             throw new Error("FORBIDDEN");
         }
 

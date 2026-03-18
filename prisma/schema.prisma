@@ -28,6 +28,7 @@ model Settings {
   defaultPaymentTermsDays Int     @default(30)
   yellowThresholdDays     Int     @default(7)
   isSoloMode              Boolean @default(false)
+  dollarSurcharge         Float   @default(5.0)
 
 
 }

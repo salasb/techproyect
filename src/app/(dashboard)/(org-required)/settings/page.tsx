@@ -41,6 +41,7 @@ export default async function SettingsPage() {
         const vatRate = parseFloat(formData.get("vatRate") as string) / 100;
         const yellowThresholdDays = parseInt(formData.get("yellowThresholdDays") as string);
         const defaultPaymentTermsDays = parseInt(formData.get("defaultPaymentTermsDays") as string);
+        const dollarSurcharge = parseFloat(formData.get("dollarSurcharge") as string) || 0;
         const isSoloMode = formData.get("isSoloMode") === "on";
 
         if (settings?.id) {
@@ -48,6 +49,7 @@ export default async function SettingsPage() {
                 vatRate,
                 yellowThresholdDays,
                 defaultPaymentTermsDays,
+                dollarSurcharge,
                 isSoloMode
             }).eq('id', settings.id);
         }
