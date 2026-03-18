@@ -1,4 +1,4 @@
-import { calculateProjectFinancials, MinimalCostEntry, MinimalInvoice, MinimalProject } from "@/services/financialCalculator";
+import { calculateProjectFinancials, MinimalCostEntry, MinimalInvoice, MinimalProject, MinimalQuoteItem } from "@/services/financialCalculator";
 import { RevenueChart } from "@/components/reports/RevenueChart";
 import { ProjectMarginChart } from "@/components/reports/ProjectMarginChart";
 import { ClientRevenuePie } from "@/components/reports/ClientRevenuePie";
@@ -57,7 +57,7 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
             </div>
             <div className="flex items-center gap-4">
                 <ReportsTabs />
-                {view === 'inventory' && <LocationSelector locations={locations as any} />}
+                {view === 'inventory' && <LocationSelector locations={locations as { id: string; name: string }[]} />}
                 <span className="text-xs text-muted-foreground hidden md:inline-block">
                     Refresco: {format(new Date(), 'HH:mm')}
                 </span>
@@ -80,6 +80,16 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
     const safeSettings = settings || { vatRate: 0.19, yellowThresholdDays: 7, defaultPaymentTermsDays: 30 };
 
     const processedProjects = projectsRaw.map((p) => {
+        const quoteItems: MinimalQuoteItem[] = (p.quoteItems || []).map((qi) => {
+            const item = qi as { priceNet: number; costNet: number; quantity: number; isSelected: boolean };
+            return {
+                priceNet: item.priceNet,
+                costNet: item.costNet,
+                quantity: item.quantity,
+                isSelected: item.isSelected
+            };
+        });
+
         const financials = calculateProjectFinancials(
             {
                 budgetNet: p.budgetNet || 0,
@@ -90,8 +100,8 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
             } as MinimalProject,
             (p.costEntries || []) as MinimalCostEntry[],
             (p.invoices || []) as MinimalInvoice[],
-            safeSettings as any,
-            p.quoteItems || []
+            safeSettings as { vatRate: number; yellowThresholdDays: number; defaultPaymentTermsDays: number },
+            quoteItems
         );
 
         return {
@@ -101,9 +111,9 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
         };
     });
 
-    const financialTrends = DashboardService.getFinancialTrends(projectsRaw as any, period);
-    const topClients = DashboardService.getTopClients(projectsRaw as any);
-    const projectMargins = DashboardService.getProjectMargins(processedProjects);
+    const financialTrends = DashboardService.getFinancialTrends(projectsRaw as unknown[], period);
+    const topClients = DashboardService.getTopClients(projectsRaw as unknown[]);
+    const projectMargins = DashboardService.getProjectMargins(processedProjects as unknown[]);
 
     const totalRevenue = processedProjects.reduce((acc, p) => acc + p.financials.priceNet, 0);
     const totalMargin = processedProjects.reduce((acc, p) => acc + p.financials.marginAmountNet, 0);

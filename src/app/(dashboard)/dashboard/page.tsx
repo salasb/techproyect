@@ -43,8 +43,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     try {
         const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
         workspace = await getWorkspaceState();
-    } catch (e: any) {
-        console.error("[Dashboard] FATAL: Workspace Resolution CRASHED:", e.message);
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[Dashboard] FATAL: Workspace Resolution CRASHED:", msg);
         throw e; // Let error.tsx handle the boundary
     }
 
@@ -75,20 +76,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     console.log(`[Dashboard] Context: User=${user?.email || 'unknown'}, Role=${workspace.userRole}, Org=${orgId || 'none'}, Status=${workspace.status}`);
 
     // 1. Unified Parallel Data Fetching (v2.0)
-    let settings: any = {
+    let settings = {
         vatRate: DEFAULT_VAT_RATE,
         yellowThresholdDays: YELLOW_THRESHOLD_DAYS,
         defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
         currency: DEFAULT_CURRENCY
     };
-    let projects: any[] = [];
-    let opportunities: any[] = [];
+    let projects: unknown[] = [];
+    let opportunities: unknown[] = [];
     let dollarRate = { value: 855 };
-    let tasks: any[] = [];
-    let orgStats = null;
-    let subscription = null;
-    let orgData: any = null;
-    let activationData = null;
+    let tasks: unknown[] = [];
+    let orgStats: unknown = null;
+    let subscription: { status: string } | null = null;
+    let orgData: { mode: string; name: string } | null = null;
+    let activationData: unknown = null;
     let realProjectsCount = 0;
 
     if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
@@ -139,93 +140,98 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
             console.log(`[Dashboard][${traceId}] Unified fetch completed in ${Date.now() - startTime}ms`);
 
-        } catch (error: any) {
-            console.error("[Dashboard] Critical Unified fetch error:", error.message);
-        }
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error("[Dashboard] Critical Unified fetch error:", msg);
     }
+}
 
-    // 2. Trigger Sentinel Analysis (Proactive Layer - Decoupled)
-    let sentinelAlerts: any[] = [];
-    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
-        try {
-            const sentinelPromises = Promise.all([
-                SentinelService.runAnalysis(orgId, isSentinelForce),
-                SentinelService.updateOrgStats(orgId),
-                import("@/services/activation-service").then(({ ActivationService }) =>
-                    ActivationService.trackFirst('ORG_CREATED', orgId)
-                )
-            ]);
-
-            await Promise.race([
-                sentinelPromises,
-                new Promise((resolve) => setTimeout(resolve, 3000)) // Reduced timeout for performance
-            ]);
-
-            const { data } = await SentinelService.getActiveAlerts(orgId);
-            sentinelAlerts = data || [];
-        } catch (error: any) {
-            console.error("[Dashboard] Sentinel analysis failed:", error.message);
-        }
-    }
-
-    // 4. Calculate Dashboard Data - Extremely Defensive
-    let kpis;
+// 2. Trigger Sentinel Analysis (Proactive Layer - Decoupled)
+let sentinelAlerts: unknown[] = [];
+if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
     try {
-        kpis = (orgId && !isExplore)
-            ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
-            : isExplore ? {
-                billing: { value: 7500000, previous: 5000000, trend: 50 },
-                margin: { value: 3200000, previous: 2800000, trend: 14.2 },
-                earnedMargin: 0.42,
-                projectedMargin: 0.45,
-                pipeline: { value: 12000000, count: 5 }
-            } : {
-                billing: { value: 0, previous: 0, trend: 0 },
-                margin: { value: 0, previous: 0, trend: 0 },
-                earnedMargin: 0,
-                projectedMargin: 0,
-                pipeline: { value: 0, count: 0 }
-            };
-    } catch (e: any) {
-        console.error("[Dashboard] KPI calculation CRASHED:", e.message);
-        kpis = { billing: { value: 0, previous: 0, trend: 0 }, margin: { value: 0, previous: 0, trend: 0 }, earnedMargin: 0, projectedMargin: 0, pipeline: { value: 0, count: 0 } };
+        const sentinelPromises = Promise.all([
+            SentinelService.runAnalysis(orgId, isSentinelForce),
+            SentinelService.updateOrgStats(orgId),
+            import("@/services/activation-service").then(({ ActivationService }) =>
+                ActivationService.trackFirst('ORG_CREATED', orgId)
+            )
+        ]);
+
+        await Promise.race([
+            sentinelPromises,
+            new Promise((resolve) => setTimeout(resolve, 3000)) // Reduced timeout for performance
+        ]);
+
+        const { data } = await SentinelService.getActiveAlerts(orgId);
+        sentinelAlerts = (data || []) as unknown[];
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error("[Dashboard] Sentinel analysis failed:", msg);
     }
+}
 
-    const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects as any, period) :
-        isExplore ? [
-            { name: 'Ene', label: 'Ene', income: 1200000, cost: 800000, profit: 400000, dateVal: 1 },
-            { name: 'Feb', label: 'Feb', income: 1500000, cost: 950000, profit: 550000, dateVal: 2 },
-            { name: 'Mar', label: 'Mar', income: 2800000, cost: 1100000, profit: 1700000, dateVal: 3 },
-        ] : [];
+// 4. Calculate Dashboard Data - Extremely Defensive
+let kpis;
+try {
+    kpis = (orgId && !isExplore)
+        ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
+        : isExplore ? {
+            billing: { value: 7500000, previous: 5000000, trend: 50 },
+            margin: { value: 3200000, previous: 2800000, trend: 14.2 },
+            earnedMargin: 0.42,
+            projectedMargin: 0.45,
+            pipeline: { value: 12000000, count: 5 }
+        } : {
+            billing: { value: 0, previous: 0, trend: 0 },
+            margin: { value: 0, previous: 0, trend: 0 },
+            earnedMargin: 0,
+            projectedMargin: 0,
+            pipeline: { value: 0, count: 0 }
+        };
+} catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Dashboard] KPI calculation CRASHED:", msg);
+    kpis = { billing: { value: 0, previous: 0, trend: 0 }, margin: { value: 0, previous: 0, trend: 0 }, earnedMargin: 0, projectedMargin: 0, pipeline: { value: 0, count: 0 } };
+}
 
-    const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects as any) :
-        isExplore ? [
-            { name: 'Acme Corp', value: 4500000 },
-            { name: 'Global Tech', value: 3000000 }
-        ] : [];
+const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects, period) :
+    isExplore ? [
+        { name: 'Ene', label: 'Ene', income: 1200000, cost: 800000, profit: 400000, dateVal: 1 },
+        { name: 'Feb', label: 'Feb', income: 1500000, cost: 950000, profit: 550000, dateVal: 2 },
+        { name: 'Mar', label: 'Mar', income: 2800000, cost: 1100000, profit: 1700000, dateVal: 3 },
+    ] : [];
+
+const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects) :
+    isExplore ? [
+        { name: 'Acme Corp', value: 4500000 },
+        { name: 'Global Tech', value: 3000000 }
+    ] : [];
 
     const isTrialing = subscription?.status === 'TRIALING';
 
-    let sortedActions: any[] = [];
-    let nextBestAction: any = null;
+    let sortedActions: unknown[] = [];
+    let nextBestAction: unknown = null;
 
     try {
         const centerData = DashboardService.getActionCenterData(
-            projects as any,
+            projects as unknown[],
             settings,
-            opportunities as any,
-            tasks,
+            opportunities as unknown[],
+            tasks as unknown[],
             sentinelAlerts || [],
-            orgStats,
+            orgStats as unknown,
             isTrialing
         );
         sortedActions = centerData.actions;
         nextBestAction = centerData.nextBestAction;
-    } catch (e: any) {
-        console.error("[Dashboard] Action Center calculation failed:", e.message);
+    } catch (e: unknown) {
+
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[Dashboard] Action Center calculation failed:", msg);
     }
 
-    const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects as any, settings) : [];
+    const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects, settings) : [];
     const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
 
     return (
@@ -429,7 +435,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             ) : (
                 <>
                     {/* 1. KPIs Section */}
-                    <DashboardKPIs data={kpis as any} />
+                    <DashboardKPIs data={kpis as {
+                        billing: { value: number, previous: number, trend: number },
+                        margin: { value: number, previous: number, trend: number },
+                        earnedMargin: number,
+                        projectedMargin: number,
+                        pipeline: { value: number, count: number }
+                    }} />
 
                     {/* 2. Main Content Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
@@ -446,13 +458,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                                         <p className="text-xs text-muted-foreground">Evolución comercial ({periodLabels[period] || period})</p>
                                     </div>
                                 </div>
-                                {orgId ? <RevenueChart data={chartData} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
+                                {orgId ? <RevenueChart data={chartData as { name: string; income: number; cost: number; profit: number }[]} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <TasksWidget tasks={sortedActions.slice(0, 10) as any} />
+                                <TasksWidget tasks={sortedActions.slice(0, 10) as { id: string; title: string; priority: string; dueDate?: Date }[]} />
                                 <div className="space-y-6">
-                                    <NextBestAction action={nextBestAction as any} />
+                                    <NextBestAction action={nextBestAction as { title: string; message: string; priority: string }} />
                                     {/* Compact Health Card */}
                                     <div className="bg-zinc-900 rounded-xl p-5 text-white shadow-lg border border-zinc-800">
                                         <div className="flex items-center justify-between mb-3">
@@ -468,21 +480,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
                         {/* Right Sidebar: Secondary Widgets */}
                         <div className="lg:col-span-1 space-y-6">
-                            <SentinelAlertsPanel alerts={sentinelAlerts as any || []} />
+                            <SentinelAlertsPanel alerts={(sentinelAlerts || []) as unknown[]} />
                             <InventoryAlertsWidget />
-                            <BillingAlertsWidget alerts={billingAlerts} />
-                            <ClientRankingWidget clients={topClients} />
+                            <BillingAlertsWidget alerts={billingAlerts as unknown[]} />
+                            <ClientRankingWidget clients={topClients as { name: string; value: number }[]} />
                         </div>
-                    </div>
+                        </div>
 
-                    {/* 4. Gantt Chart Section */}
-                    <div className="mt-6">
+                        {/* 4. Gantt Chart Section */}
+                        <div className="mt-6">
+                        <ProjectGantt projects={projects as unknown[]} />
+                        </div>
+
                         <div className="bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
-                            <ProjectGantt projects={projects as any} />
+                            <ProjectGantt projects={projects as unknown[]} />
                         </div>
                     </div>
                 </>

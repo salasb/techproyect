@@ -50,14 +50,20 @@ export interface FinancialResult {
     overallHealth: 'GRAY' | 'GREEN' | 'YELLOW' | 'RED'
 }
 
-type QuoteItem = Database['public']['Tables']['QuoteItem']['Row'] & { isSelected?: boolean }
+// Decoupled QuoteItem
+export interface MinimalQuoteItem {
+    priceNet: number
+    costNet: number
+    quantity: number
+    isSelected?: boolean
+}
 
 export function calculateProjectFinancials(
     project: MinimalProject,
     costs: MinimalCostEntry[],
     invoices: MinimalInvoice[],
     settings: Settings,
-    quoteItems: QuoteItem[] = [],
+    quoteItems: MinimalQuoteItem[] = [],
     today: Date = new Date()
 ): FinancialResult {
     // 1. Costs

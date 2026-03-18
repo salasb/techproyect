@@ -4,7 +4,6 @@ import { QuoteActions } from "@/components/projects/QuoteActions";
 import { QuoteDocument } from "@/components/projects/QuoteDocument";
 import { QuoteVersionSelector } from "@/components/projects/QuoteVersionSelector";
 import { ShareDialog } from "@/components/sharing/ShareDialog";
-import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { resolveProjectAccess } from "@/lib/auth/project-resolver";
 import Link from "next/link";
 import { ArrowLeft, Lock, AlertCircle } from "lucide-react";
@@ -76,20 +75,20 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
 
     if (selectedQuote) {
         // Override live items with the Snapshot items from SELECTED quote
-        displayProject.quoteItems = selectedQuote.items as any;
+        displayProject.quoteItems = selectedQuote.items as unknown as { priceNet: number; quantity: number }[];
         displayProject.totalNet = selectedQuote.totalNet;
-        (displayProject as any).version = selectedQuote.version;
+        (displayProject as unknown as { version?: number }).version = selectedQuote.version;
     }
 
     // Filter & Sort Items for Display
     if (displayProject.quoteItems) {
-        displayProject.quoteItems = displayProject.quoteItems.filter((item: any) => item.isSelected !== false);
-        displayProject.quoteItems.sort((a: any, b: any) => (a.sku || '').localeCompare(b.sku || ''));
+        displayProject.quoteItems = (displayProject.quoteItems as { isSelected?: boolean }[]).filter((item) => item.isSelected !== false) as unknown as { priceNet: number; quantity: number }[];
+        (displayProject.quoteItems as { sku?: string | null }[]).sort((a, b) => (a.sku || '').localeCompare(b.sku || ''));
     }
 
     // 3. Parallel Fetch: Settings and Subscription
     const [settings, subscription] = await Promise.all([
-        prisma.settings.findFirst().then(s => s || { vatRate: 0.19 } as any),
+        prisma.settings.findFirst().then(s => s || { vatRate: 0.19 } as unknown as { vatRate: number }),
         prisma.subscription.findUnique({
             where: { organizationId: project.organizationId as string },
             select: { status: true }
@@ -118,17 +117,18 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
                         <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
                         Volver al Proyecto
                     </Link>
-                    <div className="flex items-center gap-3">
+                    <div className="flex gap-2 items-center">
                         <QuoteVersionSelector
-                            quotes={sanitizedQuotes.map((q: any) => ({
+                            quotes={(sanitizedQuotes as { id: string; version: number; status: string; createdAt: string; totalNet: number }[]).map((q) => ({
                                 id: q.id,
                                 version: q.version,
                                 status: q.status,
                                 createdAt: q.createdAt,
                                 totalNet: q.totalNet || 0
                             }))}
-                            currentQuoteId={sanitizedSelectedQuote?.id || ''}
+                            currentQuoteId={(sanitizedSelectedQuote as { id: string } | null)?.id || ''}
                         />
+
                     </div>
                 </div>
 
@@ -166,7 +166,7 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
 
             {/* Render Document */}
             <div className="shadow-2xl shadow-black/5 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                <QuoteDocument project={sanitizedProject as any} settings={settings as any} />
+                <QuoteDocument project={sanitizedProject as unknown as { name: string; currency: string }} settings={settings as { vatRate: number }} />
             </div>
         </div>
     )

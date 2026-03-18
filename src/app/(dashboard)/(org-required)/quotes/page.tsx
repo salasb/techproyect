@@ -133,7 +133,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
 
 
         // Grouping for List View
-        const groupedQuotes: Record<string, any[]> = {};
+        const groupedQuotes: Record<string, unknown[]> = {};
         quotes.forEach(q => {
             const status = q.status || 'OTRO';
             if (!groupedQuotes[status]) groupedQuotes[status] = [];
@@ -148,8 +148,9 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
             hasPrevPage
         };
 
-    } catch (error: any) {
-        console.error(`[Quotes][${traceId}] Critical error:`, error.message);
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`[Quotes][${traceId}] Critical error:`, msg);
         return (
             <div className="p-12 text-center bg-rose-50 border-2 border-rose-200 rounded-xl m-8 text-rose-900">
                 <AlertCircle className="mx-auto h-12 w-12 text-rose-500 mb-4" />
@@ -190,7 +191,16 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
                                 <span className="text-sm text-muted-foreground font-medium">({groupQuotes.length})</span>
                             </div>
                             <div className="space-y-2">
-                                {groupQuotes.map((quote) => (
+                                {(groupQuotes as { 
+                                    id: string; 
+                                    projectId: string; 
+                                    project: unknown; 
+                                    status: string; 
+                                    version: number; 
+                                    totalNet: number; 
+                                    createdAt: Date; 
+                                    isDraft: boolean 
+                                }[]).map((quote) => (
                                     <QuoteListItem key={quote.id} quote={quote} />
                                 ))}
                             </div>
@@ -216,9 +226,9 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
 }
 
 // Helper Components & Functions
-function calculateQuoteTotals(quote: any) {
+function calculateQuoteTotals(quote: { totalNet: number; project?: unknown }) {
     const totalValue = quote.totalNet || 0;
-    const currency = quote.project?.currency || 'CLP';
+    const currency = (quote.project as { currency?: string })?.currency || 'CLP';
     
     const formattedTotal = currency === 'CLP'
         ? `CLP $${totalValue.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
@@ -229,7 +239,16 @@ function calculateQuoteTotals(quote: any) {
     return { totalValue, formattedTotal };
 }
 
-function QuoteGridCard({ quote }: { quote: any }) {
+function QuoteGridCard({ quote }: { quote: { 
+    id: string; 
+    projectId: string; 
+    project: unknown; 
+    status: string; 
+    version: number; 
+    totalNet: number; 
+    createdAt: Date; 
+    isDraft: boolean 
+} }) {
     const { formattedTotal } = calculateQuoteTotals(quote);
 
     return (
@@ -287,7 +306,16 @@ function QuoteGridCard({ quote }: { quote: any }) {
     );
 }
 
-function QuoteListItem({ quote }: { quote: any }) {
+function QuoteListItem({ quote }: { quote: { 
+    id: string; 
+    projectId: string; 
+    project: unknown; 
+    status: string; 
+    version: number; 
+    totalNet: number; 
+    createdAt: Date; 
+    isDraft: boolean 
+} }) {
     const { formattedTotal } = calculateQuoteTotals(quote);
 
     return (
