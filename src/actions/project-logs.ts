@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth/server-resolver";
+import { requirePermission, requireOperationalScope } from "@/lib/auth/server-resolver";
 import prisma from "@/lib/prisma";
 import { autoTransitionProjectState } from "@/app/actions/projects";
 
@@ -31,27 +31,30 @@ export async function addLog(projectId: string, content: string, type: 'INFO' | 
         revalidatePath(`/projects/${projectId}`);
         return { success: true, id: newLog.id };
 
-    } catch (error: any) {
-        console.error(`[Logs][${traceId}] Critical failure:`, error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[Logs][${traceId}] Critical failure:`, message);
         return { success: false, error: "No se pudo guardar la nota en la bitácora." };
     }
 }
 
 export async function getLogs(projectId: string) {
-    const scope = await requireOperationalScope();
-    const supabase = await createClient();
+    try {
+        const scope = await requireOperationalScope();
+        
+        const logs = await prisma.projectLog.findMany({
+            where: {
+                projectId,
+                organizationId: scope.orgId
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
 
-    const { data, error } = await supabase
-        .from('ProjectLog')
-        .select('*')
-        .eq('projectId', projectId)
-        .eq('organizationId', scope.orgId)
-        .order('createdAt', { ascending: false });
-
-    if (error) {
-        console.error("Error fetching logs:", error);
+        return logs;
+    } catch (error) {
+        console.error("Error fetching logs via Prisma:", error);
         return [];
     }
-
-    return data;
 }
