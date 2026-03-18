@@ -227,7 +227,7 @@ interface UIQuote {
     projectId: string;
     project: {
         name: string;
-        currency?: string;
+        currency?: string | null;
         client?: { name: string } | null;
         company?: { name: string } | null;
     };
