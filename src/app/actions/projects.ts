@@ -7,6 +7,8 @@ import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import prisma from "@/lib/prisma";
 
+import { ProjectStatus, ProjectStage } from "@prisma/client";
+
 /**
  * PROJECT ACTIONS (v3.0)
  * Centralized logic for project lifecycle using Prisma.
@@ -22,8 +24,8 @@ export async function createProject(formData: FormData) {
         clientId: formData.get('clientId') as string || null,
         budgetNet: parseFloat(formData.get('budgetNet') as string) || 0,
         currency: (formData.get('currency') as string) || 'CLP',
-        status: 'EN_ESPERA',
-        stage: 'LEVANTAMIENTO',
+        status: 'EN_ESPERA' as ProjectStatus,
+        stage: 'LEVANTAMIENTO' as ProjectStage,
         organizationId: scope.orgId,
         responsible: scope.userId
     };
@@ -64,8 +66,8 @@ export async function updateProjectStatus(projectId: string, status: string, sta
 
         console.log(`[Projects][${traceId}] Updating status for project=${projectId}, org=${scope.orgId}, newStatus=${status}`);
 
-        const updateData: any = { status, updatedAt: new Date() };
-        if (stage) updateData.stage = stage;
+        const updateData: any = { status: status as ProjectStatus, updatedAt: new Date() };
+        if (stage) updateData.stage = stage as ProjectStage;
         if (nextAction) updateData.nextAction = nextAction;
         if (closeReason) updateData.closeReason = closeReason;
 
