@@ -98,14 +98,6 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
 
     const isPaused = subscription?.status === 'PAUSED' || subscription?.status === 'PAST_DUE';
 
-    const financials = calculateProjectFinancials(
-        displayProject, 
-        displayProject.costEntries || [], 
-        displayProject.invoices || [], 
-        settings as any, 
-        displayProject.quoteItems || []
-    );
-
     // 5. Serialization Sanitization (v2.0)
     // One-pass sanitization for all data passed to Client Components
     const sanitizedData = JSON.parse(JSON.stringify({

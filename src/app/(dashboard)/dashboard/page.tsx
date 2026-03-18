@@ -204,35 +204,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             { name: 'Global Tech', value: 3000000 }
         ] : [];
 
-    // 5. Fetch Stats & Activation Data
-    let orgStats = null;
-    let subscription = null;
-    let orgData: any = null;
-    let activationData = null;
-    let realProjectsCount = 0;
-
-    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
-        try {
-            const results = await Promise.all([
-                prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
-                prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
-                prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } }),
-                import("@/services/activation-service").then(({ ActivationService }) => 
-                    ActivationService.getActivationChecklist(orgId)
-                ),
-                prisma.project.count({ where: { organizationId: orgId } })
-            ]);
-            
-            orgStats = results[0];
-            subscription = results[1];
-            orgData = results[2];
-            activationData = results[3];
-            realProjectsCount = results[4];
-        } catch (e: any) {
-            console.error("[Dashboard] Supplementary data fetch failed:", e.message);
-        }
-    }
-
     const isTrialing = subscription?.status === 'TRIALING';
 
     let sortedActions: any[] = [];
