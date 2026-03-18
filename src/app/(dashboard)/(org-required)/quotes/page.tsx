@@ -225,10 +225,26 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
     );
 }
 
+interface UIQuote {
+    id: string;
+    projectId: string;
+    project: {
+        name: string;
+        currency?: string;
+        client?: { name: string } | null;
+        company?: { name: string } | null;
+    };
+    status: string;
+    version: number;
+    totalNet: number;
+    createdAt: Date | string;
+    isDraft: boolean;
+}
+
 // Helper Components & Functions
-function calculateQuoteTotals(quote: { totalNet: number; project?: unknown }) {
+function calculateQuoteTotals(quote: Pick<UIQuote, 'totalNet' | 'project'>) {
     const totalValue = quote.totalNet || 0;
-    const currency = (quote.project as { currency?: string })?.currency || 'CLP';
+    const currency = quote.project?.currency || 'CLP';
     
     const formattedTotal = currency === 'CLP'
         ? `CLP $${totalValue.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
@@ -239,16 +255,7 @@ function calculateQuoteTotals(quote: { totalNet: number; project?: unknown }) {
     return { totalValue, formattedTotal };
 }
 
-function QuoteGridCard({ quote }: { quote: { 
-    id: string; 
-    projectId: string; 
-    project: unknown; 
-    status: string; 
-    version: number; 
-    totalNet: number; 
-    createdAt: Date; 
-    isDraft: boolean 
-} }) {
+function QuoteGridCard({ quote }: { quote: UIQuote }) {
     const { formattedTotal } = calculateQuoteTotals(quote);
 
     return (
@@ -306,16 +313,7 @@ function QuoteGridCard({ quote }: { quote: {
     );
 }
 
-function QuoteListItem({ quote }: { quote: { 
-    id: string; 
-    projectId: string; 
-    project: unknown; 
-    status: string; 
-    version: number; 
-    totalNet: number; 
-    createdAt: Date; 
-    isDraft: boolean 
-} }) {
+function QuoteListItem({ quote }: { quote: UIQuote }) {
     const { formattedTotal } = calculateQuoteTotals(quote);
 
     return (

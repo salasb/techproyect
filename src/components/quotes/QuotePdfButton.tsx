@@ -3,10 +3,16 @@
 import { FileDown, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { downloadCommercialPdf } from "@/lib/commercial-pdf";
-import { format } from "date-fns";
 
 interface Props {
-    quote: any;
+    quote: unknown;
+}
+
+interface QuoteItem {
+    detail: string;
+    quantity: number;
+    unit?: string;
+    priceNet: number;
 }
 
 export function QuotePdfButton({ quote }: Props) {
@@ -15,21 +21,34 @@ export function QuotePdfButton({ quote }: Props) {
     const handleDownload = async () => {
         setLoading(true);
         try {
-            const items = quote.quoteItems || [];
-            const subtotal = quote.totalNet || 0;
+            const q = quote as {
+                id: string;
+                version: number;
+                createdAt: string | Date;
+                totalNet: number;
+                quoteItems?: QuoteItem[];
+                project?: {
+                    name: string;
+                    client?: { name: string; taxId?: string; address?: string } | null;
+                    company?: { name: string; taxId?: string; address?: string } | null;
+                }
+            };
+
+            const items = q.quoteItems || [];
+            const subtotal = q.totalNet || 0;
             const tax = subtotal * 0.19;
             const total = subtotal + tax;
 
             const pdfData = {
                 type: 'QUOTE' as const,
-                number: quote.id.substring(0, 8).toUpperCase(),
-                version: quote.version,
-                date: new Date(quote.createdAt || Date.now()),
-                clientName: quote.project?.client?.name || quote.project?.company?.name || 'Cliente General',
-                clientTaxId: quote.project?.client?.taxId || quote.project?.company?.taxId,
-                clientAddress: quote.project?.client?.address || quote.project?.company?.address,
-                projectName: quote.project?.name || 'Propuesta Comercial',
-                items: items.map((i: any) => ({
+                number: q.id.substring(0, 8).toUpperCase(),
+                version: q.version,
+                date: new Date(q.createdAt || Date.now()),
+                clientName: q.project?.client?.name || q.project?.company?.name || 'Cliente General',
+                clientTaxId: q.project?.client?.taxId || q.project?.company?.taxId,
+                clientAddress: q.project?.client?.address || q.project?.company?.address,
+                projectName: q.project?.name || 'Propuesta Comercial',
+                items: items.map((i) => ({
                     detail: i.detail,
                     quantity: i.quantity,
                     unit: i.unit || 'UN',
@@ -47,6 +66,7 @@ export function QuotePdfButton({ quote }: Props) {
             setLoading(false);
         }
     };
+
 
     return (
         <button
