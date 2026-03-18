@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createProject } from "@/app/actions/projects";
 import { Loader2 } from "lucide-react";
@@ -28,13 +28,6 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
     const router = useRouter();
     const { toast } = useToast();
     const { handleActionError } = usePaywall();
-
-    // Debug log to ensure clients are passing
-    useEffect(() => {
-        if (clients.length > 0 && localClients.length === 0) {
-            setLocalClients(clients);
-        }
-    }, [clients]);
 
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -79,10 +72,10 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
                 toast({ type: 'success', message: "Proyecto creado exitosamente" });
                 // Slight delay to let the toast be seen before redirect
                 setTimeout(() => {
-                    router.push(`/projects/${result.projectId}`);
+                    router.push(`/projects/${result.id}`);
                 }, 1000);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
             const isPaywall = handleActionError(error);
             if (!isPaywall) {
