@@ -1,11 +1,9 @@
 'use server'
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { validateProject } from "@/lib/validators";
 import { AuditService } from "@/services/auditService";
-import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
+import { requireOperationalScope } from "@/lib/auth/server-resolver";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import prisma from "@/lib/prisma";
 
@@ -30,8 +28,13 @@ export async function createProject(formData: FormData) {
         responsible: scope.userId
     };
 
-    const errors = validateProject(data);
-    if (Object.keys(errors).length > 0) return { errors };
+    const validation = validateProject({
+        name: data.name,
+        companyId: data.clientId,
+        startDate: new Date().toISOString(),
+        budget: data.budgetNet
+    });
+    if (!validation.success) return { errors: validation.errors };
 
     try {
         const project = await prisma.project.create({
