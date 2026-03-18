@@ -93,7 +93,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             console.log(`[Dashboard] Loading core data via Prisma for org=${orgId}`);
             
             const results = await Promise.all([
-                prisma.settings.findUnique({ where: { organizationId: orgId } }),
+                prisma.settings.findFirst(),
                 prisma.project.findMany({
                     where: { organizationId: orgId },
                     include: {

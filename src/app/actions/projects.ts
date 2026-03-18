@@ -3,143 +3,140 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-
 import { validateProject } from "@/lib/validators";
 import { AuditService } from "@/services/auditService";
 import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
-
-import { checkSubscriptionLimit } from "@/lib/subscriptions";
 import { ensureNotPaused } from "@/lib/guards/subscription-guard";
-import { ActivationService } from "@/services/activation-service";
-import { trackSlo } from "@/lib/telemetry";
+import prisma from "@/lib/prisma";
+
+/**
+ * PROJECT ACTIONS (v3.0)
+ * Centralized logic for project lifecycle using Prisma.
+ */
 
 export async function createProject(formData: FormData) {
-    const scope = await requirePermission('PROJECTS_MANAGE');
+    const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
 
+    const data = {
+        name: formData.get('name') as string,
+        description: formData.get('description') as string,
+        clientId: formData.get('clientId') as string || null,
+        budgetNet: parseFloat(formData.get('budgetNet') as string) || 0,
+        currency: (formData.get('currency') as string) || 'CLP',
+        status: 'EN_ESPERA',
+        stage: 'LEVANTAMIENTO',
+        organizationId: scope.orgId,
+        responsible: scope.userId
+    };
+
+    const errors = validateProject(data);
+    if (Object.keys(errors).length > 0) return { errors };
+
     try {
-        // Entitlement: Project Limit
-        const limitCheck = await checkSubscriptionLimit(scope.orgId, 'projects');
-        if (!limitCheck.allowed) throw new Error(limitCheck.message);
-
-        const name = formData.get("name") as string;
-        const companyId = formData.get("companyId") as string;
-        const newCompanyName = formData.get("newCompanyName") as string;
-        const startDate = formData.get("startDate") as string;
-        const budget = formData.get("budget") ? parseFloat(formData.get("budget") as string) : 0;
-
-        const validation = validateProject({ name, companyId, startDate, budget });
-        if (!validation.success) {
-            throw new Error(validation.errors.join(", "));
-        }
-
-        const prisma = (await import("@/lib/prisma")).default;
-
-        let finalCompanyId = companyId;
-        let finalClientId: string | null = null;
-
-        // Handle Prefixed IDs (from SearchableSelect combining Company and Client)
-        if (companyId.startsWith("client:")) {
-            const selectedClientId = companyId.split(":")[1];
-            finalClientId = selectedClientId;
-
-            // Fetch Client Name to sync/find Company
-            const clientData = await prisma.client.findUnique({ 
-                where: { 
-                    id: selectedClientId,
-                    organizationId: scope.orgId
-                } 
-            });
-            if (clientData) {
-                const clientName = clientData.name;
-                // Check if company exists with same name
-                const existingCompany = await prisma.company.findFirst({ where: { name: clientName, organizationId: scope.orgId } });
-
-                if (existingCompany) {
-                    finalCompanyId = existingCompany.id;
-                } else {
-                    // Create Company for this Client (Sync)
-                    const newCompany = await prisma.company.create({
-                        data: {
-                            id: crypto.randomUUID(),
-                            name: clientName,
-                            organizationId: scope.orgId
-                        }
-                    });
-
-                    if (newCompany) {
-                        finalCompanyId = newCompany.id;
-                    }
-                }
-            }
-        } else if (companyId.startsWith("company:")) {
-            finalCompanyId = companyId.split(":")[1];
-        }
-
-        // Si seleccionó crear nueva empresa (legacy/direct flow)
-        if (companyId === "new" && newCompanyName) {
-            // Create company with Prisma
-            const newCompany = await prisma.company.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    name: newCompanyName,
-                    organizationId: scope.orgId
-                }
-            });
-
-            if (newCompany) {
-                finalCompanyId = newCompany.id;
-            }
-        }
-
-        // W0: Allow empty/no customer selected
-        if (companyId === "none" || !companyId) {
-            finalCompanyId = null as any; // Cast as any because Prisma generated types might still expect string if not regenerated
-            finalClientId = null;
-        }
-
-        // Create Project
-        // Generate ID: PRJ-YYMMDD-XXXX (Random 4 chars)
-        const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
-        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const projectId = `PRJ-${dateStr}-${randomSuffix}`;
-
         const project = await prisma.project.create({
             data: {
-                id: projectId,
-                organizationId: scope.orgId,
-                name,
-                companyId: finalCompanyId,
-                clientId: finalClientId,
-                status: "EN_ESPERA",
-                stage: "LEVANTAMIENTO",
-                startDate: new Date(startDate).toISOString(),
-                plannedEndDate: formData.get("plannedEndDate") ? new Date(formData.get("plannedEndDate") as string).toISOString() : new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1)).toISOString(),
-                budgetNet: budget,
-                responsible: "TBD",
-                scopeDetails: formData.get("scopeDetails") as string || null,
-                nextAction: formData.get("nextAction") as string || 'Preparar Cotización',
-                nextActionDate: formData.get("nextActionDate") ? new Date(formData.get("nextActionDate") as string).toISOString() : new Date(startDate).toISOString(),
+                id: `PRJ-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(7).toUpperCase()}`,
+                ...data,
+                startDate: new Date(),
+                plannedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days
             }
         });
 
-        // Log the creation
-        await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${name}" creado para ${project.clientId ? 'Client' : 'Company'}: ${finalCompanyId}`);
+        await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${data.name}" creado por ${scope.userId}`);
 
-        // [Activation] Track Milestone
-        await ActivationService.trackFirst('FIRST_PROJECT_CREATED', scope.orgId, undefined, project.id);
+        revalidatePath('/projects');
+        return { success: true, id: project.id };
+    } catch (error: any) {
+        console.error("Error creating project:", error);
+        return { error: "No se pudo crear el proyecto. Error de base de datos." };
+    }
+}
 
-        // [SLO Telemetry] Success
-        await trackSlo('API_CRITICAL', true, scope.orgId, scope.userId);
+export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string, closeReason?: string) {
+    const traceId = `PRJ-ST-UPD-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
 
-        revalidatePath("/projects");
-        revalidatePath(`/projects/${project.id}`);
-        return { success: true, projectId: project.id };
+        console.log(`[Projects][${traceId}] Updating status for project=${projectId}, org=${scope.orgId}, newStatus=${status}`);
+
+        const updateData: any = { status, updatedAt: new Date() };
+        if (stage) updateData.stage = stage;
+        if (nextAction) updateData.nextAction = nextAction;
+        if (closeReason) updateData.closeReason = closeReason;
+
+        // Commercial Lifecycle Enhancements
+        if (status === 'EN_ESPERA') {
+            const followUpDate = new Date();
+            followUpDate.setDate(followUpDate.getDate() + 7);
+            updateData.nextAction = 'Seguimiento Cotización';
+            updateData.nextActionDate = followUpDate;
+            updateData.stage = 'LEVANTAMIENTO';
+            updateData.quoteSentDate = new Date();
+        }
+
+        if (status === 'EN_CURSO' && stage === 'DISENO') {
+            const kickoffDate = new Date();
+            kickoffDate.setDate(kickoffDate.getDate() + 2);
+            updateData.nextAction = 'Planificar Kickoff';
+            updateData.nextActionDate = kickoffDate;
+        }
+
+        // [INVENTORY AUTOMATION]
+        if (status === 'CERRADO' || stage === 'IMPLEMENTACION') {
+            try {
+                const { deductStockForProject } = await import("@/helpers/inventory");
+                await deductStockForProject(projectId);
+            } catch (invError) {
+                console.error("[Projects] Inventory automation warning:", invError);
+            }
+        }
+
+        // Human Interface Mapping
+        const STATUS_LABELS: Record<string, string> = {
+            'EN_ESPERA': 'En Espera',
+            'EN_CURSO': 'En Curso',
+            'CERRADO': 'Finalizado',
+            'CANCELADO': 'Cancelado',
+            'BLOQUEADO': 'Bloqueado'
+        };
+        const STAGE_LABELS: Record<string, string> = {
+            'LEVANTAMIENTO': 'Levantamiento',
+            'COTIZACION': 'Cotización',
+            'NEGOCIACION': 'Negociación',
+            'DISENO': 'Diseño',
+            'DESARROLLO': 'Desarrollo',
+            'PRUEBAS': 'Pruebas',
+            'ENTREGA': 'Entrega'
+        };
+
+        const readableStatus = STATUS_LABELS[status] || status;
+        const readableStage = stage ? (STAGE_LABELS[stage] || stage) : '';
+
+        // Atomic update and log entry
+        await prisma.$transaction([
+            prisma.project.update({
+                where: { id: projectId, organizationId: scope.orgId },
+                data: updateData
+            }),
+            prisma.projectLog.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    projectId,
+                    organizationId: scope.orgId,
+                    type: 'STATUS_CHANGE',
+                    content: `Estado actualizado a ${readableStatus} ${readableStage ? `(${readableStage})` : ''}`
+                }
+            })
+        ]);
+
+        revalidatePath(`/projects/${projectId}`);
+        return { success: true };
 
     } catch (error: any) {
-        // [SLO Telemetry] Failure
-        await trackSlo('API_CRITICAL', false, scope.orgId, scope.userId, { error: error.message });
-        throw error;
+        console.error(`[Projects][${traceId}] Failed to update status:`, error.message);
+        throw new Error("Error interno al actualizar el estado del proyecto.");
     }
 }
 
@@ -147,24 +144,19 @@ export async function deleteProject(projectId: string) {
     const traceId = `PRJ-DEL-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
-    
-    const prisma = (await import("@/lib/prisma")).default;
 
     try {
         console.log(`[Projects][${traceId}] Attempting deletion of project=${projectId} for org=${scope.orgId}`);
 
-        // Verify ownership and existence before destructive action
         const project = await prisma.project.findUnique({
             where: { id: projectId, organizationId: scope.orgId }
         });
 
         if (!project) {
             console.warn(`[Projects][${traceId}] Project not found or unauthorized: ${projectId}`);
-            return { success: false, error: "Proyecto no encontrado o no tienes permisos para eliminarlo." };
+            return { success: false, error: "Proyecto no encontrado o no tienes permisos." };
         }
 
-        // Hard Delete with Prisma (Bypasses PostgREST schema public permissions)
-        // We use a transaction to ensure all related commercial/operational data is cleared
         await prisma.$transaction([
             prisma.projectLog.deleteMany({ where: { projectId } }),
             prisma.auditLog.deleteMany({ where: { projectId } }),
@@ -175,178 +167,38 @@ export async function deleteProject(projectId: string) {
             prisma.project.delete({ where: { id: projectId } })
         ]);
 
-        console.log(`[Projects][${traceId}] Deletion successful`);
-
-        // Log final action
-        await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto "${project.name}" (ID: ${projectId}) eliminado permanentemente por ${scope.userId}.`);
+        await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto "${project.name}" eliminado permanentemente.`);
 
         revalidatePath("/projects");
         return { success: true };
 
     } catch (error: any) {
         console.error(`[Projects][${traceId}] Critical error during deletion:`, error.message);
-        return { 
-            success: false, 
-            error: "No se pudo eliminar el proyecto debido a dependencias activas o error de base de datos.",
-            traceId 
-        };
+        return { success: false, error: "Error de base de datos al eliminar.", traceId };
     }
 }
 
 export async function closeProject(projectId: string) {
-    const scope = await requireOperationalScope();
-    const supabase = await createClient();
-
-    // 1. Update Project Status
-    const { error } = await supabase
-        .from('Project')
-        .update({
-            status: 'CERRADO',
-            updatedAt: new Date().toISOString()
-        })
-        .eq('id', projectId)
-        .eq('organizationId', scope.orgId);
-
-    if (error) {
-        throw new Error(`Error closing project: ${error.message}`);
-    }
-
-    // 2. Log the event
-    await supabase.from('ProjectLog').insert({
-        id: crypto.randomUUID(),
-        projectId,
-        organizationId: scope.orgId,
-        type: 'STATUS_CHANGE',
-        content: 'El proyecto ha sido cerrado automáticamente tras el pago total.',
-        createdAt: new Date().toISOString()
-    });
-
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath('/');
-    revalidatePath('/projects');
-}
-
-export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string, closeReason?: string) {
-    const scope = await requireOperationalScope();
-    const supabase = await createClient();
-
-    const updateData: any = {
-        status,
-        updatedAt: new Date().toISOString()
-    };
-
-    if (stage) updateData.stage = stage;
-    if (closeReason) updateData.closeReason = closeReason;
-    if (nextAction) {
-        updateData.nextAction = nextAction;
-        updateData.nextActionDate = new Date().toISOString(); // Default to today/now
-    }
-
-    // Special logic for Quote Sent (W0: Validate Customer)
-    if (status === 'EN_ESPERA' && stage === 'COTIZACION') {
-        // Fetch project to check customer
-        const { data: project } = await supabase.from('Project').select('companyId, clientId').eq('id', projectId).eq('organizationId', scope.orgId).single();
-        if (!project?.companyId && !project?.clientId) {
-            throw new Error("Debe asignar un cliente antes de enviar la cotización");
-        }
-
-        const followUpDate = new Date();
-        followUpDate.setDate(followUpDate.getDate() + 7); // Follow up in 7 days
-
-        updateData.nextAction = 'Seguimiento Cotización';
-        updateData.nextActionDate = followUpDate.toISOString();
-
-        updateData.stage = 'LEVANTAMIENTO'; // Keep in Enum range
-        updateData.quoteSentDate = new Date().toISOString();
-    }
-
-    // Special logic for Accepted (Kickoff)
-    if (status === 'EN_CURSO' && stage === 'DISENO') { // Assuming DISENO is the stage after acceptance
-        const kickoffDate = new Date();
-        kickoffDate.setDate(kickoffDate.getDate() + 2); // Kickoff in 2 days
-
-        updateData.nextAction = 'Planificar Kickoff';
-        updateData.nextActionDate = kickoffDate.toISOString();
-    }
-
-    const { error } = await supabase
-        .from('Project')
-        .update(updateData)
-        .eq('id', projectId)
-        .eq('organizationId', scope.orgId);
-
-
-    if (error) {
-        throw new Error(`Error updating project status: ${error.message}`);
-    }
-
-    // [INVENTORY AUTOMATION]
-    // If project is Finalized or set to Implementation, try to deduct stock
-    // We import dynamically to avoid circular dependencies if any (though likely safe here)
-    if (status === 'CERRADO' || stage === 'IMPLEMENTACION') {
-        try {
-            const { deductStockForProject } = await import("@/helpers/inventory");
-            const result = await deductStockForProject(projectId);
-            if (!result.success && result.error) {
-                console.error("Inventory deduction failed:", result.error);
-                // We don't throw here to avoid rolling back the status change, 
-                // but we should probably alert/log.
-            }
-        } catch (invError) {
-            console.error("Error triggering inventory deduction:", invError);
-        }
-    }
-
-
-    // Human Interface Mapping
-    const STATUS_LABELS: Record<string, string> = {
-        'EN_ESPERA': 'En Espera',
-        'EN_CURSO': 'En Curso',
-        'CERRADO': 'Finalizado',
-        'CANCELADO': 'Cancelado',
-        'BLOQUEADO': 'Bloqueado'
-    };
-
-    const STAGE_LABELS: Record<string, string> = {
-        'LEVANTAMIENTO': 'Levantamiento',
-        'COTIZACION': 'Cotización',
-        'NEGOCIACION': 'Negociación',
-        'DISENO': 'Diseño',
-        'DESARROLLO': 'Desarrollo',
-        'PRUEBAS': 'Pruebas',
-        'ENTREGA': 'Entrega'
-    };
-
-    const readableStatus = STATUS_LABELS[status] || status;
-    const readableStage = stage ? (STAGE_LABELS[stage] || stage) : '';
-
-    // Log it
-    await supabase.from('ProjectLog').insert({
-        id: crypto.randomUUID(),
-        projectId,
-        organizationId: scope.orgId,
-        type: 'STATUS_CHANGE',
-        content: `Estado actualizado a ${readableStatus} ${readableStage ? `(${readableStage})` : ''}`,
-        createdAt: new Date().toISOString()
-    });
-
-    revalidatePath(`/projects/${projectId}`);
-    return { success: true };
+    return await updateProjectStatus(projectId, 'CERRADO');
 }
 
 export async function associateProjectToClient(projectId: string, clientId: string) {
-    const scope = await requireOperationalScope();
-    await ensureNotPaused(scope.orgId);
-    const supabase = await createClient();
+    const traceId = `PRJ-ASC-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    try {
+        const scope = await requireOperationalScope();
+        await ensureNotPaused(scope.orgId);
 
-    const { error } = await supabase
-        .from('Project')
-        .update({ clientId })
-        .eq('id', projectId)
-        .eq('organizationId', scope.orgId);
+        console.log(`[Projects][${traceId}] Associating project=${projectId} to client=${clientId}`);
 
-    if (error) throw new Error("Error al asociar el cliente al proyecto");
+        await prisma.project.update({
+            where: { id: projectId, organizationId: scope.orgId },
+            data: { clientId, updatedAt: new Date() }
+        });
 
-    revalidatePath(`/projects/${projectId}`);
-    return { success: true };
+        revalidatePath(`/projects/${projectId}`);
+        return { success: true };
+    } catch (error: any) {
+        console.error(`[Projects][${traceId}] Failed to associate client:`, error.message);
+        throw new Error("No se pudo asociar el cliente.");
+    }
 }

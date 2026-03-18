@@ -5,7 +5,6 @@ import { QuoteDocument } from "@/components/projects/QuoteDocument";
 import { QuoteVersionSelector } from "@/components/projects/QuoteVersionSelector";
 import { ShareDialog } from "@/components/sharing/ShareDialog";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
-import { Database } from "@/types/supabase";
 import { resolveProjectAccess } from "@/lib/auth/project-resolver";
 import Link from "next/link";
 import { ArrowLeft, Lock, AlertCircle } from "lucide-react";
@@ -13,8 +12,6 @@ import prisma from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = 'force-dynamic';
-
-type Settings = Database['public']['Tables']['Settings']['Row']
 
 interface Props {
     params: Promise<{ id: string }>

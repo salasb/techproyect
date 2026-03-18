@@ -79,7 +79,6 @@ export class DashboardService {
         const now = new Date();
 
         // 0. Contextual Recommendation Engine (v2.0)
-        // Find actual projects that need commercial attention
         const projectNeedingQuote = projects.find(p => (p.status === 'EN_ESPERA' || p.status === 'EN_CURSO') && !p.quoteSentDate);
         
         if (projectNeedingQuote) {
@@ -95,7 +94,6 @@ export class DashboardService {
                 dueDate: now
             });
         } else if (isTrialing) {
-            // Fallback to legacy onboarding only if no real projects found
             const attr = orgStats?.attributes || {};
             if (!attr.FIRST_PROJECT_CREATED) {
                 actions.push({
@@ -109,6 +107,8 @@ export class DashboardService {
                 });
             }
         }
+
+        // 1. Database Tasks
         dbTasks.forEach(t => {
             const dueDate = t.dueDate ? new Date(t.dueDate) : undefined;
             actions.push({
