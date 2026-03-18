@@ -1,5 +1,4 @@
-import { Database } from '@/types/supabase'
-import { addDays, differenceInCalendarDays, isAfter, isBefore, startOfDay } from 'date-fns'
+import { addDays, differenceInCalendarDays, isBefore, startOfDay } from 'date-fns'
 
 // Decoupled interface to accept both Prisma (Date) and Supabase (string) types
 // and ignore unused fields like 'description'
@@ -28,7 +27,12 @@ export interface MinimalInvoice {
     paymentTermsDays: number | null
 }
 
-type Settings = Database['public']['Tables']['Settings']['Row']
+// Decoupled Settings
+export interface MinimalSettings {
+    vatRate: number
+    yellowThresholdDays: number
+    defaultPaymentTermsDays: number
+}
 
 export interface FinancialResult {
     sumCostNet: number
@@ -62,7 +66,7 @@ export function calculateProjectFinancials(
     project: MinimalProject,
     costs: MinimalCostEntry[],
     invoices: MinimalInvoice[],
-    settings: Settings,
+    settings: MinimalSettings,
     quoteItems: MinimalQuoteItem[] = [],
     today: Date = new Date()
 ): FinancialResult {
@@ -186,7 +190,7 @@ export function calculateProjectFinancials(
 
 function calculateTimeTrafficLight(
     project: MinimalProject,
-    settings: Settings,
+    settings: MinimalSettings,
     today: Date
 ): 'GRAY' | 'GREEN' | 'YELLOW' | 'RED' {
     if (project.status === 'CANCELADO') return 'GRAY'
@@ -222,7 +226,7 @@ function calculateTimeTrafficLight(
 function calculateCollectionTrafficLight(
     sentInvoices: MinimalInvoice[],
     receivableGross: number,
-    settings: Settings,
+    settings: MinimalSettings,
     today: Date
 ): 'GRAY' | 'GREEN' | 'YELLOW' | 'RED' {
     if (sentInvoices.length === 0) return 'GRAY'

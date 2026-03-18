@@ -1,4 +1,4 @@
-import { calculateProjectFinancials, MinimalCostEntry, MinimalInvoice, MinimalProject, MinimalQuoteItem } from "@/services/financialCalculator";
+import { calculateProjectFinancials, MinimalCostEntry, MinimalInvoice, MinimalProject, MinimalQuoteItem, MinimalSettings } from "@/services/financialCalculator";
 import { RevenueChart } from "@/components/reports/RevenueChart";
 import { ProjectMarginChart } from "@/components/reports/ProjectMarginChart";
 import { ClientRevenuePie } from "@/components/reports/ClientRevenuePie";
@@ -100,7 +100,7 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
             } as MinimalProject,
             (p.costEntries || []) as MinimalCostEntry[],
             (p.invoices || []) as MinimalInvoice[],
-            safeSettings as { vatRate: number; yellowThresholdDays: number; defaultPaymentTermsDays: number },
+            safeSettings as MinimalSettings,
             quoteItems
         );
 
