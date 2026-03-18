@@ -22,8 +22,6 @@ import { WorkspaceSetupBanner } from "@/components/dashboard/WorkspaceSetupBanne
 import { OperatingContextBanner } from "@/components/layout/OperatingContextBanner";
 import prisma from "@/lib/prisma";
 
-type Settings = Database['public']['Tables']['Settings']['Row']
-
 const periodLabels: Record<string, string> = {
     '7d': 'Últimos 7 días',
     '30d': 'Últimos 30 días',
@@ -238,7 +236,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
 
     const isTrialing = subscription?.status === 'TRIALING';
-    const orgMode = (orgData?.mode as 'SOLO' | 'TEAM') || 'SOLO';
 
     let sortedActions: any[] = [];
     let nextBestAction: any = null;
@@ -287,17 +284,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     <Link href="/admin/orgs" className="bg-white text-blue-700 hover:bg-blue-50 px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all whitespace-nowrap">
                         Ir al Portal Admin
                     </Link>
-                </div>
-            )}
-
-            {isDataTimeout && (
-                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between shadow-sm animate-in slide-in-from-top-4 gap-4 mb-6">
-                    <div className="flex items-center gap-3">
-                        <div>
-                            <h4 className="font-bold text-orange-900 dark:text-orange-400">Demora en la carga de datos</h4>
-                            <p className="text-sm text-orange-700 dark:text-orange-300">Algunos problemas de red interrumpieron la carga completa. Mostrando panel parcial.</p>
-                        </div>
-                    </div>
                 </div>
             )}
 
