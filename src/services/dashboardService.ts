@@ -9,7 +9,7 @@ type Project = Database['public']['Tables']['Project']['Row'] & {
 };
 
 export class DashboardService {
-    static getFocusBoardData(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
+    static getFocusBoardData(projects: any[], settings: any) {
         const blockedProjects = projects
             .filter(p => p.status === 'BLOQUEADO')
             .map(p => ({
@@ -52,8 +52,8 @@ export class DashboardService {
     }
 
     static getActionCenterData(
-        projects: Project[],
-        settings: Database['public']['Tables']['Settings']['Row'],
+        projects: any[],
+        settings: any,
         opportunities: any[] = [],
         dbTasks: any[] = [],
         sentinelAlerts: any[] = [],
@@ -112,6 +112,7 @@ export class DashboardService {
         dbTasks.forEach(t => {
             const dueDate = t.dueDate ? new Date(t.dueDate) : undefined;
             actions.push({
+
                 id: `task-${t.id}`,
                 projectId: t.projectId,
                 projectName: t.project?.name,
@@ -247,7 +248,7 @@ export class DashboardService {
         return { actions: sortedActions, nextBestAction };
     }
 
-    static getFinancialTrends(projects: Project[], period: string = '6m') {
+    static getFinancialTrends(projects: any[], period: string = '6m') {
         const now = new Date();
         let startDate = new Date();
         let dateFormat: 'day' | 'month' = 'month';
@@ -356,7 +357,7 @@ export class DashboardService {
             .sort((a, b) => a.dateVal - b.dateVal);
     }
 
-    static getTopClients(projects: Project[]) {
+    static getTopClients(projects: any[]) {
         const clientMap = new Map<string, number>();
         projects.forEach((p) => {
             const cName = p.company?.name || 'Sin Cliente';
@@ -501,7 +502,7 @@ export class DashboardService {
         return alerts.slice(0, 10); // Limit to 10 alerts
     }
 
-    static getUpcomingDeadlines(projects: Project[], settings: Database['public']['Tables']['Settings']['Row']) {
+    static getUpcomingDeadlines(projects: any[], settings: any) {
         const deadlines: {
             id: string;
             title: string;
@@ -579,7 +580,7 @@ export class DashboardService {
         return deadlines.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 10);
     }
 
-    static getGlobalKPIs(projects: Project[], opportunities: any[], period: string, settings: Database['public']['Tables']['Settings']['Row'], dollarValue: number) {
+    static getGlobalKPIs(projects: any[], opportunities: any[], period: string, settings: any, dollarValue: number) {
         const now = new Date();
         let startDate = new Date();
         let previousStartDate = new Date();

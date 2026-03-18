@@ -111,9 +111,9 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
         };
     });
 
-    const financialTrends = DashboardService.getFinancialTrends(projectsRaw as unknown[], period);
-    const topClients = DashboardService.getTopClients(projectsRaw as unknown[]);
-    const projectMargins = DashboardService.getProjectMargins(processedProjects as unknown[]);
+    const financialTrends = DashboardService.getFinancialTrends(projectsRaw as any, period);
+    const topClients = DashboardService.getTopClients(projectsRaw as any);
+    const projectMargins = DashboardService.getProjectMargins(processedProjects as any);
 
     const totalRevenue = processedProjects.reduce((acc, p) => acc + p.financials.priceNet, 0);
     const totalMargin = processedProjects.reduce((acc, p) => acc + p.financials.marginAmountNet, 0);

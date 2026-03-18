@@ -215,12 +215,12 @@ const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projec
 
     try {
         const centerData = DashboardService.getActionCenterData(
-            projects as unknown[],
+            projects,
             settings,
-            opportunities as unknown[],
-            tasks as unknown[],
+            opportunities,
+            tasks,
             sentinelAlerts || [],
-            orgStats as unknown,
+            orgStats,
             isTrialing
         );
         sortedActions = centerData.actions;
@@ -482,20 +482,16 @@ const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projec
                             </div>
                         {/* Right Sidebar: Secondary Widgets */}
                         <div className="lg:col-span-1 space-y-6">
-                            <SentinelAlertsPanel alerts={(sentinelAlerts || []) as unknown[]} />
+                            <SentinelAlertsPanel alerts={sentinelAlerts as any[]} />
                             <InventoryAlertsWidget />
-                            <BillingAlertsWidget alerts={billingAlerts as unknown[]} />
+                            <BillingAlertsWidget alerts={billingAlerts as any[]} />
                             <ClientRankingWidget clients={topClients as { name: string; value: number }[]} />
                         </div>
                         </div>
 
                         {/* 4. Gantt Chart Section */}
-                        <div className="mt-6">
-                        <ProjectGantt projects={projects as unknown[]} />
-                        </div>
-
-                        <div className="bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
-                            <ProjectGantt projects={projects as unknown[]} />
+                        <div className="mt-6 bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
+                            <ProjectGantt projects={projects as any[]} />
                         </div>
                     </div>
                 </>
