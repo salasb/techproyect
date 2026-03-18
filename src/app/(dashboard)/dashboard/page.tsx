@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { QrCode, Building2, Shield, TrendingUp } from "lucide-react";
+import { QrCode, Building2, Shield, TrendingUp, Loader2 } from "lucide-react";
 import { DashboardService } from "@/services/dashboardService";
 import { getDollarRate } from "@/services/currency";
 import { DEFAULT_VAT_RATE, DEFAULT_PAYMENT_TERMS_DAYS, YELLOW_THRESHOLD_DAYS, DEFAULT_CURRENCY } from "@/lib/constants";
@@ -32,11 +33,13 @@ const periodLabels: Record<string, string> = {
 };
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string; sentinel_force?: string; explore?: string }> }) {
+    const traceId = `DSH-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     const params = await searchParams;
     const period = params?.period || '30d';
     const isSentinelForce = params?.sentinel_force === 'true';
     const isExplore = params?.explore === 'true';
     const supabase = await createClient();
+    const startTime = Date.now();
 
     // 0. Resolve Workspace State (Node Runtime)
     let workspace;
@@ -75,164 +78,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     console.log(`[Dashboard] Context: User=${user?.email || 'unknown'}, Role=${workspace.userRole}, Org=${orgId || 'none'}, Status=${workspace.status}`);
 
-    // 1. Unified Parallel Data Fetching (v2.0)
-    let settings = {
-        vatRate: DEFAULT_VAT_RATE,
-        yellowThresholdDays: YELLOW_THRESHOLD_DAYS,
-        defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
-        currency: DEFAULT_CURRENCY
-    };
-    let projects: unknown[] = [];
-    let opportunities: unknown[] = [];
-    let dollarRate = { value: 855 };
-    let tasks: unknown[] = [];
-    let orgStats: unknown = null;
-    let subscription: { status: string } | null = null;
     let orgData: { mode: string; name: string } | null = null;
-    let activationData: unknown = null;
-    let realProjectsCount = 0;
-
-    if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
-        const startTime = Date.now();
-        try {
-            console.log(`[Dashboard][${traceId}] Loading unified core data for org=${orgId}`);
-            
-            const results = await Promise.all([
-                // ... (rest of queries)
-                prisma.settings.findFirst(),
-                prisma.project.findMany({
-                    where: { organizationId: orgId },
-                    include: {
-                        company: { select: { id: true, name: true, contactName: true, phone: true, email: true } },
-                        costEntries: { select: { id: true, amountNet: true, date: true, description: true } },
-                        invoices: { select: { id: true, amountInvoicedGross: true, amountPaidGross: true, sent: true, sentDate: true, dueDate: true, paymentTermsDays: true } },
-                        quoteItems: { select: { id: true, priceNet: true, costNet: true, quantity: true, isSelected: true } }
-                    },
-                    orderBy: { updatedAt: 'desc' }
-                }),
-                prisma.opportunity.findMany({ where: { organizationId: orgId } }),
-                getDollarRate().catch(() => ({ value: 855 })),
-                prisma.task.findMany({
-                    where: { organizationId: orgId, status: 'PENDING' },
-                    include: { project: { select: { id: true, name: true, company: { select: { name: true } } } } },
-                    orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }],
-                    take: 20
-                }),
-                prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
-                prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
-                prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } }),
-                import("@/services/activation-service").then(({ ActivationService }) => 
-                    ActivationService.getActivationChecklist(orgId)
-                ),
-                prisma.project.count({ where: { organizationId: orgId } })
-            ]);
-
-            if (results[0]) settings = results[0];
-            projects = results[1] || [];
-            opportunities = results[2] || [];
-            dollarRate = results[3];
-            tasks = results[4] || [];
-            orgStats = results[5];
-            subscription = results[6];
-            orgData = results[7];
-            activationData = results[8];
-            realProjectsCount = results[9];
-
-            console.log(`[Dashboard][${traceId}] Unified fetch completed in ${Date.now() - startTime}ms`);
-
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error("[Dashboard] Critical Unified fetch error:", msg);
-    }
-}
-
-// 2. Trigger Sentinel Analysis (Proactive Layer - Decoupled)
-let sentinelAlerts: unknown[] = [];
-if (orgId && workspace.status === 'ORG_ACTIVE_SELECTED') {
-    try {
-        const sentinelPromises = Promise.all([
-            SentinelService.runAnalysis(orgId, isSentinelForce),
-            SentinelService.updateOrgStats(orgId),
-            import("@/services/activation-service").then(({ ActivationService }) =>
-                ActivationService.trackFirst('ORG_CREATED', orgId)
-            )
-        ]);
-
-        await Promise.race([
-            sentinelPromises,
-            new Promise((resolve) => setTimeout(resolve, 3000)) // Reduced timeout for performance
-        ]);
-
-        const { data } = await SentinelService.getActiveAlerts(orgId);
-        sentinelAlerts = (data || []) as unknown[];
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error("[Dashboard] Sentinel analysis failed:", msg);
-    }
-}
-
-// 4. Calculate Dashboard Data - Extremely Defensive
-let kpis;
-try {
-    kpis = (orgId && !isExplore)
-        ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
-        : isExplore ? {
-            billing: { value: 7500000, previous: 5000000, trend: 50 },
-            margin: { value: 3200000, previous: 2800000, trend: 14.2 },
-            earnedMargin: 0.42,
-            projectedMargin: 0.45,
-            pipeline: { value: 12000000, count: 5 }
-        } : {
-            billing: { value: 0, previous: 0, trend: 0 },
-            margin: { value: 0, previous: 0, trend: 0 },
-            earnedMargin: 0,
-            projectedMargin: 0,
-            pipeline: { value: 0, count: 0 }
-        };
-} catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[Dashboard] KPI calculation CRASHED:", msg);
-    kpis = { billing: { value: 0, previous: 0, trend: 0 }, margin: { value: 0, previous: 0, trend: 0 }, earnedMargin: 0, projectedMargin: 0, pipeline: { value: 0, count: 0 } };
-}
-
-const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects, period) :
-    isExplore ? [
-        { name: 'Ene', label: 'Ene', income: 1200000, cost: 800000, profit: 400000, dateVal: 1 },
-        { name: 'Feb', label: 'Feb', income: 1500000, cost: 950000, profit: 550000, dateVal: 2 },
-        { name: 'Mar', label: 'Mar', income: 2800000, cost: 1100000, profit: 1700000, dateVal: 3 },
-    ] : [];
-
-const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects) :
-    isExplore ? [
-        { name: 'Acme Corp', value: 4500000 },
-        { name: 'Global Tech', value: 3000000 }
-    ] : [];
-
-    const isTrialing = subscription?.status === 'TRIALING';
-
-    let sortedActions: unknown[] = [];
-    let nextBestAction: unknown = null;
-
-    try {
-        const centerData = DashboardService.getActionCenterData(
-            projects,
-            settings,
-            opportunities,
-            tasks,
-            sentinelAlerts || [],
-            orgStats,
-            isTrialing
-        );
-        sortedActions = centerData.actions;
-        nextBestAction = centerData.nextBestAction;
-    } catch (e: unknown) {
-
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error("[Dashboard] Action Center calculation failed:", msg);
+    if (orgId) {
+        orgData = await prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } });
     }
 
-    const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects, settings) : [];
-    const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
+    console.log(JSON.stringify({
+        event: "OBSERVABILITY",
+        traceId,
+        route: "/dashboard",
+        user: orgId,
+        durationMs: Date.now() - startTime,
+        sourceOfTruth: "DB/Prisma",
+        result: "SUCCESS",
+        fallbackReason: null
+    }));
 
     return (
         <div className={`space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto relative ${isSuperadmin && orgId ? 'pt-12' : ''}`}>
@@ -408,93 +268,22 @@ const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projec
                 </div>
             </div>
 
-            {/* Activation Checklist (Only if org exists and NO projects yet) */}
-            {orgId && realProjectsCount === 0 && activationData && !isExplore && (
-                <ActivationChecklist data={activationData} />
-            )}
-
-            {/* Main Content Areas */}
-            {workspace.status === 'ORG_ACTIVE_SELECTED' && realProjectsCount === 0 && !isExplore ? (
-                <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl p-12 text-center shadow-sm animate-in fade-in max-w-3xl mx-auto mt-12">
-                    <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                        <QrCode className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-foreground mb-3">Tu sistema está listo para operar</h3>
-                    <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-                        Comienza a estructurar tus operaciones creando tu primer proyecto o registrando un cliente en la base de datos. Los indicadores financieros se activarán automáticamente una vez que tengas flujo de datos.
-                    </p>
-                    <div className="flex flex-col sm:flex-row justify-center gap-4">
-                        <Link href="/projects/new" className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg font-medium transition-all shadow-md">
-                            Crear primer proyecto
-                        </Link>
-                        <Link href="/clients" className="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-foreground px-6 py-3 rounded-lg font-medium transition-all border border-border">
-                            Registrar clientes
-                        </Link>
-                    </div>
-                </div>
-            ) : (
-                <>
-                    {/* 1. KPIs Section */}
-                    <DashboardKPIs data={kpis as {
-                        billing: { value: number, previous: number, trend: number },
-                        margin: { value: number, previous: number, trend: number },
-                        earnedMargin: number,
-                        projectedMargin: number,
-                        pipeline: { value: number, count: number }
-                    }} />
-
-                    {/* 2. Main Content Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
-                        
-                        {/* Financial Trends & Charts (Central Column) */}
-                        <div className="lg:col-span-3 space-y-6">
-                            <div className="bg-card rounded-xl border border-border shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
-                                <div className="mb-6 flex justify-between items-center">
-                                    <div>
-                                        <h3 className="text-lg font-bold text-foreground flex items-center gap-2 uppercase tracking-tighter italic">
-                                            <TrendingUp className="w-5 h-5 text-indigo-600" />
-                                            Revenue Pulse
-                                        </h3>
-                                        <p className="text-xs text-muted-foreground">Evolución comercial ({periodLabels[period] || period})</p>
-                                    </div>
-                                </div>
-                                {orgId ? <RevenueChart data={chartData as { name: string; income: number; cost: number; profit: number }[]} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <TasksWidget tasks={sortedActions.slice(0, 10) as { id: string; title: string; priority: string; dueDate?: Date }[]} />
-                                <div className="space-y-6">
-                                    <NextBestAction action={nextBestAction as { title: string; message: string; priority: string }} />
-                                    {/* Compact Health Card */}
-                                    <div className="bg-zinc-900 rounded-xl p-5 text-white shadow-lg border border-zinc-800">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 italic">Salud del Sistema</h4>
-                                            <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                                        </div>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-2xl font-black italic uppercase">{orgId ? 'Saludable' : 'Inactivo'}</span>
-                                        </div>
-                                        <p className="text-[9px] text-zinc-500 mt-2 font-medium leading-relaxed">
-                                            {orgId ? 'Sentinel monitorizando 5 parámetros críticos de integridad y rendimiento.' : 'Conecta una organización para activar el motor de salud Sentinel.'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        {/* Right Sidebar: Secondary Widgets */}
-                        <div className="lg:col-span-1 space-y-6">
-                            <SentinelAlertsPanel alerts={sentinelAlerts as any[]} />
-                            <InventoryAlertsWidget />
-                            <BillingAlertsWidget alerts={billingAlerts as any[]} />
-                            <ClientRankingWidget clients={topClients as { name: string; value: number }[]} />
+            {/* Main Content Area - Suspensed for Performance */}
+            {(workspace.status === 'ORG_ACTIVE_SELECTED' || isExplore) && (
+                <Suspense fallback={
+                    <div className="space-y-8 animate-pulse pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            {[1,2,3,4].map(i => <div key={i} className="h-32 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />)}
                         </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                            <div className="lg:col-span-3 h-[400px] bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+                            <div className="lg:col-span-1 h-[400px] bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
                         </div>
-
-                        {/* 4. Gantt Chart Section */}
-                        <div className="mt-6 bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
-                            <ProjectGantt projects={projects as any[]} />
-                        </div>
+                        <div className="h-48 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
                     </div>
-                </>
+                }>
+                    <DashboardContent orgId={orgId} period={period} isSentinelForce={isSentinelForce} isExplore={isExplore} traceId={traceId} />
+                </Suspense>
             )}
 
             {/* Debug Panel (Superadmin Only) */}
@@ -523,6 +312,234 @@ const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projec
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// Internal Server Component for fetching heavy Dashboard Data without blocking the initial render
+async function DashboardContent({ orgId, period, isSentinelForce, isExplore, traceId }: { orgId: string | null, period: string, isSentinelForce: boolean, isExplore: boolean, traceId: string }) {
+    let settings = {
+        vatRate: DEFAULT_VAT_RATE,
+        yellowThresholdDays: YELLOW_THRESHOLD_DAYS,
+        defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
+        currency: DEFAULT_CURRENCY
+    };
+    let projects: unknown[] = [];
+    let opportunities: unknown[] = [];
+    let dollarRate = { value: 855 };
+    let tasks: unknown[] = [];
+    let orgStats: unknown = null;
+    let subscription: { status: string } | null = null;
+    let activationData: unknown = null;
+    let realProjectsCount = 0;
+    let sentinelAlerts: unknown[] = [];
+
+    if (orgId) {
+        try {
+            const results = await Promise.all([
+                prisma.settings.findFirst(),
+                prisma.project.findMany({
+                    where: { organizationId: orgId },
+                    include: {
+                        company: { select: { id: true, name: true, contactName: true, phone: true, email: true } },
+                        costEntries: { select: { id: true, amountNet: true, date: true, description: true } },
+                        invoices: { select: { id: true, amountInvoicedGross: true, amountPaidGross: true, sent: true, sentDate: true, dueDate: true, paymentTermsDays: true } },
+                        quoteItems: { select: { id: true, priceNet: true, costNet: true, quantity: true, isSelected: true } }
+                    },
+                    orderBy: { updatedAt: 'desc' }
+                }),
+                prisma.opportunity.findMany({ where: { organizationId: orgId } }),
+                getDollarRate().catch(() => ({ value: 855 })),
+                prisma.task.findMany({
+                    where: { organizationId: orgId, status: 'PENDING' },
+                    include: { project: { select: { id: true, name: true, company: { select: { name: true } } } } },
+                    orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }],
+                    take: 20
+                }),
+                prisma.organizationStats.findUnique({ where: { organizationId: orgId } }),
+                prisma.subscription.findUnique({ where: { organizationId: orgId }, select: { status: true } }),
+                import("@/services/activation-service").then(({ ActivationService }) => 
+                    ActivationService.getActivationChecklist(orgId)
+                ),
+                prisma.project.count({ where: { organizationId: orgId } })
+            ]);
+
+            if (results[0]) settings = results[0];
+            projects = results[1] || [];
+            opportunities = results[2] || [];
+            dollarRate = results[3];
+            tasks = results[4] || [];
+            orgStats = results[5];
+            subscription = results[6];
+            activationData = results[7];
+            realProjectsCount = results[8];
+
+            // Sentinel fetch concurrently but separately from DB
+            const sentinelPromises = Promise.all([
+                SentinelService.runAnalysis(orgId, isSentinelForce),
+                SentinelService.updateOrgStats(orgId),
+                import("@/services/activation-service").then(({ ActivationService }) =>
+                    ActivationService.trackFirst('ORG_CREATED', orgId)
+                )
+            ]);
+
+            await Promise.race([
+                sentinelPromises,
+                new Promise((resolve) => setTimeout(resolve, 3000))
+            ]);
+
+            const { data } = await SentinelService.getActiveAlerts(orgId);
+            sentinelAlerts = (data || []) as unknown[];
+
+        } catch (error: unknown) {
+            console.error("[DashboardContent] Critical Unified fetch error:", error);
+        }
+    }
+
+    if (orgId && realProjectsCount === 0 && !isExplore) {
+        return (
+            <>
+                {!!activationData && <ActivationChecklist data={activationData as any} />}
+                <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl p-12 text-center shadow-sm animate-in fade-in max-w-3xl mx-auto mt-12">
+                    <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <QrCode className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-foreground mb-3">Tu sistema está listo para operar</h3>
+                    <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+                        Comienza a estructurar tus operaciones creando tu primer proyecto o registrando un cliente en la base de datos. Los indicadores financieros se activarán automáticamente una vez que tengas flujo de datos.
+                    </p>
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                        <Link href="/projects/new" className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg font-medium transition-all shadow-md">
+                            Crear primer proyecto
+                        </Link>
+                        <Link href="/clients" className="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-foreground px-6 py-3 rounded-lg font-medium transition-all border border-border">
+                            Registrar clientes
+                        </Link>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    let kpis;
+    try {
+        kpis = (orgId && !isExplore)
+            ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
+            : isExplore ? {
+                billing: { value: 7500000, previous: 5000000, trend: 50 },
+                margin: { value: 3200000, previous: 2800000, trend: 14.2 },
+                earnedMargin: 0.42,
+                projectedMargin: 0.45,
+                pipeline: { value: 12000000, count: 5 }
+            } : {
+                billing: { value: 0, previous: 0, trend: 0 },
+                margin: { value: 0, previous: 0, trend: 0 },
+                earnedMargin: 0,
+                projectedMargin: 0,
+                pipeline: { value: 0, count: 0 }
+            };
+    } catch (e: unknown) {
+        console.error("[DashboardContent] KPI calculation CRASHED:", e);
+        kpis = { billing: { value: 0, previous: 0, trend: 0 }, margin: { value: 0, previous: 0, trend: 0 }, earnedMargin: 0, projectedMargin: 0, pipeline: { value: 0, count: 0 } };
+    }
+
+    const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects, period) :
+        isExplore ? [
+            { name: 'Ene', label: 'Ene', income: 1200000, cost: 800000, profit: 400000, dateVal: 1 },
+            { name: 'Feb', label: 'Feb', income: 1500000, cost: 950000, profit: 550000, dateVal: 2 },
+            { name: 'Mar', label: 'Mar', income: 2800000, cost: 1100000, profit: 1700000, dateVal: 3 },
+        ] : [];
+
+    const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects) :
+        isExplore ? [
+            { name: 'Acme Corp', value: 4500000 },
+            { name: 'Global Tech', value: 3000000 }
+        ] : [];
+
+    const isTrialing = subscription?.status === 'TRIALING';
+
+    let sortedActions: unknown[] = [];
+    let nextBestAction: unknown = null;
+
+    try {
+        const centerData = DashboardService.getActionCenterData(
+            projects,
+            settings,
+            opportunities,
+            tasks,
+            sentinelAlerts || [],
+            orgStats,
+            isTrialing
+        );
+        sortedActions = centerData.actions;
+        nextBestAction = centerData.nextBestAction;
+    } catch (e: unknown) {
+        console.error("[DashboardContent] Action Center calculation failed:", e);
+    }
+
+    const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects, settings) : [];
+    const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
+
+    return (
+        <div className="animate-in fade-in duration-500">
+            {!!orgId && realProjectsCount > 0 && !!activationData && !isExplore && (
+                <ActivationChecklist data={activationData as any} />
+            )}
+
+            <DashboardKPIs data={kpis as {
+                billing: { value: number, previous: number, trend: number },
+                margin: { value: number, previous: number, trend: number },
+                earnedMargin: number,
+                projectedMargin: number,
+                pipeline: { value: number, count: number }
+            }} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch mt-8">
+                <div className="lg:col-span-3 space-y-6">
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
+                        <div className="mb-6 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-lg font-bold text-foreground flex items-center gap-2 uppercase tracking-tighter italic">
+                                    <TrendingUp className="w-5 h-5 text-indigo-600" />
+                                    Revenue Pulse
+                                </h3>
+                                <p className="text-xs text-muted-foreground">Evolución comercial ({periodLabels[period] || period})</p>
+                            </div>
+                        </div>
+                        {orgId ? <RevenueChart data={chartData as any} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <TasksWidget tasks={sortedActions.slice(0, 10) as any} />
+                        <div className="space-y-6">
+                            <NextBestAction action={nextBestAction as any} />
+                            <div className="bg-zinc-900 rounded-xl p-5 text-white shadow-lg border border-zinc-800">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 italic">Salud del Sistema</h4>
+                                    <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-black italic uppercase">{orgId ? 'Saludable' : 'Inactivo'}</span>
+                                </div>
+                                <p className="text-[9px] text-zinc-500 mt-2 font-medium leading-relaxed">
+                                    {orgId ? 'Sentinel monitorizando 5 parámetros críticos de integridad y rendimiento.' : 'Conecta una organización para activar el motor de salud Sentinel.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="lg:col-span-1 space-y-6">
+                    <SentinelAlertsPanel alerts={sentinelAlerts as any} />
+                    <InventoryAlertsWidget />
+                    <BillingAlertsWidget alerts={billingAlerts as any} />
+                    <ClientRankingWidget clients={topClients as any} />
+                </div>
+            </div>
+
+            <div className="mt-6 bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
+                <ProjectGantt projects={projects as any} />
+            </div>
         </div>
     );
 }

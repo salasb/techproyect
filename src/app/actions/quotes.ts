@@ -120,6 +120,21 @@ export async function createQuoteRevision(projectId: string) {
     return { success: true, quoteId: newQuote.id };
 }
 
+export async function toggleDigitalAcceptanceEnabled(projectId: string, enabled: boolean) {
+    const scope = await requirePermission('QUOTES_MANAGE');
+    await ensureNotPaused(scope.orgId);
+    
+    await prisma.project.update({
+        where: { id: projectId, organizationId: scope.orgId },
+        data: { digitalAcceptance: enabled }
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/quote`);
+    
+    return { success: true };
+}
+
 export async function toggleQuoteAcceptance(projectId: string, isAccepted: boolean) {
     const scope = await requirePermission('QUOTES_MANAGE');
     await ensureNotPaused(scope.orgId);

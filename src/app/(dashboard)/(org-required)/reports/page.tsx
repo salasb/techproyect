@@ -22,6 +22,7 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
     const view = searchParams.view || 'financial';
     const locationId = searchParams.locationId;
     const orgId = await getOrganizationId();
+    const startTime = Date.now();
 
     if (!orgId) {
         return <div className="p-12 text-center text-muted-foreground italic bg-muted/20 rounded-xl m-8 border-2 border-dashed border-border">
@@ -44,6 +45,17 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
             }
         })
     ]);
+
+    console.log(JSON.stringify({
+        event: "OBSERVABILITY",
+        traceId,
+        route: "/reports",
+        user: orgId,
+        durationMs: Date.now() - startTime,
+        sourceOfTruth: "DB/Prisma",
+        result: "SUCCESS",
+        fallbackReason: null
+    }));
 
     const header = (
         <div className="flex justify-between items-center flex-wrap gap-4">
@@ -118,10 +130,14 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
     const totalRevenue = processedProjects.reduce((acc, p) => acc + p.financials.priceNet, 0);
     const totalMargin = processedProjects.reduce((acc, p) => acc + p.financials.marginAmountNet, 0);
     const avgMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
-    const activeProjects = processedProjects.filter((p) => p.status === 'EN_CURSO').length;
-    const pendingQuotes = processedProjects.filter((p) => p.status === 'EN_ESPERA').length;
+    
+    // Count only truly active projects (exclude drafts without quote sent and closed/cancelled)
+    const activeProjects = processedProjects.filter((p) => p.status === 'EN_CURSO' || p.status === 'EN_ESPERA' || p.status === 'BLOQUEADO').length;
+    // Count pending quotes: Sent but not yet accepted
+    const pendingQuotes = processedProjects.filter((p) => p.quoteSentDate && !p.acceptedAt).length;
 
-    const hasData = totalRevenue > 0 || projectsRaw.length > 0;
+    // A module shouldn't show $0.0M blindly if there is absolutely no financial data setup
+    const hasData = totalRevenue > 0 || totalMargin > 0 || activeProjects > 0 || pendingQuotes > 0;
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-20">
@@ -133,9 +149,9 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
                         <TrendingUp className="w-8 h-8 text-zinc-300" />
                     </div>
                     <div className="space-y-1">
-                        <p className="font-bold text-lg">No hay actividad comercial acumulada</p>
+                        <p className="font-bold text-lg">No hay actividad financiera consolidada</p>
                         <p className="text-sm text-muted-foreground max-w-sm">
-                            Este panel se completa con proyectos activos, cotizaciones generadas y facturación emitida.
+                            Este panel se completa con actividad financiera consolidada, facturación emitida o cotizaciones enviadas/aceptadas.
                         </p>
                     </div>
                 </div>

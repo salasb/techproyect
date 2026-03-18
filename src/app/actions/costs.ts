@@ -105,8 +105,7 @@ export async function updateCost(projectId: string, costId: string, formData: Fo
                 description,
                 amountNet: amount,
                 category,
-                date: new Date(date),
-                updatedAt: new Date()
+                date: new Date(date)
             }
         });
 

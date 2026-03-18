@@ -20,6 +20,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
     const params = await searchParams;
     const cookieStore = await cookies();
     const orgId = await getOrganizationId();
+    const startTime = Date.now();
 
     if (!orgId) {
         return <div className="p-8 text-center text-muted-foreground italic">Debes seleccionar una organización activa.</div>;
@@ -34,14 +35,11 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
 
     let data: {
         quotes: UIQuote[],
-        groupedQuotes: Record<string, UIQuote[]>,
         totalPages: number,
         hasNextPage: boolean,
         hasPrevPage: boolean
     };
     try {
-        console.log(`[QuotesList][${traceId}] Loading quotes for org=${orgId}, query="${queryTerm}"`);
-
         // UNIFIED DOMAIN QUERY
         const commonWhere: Prisma.ProjectWhereInput = {
             organizationId: orgId,
@@ -98,27 +96,17 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         const quotes = projectsWithQuotes.map(p => {
             const lastQuote = p.quotes[0];
             
-            // Resolve Amount Strategy:
-            // 1. If snapshot exists, recalculate from its snapshot items to ensure consistency
-            // 2. If snapshot items empty, use totalNet
-            // 3. If no snapshot, calculate from project's live items
-            // 4. Fallback to project's budgetNet
-            
             let resolvedAmount = 0;
 
             if (lastQuote) {
-                // We trust the items within the quote record if they exist
                 if (lastQuote.items && lastQuote.items.length > 0) {
                     resolvedAmount = lastQuote.items.reduce((acc, item) => 
                         acc + ((item.priceNet || 0) * (item.quantity || 1)), 0);
                 }
-                
-                // If calculation gave 0, use totalNet if it's not 0
                 if (resolvedAmount === 0 && lastQuote.totalNet) {
                     resolvedAmount = lastQuote.totalNet;
                 }
             } else if (p.quoteItems && p.quoteItems.length > 0) {
-                // Live Draft calculation
                 resolvedAmount = p.quoteItems.reduce((acc, item) => 
                     acc + ((item.priceNet || 0) * (item.quantity || 1)), 0);
             } else {
@@ -137,26 +125,37 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
             };
         });
 
-
-        // Grouping for List View
-        const groupedQuotes: Record<string, UIQuote[]> = {};
-        quotes.forEach(q => {
-            const status = q.status || 'OTRO';
-            if (!groupedQuotes[status]) groupedQuotes[status] = [];
-            groupedQuotes[status].push(q as UIQuote);
-        });
-
         data = {
             quotes,
-            groupedQuotes,
             totalPages,
             hasNextPage,
             hasPrevPage
         };
 
+        console.log(JSON.stringify({
+            event: "OBSERVABILITY",
+            traceId,
+            route: "/quotes",
+            user: orgId,
+            durationMs: Date.now() - startTime,
+            sourceOfTruth: "DB/Prisma",
+            result: "SUCCESS",
+            fallbackReason: null
+        }));
+
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         console.error(`[Quotes][${traceId}] Critical error:`, msg);
+        console.log(JSON.stringify({
+            event: "OBSERVABILITY",
+            traceId,
+            route: "/quotes",
+            user: orgId,
+            durationMs: Date.now() - startTime,
+            sourceOfTruth: "DB/Prisma",
+            result: "ERROR",
+            fallbackReason: msg
+        }));
         return (
             <div className="p-12 text-center bg-rose-50 border-2 border-rose-200 rounded-xl m-8 text-rose-900">
                 <AlertCircle className="mx-auto h-12 w-12 text-rose-500 mb-4" />
@@ -167,7 +166,6 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         );
     }
 
-    // Now return JSX outside of main try/catch logic
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             <div className="flex justify-between items-center">
@@ -189,19 +187,9 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
                     <p className="text-xs mt-2">Crea un proyecto y agrega ítems para ver propuestas aquí.</p>
                 </div>
             ) : view === 'list' ? (
-                <div className="space-y-8">
-                    {Object.entries(data.groupedQuotes).map(([status, groupQuotes]) => (
-                        <section key={status} className="space-y-3">
-                            <div className="flex items-center gap-2 pb-2 border-b border-border/50">
-                                <StatusBadge status={status} type="QUOTE" />
-                                <span className="text-sm text-muted-foreground font-medium">({groupQuotes.length})</span>
-                            </div>
-                            <div className="space-y-2">
-                                {groupQuotes.map((quote) => (
-                                    <QuoteListItem key={quote.id} quote={quote} />
-                                ))}
-                            </div>
-                        </section>
+                <div className="space-y-2">
+                    {data.quotes.map((quote) => (
+                        <QuoteListItem key={quote.id} quote={quote} />
                     ))}
                 </div>
             ) : (
@@ -258,29 +246,29 @@ function QuoteGridCard({ quote }: { quote: UIQuote }) {
     return (
         <div className="group bg-card hover:bg-slate-50 dark:hover:bg-slate-900 border border-border hover:border-blue-200 dark:hover:border-blue-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
             <Link href={`/projects/${quote.projectId}/quote`} className="flex-1">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            {!quote.isDraft && (
-                                <Badge variant="outline" className="text-[8px] font-bold bg-blue-50 text-blue-700 border-blue-200 shrink-0">v{quote.version}</Badge>
-                            )}
-                            <h3 className="font-bold text-lg text-foreground group-hover:text-blue-600 transition-colors truncate" title={quote.project?.name}>
-                                {quote.project?.name}
-                            </h3>
-                        </div>
-                        <div className="flex items-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                            <span className="truncate">{quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}</span>
-                        </div>
-                    </div>
-                    <div className="shrink-0 ml-2">
+                <div className="flex justify-between items-start mb-3">
+                    <div className="shrink-0">
                         <StatusBadge status={quote.status} type="QUOTE" />
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-zinc-400 font-bold uppercase tracking-widest italic">
+                        <span className="bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                            {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}
+                        </span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-[10px] text-zinc-400 mb-4 font-bold uppercase tracking-widest italic">
-                    <span className="bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
-                        {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM yyyy', { locale: es }) : '-'}
-                    </span>
+                <div className="mb-4">
+                    <div className="flex items-center text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                        <span className="truncate">{quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {!quote.isDraft && (
+                            <Badge variant="outline" className="text-[8px] font-bold bg-blue-50 text-blue-700 border-blue-200 shrink-0">v{quote.version}</Badge>
+                        )}
+                        <h3 className="font-bold text-lg text-foreground group-hover:text-blue-600 transition-colors line-clamp-2" title={quote.project?.name}>
+                            {quote.project?.name}
+                        </h3>
+                    </div>
                 </div>
             </Link>
 
@@ -316,7 +304,10 @@ function QuoteListItem({ quote }: { quote: UIQuote }) {
     return (
         <div className="group flex items-center justify-between bg-card hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-border hover:border-blue-200 dark:hover:border-blue-800 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200">
             <Link href={`/projects/${quote.projectId}/quote`} className="flex-1 min-w-0 pr-4">
-                <div className="flex items-center gap-3 mb-1">
+                <p className="text-sm text-muted-foreground truncate font-medium mb-1">
+                    {quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}
+                </p>
+                <div className="flex items-center gap-3">
                     {!quote.isDraft && (
                         <Badge variant="outline" className="text-[8px] font-bold bg-blue-50 text-blue-700 border-blue-200">v{quote.version}</Badge>
                     )}
@@ -327,9 +318,6 @@ function QuoteListItem({ quote }: { quote: UIQuote }) {
                         {quote.createdAt ? format(new Date(quote.createdAt), 'dd MMM', { locale: es }) : '-'}
                     </span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate font-medium">
-                    {quote.project?.client?.name || quote.project?.company?.name || 'Cliente sin asignar'}
-                </p>
             </Link>
 
             <div className="flex items-center gap-6 shrink-0">
@@ -349,3 +337,4 @@ function QuoteListItem({ quote }: { quote: UIQuote }) {
         </div>
     );
 }
+

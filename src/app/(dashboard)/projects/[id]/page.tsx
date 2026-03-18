@@ -98,7 +98,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             safeSettings,
             financials,
             risk,
-            exchangeRate,
+            exchangeRate: appliedExchangeRate,
             ufRate
         };
     } catch (e: any) {
@@ -127,7 +127,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             projectLogs={operationalData.projectLogs as any[]}
             clients={operationalData.clients as any[]}
             risk={operationalData.risk}
-            exchangeRate={appliedExchangeRate}
+            exchangeRate={operationalData.exchangeRate}
             ufRate={operationalData.ufRate}
             tasks={(project as any).tasks || []}
             inventoryWidget={<ProjectInventory projectId={id} orgId={orgId} />}

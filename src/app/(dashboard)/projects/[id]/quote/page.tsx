@@ -22,6 +22,7 @@ interface Props {
  */
 export default async function QuotePage({ params, searchParams }: Props & { searchParams: Promise<{ v?: string }> }) {
     const traceId = `QUO-PG-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const startTime = Date.now();
     const { id } = await params;
     const { v } = await searchParams;
 
@@ -97,6 +98,17 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
 
     const isPaused = subscription?.status === 'PAUSED' || subscription?.status === 'PAST_DUE';
 
+    console.log(JSON.stringify({
+        event: "OBSERVABILITY",
+        traceId,
+        route: `/projects/${id}/quote`,
+        user: project.organizationId,
+        durationMs: Date.now() - startTime,
+        sourceOfTruth: "DB/Prisma",
+        result: "SUCCESS",
+        fallbackReason: null
+    }));
+
     // 5. Serialization Sanitization (v2.0)
     // One-pass sanitization for all data passed to Client Components
     const sanitizedData = JSON.parse(JSON.stringify({
@@ -110,41 +122,19 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
     return (
         <div className="min-h-screen bg-zinc-100 dark:bg-zinc-900 p-8 print:p-0 print:bg-white animate-in fade-in duration-500 pb-20">
             {/* Unified Commercial Toolbar */}
-            <div className="max-w-[210mm] mx-auto mb-8 flex flex-col gap-6 print:hidden">
-                {/* Top Row: Navigation & Meta */}
-                <div className="flex justify-between items-center">
-                    <Link href={`/projects/${sanitizedProject.id}`} className="inline-flex items-center text-zinc-500 hover:text-zinc-900 transition-colors text-sm font-bold uppercase tracking-widest group">
-                        <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                        Volver al Proyecto
-                    </Link>
-                    <div className="flex gap-2 items-center">
-                        <QuoteVersionSelector
-                            quotes={(sanitizedQuotes as { id: string; version: number; status: string; createdAt: string; totalNet: number }[]).map((q) => ({
-                                id: q.id,
-                                version: q.version,
-                                status: q.status,
-                                createdAt: q.createdAt,
-                                totalNet: q.totalNet || 0
-                            }))}
-                            currentQuoteId={(sanitizedSelectedQuote as { id: string } | null)?.id || ''}
-                        />
-
-                    </div>
-                </div>
-
+            <div className="max-w-[210mm] mx-auto mb-8 flex flex-col gap-4 print:hidden">
                 {/* Main Action Bar */}
                 <div className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-6">
-                    {/* Group 1: Configuration (Digital Acceptance) */}
+                    {/* Group 1: Navigation */}
                     <div className="flex items-center gap-4 border-r border-border pr-6">
-                        <QuoteAcceptance
-                            projectId={sanitizedProject.id}
-                            initialAccepted={!!sanitizedProject.acceptedAt}
-                            isPaused={isPaused}
-                        />
+                        <Link href={`/projects/${sanitizedProject.id}`} className="inline-flex items-center text-zinc-500 hover:text-zinc-900 transition-colors text-sm font-bold uppercase tracking-widest group bg-slate-100 p-2 rounded-lg">
+                            <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                            Volver
+                        </Link>
                     </div>
 
                     {/* Group 2: Status Lifecycle */}
-                    <div className="flex-1 flex items-center gap-3">
+                    <div className="flex-1 flex items-center gap-3 border-r border-border pr-6">
                         <QuoteActions
                             projectId={sanitizedProject.id}
                             clientId={sanitizedProject.clientId}
@@ -156,17 +146,40 @@ export default async function QuotePage({ params, searchParams }: Props & { sear
                         />
                     </div>
 
-                    {/* Group 3: Export & Distribution */}
-                    <div className="flex items-center gap-2 pl-6 border-l border-border">
+                    {/* Group 3: Configuration (Digital Acceptance) */}
+                    <div className="flex items-center gap-4 border-r border-border pr-6">
+                        <QuoteAcceptance
+                            projectId={sanitizedProject.id}
+                            initialAccepted={!!sanitizedProject.digitalAcceptance}
+                            isPaused={isPaused}
+                        />
+                    </div>
+
+                    {/* Group 4: Export & Distribution */}
+                    <div className="flex items-center gap-2">
                         <QuotePrintButton variant="solid" />
                         <ShareDialog entityType="QUOTE" entityId={sanitizedSelectedQuote?.id || ''} />
                     </div>
+                </div>
+
+                {/* Secondary Row: Meta & Versioning */}
+                <div className="flex justify-end items-center">
+                    <QuoteVersionSelector
+                        quotes={(sanitizedQuotes as { id: string; version: number; status: string; createdAt: string; totalNet: number }[]).map((q) => ({
+                            id: q.id,
+                            version: q.version,
+                            status: q.status,
+                            createdAt: q.createdAt,
+                            totalNet: q.totalNet || 0
+                        }))}
+                        currentQuoteId={(sanitizedSelectedQuote as { id: string } | null)?.id || ''}
+                    />
                 </div>
             </div>
 
             {/* Render Document */}
             <div className="shadow-2xl shadow-black/5 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                <QuoteDocument project={sanitizedProject as unknown as { name: string; currency: string }} settings={settings as { vatRate: number }} />
+                <QuoteDocument project={sanitizedProject as any} settings={settings as any} />
             </div>
         </div>
     )

@@ -205,7 +205,7 @@ export class DashboardService {
 
         // 5. Overdue Invoices
         projects.forEach(p => {
-            p.invoices?.forEach(inv => {
+            p.invoices?.forEach((inv: any) => {
                 if (inv.sent && !inv.amountPaidGross) {
                     let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
                     if (dueDate && dueDate < now) {
@@ -295,7 +295,7 @@ export class DashboardService {
 
         projects.forEach(p => {
             // Cost (Expenses)
-            p.costEntries?.forEach((c) => {
+            p.costEntries?.forEach((c: any) => {
                 const d = new Date(c.date);
                 if (d >= startDate) {
                     const key = dateFormat === 'day'
@@ -320,7 +320,7 @@ export class DashboardService {
             });
 
             // Income (Invoices Sent)
-            p.invoices?.forEach((inv) => {
+            p.invoices?.forEach((inv: any) => {
                 if (inv.sent && inv.sentDate) {
                     const d = new Date(inv.sentDate);
                     if (d >= startDate) {
@@ -366,7 +366,7 @@ export class DashboardService {
             // Since we pass raw projects here, we might need to rely on 'budget' field if available or sum invoices?
             // Let's use Sum of Invoices for "Revenue" or Budget for "Sales Volume".
             // The prompt implies "Revenue" (Ingresos). Let's sum Invoiced Amount.
-            const revenue = p.invoices?.reduce((acc, inv) => acc + (inv.sent ? inv.amountInvoicedGross : 0), 0) || 0;
+            const revenue = p.invoices?.reduce((acc: any, inv: any) => acc + (inv.sent ? inv.amountInvoicedGross : 0), 0) || 0;
             clientMap.set(cName, (clientMap.get(cName) || 0) + revenue);
         });
 
@@ -403,7 +403,7 @@ export class DashboardService {
         }
 
         projects.forEach(p => {
-            p.invoices?.forEach(inv => {
+            p.invoices?.forEach((inv: any) => {
                 if (inv.sent && !inv.amountPaidGross) { // Sent but not fully paid (simplified check)
                     // In a real scenario, we'd check balance due. Here assuming checks "Paid" status or amount.
                     // Let's assume calculated fields earlier handle "Receivable". 
@@ -519,7 +519,7 @@ export class DashboardService {
 
         projects.forEach(p => {
             // 1. Upcoming Invoices to Collect (Sent but not Paid)
-            p.invoices?.forEach(inv => {
+            p.invoices?.forEach((inv: any) => {
                 if (inv.sent && !inv.amountPaidGross) {
                     let dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
                     if (!dueDate && inv.sentDate) {
@@ -621,7 +621,7 @@ export class DashboardService {
                     marginPct = (fin?.priceNet > 0) ? (fin.marginAmountNet / fin.priceNet) : 0;
                 } catch (e) { }
 
-                p.invoices?.forEach(inv => {
+                p.invoices?.forEach((inv: any) => {
                     if (inv.sent && inv.sentDate) {
                         const d = new Date(inv.sentDate);
                         if (d >= start && d < end) {
