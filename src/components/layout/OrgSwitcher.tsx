@@ -15,12 +15,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import { resolveCommercialDisplay } from '@/lib/billing/commercial-display';
+import { useShellCommercialDisplay } from './ShellCommercialDisplay';
 
 export function OrgSwitcher({ currentOrgId, profile }: { currentOrgId?: string, profile?: any }) {
     const [organizations, setOrganizations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
+
+    // CENTRALIZED DISPLAY RULES
+    const display = useShellCommercialDisplay();
 
     useEffect(() => {
         async function loadOrgs() {
@@ -37,13 +40,6 @@ export function OrgSwitcher({ currentOrgId, profile }: { currentOrgId?: string, 
     }, []);
 
     const currentOrg = organizations.find(o => o.id === currentOrgId);
-
-    // Resolve commercial display context
-    const display = resolveCommercialDisplay({
-        userRole: profile?.role,
-        subscriptionStatus: currentOrg?.subscription?.status,
-        plan: currentOrg?.subscription?.plan
-    });
 
     const handleSwitch = async (id: string) => {
         if (id === currentOrgId) return;

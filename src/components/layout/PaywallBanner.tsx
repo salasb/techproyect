@@ -3,6 +3,7 @@
 import { AlertTriangle, Crown, ArrowRight, X } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useShellCommercialDisplay } from "./ShellCommercialDisplay";
 
 export interface PaywallBannerProps {
     status: 'TRIALING' | 'ACTIVE' | 'PAUSED' | 'PAST_DUE' | 'CANCELED';
@@ -11,7 +12,10 @@ export interface PaywallBannerProps {
 }
 
 export function PaywallBanner({ status, trialEndsAt, variant = 'A' }: PaywallBannerProps) {
-    if (status === 'ACTIVE') return null;
+    const display = useShellCommercialDisplay();
+
+    // MANDATORY SUPPRESSION
+    if (display.suppressCommercialPrompts || status === 'ACTIVE') return null;
 
     let config = {
         bg: "bg-amber-500",

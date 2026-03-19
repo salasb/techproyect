@@ -1,45 +1,59 @@
-"use client"
+'use client';
 
 import { AlertTriangle, CreditCard, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePaywall } from "./PaywallContext";
 import { createPortalSession } from "@/actions/billing";
+import { useShellCommercialDisplay } from "../layout/ShellCommercialDisplay";
 
 export function DunningBanner({ subscription }: { subscription: any }) {
-    if (!subscription || (subscription.status !== 'PAST_DUE' && subscription.status !== 'PAUSED')) return null;
+    const display = useShellCommercialDisplay();
+
+    // MANDATORY SUPPRESSION
+    if (display.suppressCommercialPrompts || !subscription || (subscription.status !== 'PAST_DUE' && subscription.status !== 'PAUSED')) {
+        return null;
+    }
 
     const isPaused = subscription.status === 'PAUSED';
     const bgColor = isPaused ? 'bg-rose-600 dark:bg-rose-700' : 'bg-amber-600 dark:bg-amber-700';
     const Icon = isPaused ? CreditCard : AlertTriangle;
-    const message = isPaused 
-        ? "Tu cuenta ha sido PAUSADA por falta de pago. El acceso a funciones de edición está bloqueado hasta que regularices tu situación."
-        : "Error en el pago: Tu suscripción está en mora. Actualiza tu método de pago para evitar la interrupción del servicio.";
+
+    const handleAction = async () => {
+        try {
+            await createPortalSession();
+        } catch (e) {
+            console.error("[DunningBanner] Failed to create portal session:", e);
+        }
+    };
 
     return (
-        <div className={`${bgColor} text-white px-4 py-2.5 flex flex-col md:flex-row items-center justify-center gap-3 md:gap-8 animate-in slide-in-from-top duration-500`}>
-            <div className="flex items-center gap-2 text-sm font-bold text-center md:text-left">
-                <div className="bg-white/20 p-1 rounded-full shrink-0">
-                    <Icon className="w-4 h-4 text-white" />
-                </div>
-                <span>{message}</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-                <form action={createPortalSession}>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        className="bg-white hover:bg-zinc-100 text-rose-700 font-bold border-none shadow-sm h-8"
-                    >
-                        <CreditCard className="w-3.5 h-3.5 mr-2" />
-                        {isPaused ? "Reactivar Cuenta" : "Resolver Ahora"}
-                    </Button>
-                </form>
-                {!isPaused && (
-                    <div className="text-[10px] uppercase tracking-tighter opacity-80 font-black hidden md:block">
-                        Reintento automático programado
+        <div className={`${bgColor} text-white px-4 py-3 shadow-lg animate-in slide-in-from-top duration-500 sticky top-0 z-[50]`}>
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-center md:text-left">
+                    <div className="bg-white/20 p-2 rounded-lg">
+                        <Icon className="w-5 h-5 text-white" />
                     </div>
-                )}
+                    <div>
+                        <p className="font-bold text-sm uppercase tracking-tight italic">
+                            {isPaused ? 'Cuenta Suspendida' : 'Aviso de Cobranza'}
+                        </p>
+                        <p className="text-xs text-white/90">
+                            {isPaused 
+                                ? 'Tu acceso ha sido limitado. Regulariza tus pagos para continuar operando.' 
+                                : 'Tu último pago no pudo ser procesado. Evita la interrupción del servicio.'}
+                        </p>
+                    </div>
+                </div>
+                
+                <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleAction}
+                    className="bg-white text-zinc-900 hover:bg-zinc-100 border-none rounded-full px-6 font-bold text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95"
+                >
+                    Resolver Ahora
+                    <ChevronRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
             </div>
         </div>
     );

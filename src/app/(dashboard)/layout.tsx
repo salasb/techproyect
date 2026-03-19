@@ -2,10 +2,9 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { createClient } from "@/lib/supabase/server";
-import { getOrganizationId } from "@/lib/current-org";
 import prisma from "@/lib/prisma";
 import { PaywallProvider } from "@/components/dashboard/PaywallContext";
-import { OperatingContextBanner } from "@/components/layout/OperatingContextBanner";
+import { ShellCommercialProvider } from "@/components/layout/ShellCommercialDisplay";
 
 export default async function DashboardLayout({
     children,
@@ -27,19 +26,17 @@ export default async function DashboardLayout({
     // 0.5 Canonical Redirect Guard (v1.2)
     const { resolveRedirect } = await import('@/lib/auth/redirect-resolver');
     const redirectPath = resolveRedirect({
-        pathname: '/dashboard', // Layout acts as a proxy for child routes
+        pathname: '/dashboard', 
         isAuthed: workspace.status !== 'NOT_AUTHENTICATED',
         hasOrgContext: !!workspace.activeOrgId,
         recommendedRoute: workspace.recommendedRoute
     });
 
-    // In layout, we only redirect if it's a critical auth mismatch
     if (redirectPath === '/login') {
         const { redirect } = await import("next/navigation");
         redirect('/login');
     }
 
-    // NEW: Don't redirect to /start. Instead, we show the overlay if activeOrgId is missing.
     const showNoOrgOverlay = !workspace.activeOrgId;
 
     let profile = null;
@@ -73,7 +70,6 @@ export default async function DashboardLayout({
         }
     }
 
-    // Fetch Experiment Variant - Defensive
     let paywallVariant: 'A' | 'B' = 'A';
     if (currentOrgId) {
         try {
@@ -89,32 +85,40 @@ export default async function DashboardLayout({
 
     return (
         <PaywallProvider>
-            <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans relative">
-                {showNoOrgOverlay && <NoOrgOverlay />}
-                
-                <AppSidebar
-                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
-                    settings={settings}
-                    workspace={workspace}
-                />
-                <MobileNav
-                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
-                    settings={settings}
-                    workspace={workspace}
-                />                <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
-                    <AppHeader
-                        profile={profile as any}
-                        currentOrgId={currentOrgId || undefined}
-                        subscription={subscription as any}
-                        paywallVariant={paywallVariant}
+            <ShellCommercialProvider
+                userRole={workspace.userRole}
+                isSuperadmin={workspace.isSuperadmin}
+                subscriptionStatus={subscription?.status}
+                plan={(subscription as any)?.planCode}
+            >
+                <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans relative">
+                    {showNoOrgOverlay && <NoOrgOverlay />}
+                    
+                    <AppSidebar
+                        profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
+                        settings={settings}
+                        workspace={workspace}
                     />
-                    <main className="flex-1 p-4 md:p-6 overflow-auto print:p-0 print:overflow-visible">
-                        <div className="w-full space-y-6 print:max-w-none print:space-y-0">
-                            {children}
-                        </div>
-                    </main>
+                    <MobileNav
+                        profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
+                        settings={settings}
+                        workspace={workspace}
+                    />
+                    <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
+                        <AppHeader
+                            profile={profile as any}
+                            currentOrgId={currentOrgId || undefined}
+                            subscription={subscription as any}
+                            paywallVariant={paywallVariant}
+                        />
+                        <main className="flex-1 p-4 md:p-6 overflow-auto print:p-0 print:overflow-visible">
+                            <div className="w-full space-y-6 print:max-w-none print:space-y-0">
+                                {children}
+                            </div>
+                        </main>
+                    </div>
                 </div>
-            </div>
+            </ShellCommercialProvider>
         </PaywallProvider>
     );
 }

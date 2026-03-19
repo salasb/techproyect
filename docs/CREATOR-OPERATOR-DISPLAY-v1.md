@@ -6,7 +6,7 @@ Este documento describe la arquitectura de presentación para usuarios con roles
 Anteriormente, el sistema renderizaba etiquetas de "TRIAL", banners de expiración y CTAs de upgrade basándose únicamente en el estado de la organización activa. Esto causaba que los administradores globales de la plataforma vieran una interfaz "degradada" y orientada a ventas al realizar labores de soporte u operación.
 
 ## 2. Solución: Resolver Canónico de Presentación
-Se ha implementado una capa de abstracción en `src/lib/billing/commercial-display.ts` que separa el **Estado Comercial Real** del **Estado de Visualización**.
+Se ha implementado una capa de abstracción en `src/lib/billing/commercial-display.ts` y un Provider de React `src/components/layout/ShellCommercialDisplay.tsx` que separa el **Estado Comercial Real** del **Estado de Visualización**.
 
 ### Reglas de Negocio (Display)
 1.  **Si el usuario es Global Operator**:
@@ -18,12 +18,20 @@ Se ha implementado una capa de abstracción en `src/lib/billing/commercial-displ
 2.  **Si el usuario es Cliente Regular**:
     *   Mantiene la experiencia comercial original (Trial banners, badges de plan, etc.).
 
-## 3. Componentes Afectados
-*   `AppHeader.tsx`: Controla la renderización de banners superiores y el paso de contexto al switcher.
-*   `OrgSwitcher.tsx`: Muestra el badge de estado de la organización y las etiquetas de observación.
-*   `BillingPage.tsx`: Muestra banners informativos de modo operador en lugar de advertencias de bloqueo.
+## 3. Renderizadores del Shell Corregidos
+Se forzó el uso del hook `useShellCommercialDisplay()` en todos los puntos críticos para evitar que lean el estado comercial crudo de la organización:
+
+*   `src/app/(dashboard)/layout.tsx`: Inicializa el `ShellCommercialProvider` con el estado del espacio de trabajo y suscripción.
+*   `src/components/layout/AppHeader.tsx`: Suprime banners basado en el resolver central.
+*   `src/components/layout/OrgSwitcher.tsx`: Reemplaza badges de "TRIAL" por "Operador" y limpia los subtítulos de estado.
+*   `src/components/layout/PaywallBanner.tsx`: Autocontrol de renderizado mediante el resolver.
+*   `src/components/dashboard/DunningBanner.tsx`: Autocontrol de renderizado mediante el resolver.
+*   `src/app/(dashboard)/(org-required)/settings/billing/page.tsx`: Muestra modo observación.
 
 ## 4. Casos de Prueba (QA)
 *   **Caso A (Superadmin en Org Trial)**: Debe ver badge azul "Operador", ningún banner superior, y acceso total.
 *   **Caso B (Usuario normal en Org Trial)**: Debe ver badge ámbar "TRIAL" y banners de expiración si faltan < 3 días.
 *   **Caso C (Superadmin en Billing)**: Debe ver banner informativo "Modo Operador Global - Estás viendo la facturación de...".
+
+## 5. Hardening Arquitectónico
+Se establece el contrato de que **ningún componente del shell principal** debe realizar comprobaciones manuales de `subscription.status === 'TRIALING'`. En su lugar, deben consumir el hook `useShellCommercialDisplay()` para obtener flags de visibilidad ya procesados.

@@ -12,7 +12,7 @@ import { DunningBanner } from "../dashboard/DunningBanner";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { NotificationCenter } from "./NotificationCenter";
 import { globalSearchAction } from "@/actions/search";
-import { resolveCommercialDisplay } from "@/lib/billing/commercial-display";
+import { useShellCommercialDisplay } from "./ShellCommercialDisplay";
 
 export function AppHeader({
     profile,
@@ -35,6 +35,9 @@ export function AppHeader({
     const router = useRouter();
     const [user, setUser] = useState<{ email?: string; id: string } | null>(null);
     const [userProfile, setUserProfile] = useState<{ name?: string; role?: string; id?: string } | undefined>(profile);
+
+    // CENTRALIZED DISPLAY RULES
+    const display = useShellCommercialDisplay();
 
     useEffect(() => {
         async function getUser() {
@@ -128,12 +131,6 @@ export function AppHeader({
         .replace(/^\s*User\s*/i, '')
         .replace(/\s*USER$/i, '')
         .trim();
-
-    // Resolve commercial display context
-    const display = resolveCommercialDisplay({
-        userRole: userProfile?.role,
-        subscriptionStatus: subscription?.status,
-    });
 
     return (
         <>
