@@ -12,6 +12,7 @@ import { DunningBanner } from "../dashboard/DunningBanner";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { NotificationCenter } from "./NotificationCenter";
 import { globalSearchAction } from "@/actions/search";
+import { resolveCommercialDisplay } from "@/lib/billing/commercial-display";
 
 export function AppHeader({
     profile,
@@ -43,7 +44,6 @@ export function AppHeader({
                 setUser(user);
 
                 if (user) {
-                    // Use maybeSingle() to prevent exceptions on 406/404
                     const { data: profileData } = await supabase
                         .from('Profile')
                         .select('*')
@@ -59,19 +59,16 @@ export function AppHeader({
             }
         }
 
-        // Sync if profile changes externally or not provided
         if (!profile) {
             getUser();
         }
 
-        // Listen for profile updates
         const handleProfileUpdate = () => getUser();
         window.addEventListener('user-profile-updated', handleProfileUpdate);
 
         return () => window.removeEventListener('user-profile-updated', handleProfileUpdate);
     }, [profile]);
 
-    // Close search results when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -93,7 +90,6 @@ export function AppHeader({
         try {
             const results = await globalSearchAction(query);
             
-            // Map results for consistent display
             const projectResults = results.projects.map(p => ({
                 id: p.id,
                 name: p.name,
@@ -115,7 +111,7 @@ export function AppHeader({
                 setShowResults(true);
             } else {
                 setSearchResults([]);
-                setShowResults(true); // Show "No results"
+                setShowResults(true);
             }
         } catch (e) {
             console.error("[AppHeader] Search failed:", e);
@@ -133,10 +129,16 @@ export function AppHeader({
         .replace(/\s*USER$/i, '')
         .trim();
 
+    // Resolve commercial display context
+    const display = resolveCommercialDisplay({
+        userRole: userProfile?.role,
+        subscriptionStatus: subscription?.status,
+    });
+
     return (
         <>
-            <DunningBanner subscription={subscription} />
-            {subscription && (
+            {!display.suppressCommercialPrompts && <DunningBanner subscription={subscription} />}
+            {subscription && !display.suppressCommercialPrompts && (
                 <PaywallBanner
                     status={subscription.status}
                     trialEndsAt={subscription.trialEndsAt}
@@ -145,15 +147,11 @@ export function AppHeader({
             )}
             <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-40 transition-colors flex items-center justify-between px-6 print:hidden">
                 <div className="flex items-center flex-1 gap-4">
-                    {/* Breadcrumbs for easier navigation */}
                     <div className="hidden md:block">
                         <Breadcrumbs />
-                    </div>            {/* ... search ... */}
+                    </div>
                     <div className="flex items-center w-1/3" ref={searchRef}>
-                        {/* DEBUG MARKER */}
-
                         <div className="relative w-full max-w-md hidden md:block">
-                            {/* ... existing search code ... */}
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                             <input
                                 type="text"
@@ -246,7 +244,7 @@ export function AppHeader({
                             </span>
                         </Link>
                     )}
-                    <OrgSwitcher currentOrgId={currentOrgId} />
+                    <OrgSwitcher currentOrgId={currentOrgId} profile={userProfile} />
                     <ThemeToggle />
                     <NotificationCenter
                         organizationId={currentOrgId}

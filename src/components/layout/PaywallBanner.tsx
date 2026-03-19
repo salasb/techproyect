@@ -1,6 +1,5 @@
-"use client";
+'use client';
 
-import React from "react";
 import { AlertTriangle, Crown, ArrowRight, X } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -37,35 +36,29 @@ export function PaywallBanner({ status, trialEndsAt, variant = 'A' }: PaywallBan
         config.bg = "bg-red-600";
         config.message = variant === 'A'
             ? "Tu cuenta está en modo lectura por falta de pago."
-            : "Acceso restringido. Activa tu suscripción para seguir creando proyectos.";
-        config.icon = <AlertTriangle className="w-4 h-4 animate-pulse" />;
-    } else if (status === 'CANCELED') {
-        config.bg = "bg-zinc-800";
-        config.message = "Suscripción cancelada. Tu cuenta pasará a modo lectura pronto.";
-        config.cta = "Reactivar";
+            : "Suscripción interrumpida. Regulariza tus pagos para continuar operando.";
+        config.cta = "Resolver Pago";
+    } else {
+        return null;
     }
 
     return (
         <div className={cn(
-            "w-full px-6 py-2 flex items-center justify-between gap-4 transition-all duration-500 animate-in slide-in-from-top",
+            "h-10 flex items-center justify-center px-4 gap-4 animate-in slide-in-from-top-full duration-500 sticky top-0 z-[60] shadow-md",
             config.bg,
             config.text
         )}>
-            <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-1.5 rounded-lg">
-                    {config.icon}
-                </div>
-                <p className="text-xs font-bold tracking-tight uppercase">
-                    {config.message}
-                </p>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                {config.icon}
+                <span>{config.message}</span>
             </div>
-
-            <Link href={config.href}>
-                <button className="bg-white text-zinc-950 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-100 transition-colors flex items-center gap-1 shadow-lg">
-                    <Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    {config.cta}
-                    <ArrowRight className="w-3 h-3" />
-                </button>
+            
+            <Link 
+                href={config.href}
+                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
+            >
+                {config.cta}
+                <ArrowRight className="w-3 h-3" />
             </Link>
         </div>
     );

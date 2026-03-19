@@ -15,9 +15,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { resolveCommercialDisplay } from '@/lib/billing/commercial-display';
 
-export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
+export function OrgSwitcher({ currentOrgId, profile }: { currentOrgId?: string, profile?: any }) {
     const [organizations, setOrganizations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
@@ -38,11 +38,17 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
 
     const currentOrg = organizations.find(o => o.id === currentOrgId);
 
+    // Resolve commercial display context
+    const display = resolveCommercialDisplay({
+        userRole: profile?.role,
+        subscriptionStatus: currentOrg?.subscription?.status,
+        plan: currentOrg?.subscription?.plan
+    });
+
     const handleSwitch = async (id: string) => {
         if (id === currentOrgId) return;
         setLoading(true);
         await switchOrganizationAction(id);
-        // Page will refresh due to redirect in action
     };
 
     if (loading && !currentOrg) {
@@ -69,17 +75,23 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                                     <div className={cn(
                                         "h-1.5 w-1.5 rounded-full",
                                         currentOrg.subscription.status === 'ACTIVE' ? "bg-green-500 animate-pulse" :
-                                            currentOrg.subscription.status === 'TRIALING' ? "bg-amber-500" : "bg-rose-500"
+                                            currentOrg.subscription.status === 'TRIALING' ? (display.showTrialBadge ? "bg-amber-500" : "bg-blue-500") : "bg-rose-500"
                                     )} />
-                                    <span className={cn(
-                                        "text-[10px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-sm",
-                                        currentOrg.subscription.status === 'TRIALING' ? "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" :
-                                            currentOrg.subscription.status === 'ACTIVE' ? "bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-300" :
-                                                "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-                                    )}>
-                                        {currentOrg.subscription.status === 'TRIALING' ? 'TRIAL' :
-                                            currentOrg.subscription.status === 'ACTIVE' ? 'PRO' : 'PAUSED'}
-                                    </span>
+                                    {display.isGlobalOperator ? (
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-sm">
+                                            Operador
+                                        </span>
+                                    ) : (
+                                        <span className={cn(
+                                            "text-[10px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-sm",
+                                            currentOrg.subscription.status === 'TRIALING' ? "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" :
+                                                currentOrg.subscription.status === 'ACTIVE' ? "bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-300" :
+                                                    "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                        )}>
+                                            {currentOrg.subscription.status === 'TRIALING' ? 'TRIAL' :
+                                                currentOrg.subscription.status === 'ACTIVE' ? 'PRO' : 'PAUSED'}
+                                        </span>
+                                    )}
                                     {currentOrg.OrganizationMember?.[0]?.role && (
                                         <Badge variant="outline" className="text-[9px] px-1 h-3.5 border-slate-200 dark:border-slate-800 text-slate-500">
                                             {currentOrg.OrganizationMember[0].role}
@@ -132,8 +144,12 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                                         )}
                                     </div>
                                     <span className="text-[10px] text-slate-400 font-medium">
-                                        {org.subscription?.status === 'ACTIVE' ? 'Suscripción Activa' :
-                                            org.subscription?.status === 'TRIALING' ? 'Período de Prueba' : 'Cuenta Pausada'}
+                                        {org.id === currentOrgId && display.isGlobalOperator ? (
+                                            <span className="text-indigo-500/80 font-bold">Observando ({org.subscription?.status})</span>
+                                        ) : (
+                                            org.subscription?.status === 'ACTIVE' ? 'Suscripción Activa' :
+                                                org.subscription?.status === 'TRIALING' ? 'Período de Prueba' : 'Cuenta Pausada'
+                                        )}
                                     </span>
                                 </div>
                             </div>
@@ -173,8 +189,6 @@ export function OrgSwitcher({ currentOrgId }: { currentOrgId?: string }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                     onSelect={() => {
-                        console.log('[ORG_SWITCHER] go_global_clicked');
-                        console.log('[ORG_SWITCHER] navigating_to=/admin');
                         router.push('/admin');
                     }}
                     className="w-full flex items-center gap-3 px-3 py-3 text-indigo-600 dark:text-indigo-400 font-bold text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-lg transition-all group border-t border-slate-100 dark:border-slate-800 mt-1 cursor-pointer"
