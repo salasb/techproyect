@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { SidebarContent } from "./SidebarContent";
+import { WorkspaceState } from "@/lib/auth/workspace-resolver";
 
-export function MobileNav({ profile, settings }: { profile?: any, settings?: any }) {
+export function MobileNav({ profile, settings, workspace }: { profile?: any, settings?: any, workspace?: WorkspaceState }) {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -45,6 +46,7 @@ export function MobileNav({ profile, settings }: { profile?: any, settings?: any
                                 onLinkClick={() => setIsOpen(false)}
                                 profile={profile}
                                 settings={settings}
+                                workspace={workspace}
                                 badges={{ projects: 0, quotes: 0 }} // Simplified temporarily
                             />
                         </div>

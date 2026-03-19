@@ -92,15 +92,16 @@ export default async function DashboardLayout({
             <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans relative">
                 {showNoOrgOverlay && <NoOrgOverlay />}
                 
-                <AppSidebar 
-                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }} 
-                    settings={settings} 
+                <AppSidebar
+                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
+                    settings={settings}
+                    workspace={workspace}
                 />
-                <MobileNav 
-                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }} 
-                    settings={settings} 
-                />
-                <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
+                <MobileNav
+                    profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
+                    settings={settings}
+                    workspace={workspace}
+                />                <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
                     <AppHeader
                         profile={profile as any}
                         currentOrgId={currentOrgId || undefined}

@@ -6,6 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { BillingClient } from "@/components/settings/BillingClient";
 import { redirect } from "next/navigation";
+import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
+import { resolveEntitlements } from "@/lib/billing/entitlements";
+import { PlanModulesCard } from "./components/PlanModulesCard";
 
 export default async function BillingPage() {
     let context;
@@ -32,6 +35,9 @@ export default async function BillingPage() {
         console.log(`[Settings][Billing][${traceId}] Loading billing for org=${activeOrgId}`);
         
         // 1. Fetch Subscription and Plans in Parallel
+        const workspace = await getWorkspaceState();
+        const entitlements = resolveEntitlements(workspace);
+
         const [planData, subscription, supabase] = await Promise.all([
             getOrganizationSubscription(activeOrgId).catch(e => {
                 console.error(`[BillingPage][${traceId}] Failed to fetch subscription for ${activeOrgId}:`, e);
@@ -83,7 +89,7 @@ export default async function BillingPage() {
                     </div>
                 )}
 
-                {subscription?.status === 'PAUSED' && (
+                {subscription?.status === 'PAUSED' && !isGlobalOperator && (
                     <div className="bg-rose-600 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8 animate-in slide-in-from-top-4 duration-700">
                         <div className="flex items-center gap-6">
                             <div className="p-4 bg-white/20 rounded-[1.5rem] shadow-inner shrink-0">
@@ -108,7 +114,7 @@ export default async function BillingPage() {
                     </div>
                 )}
 
-                {!hasPaymentMethod && subscription?.status !== 'PAUSED' && (
+                {entitlements.showTrialBanner && (
                     <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8 animate-in slide-in-from-top-4 duration-700">
                         <div className="flex items-center gap-6">
                             <div className="p-4 bg-white/20 rounded-[1.5rem] shadow-inner shrink-0">
@@ -117,7 +123,7 @@ export default async function BillingPage() {
                             <div>
                                 <h3 className="text-2xl font-black italic tracking-tighter uppercase italic">Configuración de Facturación Pendiente</h3>
                                 <p className="text-indigo-100 text-sm max-w-xl leading-relaxed font-medium">
-                                    Tu organización está operando bajo un entorno restringido. Completa la configuración de pagos para asegurar la continuidad de tus proyectos.
+                                    Tu organización está operando bajo un entorno restringido. Completa la configuración de pagos para asegurar la continuidad de tus proyectos y activar los módulos.
                                 </p>
                             </div>
                         </div>
@@ -133,6 +139,10 @@ export default async function BillingPage() {
                     </div>
                 )}
 
+                <div className="mt-8">
+                    <PlanModulesCard entitlements={entitlements} planName={currentPlanDetails?.name || plan} />
+                </div>
+                
                 <div className="flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-6">
                     <div>
                         <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Facturación y Planes</h1>

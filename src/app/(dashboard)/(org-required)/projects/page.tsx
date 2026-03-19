@@ -11,6 +11,9 @@ import { PaginationControl } from "@/components/ui/PaginationControl";
 import { RiskEngine } from "@/services/riskEngine";
 import { RiskBadge } from "@/components/projects/RiskBadge";
 import { ProjectTable } from "@/components/projects/ProjectTable";
+import { ProjectExportButton } from "@/components/projects/export/ProjectExportButton";
+import { resolveEntitlements } from "@/lib/billing/entitlements";
+import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
 
 import { getOrganizationId } from "@/lib/current-org";
 import prisma from "@/lib/prisma";
@@ -19,6 +22,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     const supabase = await createClient();
     const resolvedParams = await searchParams;
     const orgId = await getOrganizationId();
+    const workspace = await getWorkspaceState();
+    const entitlements = resolveEntitlements(workspace);
 
     const page = Number(resolvedParams?.page) || 1;
     const itemsPerPage = 10;
@@ -97,6 +102,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                                 Historial
                             </Link>
                         </div>
+                        {entitlements.canExportProjects && (
+                            <ProjectExportButton orgId={orgId} tab={tab} />
+                        )}
                         <Link href="/projects/new">
                             <button className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-500/20">
                                 <Plus className="w-4 h-4 mr-2" />

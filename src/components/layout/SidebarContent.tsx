@@ -3,8 +3,11 @@ import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Packa
 import { UserMenu } from "./UserMenu";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 import { isAdmin } from "@/lib/permissions";
+import { Permission } from "@/lib/auth/rbac";
+import { resolveEntitlements } from "@/lib/billing/entitlements";
 
 interface NavItem {
+    id?: string;
     name: string;
     href: string;
     icon: any;
@@ -24,67 +27,73 @@ interface SidebarContentProps {
     badges?: Record<string, number>;
     profile?: any;
     settings?: any;
+    workspace?: any;
 }
-
-import { Permission } from "@/lib/auth/rbac";
 
 export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: SidebarContentProps) {
     const isSoloMode = settings?.isSoloMode || false;
+
+    // Resolve entitlements gracefully if workspace is missing in legacy flows
+    const entitlements = resolveEntitlements({
+        isSuperadmin: profile?.role === 'SUPERADMIN',
+        orgPlan: profile?.organization?.plan || 'FREE',
+        subscriptionStatus: profile?.organization?.subscriptionStatus || 'TRIALING'
+    } as any);
 
     const navGroups: NavGroup[] = [
         {
             label: 'Command Center',
             items: [
-                { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+                { id: 'dashboard', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
             ]
         },
         {
             label: 'Vender',
             items: [
-                { name: 'Oportunidades', href: '/crm/pipeline', icon: TrendingUp, permission: 'CRM_MANAGE' },
-                { name: 'Cotizaciones', href: '/quotes', icon: FileText, permission: 'QUOTES_MANAGE' },
-                { name: 'Clientes', href: '/clients', icon: Users, permission: 'CRM_MANAGE' },
+                { id: 'opportunities', name: 'Oportunidades', href: '/crm/pipeline', icon: TrendingUp, permission: 'CRM_MANAGE' },
+                { id: 'quotes', name: 'Cotizaciones', href: '/quotes', icon: FileText, permission: 'QUOTES_MANAGE' },
+                { id: 'clients', name: 'Clientes', href: '/clients', icon: Users, permission: 'CRM_MANAGE' },
             ]
         },
         {
             label: 'Ejecutar',
             items: [
-                { name: 'Proyectos', href: '/projects', icon: FolderOpen, permission: 'PROJECTS_MANAGE' },
-                { name: 'Calendario', href: '/crm/calendar', icon: Calendar, permission: 'CRM_MANAGE' },
+                { id: 'projects', name: 'Proyectos', href: '/projects', icon: FolderOpen, permission: 'PROJECTS_MANAGE' },
+                { id: 'calendar', name: 'Calendario', href: '/crm/calendar', icon: Calendar, permission: 'CRM_MANAGE' },
             ]
         },
         {
             label: 'Cobrar',
             items: [
-                { name: 'Facturación', href: '/invoices', icon: Receipt, permission: 'FINANCE_VIEW' },
+                { id: 'invoices', name: 'Facturación', href: '/invoices', icon: Receipt, permission: 'FINANCE_VIEW' },
             ]
         },
         {
             label: 'Inventario',
             items: [
-                { name: 'Catálogo', href: '/catalog', icon: Package, permission: 'INVENTORY_MANAGE' },
-                { name: 'Ubicaciones', href: '/inventory/locations', icon: MapPin, hideInSoloMode: true, permission: 'INVENTORY_MANAGE' },
-                { name: 'Escáner QR', href: '/inventory/scan', icon: QrCode, permission: 'INVENTORY_MANAGE' },
+                { id: 'catalog', name: 'Catálogo', href: '/catalog', icon: Package, permission: 'INVENTORY_MANAGE' },
+                { id: 'locations', name: 'Ubicaciones', href: '/inventory/locations', icon: MapPin, hideInSoloMode: true, permission: 'INVENTORY_MANAGE' },
+                { id: 'qr', name: 'Escáner QR', href: '/inventory/scan', icon: QrCode, permission: 'INVENTORY_MANAGE' },
             ]
         },
         {
             label: 'Reportes',
             items: [
-                { name: 'Análisis', href: '/reports', icon: BarChart, permission: 'FINANCE_VIEW' },
+                { id: 'reports', name: 'Análisis', href: '/reports', icon: BarChart, permission: 'FINANCE_VIEW' },
             ]
         },
         {
             label: 'Configuración',
             items: [
-                { name: 'Ajustes', href: '/settings', icon: Settings, permission: 'ORG_MANAGE' },
-                { name: 'Soporte', href: '/settings/support', icon: MessageSquare, permission: 'SUPPORT_MANAGE' },
-                { name: 'Integraciones', href: '/settings/integrations', icon: Zap, permission: 'INTEGRATIONS_MANAGE' },
-                { name: 'Roles y Permisos', href: '/settings/organization/roles', icon: Shield, permission: 'ORG_MANAGE' },
-                { name: 'Equipo', href: '/settings/team', icon: Users, permission: 'TEAM_MANAGE', hideInSoloMode: true },
+                { id: 'settings', name: 'Ajustes', href: '/settings', icon: Settings, permission: 'ORG_MANAGE' },
+                { id: 'support', name: 'Soporte', href: '/settings/support', icon: MessageSquare, permission: 'SUPPORT_MANAGE' },
+                { id: 'integrations', name: 'Integraciones', href: '/settings/integrations', icon: Zap, permission: 'INTEGRATIONS_MANAGE' },
+                { id: 'roles', name: 'Roles y Permisos', href: '/settings/organization/roles', icon: Shield, permission: 'ORG_MANAGE' },
+                { id: 'team', name: 'Equipo', href: '/settings/team', icon: Users, permission: 'TEAM_MANAGE', hideInSoloMode: true },
             ]
         }
     ];
-    // Map href to badge key for simpler lookup if needed, or just use hardcoded check
+
     const getBadgeCount = (href: string) => {
         if (href === '/projects') return badges.projects || 0;
         if (href === '/quotes') return badges.quotes || 0;
@@ -93,7 +102,7 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
 
     const userRole = profile?.role;
     const userPermissions = profile?.permissions || [];
-    const orgPlan = profile?.organization?.plan || 'FREE'; // Default to FREE if undefined
+    const orgPlan = profile?.organization?.plan || 'FREE';
 
     return (
         <div className="flex flex-col h-full bg-card text-foreground">
@@ -110,6 +119,11 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
             <nav className="flex-1 px-4 py-4 space-y-6 overflow-y-auto">
                 {navGroups.map((group) => {
                     const filteredItems = group.items.filter(item => {
+                        // 0. Entitlements explicitly block optional modules
+                        if (item.id && ['catalog', 'locations', 'qr', 'inventory'].includes(item.id)) {
+                             if (!entitlements.visibleModules.includes(item.id)) return false;
+                        }
+
                         // 1. Superadmin bypass
                         if (userRole === 'SUPERADMIN') return true;
 
@@ -148,7 +162,7 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
                                         </div>
                                         {count > 0 && (
                                             <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center shadow-sm animate-in zoom-in">
-                                                {count}
+                                                {count > 99 ? '99+' : count}
                                             </span>
                                         )}
                                     </Link>
@@ -159,7 +173,7 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
                 })}
             </nav>
 
-            <div className="p-4 border-t border-border mt-auto">
+            <div className="p-4 border-t border-border bg-card/50">
                 <UserMenu profile={profile} />
             </div>
         </div>
