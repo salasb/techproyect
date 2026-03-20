@@ -68,25 +68,30 @@ export function OrgSwitcher({ currentOrgId, profile }: { currentOrgId?: string, 
                             </span>
                             {currentOrg?.subscription && (
                                 <div className="flex items-center gap-1.5">
-                                    <div className={cn(
-                                        "h-1.5 w-1.5 rounded-full",
-                                        currentOrg.subscription.status === 'ACTIVE' ? "bg-green-500 animate-pulse" :
-                                            currentOrg.subscription.status === 'TRIALING' ? (display.showTrialBadge ? "bg-amber-500" : "bg-blue-500") : "bg-rose-500"
-                                    )} />
                                     {display.isGlobalOperator ? (
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-sm">
-                                            Operador
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-sm">
+                                                Operador
+                                            </span>
+                                        </div>
                                     ) : (
-                                        <span className={cn(
-                                            "text-[10px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-sm",
-                                            currentOrg.subscription.status === 'TRIALING' ? "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" :
-                                                currentOrg.subscription.status === 'ACTIVE' ? "bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-300" :
-                                                    "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-                                        )}>
-                                            {currentOrg.subscription.status === 'TRIALING' ? 'TRIAL' :
-                                                currentOrg.subscription.status === 'ACTIVE' ? 'PRO' : 'PAUSED'}
-                                        </span>
+                                        <>
+                                            <div className={cn(
+                                                "h-1.5 w-1.5 rounded-full",
+                                                currentOrg.subscription.status === 'ACTIVE' ? "bg-green-500 animate-pulse" :
+                                                    currentOrg.subscription.status === 'TRIALING' ? "bg-amber-500" : "bg-rose-500"
+                                            )} />
+                                            <span className={cn(
+                                                "text-[10px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-sm",
+                                                currentOrg.subscription.status === 'TRIALING' ? "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" :
+                                                    currentOrg.subscription.status === 'ACTIVE' ? "bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-300" :
+                                                        "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                            )}>
+                                                {currentOrg.subscription.status === 'TRIALING' ? 'TRIAL' :
+                                                    currentOrg.subscription.status === 'ACTIVE' ? 'PRO' : 'PAUSED'}
+                                            </span>
+                                        </>
                                     )}
                                     {currentOrg.OrganizationMember?.[0]?.role && (
                                         <Badge variant="outline" className="text-[9px] px-1 h-3.5 border-slate-200 dark:border-slate-800 text-slate-500">

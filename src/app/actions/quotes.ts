@@ -52,22 +52,10 @@ export async function sendQuote(projectId: string) {
         draftQuote = await QuoteService.createFromProject(projectId, userId, scope.orgId);
     }
 
-    // 4. Send Quote via Service
+    // 4. Send Quote via Service (Handles project status/action sync)
     const sentQuote = await QuoteService.sendQuote(draftQuote.id, userId, scope.orgId);
 
-    // 5. Update Project Status (Legacy orchestration)
-    await prisma.project.update({
-        where: { id: projectId, organizationId: scope.orgId },
-        data: {
-            status: 'EN_ESPERA',
-            stage: 'COTIZACION',
-            quoteSentDate: new Date(),
-            nextAction: 'Seguimiento Cotización',
-            nextActionDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        }
-    });
-
-    // 6. Automation: Create follow-up task
+    // 5. Automation: Create follow-up task
     const dueIn2Days = new Date();
     dueIn2Days.setDate(dueIn2Days.getDate() + 2);
 
@@ -89,6 +77,30 @@ export async function sendQuote(projectId: string) {
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/quote`);
+    revalidatePath(`/quotes`);
+    return { success: true };
+}
+
+export async function rejectQuote(projectId: string) {
+    const scope = await requirePermission('QUOTES_MANAGE');
+    await ensureNotPaused(scope.orgId);
+
+    const { data: { user } } = await (await createClient()).auth.getUser();
+    const userId = user?.id || 'SYSTEM';
+
+    const latestQuote = await prisma.quote.findFirst({
+        where: { projectId, project: { organizationId: scope.orgId } },
+        orderBy: { version: 'desc' }
+    });
+
+    if (latestQuote) {
+        await QuoteService.rejectQuote(latestQuote.id, userId, scope.orgId);
+    }
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/quote`);
+    revalidatePath(`/quotes`);
+    
     return { success: true };
 }
 

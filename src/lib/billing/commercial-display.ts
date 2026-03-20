@@ -8,6 +8,7 @@ export interface CommercialDisplayContext {
     suppressCommercialPrompts: boolean;
     operatorLabel: string | null;
     commercialStatusLabel: string;
+    visibleModules: string[];
 }
 
 export interface CommercialDisplayInput {
@@ -23,10 +24,15 @@ export interface CommercialDisplayInput {
  * y el estado de la organización observada.
  */
 export function resolveCommercialDisplay(input: CommercialDisplayInput): CommercialDisplayContext {
-    const isGlobalOperator = input.isSuperadmin || input.userRole === 'SUPERADMIN' || input.userRole === 'CREATOR';
+    const isGlobalOperator = Boolean(input.isSuperadmin || input.userRole === 'SUPERADMIN' || input.userRole === 'CREATOR');
     const status = input.subscriptionStatus || 'TRIALING';
     const isTrial = status === 'TRIALING';
+    const plan = input.plan || 'FREE';
+    const hasProFeatures = plan === 'PRO' || plan === 'ENTERPRISE';
 
+    const visibleModules = buildVisibleModules(isGlobalOperator, hasProFeatures);
+
+    // RULE: Global Operator ALWAYS suppresses commercial prompts regardless of org status
     if (isGlobalOperator) {
         return {
             isGlobalOperator: true,
@@ -37,7 +43,8 @@ export function resolveCommercialDisplay(input: CommercialDisplayInput): Commerc
             showTrialLabelInOrgSwitcher: false,
             suppressCommercialPrompts: true,
             operatorLabel: "Modo Operador Global",
-            commercialStatusLabel: isTrial ? "Estado: Prueba" : "Estado: Activo"
+            commercialStatusLabel: `Observando (${status})`,
+            visibleModules
         };
     }
 
@@ -50,6 +57,31 @@ export function resolveCommercialDisplay(input: CommercialDisplayInput): Commerc
         showTrialLabelInOrgSwitcher: isTrial,
         suppressCommercialPrompts: false,
         operatorLabel: null,
-        commercialStatusLabel: isTrial ? "Período de Prueba" : "Suscripción Activa"
+        commercialStatusLabel: isTrial ? "Período de Prueba" : "Suscripción Activa",
+        visibleModules
     };
+}
+
+function buildVisibleModules(isGlobalSuperadmin: boolean, hasProFeatures: boolean): string[] {
+    const core = [
+        'dashboard',
+        'opportunities',
+        'quotes',
+        'clients',
+        'projects',
+        'calendar',
+        'invoices',
+        'reports',
+        'settings',
+        'support',
+        'integrations',
+        'roles',
+        'team'
+    ];
+
+    if (isGlobalSuperadmin || hasProFeatures) {
+        core.push('inventory', 'catalog', 'locations', 'qr');
+    }
+
+    return core;
 }

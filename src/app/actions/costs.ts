@@ -38,7 +38,11 @@ export async function addCost(projectId: string, formData: FormData) {
             }
         });
 
-        await AuditService.logAction(projectId, 'COST_ADD', `Costo agregado: "${description}" por $${amount.toLocaleString('es-CL')}`);
+        await AuditService.logAction({
+            projectId: projectId,
+            action: 'COST_ADD',
+            details: `Costo agregado: "${description}" por $${amount.toLocaleString('es-CL')}`
+        });
 
         // Trigger Auto-transition
         const { autoTransitionProjectState } = await import("@/app/actions/projects");
@@ -69,7 +73,11 @@ export async function deleteCost(projectId: string, costId: string) {
             }
         });
 
-        await AuditService.logAction(projectId, 'COST_DELETE', `Costo eliminado (ID: ${costId})`);
+        await AuditService.logAction({
+            projectId: projectId,
+            action: 'COST_DELETE',
+            details: `Costo eliminado (ID: ${costId})`
+        });
 
         revalidatePath(`/projects/${projectId}`);
         revalidatePath('/');
@@ -109,7 +117,11 @@ export async function updateCost(projectId: string, costId: string, formData: Fo
             }
         });
 
-        await AuditService.logAction(projectId, 'COST_UPDATE', `Costo actualizado: "${description}" por $${amount.toLocaleString('es-CL')}`);
+        await AuditService.logAction({
+            projectId: projectId,
+            action: 'COST_UPDATE',
+            details: `Costo actualizado: "${description}" por $${amount.toLocaleString('es-CL')}`
+        });
 
         revalidatePath(`/projects/${projectId}`);
         revalidatePath('/');

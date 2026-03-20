@@ -57,29 +57,36 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async (formData: FormData) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+
         if (!validateForm(formData)) {
             toast({ type: 'error', message: "Por favor corrige los errores antes de continuar" });
             return;
         }
 
         setIsLoading(true);
-        toast({ type: 'loading', message: "Creando proyecto...", duration: 2000 });
+        toast({ type: 'loading', message: "Iniciando creación...", duration: 2000 });
 
         try {
             const result = await createProject(formData);
+            
             if (result && result.success) {
-                toast({ type: 'success', message: "Proyecto creado exitosamente" });
-                // Slight delay to let the toast be seen before redirect
-                setTimeout(() => {
-                    router.push(`/projects/${result.id}`);
-                }, 1000);
+                toast({ type: 'success', message: "Proyecto creado exitosamente. Redirigiendo..." });
+                router.push(`/projects/${result.id}`);
+                router.refresh();
+            } else {
+                // Surface errors returned as data
+                const errorMsg = (result as any)?.error || "No se pudo crear el proyecto. Verifica los datos.";
+                toast({ type: 'error', message: errorMsg });
+                setIsLoading(false);
             }
         } catch (error: unknown) {
-            console.error(error);
+            console.error("[CreateProjectForm] Submit Exception:", error);
             const isPaywall = handleActionError(error);
             if (!isPaywall) {
-                toast({ type: 'error', message: error instanceof Error ? error.message : "Error al crear proyecto" });
+                toast({ type: 'error', message: error instanceof Error ? error.message : "Error inesperado al crear proyecto" });
             }
             setIsLoading(false);
         }
@@ -101,7 +108,7 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
 
     return (
         <>
-            <form action={handleSubmit} className="space-y-6 max-w-2xl bg-white dark:bg-zinc-900 p-8 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl bg-white dark:bg-zinc-900 p-8 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
 
                 <div className="space-y-2">
                     <h2 className="text-xl font-bold dark:text-white">Detalles del Proyecto</h2>
@@ -268,4 +275,3 @@ export function CreateProjectForm({ companies, clients = [] }: { companies: Comp
         </>
     );
 }
-

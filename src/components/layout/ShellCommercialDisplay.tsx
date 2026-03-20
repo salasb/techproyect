@@ -18,9 +18,12 @@ export function ShellCommercialProvider({
     subscriptionStatus?: string;
     plan?: string;
 }) {
+    // Aggressive detection: Boolean cast and multiple sources
+    const isGlobal = Boolean(isSuperadmin) || userRole === 'SUPERADMIN' || userRole === 'CREATOR';
+
     const display = resolveCommercialDisplay({
         userRole,
-        isSuperadmin,
+        isSuperadmin: isGlobal,
         subscriptionStatus,
         plan
     });

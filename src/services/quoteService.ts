@@ -22,12 +22,7 @@ export class QuoteService {
 
         await ActivationService.trackFunnelEvent('QUOTE_CREATED', organizationId, `quote_created_${quote.id}`, userId);
 
-        await AuditService.logAction(
-            projectId,
-            'QUOTE_CREATED',
-            `Cotización borrador #${quote.version} creada. QuoteId: ${quote.id}`,
-            { id: userId }
-        );
+        await AuditService.logAction({projectId: projectId, action: 'QUOTE_CREATED', details: `Cotización borrador #${quote.version} creada. QuoteId: ${quote.id}`, actor: { id: userId }});
 
         return quote;
     }
@@ -60,16 +55,26 @@ export class QuoteService {
             }
         });
 
+        // 3. Update Project Action (Alignment OLA B)
+        await prisma.project.update({
+            where: { id: quote.projectId },
+            data: {
+                quoteSentDate: new Date(),
+                nextAction: "Esperando Respuesta del Cliente",
+                nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // Default 3 days follow-up
+            }
+        });
+
         await ActivationService.trackFunnelEvent('QUOTE_SENT', organizationId, `quote_sent_${quoteId}`, userId);
         await ActivationService.trackFirst('FIRST_QUOTE_SENT', organizationId, userId, quoteId);
 
-        // 3. Audit
-        await AuditService.logAction(
-            quote.projectId,
-            'QUOTE_SENT',
-            `Cotización #${quote.version} enviada al cliente. (Frozen)`,
-            { id: userId }
-        );
+        // 4. Audit
+        await AuditService.logAction({
+            projectId: quote.projectId,
+            action: 'QUOTE_SENT',
+            details: `Cotización #${quote.version} enviada al cliente. (Frozen)`,
+            actor: { id: userId }
+        });
 
         return updatedQuote;
     }
@@ -132,12 +137,7 @@ export class QuoteService {
         }
 
         // Audit
-        await AuditService.logAction(
-            original.projectId,
-            'QUOTE_REVISION',
-            `Revisión v${newQuote.version} creada a partir de v${original.version}.`,
-            { id: userId }
-        );
+        await AuditService.logAction({projectId: original.projectId, action: 'QUOTE_REVISION', details: `Revisión v${newQuote.version} creada a partir de v${original.version}.`, actor: { id: userId }});
 
         return newQuote;
     }
@@ -170,6 +170,19 @@ export class QuoteService {
             }
         });
 
+        // 3. Update Project Status (Alignment OLA B)
+        // ACCEPTED Quote MUST transition Project to EN_CURSO
+        await prisma.project.update({
+            where: { id: quote.projectId },
+            data: {
+                status: 'EN_CURSO',
+                stage: 'DISENO', // Standard implementation start
+                acceptedAt: new Date(),
+                nextAction: "Iniciar Planificación / Ejecución",
+                nextActionDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000) // Tomorrow
+            }
+        });
+
         await ActivationService.trackFunnelEvent('QUOTE_ACCEPTED', organizationId, `quote_accepted_${quoteId}`, userId || 'SYSTEM');
 
         // Outbound Webhook
@@ -182,16 +195,90 @@ export class QuoteService {
         });
 
         // Audit
-        await AuditService.logAction(
-            quote.projectId,
-            'QUOTE_ACCEPTED',
-            `Cotización #${quote.version} aceptada por cliente.`,
-            { id: userId || 'SYSTEM' }
-        );
+        await AuditService.logAction({projectId: quote.projectId, action: 'QUOTE_ACCEPTED', details: `Cotización #${quote.version} aceptada por cliente. Proyecto activado.`, actor: { id: userId || 'SYSTEM' }});
 
         // Notify? (Events)
 
         return acceptedQuote;
+    }
+
+    /**
+     * Reverts an accepted quote back to SENT status.
+     * Use with caution.
+     */
+    static async revokeAcceptance(quoteId: string, userId: string | null = null, organizationId: string) {
+        const quote = await prisma.quote.findUnique({
+            where: { id: quoteId }
+        });
+
+        if (!quote || quote.status !== 'ACCEPTED') throw new Error("Solo cotizaciones aceptadas pueden ser revocadas.");
+
+        const updatedQuote = await prisma.quote.update({
+            where: { id: quoteId },
+            data: {
+                status: 'SENT',
+                updatedAt: new Date()
+            }
+        });
+
+        // Sync Project: Remove acceptedAt and back to EN_ESPERA? 
+        // Or leave as is if work already started. 
+        // Business Rule: Revoke acceptance moves project back to EN_ESPERA.
+        await prisma.project.update({
+            where: { id: quote.projectId },
+            data: {
+                status: 'EN_ESPERA',
+                acceptedAt: null,
+                nextAction: "Revisar términos con cliente"
+            }
+        });
+
+        await AuditService.logAction({
+            projectId: quote.projectId, 
+            action: 'QUOTE_ACCEPTANCE_REVOKED', 
+            details: `Aceptación de cotización #${quote.version} revocada.`, 
+            actor: { id: userId || 'SYSTEM' }
+        });
+
+        return updatedQuote;
+    }
+
+    /**
+     * Marks a quote as REJECTED and transitions project to CANCELADO.
+     */
+    static async rejectQuote(quoteId: string, userId: string | null = null, organizationId: string) {
+        const quote = await prisma.quote.findUnique({
+            where: { id: quoteId }
+        });
+
+        if (!quote) throw new Error("Quote not found");
+
+        const updatedQuote = await prisma.quote.update({
+            where: { id: quoteId },
+            data: {
+                status: 'REJECTED',
+                updatedAt: new Date()
+            }
+        });
+
+        // Sync Project
+        await prisma.project.update({
+            where: { id: quote.projectId },
+            data: {
+                status: 'CANCELADO',
+                nextAction: "Análisis de pérdida / Cierre administrativo",
+                nextActionDate: new Date()
+            }
+        });
+
+        await AuditService.logAction({
+            projectId: quote.projectId, 
+            action: 'QUOTE_REJECTED', 
+            details: `Cotización #${quote.version} rechazada por cliente. Proyecto cancelado.`, 
+            actor: { id: userId || 'SYSTEM' }
+        });
+
+        return updatedQuote;
     }
 
     /**
@@ -262,21 +349,4 @@ export class QuoteService {
         return quote;
     }
 
-    static async revokeAcceptance(quoteId: string, userId: string, organizationId: string) {
-        const quote = await prisma.quote.update({
-            where: { id: quoteId },
-            data: {
-                status: 'SENT', // Revert to SENT
-                updatedAt: new Date()
-            }
-        });
-
-        await AuditService.logAction(
-            quote.projectId,
-            'QUOTE_REVOKED',
-            `Aceptación de cotización #${quote.version} revocada.`,
-            { id: userId }
-        );
-        return quote;
-    }
 }

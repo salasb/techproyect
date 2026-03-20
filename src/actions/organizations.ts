@@ -56,11 +56,11 @@ export async function updateOrganizationAction(formData: FormData) {
     if (oldOrg?.logoUrl !== logoUrl) changeDetails.push(`Logo cambiado`);
 
     if (changeDetails.length > 0) {
-        await AuditService.logAction(
-            null,
-            'ORG_UPDATED',
-            `Cambios realizados: ${changeDetails.join(', ')}`
-        );
+        await AuditService.logAction({
+            projectId: null,
+            action: 'ORG_UPDATED',
+            details: `Cambios realizados: ${changeDetails.join(', ')}`
+        });
     }
 
     revalidatePath('/settings/organization');
@@ -192,11 +192,7 @@ export async function switchOrganizationAction(organizationId: string) {
     if (!membership) throw new Error("No access to this organization");
 
     // Audit the switch
-    await AuditService.logAction(
-        null,
-        'ORG_SWITCH',
-        `Usuario cambió a organización: ${organizationId}`
-    );
+    await AuditService.logAction({projectId: null, action: 'ORG_SWITCH', details: `Usuario cambió a organización: ${organizationId}`});
 
     // Update Profile
     await prisma.profile.update({

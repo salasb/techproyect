@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { QrCode, Building2, Shield, TrendingUp, Loader2 } from "lucide-react";
 import { DashboardService } from "@/services/dashboardService";
-import { getDollarRate } from "@/services/currency";
-import { DEFAULT_VAT_RATE, DEFAULT_PAYMENT_TERMS_DAYS, YELLOW_THRESHOLD_DAYS, DEFAULT_CURRENCY } from "@/lib/constants";
+import { CurrencyService } from "@/services/currencyService";
+import { COMMERCIAL_CONFIG } from "@/config/commercial";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { ReportExportButton } from "@/components/dashboard/ReportExportButton";
 import { DashboardKPIs } from "@/components/dashboard/DashboardKPIs";
@@ -319,20 +319,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 // Internal Server Component for fetching heavy Dashboard Data without blocking the initial render
 async function DashboardContent({ orgId, period, isSentinelForce, isExplore, traceId }: { orgId: string | null, period: string, isSentinelForce: boolean, isExplore: boolean, traceId: string }) {
     let settings = {
-        vatRate: DEFAULT_VAT_RATE,
-        yellowThresholdDays: YELLOW_THRESHOLD_DAYS,
-        defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
-        currency: DEFAULT_CURRENCY
+        vatRate: COMMERCIAL_CONFIG.DEFAULT_VAT_RATE,
+        yellowThresholdDays: COMMERCIAL_CONFIG.YELLOW_THRESHOLD_DAYS,
+        defaultPaymentTermsDays: COMMERCIAL_CONFIG.DEFAULT_PAYMENT_TERMS_DAYS,
+        currency: COMMERCIAL_CONFIG.BASE_CURRENCY
     };
-    let projects: unknown[] = [];
-    let opportunities: unknown[] = [];
+    let projects: any[] = [];
+    let opportunities: any[] = [];
     let dollarRate = { value: 855 };
-    let tasks: unknown[] = [];
-    let orgStats: unknown = null;
+    let tasks: any[] = [];
+    let orgStats: any = null;
     let subscription: { status: string } | null = null;
-    let activationData: unknown = null;
+    let activationData: any = null;
     let realProjectsCount = 0;
-    let sentinelAlerts: unknown[] = [];
 
     if (orgId) {
         try {
@@ -349,7 +348,7 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                     orderBy: { updatedAt: 'desc' }
                 }),
                 prisma.opportunity.findMany({ where: { organizationId: orgId } }),
-                getDollarRate().catch(() => ({ value: 855 })),
+                CurrencyService.getDollarRate().catch(() => ({ value: 855 })),
                 prisma.task.findMany({
                     where: { organizationId: orgId, status: 'PENDING' },
                     include: { project: { select: { id: true, name: true, company: { select: { name: true } } } } },
@@ -364,35 +363,18 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                 prisma.project.count({ where: { organizationId: orgId } })
             ]);
 
-            if (results[0]) settings = results[0];
-            projects = results[1] || [];
-            opportunities = results[2] || [];
+            if (results[0]) settings = results[0] as any;
+            projects = (results[1] || []) as any[];
+            opportunities = (results[2] || []) as any[];
             dollarRate = results[3];
-            tasks = results[4] || [];
+            tasks = (results[4] || []) as any[];
             orgStats = results[5];
             subscription = results[6];
             activationData = results[7];
             realProjectsCount = results[8];
 
-            // Sentinel fetch concurrently but separately from DB
-            const sentinelPromises = Promise.all([
-                SentinelService.runAnalysis(orgId, isSentinelForce),
-                SentinelService.updateOrgStats(orgId),
-                import("@/services/activation-service").then(({ ActivationService }) =>
-                    ActivationService.trackFirst('ORG_CREATED', orgId)
-                )
-            ]);
-
-            await Promise.race([
-                sentinelPromises,
-                new Promise((resolve) => setTimeout(resolve, 3000))
-            ]);
-
-            const { data } = await SentinelService.getActiveAlerts(orgId);
-            sentinelAlerts = (data || []) as unknown[];
-
         } catch (error: unknown) {
-            console.error("[DashboardContent] Critical Unified fetch error:", error);
+            console.error("[DashboardContent] Critical Core fetch error:", error);
         }
     }
 
@@ -421,63 +403,49 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
         );
     }
 
-    let kpis;
-    try {
-        kpis = (orgId && !isExplore)
-            ? DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value)
-            : isExplore ? {
-                billing: { value: 7500000, previous: 5000000, trend: 50 },
-                margin: { value: 3200000, previous: 2800000, trend: 14.2 },
-                earnedMargin: 0.42,
-                projectedMargin: 0.45,
-                pipeline: { value: 12000000, count: 5 }
-            } : {
-                billing: { value: 0, previous: 0, trend: 0 },
-                margin: { value: 0, previous: 0, trend: 0 },
-                earnedMargin: 0,
-                projectedMargin: 0,
-                pipeline: { value: 0, count: 0 }
-            };
-    } catch (e: unknown) {
-        console.error("[DashboardContent] KPI calculation CRASHED:", e);
-        kpis = { billing: { value: 0, previous: 0, trend: 0 }, margin: { value: 0, previous: 0, trend: 0 }, earnedMargin: 0, projectedMargin: 0, pipeline: { value: 0, count: 0 } };
+    // 1. Calculate Financial KPIs using the Unified Domain (OLA B)
+    const { FinancialDomain } = await import("@/services/financialDomain");
+    const domainMetrics = (orgId && !isExplore) 
+        ? FinancialDomain.aggregateCollection(projects, settings as any)
+        : null;
+
+    const kpis = (domainMetrics) 
+        ? {
+            billing: { value: domainMetrics.totalRevenue, previous: 0, trend: 0 },
+            margin: { value: domainMetrics.totalMargin, previous: 0, trend: 0 },
+            earnedMargin: domainMetrics.avgMarginPct / 100,
+            projectedMargin: domainMetrics.avgMarginPct / 100,
+            pipeline: { value: 0, count: 0 }
+        }
+        : isExplore ? {
+            billing: { value: 7500000, previous: 5000000, trend: 50 },
+            margin: { value: 3200000, previous: 2800000, trend: 14.2 },
+            earnedMargin: 0.42,
+            projectedMargin: 0.45,
+            pipeline: { value: 12000000, count: 5 }
+        } : {
+            billing: { value: 0, previous: 0, trend: 0 },
+            margin: { value: 0, previous: 0, trend: 0 },
+            earnedMargin: 0,
+            projectedMargin: 0,
+            pipeline: { value: 0, count: 0 }
+        };
+
+    // 2. Supplement with legacy trends and pipeline logic
+    if (orgId && !isExplore) {
+        const legacy = DashboardService.getGlobalKPIs(projects, opportunities, period, settings, dollarRate.value);
+        kpis.pipeline = legacy.pipeline;
+        kpis.billing.previous = legacy.billing.previous;
+        kpis.billing.trend = legacy.billing.trend;
+        kpis.margin.previous = legacy.margin.previous;
+        kpis.margin.trend = legacy.margin.trend;
     }
 
-    const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects, period) :
-        isExplore ? [
-            { name: 'Ene', label: 'Ene', income: 1200000, cost: 800000, profit: 400000, dateVal: 1 },
-            { name: 'Feb', label: 'Feb', income: 1500000, cost: 950000, profit: 550000, dateVal: 2 },
-            { name: 'Mar', label: 'Mar', income: 2800000, cost: 1100000, profit: 1700000, dateVal: 3 },
-        ] : [];
-
-    const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects) :
-        isExplore ? [
-            { name: 'Acme Corp', value: 4500000 },
-            { name: 'Global Tech', value: 3000000 }
-        ] : [];
-
+    const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects, period) : [];
+    const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects) : [];
     const isTrialing = subscription?.status === 'TRIALING';
 
-    let sortedActions: unknown[] = [];
-    let nextBestAction: unknown = null;
-
-    try {
-        const centerData = DashboardService.getActionCenterData(
-            projects,
-            settings,
-            opportunities,
-            tasks,
-            sentinelAlerts || [],
-            orgStats,
-            isTrialing
-        );
-        sortedActions = centerData.actions;
-        nextBestAction = centerData.nextBestAction;
-    } catch (e: unknown) {
-        console.error("[DashboardContent] Action Center calculation failed:", e);
-    }
-
-    const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects, settings) : [];
+    const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects, settings as any) : [];
     const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
 
     return (
@@ -486,13 +454,7 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                 <ActivationChecklist data={activationData as any} />
             )}
 
-            <DashboardKPIs data={kpis as {
-                billing: { value: number, previous: number, trend: number },
-                margin: { value: number, previous: number, trend: number },
-                earnedMargin: number,
-                projectedMargin: number,
-                pipeline: { value: number, count: number }
-            }} />
+            <DashboardKPIs data={kpis as any} />
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch mt-8">
                 <div className="lg:col-span-3 space-y-6">
@@ -510,9 +472,20 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <TasksWidget tasks={sortedActions.slice(0, 10) as any} />
+                        {/* Dynamic Action Center (Calculated on the fly) */}
+                        <Suspense fallback={<div className="h-64 bg-muted animate-pulse rounded-xl" />}>
+                            <DeferredActionCenter 
+                                projects={projects} 
+                                settings={settings} 
+                                opportunities={opportunities} 
+                                tasks={tasks} 
+                                orgStats={orgStats} 
+                                isTrialing={isTrialing} 
+                                orgId={orgId} 
+                                isSentinelForce={isSentinelForce}
+                            />
+                        </Suspense>
                         <div className="space-y-6">
-                            <NextBestAction action={nextBestAction as any} />
                             <div className="bg-zinc-900 rounded-xl p-5 text-white shadow-lg border border-zinc-800">
                                 <div className="flex items-center justify-between mb-3">
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 italic">Salud del Sistema</h4>
@@ -522,7 +495,7 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                                     <span className="text-2xl font-black italic uppercase">{orgId ? 'Saludable' : 'Inactivo'}</span>
                                 </div>
                                 <p className="text-[9px] text-zinc-500 mt-2 font-medium leading-relaxed">
-                                    {orgId ? 'Sentinel monitorizando 5 parámetros críticos de integridad y rendimiento.' : 'Conecta una organización para activar el motor de salud Sentinel.'}
+                                    Sentinel monitorizando parámetros críticos de integridad y rendimiento.
                                 </p>
                             </div>
                         </div>
@@ -530,7 +503,9 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                 </div>
 
                 <div className="lg:col-span-1 space-y-6">
-                    <SentinelAlertsPanel alerts={sentinelAlerts as any} />
+                    <Suspense fallback={<div className="h-48 bg-muted animate-pulse rounded-xl" />}>
+                        <DeferredSentinelPanel orgId={orgId} isSentinelForce={isSentinelForce} />
+                    </Suspense>
                     <InventoryAlertsWidget />
                     <BillingAlertsWidget alerts={billingAlerts as any} />
                     <ClientRankingWidget clients={topClients as any} />
@@ -541,5 +516,44 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                 <ProjectGantt projects={projects as any} />
             </div>
         </div>
+    );
+}
+
+// Deferred components to enable streaming
+async function DeferredSentinelPanel({ orgId, isSentinelForce }: { orgId: string | null, isSentinelForce: boolean }) {
+    if (!orgId) return null;
+    
+    // Sentinel fetch concurrently but separately from DB
+    await Promise.all([
+        SentinelService.runAnalysis(orgId, isSentinelForce),
+        SentinelService.updateOrgStats(orgId)
+    ]);
+
+    const { data } = await SentinelService.getActiveAlerts(orgId);
+    return <SentinelAlertsPanel alerts={(data || []) as any} />;
+}
+
+async function DeferredActionCenter({ projects, settings, opportunities, tasks, orgStats, isTrialing, orgId, isSentinelForce }: any) {
+    let sentinelAlerts: any[] = [];
+    if (orgId) {
+        const { data } = await SentinelService.getActiveAlerts(orgId);
+        sentinelAlerts = data || [];
+    }
+
+    const centerData = DashboardService.getActionCenterData(
+        projects,
+        settings,
+        opportunities,
+        tasks,
+        sentinelAlerts,
+        orgStats,
+        isTrialing
+    );
+
+    return (
+        <>
+            <TasksWidget tasks={centerData.actions.slice(0, 10) as any} />
+            <NextBestAction action={centerData.nextBestAction as any} />
+        </>
     );
 }

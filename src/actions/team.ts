@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { generateInviteToken, hashToken, validateInvitation } from "@/services/invite-service";
-import { createAuditLog } from "@/services/audit-service";
+import { AuditService } from "@/services/auditService";
 import { isAdmin, isOwner } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -57,11 +57,10 @@ export async function inviteMemberAction(formData: FormData) {
     });
 
     if (invitesToday >= 20 || invitesHour >= 5) {
-        await createAuditLog({
-            organizationId: orgId,
-            userId: user.id,
-            action: 'INVITE_RATE_LIMIT_HIT' as any,
-            details: `Limit hit: ${invitesToday}/day, ${invitesHour}/hour`
+        await AuditService.logAction({
+            action: 'INVITE_RATE_LIMIT_HIT',
+            details: `Limit hit: ${invitesToday}/day, ${invitesHour}/hour`,
+            actor: { id: user.id }
         });
         throw new Error("Has alcanzado el límite de invitaciones. Por seguridad, espera un momento antes de enviar más.");
     }
@@ -155,11 +154,10 @@ export async function inviteMemberAction(formData: FormData) {
     });
 
     // 7. Audit & Milestone
-    await createAuditLog({
-        organizationId: orgId,
-        userId: user.id,
+    await AuditService.logAction({
         action: 'INVITE_SENT',
-        details: `Invited ${email} with role ${role} (SentCount: ${invite.sentCount})`
+        details: `Invited ${email} with role ${role} (SentCount: ${invite.sentCount})`,
+        actor: { id: user.id }
     });
 
     if (role === 'ADMIN' || role === 'OWNER') {
@@ -232,11 +230,10 @@ export async function resendInvitationAction(invitationId: string, orgId: string
         type: 'RESEND'
     });
 
-    await createAuditLog({
-        organizationId: orgId,
-        userId: user.id,
+    await AuditService.logAction({
         action: 'INVITE_SENT',
-        details: `Resent invitation for ${invitation.email}`
+        details: `Resent invitation for ${invitation.email}`,
+        actor: { id: user.id }
     });
 
     revalidatePath("/settings/team");
@@ -274,11 +271,11 @@ export async function acceptInvitationAction(token: string) {
     }
 
     if (currentMembers >= maxSeats) {
-        await createAuditLog({
-            organizationId: invitation.organizationId,
-            userId: user.id,
-            action: 'SEAT_LIMIT_BLOCK' as any,
-            details: `Failed to join org ${invitation.organizationId} due to seat limit (${currentMembers}/${maxSeats})`
+        await AuditService.logAction({
+            explicitOrgId: invitation.organizationId,
+            action: 'SEAT_LIMIT_BLOCK',
+            details: `Failed to join org ${invitation.organizationId} due to seat limit (${currentMembers}/${maxSeats})`,
+            actor: { id: user.id }
         });
         throw new Error("La organización alcanzó su límite de asientos. Pide al Owner que amplíe el plan.");
     }
@@ -313,11 +310,11 @@ export async function acceptInvitationAction(token: string) {
     });
 
     // 5. Audit & Milestone
-    await createAuditLog({
-        organizationId: invitation.organizationId,
-        userId: user.id,
+    await AuditService.logAction({
+        explicitOrgId: invitation.organizationId,
         action: 'INVITE_ACCEPTED',
-        details: `Joined organization via invitation (Seat ${currentMembers + 1}/${maxSeats})`
+        details: `Joined organization via invitation (Seat ${currentMembers + 1}/${maxSeats})`,
+        actor: { id: user.id }
     });
 
     await ActivationService.trackFirst('FIRST_TEAM_MEMBER_JOINED', invitation.organizationId, user.id);
@@ -355,11 +352,10 @@ export async function revokeInvitationAction(invitationId: string, orgId: string
     });
 
     // 3. Audit
-    await createAuditLog({
-        organizationId: orgId,
-        userId: user.id,
+    await AuditService.logAction({
         action: 'INVITE_REVOKED',
-        details: `Revoked invitation for ${invitation.email}`
+        details: `Revoked invitation for ${invitation.email}`,
+        actor: { id: user.id }
     });
 
     revalidatePath("/settings/team");
@@ -434,11 +430,10 @@ export async function updateMemberRoleAction(memberId: string, orgId: string, ro
     }
 
     // 4. Audit
-    await createAuditLog({
-        organizationId: orgId,
-        userId: user.id,
+    await AuditService.logAction({
         action: 'MEMBER_ROLE_CHANGED',
-        details: `Changed role of member ${targetMember.userId} (OrgMember ${memberId}) to ${isStandard ? newRole : 'Custom Role ' + customRoleId}`
+        details: `Changed role of member ${targetMember.userId} (OrgMember ${memberId}) to ${isStandard ? newRole : 'Custom Role ' + customRoleId}`,
+        actor: { id: user.id }
     });
 
     revalidatePath("/settings/team");
@@ -484,11 +479,10 @@ export async function removeMemberAction(memberId: string, orgId: string) {
     await prisma.organizationMember.delete({ where: { id: memberId } });
 
     // 4. Audit
-    await createAuditLog({
-        organizationId: orgId,
-        userId: user.id,
+    await AuditService.logAction({
         action: 'MEMBER_REMOVED',
-        details: `Removed member ${targetMember.userId} (OrgMember ${memberId}) with role ${targetMember.role}`
+        details: `Removed member ${targetMember.userId} (OrgMember ${memberId}) with role ${targetMember.role}`,
+        actor: { id: user.id }
     });
 
     revalidatePath("/settings/team");

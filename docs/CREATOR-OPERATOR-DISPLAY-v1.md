@@ -19,19 +19,20 @@ Se ha implementado una capa de abstracción en `src/lib/billing/commercial-displ
     *   Mantiene la experiencia comercial original (Trial banners, badges de plan, etc.).
 
 ## 3. Renderizadores del Shell Corregidos
-Se forzó el uso del hook `useShellCommercialDisplay()` en todos los puntos críticos para evitar que lean el estado comercial crudo de la organización:
+Se forzó el uso del hook `useShellCommercialDisplay()` en todos los puntos críticos para evitar que lean el estado comercial crudo de la organización. Se implementó una detección agresiva de rol en el Provider para asegurar la cobertura del bypass.
 
-*   `src/app/(dashboard)/layout.tsx`: Inicializa el `ShellCommercialProvider` con el estado del espacio de trabajo y suscripción.
-*   `src/components/layout/AppHeader.tsx`: Suprime banners basado en el resolver central.
-*   `src/components/layout/OrgSwitcher.tsx`: Reemplaza badges de "TRIAL" por "Operador" y limpia los subtítulos de estado.
-*   `src/components/layout/PaywallBanner.tsx`: Autocontrol de renderizado mediante el resolver.
-*   `src/components/dashboard/DunningBanner.tsx`: Autocontrol de renderizado mediante el resolver.
-*   `src/app/(dashboard)/(org-required)/settings/billing/page.tsx`: Muestra modo observación.
+Componentes actualizados:
+*   `src/app/(dashboard)/layout.tsx`: Ahora utiliza `resolveAccessContext()` (la fuente de verdad de más alto nivel) para inicializar el `ShellCommercialProvider`.
+*   `src/components/layout/AppHeader.tsx`: Control centralizado de banners. Inyecta logs de depuración para trazar la supresión.
+*   `src/components/layout/OrgSwitcher.tsx`: Rediseño del trigger para Operadores Globales. Se eliminó el badge "TRIAL" y el punto de estado ámbar, reemplazándolos por un badge índigo de "Operador" con brillo.
+*   `src/components/layout/PaywallBanner.tsx`: Autocontrol de renderizado con validación de bypass.
+*   `src/components/dashboard/DunningBanner.tsx`: Autocontrol de renderizado con validación de bypass.
 
 ## 4. Casos de Prueba (QA)
-*   **Caso A (Superadmin en Org Trial)**: Debe ver badge azul "Operador", ningún banner superior, y acceso total.
-*   **Caso B (Usuario normal en Org Trial)**: Debe ver badge ámbar "TRIAL" y banners de expiración si faltan < 3 días.
-*   **Caso C (Superadmin en Billing)**: Debe ver banner informativo "Modo Operador Global - Estás viendo la facturación de...".
+*   **Caso A (Superadmin en Org Trial)**: Header limpio (sin banner azul), sin badge "TRIAL", switcher en modo "Operador".
+*   **Caso B (Usuario normal en Org Trial)**: Mantiene la experiencia comercial íntegra (TRIAL visible).
+*   **Caso C (Failsafe)**: Si el rol no se resuelve a tiempo, el Provider aplica un default defensivo.
 
 ## 5. Hardening Arquitectónico
-Se establece el contrato de que **ningún componente del shell principal** debe realizar comprobaciones manuales de `subscription.status === 'TRIALING'`. En su lugar, deben consumir el hook `useShellCommercialDisplay()` para obtener flags de visibilidad ya procesados.
+Se establece el contrato de que **ningún componente del shell principal** debe realizar comprobaciones manuales de `subscription.status === 'TRIALING'`. El uso de `useShellCommercialDisplay()` es obligatorio para cualquier señal visual de marketing, límites o upgrade.
+

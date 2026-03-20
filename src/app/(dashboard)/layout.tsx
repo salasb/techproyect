@@ -19,25 +19,11 @@ export default async function DashboardLayout({
         redirect('/login');
     }
 
-    // 0. Resolve Workspace State (Canonical)
-    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
-    const workspace = await getWorkspaceState();
+    // 0. Resolve Access Context (High-level Source of Truth)
+    const { resolveAccessContext } = await import('@/lib/auth/access-resolver');
+    const accessContext = await resolveAccessContext();
 
-    // 0.5 Canonical Redirect Guard (v1.2)
-    const { resolveRedirect } = await import('@/lib/auth/redirect-resolver');
-    const redirectPath = resolveRedirect({
-        pathname: '/dashboard', 
-        isAuthed: workspace.status !== 'NOT_AUTHENTICATED',
-        hasOrgContext: !!workspace.activeOrgId,
-        recommendedRoute: workspace.recommendedRoute
-    });
-
-    if (redirectPath === '/login') {
-        const { redirect } = await import("next/navigation");
-        redirect('/login');
-    }
-
-    const showNoOrgOverlay = !workspace.activeOrgId;
+    const showNoOrgOverlay = !accessContext.activeOrgId;
 
     let profile = null;
     if (user) {
@@ -59,7 +45,7 @@ export default async function DashboardLayout({
         console.error("[DashboardLayout] Settings fetch failed:", e);
     }
 
-    const currentOrgId = workspace.activeOrgId;
+    const currentOrgId = accessContext.activeOrgId;
     
     let subscription = null;
     if (currentOrgId) {
@@ -83,24 +69,28 @@ export default async function DashboardLayout({
 
     const { NoOrgOverlay } = await import("@/components/auth/NoOrgOverlay");
 
+    // Get Workspace state for sidebar/nav compat
+    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
+    const workspace = await getWorkspaceState();
+
     return (
         <PaywallProvider>
             <ShellCommercialProvider
-                userRole={workspace.userRole}
-                isSuperadmin={workspace.isSuperadmin}
-                subscriptionStatus={subscription?.status}
+                userRole={accessContext.globalRole || undefined}
+                isSuperadmin={accessContext.isGlobalOperator}
+                subscriptionStatus={accessContext.subscriptionStatus || undefined}
                 plan={(subscription as any)?.planCode}
             >
                 <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans relative">
                     {showNoOrgOverlay && <NoOrgOverlay />}
                     
                     <AppSidebar
-                        profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
+                        profile={{ ...profile, permissions: workspace.permissions, role: accessContext.globalRole }}
                         settings={settings}
                         workspace={workspace}
                     />
                     <MobileNav
-                        profile={{ ...profile, permissions: workspace.permissions, role: workspace.userRole }}
+                        profile={{ ...profile, permissions: workspace.permissions, role: accessContext.globalRole }}
                         settings={settings}
                         workspace={workspace}
                     />

@@ -1,11 +1,11 @@
 'use server'
 
-import { getDollarRate, getUfRate } from "@/services/currency";
+import { CurrencyService } from "@/services/currencyService";
 
 export async function getDollarRateAction() {
-    return await getDollarRate();
+    return await CurrencyService.getDollarRate();
 }
 
 export async function getUfRateAction() {
-    return await getUfRate();
+    return await CurrencyService.getUfRate();
 }

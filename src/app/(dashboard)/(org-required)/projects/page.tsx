@@ -5,7 +5,7 @@ import { Database } from "@/types/supabase";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { differenceInCalendarDays, isBefore, startOfDay, format } from "date-fns";
-import { DEFAULT_VAT_RATE } from "@/lib/constants";
+import { COMMERCIAL_CONFIG } from "@/config/commercial";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PaginationControl } from "@/components/ui/PaginationControl";
 import { RiskEngine } from "@/services/riskEngine";
@@ -34,7 +34,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
 
     // 1. Fetch settings (Prisma instead)
     let settings = await prisma.settings.findFirst();
-    if (!settings) settings = { vatRate: DEFAULT_VAT_RATE } as any;
+    if (!settings) settings = { vatRate: COMMERCIAL_CONFIG.DEFAULT_VAT_RATE } as any;
 
     if (!orgId) {
         return <div className="p-8 text-center">Organización no encontrada</div>;

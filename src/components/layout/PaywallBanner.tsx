@@ -17,6 +17,10 @@ export function PaywallBanner({ status, trialEndsAt, variant = 'A' }: PaywallBan
     // MANDATORY SUPPRESSION
     if (display.suppressCommercialPrompts || status === 'ACTIVE') return null;
 
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[PaywallBanner] Rendering status=${status}, suppress=${display.suppressCommercialPrompts}`);
+    }
+
     let config = {
         bg: "bg-amber-500",
         text: "text-white",

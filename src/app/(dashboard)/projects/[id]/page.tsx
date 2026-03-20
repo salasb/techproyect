@@ -4,7 +4,7 @@ import { calculateProjectFinancials } from "@/services/financialCalculator";
 import ProjectDetailView from "@/components/projects/ProjectDetailView";
 import ProjectInventory from "@/components/projects/ProjectInventory";
 import { RiskEngine } from "@/services/riskEngine";
-import { getDollarRate, getUfRate } from "@/services/currency";
+import { CurrencyService } from "@/services/currencyService";
 import { resolveProjectAccess } from "@/lib/auth/project-resolver";
 import { Lock, AlertCircle } from "lucide-react";
 import Link from "next/link";
@@ -59,8 +59,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             prisma.projectLog.findMany({ where: { projectId: id }, orderBy: { createdAt: 'desc' } }),
             prisma.client.findMany({ where: { organizationId: orgId }, orderBy: { name: 'asc' } }),
             prisma.settings.findFirst(),
-            getDollarRate().catch(() => ({ value: 855, code: 'USD', date: new Date().toISOString(), source: 'FALLBACK' })),
-            getUfRate().catch(() => ({ value: 37000, code: 'UF', date: new Date().toISOString(), source: 'FALLBACK' }))
+            CurrencyService.getDollarRate().catch(() => ({ value: 855, code: 'USD', date: new Date().toISOString(), source: 'FALLBACK' })),
+            CurrencyService.getUfRate().catch(() => ({ value: 37000, code: 'UF', date: new Date().toISOString(), source: 'FALLBACK' }))
         ]);
 
         const safeSettings = settings || {
@@ -76,18 +76,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         const surcharge = (safeSettings as any).dollarSurcharge ?? 5.0;
         const appliedExchangeRate = {
             ...exchangeRate,
-            observedValue: exchangeRate.value,
+            observedValue: (exchangeRate as any).value,
             surcharge: surcharge,
-            value: exchangeRate.value + surcharge
+            value: (exchangeRate as any).value + surcharge
         };
 
-        const financials = calculateProjectFinancials(
-            project,
-            (project as any).costEntries || [],
-            (project as any).invoices || [],
-            safeSettings as any,
-            (project as any).quoteItems || []
-        );
+        const { FinancialDomain } = await import("@/services/financialDomain");
+        const financials = FinancialDomain.getProjectSnapshot(project as any, safeSettings as any);
 
         const risk = RiskEngine.calculateProjectRisk(project as any, safeSettings as any);
 

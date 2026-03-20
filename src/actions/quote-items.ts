@@ -37,7 +37,11 @@ export async function addQuoteItem(projectId: string, data: FormData) {
         });
 
         // Audit
-        await AuditService.logAction(projectId, 'ADD_ITEM', `Added item: ${detail} (${quantity} ${unit}) - $${priceNet}`);
+        await AuditService.logAction({
+            projectId: projectId,
+            action: 'ADD_ITEM',
+            details: `Added item: ${detail} (${quantity} ${unit}) - $${priceNet}`
+        });
 
         revalidatePath(`/projects/${projectId}`);
         revalidatePath(`/projects/${projectId}/quote`);
@@ -64,7 +68,7 @@ export async function removeQuoteItem(itemId: string, projectId: string) {
         });
 
         // Audit
-        await AuditService.logAction(projectId, 'DELETE_ITEM', `Deleted item ID: ${itemId}`);
+        await AuditService.logAction({projectId: projectId, action: 'DELETE_ITEM', details: `Deleted item ID: ${itemId}`});
 
         revalidatePath(`/projects/${projectId}`);
         revalidatePath(`/projects/${projectId}/quote`);
@@ -103,7 +107,7 @@ export async function updateQuoteItem(itemId: string, projectId: string, data: F
         });
 
         // Audit
-        await AuditService.logAction(projectId, 'UPDATE_ITEM', `Updated item: ${detail}`);
+        await AuditService.logAction({projectId: projectId, action: 'UPDATE_ITEM', details: `Updated item: ${detail}`});
 
         revalidatePath(`/projects/${projectId}`);
         revalidatePath(`/projects/${projectId}/quote`);
@@ -168,7 +172,7 @@ export async function addQuoteItemsBulk(projectId: string, items: any[]) {
         });
 
         // Audit
-        await AuditService.logAction(projectId, 'ADD_ITEMS_BULK', `Added ${items.length} items via bulk operation`);
+        await AuditService.logAction({projectId: projectId, action: 'ADD_ITEMS_BULK', details: `Added ${items.length} items via bulk operation`});
 
         revalidatePath(`/projects/${projectId}`);
         revalidatePath(`/projects/${projectId}/quote`);

@@ -64,16 +64,16 @@ export async function POST(
         const ip = req.headers.get('x-forwarded-for') || 'unknown';
         const userAgent = req.headers.get('user-agent') || 'unknown';
 
-        await AuditService.logAction(
-            quote.projectId,
-            'QUOTE_ACCEPT_PUBLIC',
-            `Cotización #${quote.version} aceptada vía enlace público.`,
-            {
+        await AuditService.logAction({
+            projectId: quote.projectId,
+            action: 'QUOTE_ACCEPT_PUBLIC',
+            details: `Cotización #${quote.version} aceptada vía enlace público.`,
+            actor: {
                 name: 'Cliente (Público)',
                 ip,
                 userAgent
             }
-        );
+        });
 
         // 5. Redirect back to page with success
         const url = new URL(`/p/q/${token}`, req.url);

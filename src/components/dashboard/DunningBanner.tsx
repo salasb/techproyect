@@ -14,6 +14,10 @@ export function DunningBanner({ subscription }: { subscription: any }) {
         return null;
     }
 
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DunningBanner] Rendering despite suppress flag? Should be false: ${display.suppressCommercialPrompts}`);
+    }
+
     const isPaused = subscription.status === 'PAUSED';
     const bgColor = isPaused ? 'bg-rose-600 dark:bg-rose-700' : 'bg-amber-600 dark:bg-amber-700';
     const Icon = isPaused ? CreditCard : AlertTriangle;

@@ -39,6 +39,10 @@ export function AppHeader({
     // CENTRALIZED DISPLAY RULES
     const display = useShellCommercialDisplay();
 
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[AppHeader] suppress=${display.suppressCommercialPrompts}, role=${userProfile?.role}`);
+    }
+
     useEffect(() => {
         async function getUser() {
             try {

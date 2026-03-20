@@ -51,12 +51,7 @@ export class InvoiceService {
             status: invoice.status
         });
 
-        await AuditService.logAction(
-            quote.projectId,
-            'INVOICE_CREATED',
-            `Factura generada desde Cotización #${quote.version}.`,
-            { id: userId }
-        );
+        await AuditService.logAction({projectId: quote.projectId, action: 'INVOICE_CREATED', details: `Factura generada desde Cotización #${quote.version}.`, actor: { id: userId }});
 
         return invoice;
     }
@@ -133,12 +128,12 @@ export class InvoiceService {
             }
         });
 
-        await AuditService.logAction(
-            invoice.projectId,
-            'INVOICE_PAYMENT',
-            `Pago registrado: ${amount} (${method}). Referencia: ${reference}. Estado: ${newStatus}`,
-            { id: userId }
-        );
+        await AuditService.logAction({
+            projectId: invoice.projectId,
+            action: 'INVOICE_PAYMENT',
+            details: `Pago registrado: ${amount} (${method}). Referencia: ${reference}. Estado: ${newStatus}`,
+            actor: { id: userId }
+        });
 
         return payment;
     }

@@ -78,7 +78,11 @@ export async function createInvoice(projectId: string, formData: FormData) {
 
     if (error) throw new Error(`Error creando factura: ${error.message}`);
 
-    await AuditService.logAction(projectId, 'INVOICE_CREATE', `Factura manual creada por $${amount.toLocaleString()}`);
+    await AuditService.logAction({
+        projectId: projectId,
+        action: 'INVOICE_CREATE',
+        details: `Factura manual creada por $${amount.toLocaleString('es-CL')}`
+    });
     await ActivationService.trackFirst('FIRST_INVOICE_CREATED', scope.orgId);
 
     revalidatePath(`/projects/${projectId}`);
@@ -93,7 +97,7 @@ export async function deleteInvoice(projectId: string, invoiceId: string) {
     const { error } = await supabase.from('Invoice').delete().eq('id', invoiceId).eq('organizationId', scope.orgId);
     if (error) throw new Error(`Error eliminando factura: ${error.message}`);
 
-    await AuditService.logAction(projectId, 'INVOICE_DELETE', `Factura eliminada`);
+    await AuditService.logAction({projectId: projectId, action: 'INVOICE_DELETE', details: `Factura eliminada`});
     revalidatePath(`/projects/${projectId}`);
     return { success: true };
 }
@@ -110,7 +114,7 @@ export async function markInvoiceSent(projectId: string, invoiceId: string, sent
 
     if (error) throw new Error(`Error actualizando factura: ${error.message}`);
 
-    await AuditService.logAction(projectId, 'INVOICE_UPDATE', `Factura marcada como enviada`);
+    await AuditService.logAction({projectId: projectId, action: 'INVOICE_UPDATE', details: `Factura marcada como enviada`});
 
     // Update Project Next Action
     await supabase.from('Project').update({

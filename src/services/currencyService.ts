@@ -1,53 +1,84 @@
-export interface ExchangeRateInfo {
-    rate: number;
+export interface ExchangeRate {
+    code: string;
+    value: number;
     date: string;
     source: string;
 }
 
-const FALLBACK_RATE = 855; // Last known good rate from user
-const API_URL = 'https://mindicador.cl/api/dolar';
-
-// Cache in-memory for the duration of the server process
-// In a serverless environment like Vercel, this is short-lived but helpful
-let rateCache: ExchangeRateInfo | null = null;
-let lastFetchTime = 0;
-const CACHE_TTL = 3600 * 1000; // 1 hour
+const FALLBACK_DOLLAR = 855;
+const FALLBACK_UF = 38000;
 
 export class CurrencyService {
-    static async getExchangeRate(): Promise<ExchangeRateInfo> {
-        const now = Date.now();
-
-        if (rateCache && (now - lastFetchTime < CACHE_TTL)) {
-            return rateCache;
-        }
-
+    /**
+     * Fetches current USD/CLP rate with 1-hour cache.
+     */
+    static async getDollarRate(): Promise<ExchangeRate> {
         try {
-            console.log("Fetching real-time USD/CLP rate from mindicador.cl...");
-            const response = await fetch(API_URL, {
-                next: { revalidate: 3600 } // Next.js level caching (1 hour)
+            const res = await fetch('https://mindicador.cl/api/dolar', {
+                next: { revalidate: 3600 }
             });
 
-            if (!response.ok) throw new Error('Failed to fetch from mindicador.cl');
+            if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
 
-            const data = await response.json();
+            const data = await res.json();
             const latest = data.serie[0];
 
-            rateCache = {
-                rate: latest.valor,
-                date: new Date(latest.fecha).toLocaleDateString('es-CL'),
+            if (!latest || !latest.valor) throw new Error('Invalid data structure');
+
+            return {
+                code: 'USD',
+                value: latest.valor,
+                date: new Date(latest.fecha).toISOString(),
                 source: 'mindicador.cl'
             };
-            lastFetchTime = now;
-
-            return rateCache;
         } catch (error) {
-            console.error("Error fetching exchange rate:", error);
-            // Fallback to static value but mark source accordingly
+            console.error("[CurrencyService] Dollar fetch failed, using fallback:", error);
             return {
-                rate: FALLBACK_RATE,
-                date: new Date().toLocaleDateString('es-CL'),
+                code: 'USD',
+                value: FALLBACK_DOLLAR,
+                date: new Date().toISOString(),
                 source: 'Static Fallback'
             };
         }
+    }
+
+    /**
+     * Fetches current UF/CLP rate with 24-hour cache.
+     */
+    static async getUfRate(): Promise<ExchangeRate> {
+        try {
+            const res = await fetch('https://mindicador.cl/api/uf', {
+                next: { revalidate: 86400 }
+            });
+
+            if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+            const data = await res.json();
+            const latest = data.serie[0];
+
+            if (!latest || !latest.valor) throw new Error('Invalid data structure');
+
+            return {
+                code: 'UF',
+                value: latest.valor,
+                date: new Date(latest.fecha).toISOString(),
+                source: 'mindicador.cl'
+            };
+        } catch (error) {
+            console.error("[CurrencyService] UF fetch failed, using fallback:", error);
+            return {
+                code: 'UF',
+                value: FALLBACK_UF,
+                date: new Date().toISOString(),
+                source: 'Static Fallback'
+            };
+        }
+    }
+
+    /**
+     * Legacy support method
+     */
+    static async getExchangeRate() {
+        return this.getDollarRate();
     }
 }

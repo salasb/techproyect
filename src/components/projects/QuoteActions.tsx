@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateProjectStatus, associateProjectToClient } from "@/app/actions/projects";
 import { createInvoiceFromProject } from "@/app/actions/invoices";
-import { sendQuote, createQuoteRevision, toggleQuoteAcceptance } from "@/app/actions/quotes";
+import { sendQuote, createQuoteRevision, toggleQuoteAcceptance, rejectQuote } from "@/app/actions/quotes";
 import { QuickClientDialog } from "@/components/clients/QuickClientDialog";
 import { useToast } from "@/components/ui/Toast";
 import confetti from 'canvas-confetti';
@@ -55,7 +55,7 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
                     origin: { y: 0.6 }
                 });
             } else if (action === 'REJECT') {
-                await updateProjectStatus(projectId, 'CANCELADO');
+                await rejectQuote(projectId);
                 toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
             } else if (action === 'REVISE') {
                 await createQuoteRevision(projectId);

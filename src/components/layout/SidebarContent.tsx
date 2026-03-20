@@ -5,6 +5,7 @@ import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 import { isAdmin } from "@/lib/permissions";
 import { Permission } from "@/lib/auth/rbac";
 import { resolveEntitlements } from "@/lib/billing/entitlements";
+import { useShellCommercialDisplay } from "./ShellCommercialDisplay";
 
 interface NavItem {
     id?: string;
@@ -33,12 +34,8 @@ interface SidebarContentProps {
 export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: SidebarContentProps) {
     const isSoloMode = settings?.isSoloMode || false;
 
-    // Resolve entitlements gracefully if workspace is missing in legacy flows
-    const entitlements = resolveEntitlements({
-        isSuperadmin: profile?.role === 'SUPERADMIN',
-        orgPlan: profile?.organization?.plan || 'FREE',
-        subscriptionStatus: profile?.organization?.subscriptionStatus || 'TRIALING'
-    } as any);
+    // CENTRALIZED DISPLAY RULES (Source of Truth for Shell)
+    const display = useShellCommercialDisplay();
 
     const navGroups: NavGroup[] = [
         {
@@ -102,7 +99,6 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
 
     const userRole = profile?.role;
     const userPermissions = profile?.permissions || [];
-    const orgPlan = profile?.organization?.plan || 'FREE';
 
     return (
         <div className="flex flex-col h-full bg-card text-foreground">
@@ -119,12 +115,13 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
             <nav className="flex-1 px-4 py-4 space-y-6 overflow-y-auto">
                 {navGroups.map((group) => {
                     const filteredItems = group.items.filter(item => {
-                        // 0. Entitlements explicitly block optional modules
-                        if (item.id && ['catalog', 'locations', 'qr', 'inventory'].includes(item.id)) {
-                             if (!entitlements.visibleModules.includes(item.id)) return false;
+                        // 0. Entitlements Based Access Control (EBAC)
+                        // Use the centralized 'visibleModules' from commercial display context
+                        if (item.id && !display.visibleModules.includes(item.id)) {
+                            return false;
                         }
 
-                        // 1. Superadmin bypass
+                        // 1. Superadmin bypass for permissions
                         if (userRole === 'SUPERADMIN') return true;
 
                         // 2. Permission check
@@ -134,7 +131,6 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
                         if (item.adminOnly && !isAdmin(userRole)) return false;
 
                         // 4. Other checks
-                        if (item.restrictedToPlans && !item.restrictedToPlans.includes(orgPlan)) return false;
                         if (item.hideInSoloMode && isSoloMode) return false;
                         return true;
                     });

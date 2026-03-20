@@ -48,7 +48,7 @@ export async function createProject(formData: FormData) {
             }
         });
 
-        await AuditService.logAction(project.id, 'PROJECT_CREATE', `Proyecto "${data.name}" creado por ${scope.userId}`);
+        await AuditService.logAction({projectId: project.id, action: 'PROJECT_CREATE', details: `Proyecto "${data.name}" creado por ${scope.userId}`});
 
         revalidatePath('/projects');
         return { success: true, id: project.id };
@@ -172,7 +172,7 @@ export async function deleteProject(projectId: string) {
             prisma.project.delete({ where: { id: projectId } })
         ]);
 
-        await AuditService.logAction(null, 'PROJECT_DELETE', `Proyecto "${project.name}" eliminado permanentemente.`);
+        await AuditService.logAction({projectId: null, action: 'PROJECT_DELETE', details: `Proyecto "${project.name}" eliminado permanentemente.`});
 
         revalidatePath("/projects");
         return { success: true };

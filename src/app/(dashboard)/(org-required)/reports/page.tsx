@@ -1,8 +1,7 @@
-import { calculateProjectFinancials, MinimalCostEntry, MinimalInvoice, MinimalProject, MinimalQuoteItem, MinimalSettings } from "@/services/financialCalculator";
 import { RevenueChart } from "@/components/reports/RevenueChart";
 import { ProjectMarginChart } from "@/components/reports/ProjectMarginChart";
 import { ClientRevenuePie } from "@/components/reports/ClientRevenuePie";
-import { TrendingUp, PieChart, FileText, AlertCircle } from "lucide-react";
+import { TrendingUp, PieChart, FileText, AlertCircle, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import { DashboardService } from "@/services/dashboardService";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
@@ -12,6 +11,8 @@ import { ReportsTabs } from "@/components/reports/ReportsTabs";
 import { LocationSelector } from "@/components/reports/LocationSelector";
 import { getOrganizationId } from "@/lib/current-org";
 import prisma from "@/lib/prisma";
+import { FinancialDomain } from "@/services/financialDomain";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
         </div>;
     }
 
-    // 1. Data Fetching (outside try/catch for JSX safety)
+    // 1. Data Fetching
     const [locations, settings, projectsRaw] = await Promise.all([
         prisma.location.findMany({ where: { organizationId: orgId }, select: { id: true, name: true } }),
         prisma.settings.findFirst(),
@@ -88,78 +89,53 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
         );
     }
 
-    // 2. Financial Processing
-    const safeSettings = settings || { vatRate: 0.19, yellowThresholdDays: 7, defaultPaymentTermsDays: 30 };
+    // 2. Financial Processing (OLA B + C Unification)
+    const safeSettings = settings || { 
+        vatRate: 0.19, 
+        yellowThresholdDays: 7, 
+        defaultPaymentTermsDays: 30,
+        organizationId: orgId,
+        currency: 'CLP'
+    };
 
-    const processedProjects = projectsRaw.map((p) => {
-        const quoteItems: MinimalQuoteItem[] = (p.quoteItems || []).map((qi) => {
-            const item = qi as { priceNet: number; costNet: number; quantity: number; isSelected: boolean };
-            return {
-                priceNet: item.priceNet,
-                costNet: item.costNet,
-                quantity: item.quantity,
-                isSelected: item.isSelected
-            };
-        });
+    const domainKPIs = FinancialDomain.aggregateCollection(projectsRaw as any, safeSettings as any);
 
-        const financials = calculateProjectFinancials(
-            {
-                budgetNet: p.budgetNet || 0,
-                marginPct: Number(p.marginPct) || 0.3,
-                status: p.status,
-                progress: p.progress || 0,
-                plannedEndDate: p.plannedEndDate
-            } as MinimalProject,
-            (p.costEntries || []) as MinimalCostEntry[],
-            (p.invoices || []) as MinimalInvoice[],
-            safeSettings as MinimalSettings,
-            quoteItems
-        );
-
-        return {
-            ...p,
-            financials,
-            clientName: p.client?.name || p.company?.name || 'Sin Cliente'
-        };
-    });
+    const processedProjects = projectsRaw.map((p) => ({
+        ...p,
+        financials: FinancialDomain.getProjectSnapshot(p as any, safeSettings as any),
+        clientName: p.client?.name || p.company?.name || 'Sin Cliente'
+    }));
 
     const financialTrends = DashboardService.getFinancialTrends(projectsRaw as any, period);
     const topClients = DashboardService.getTopClients(projectsRaw as any);
     const projectMargins = DashboardService.getProjectMargins(processedProjects as any);
 
-    const totalRevenue = processedProjects.reduce((acc, p) => acc + p.financials.priceNet, 0);
-    const totalMargin = processedProjects.reduce((acc, p) => acc + p.financials.marginAmountNet, 0);
-    const avgMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
-    
-    // Count only truly active projects (exclude drafts without quote sent and closed/cancelled)
-    const activeProjects = processedProjects.filter((p) => p.status === 'EN_CURSO' || p.status === 'EN_ESPERA' || p.status === 'BLOQUEADO').length;
-    // Count pending quotes: Sent but not yet accepted
-    const pendingQuotes = processedProjects.filter((p) => p.quoteSentDate && !p.acceptedAt).length;
+    const totalRevenue = domainKPIs.totalRevenue;
+    const avgMarginPct = domainKPIs.avgMarginPct;
+    const activeProjects = domainKPIs.activeProjectsCount;
+    const pendingQuotes = domainKPIs.pendingQuotesCount;
 
     // A module shouldn't show $0.0M blindly if there is absolutely no financial data setup
-    const hasData = totalRevenue > 0 || totalMargin > 0 || activeProjects > 0 || pendingQuotes > 0;
+    const hasData = totalRevenue > 0 || domainKPIs.totalMargin > 0 || activeProjects > 0 || pendingQuotes > 0;
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-20">
             {header}
 
             {!hasData ? (
-                <div className="p-20 text-center bg-muted/10 rounded-[2rem] border border-dashed border-border flex flex-col items-center justify-center space-y-4">
-                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-full shadow-sm border border-border">
-                        <TrendingUp className="w-8 h-8 text-zinc-300" />
-                    </div>
-                    <div className="space-y-1">
-                        <p className="font-bold text-lg">No hay actividad financiera consolidada</p>
-                        <p className="text-sm text-muted-foreground max-w-sm">
-                            Este panel se completa con actividad financiera consolidada, facturación emitida o cotizaciones enviadas/aceptadas.
-                        </p>
-                    </div>
-                </div>
+                <EmptyState 
+                    variant="card"
+                    icon={BarChart3}
+                    title="No hay actividad financiera consolidada"
+                    description="Este panel se completa con proyectos activos, facturación emitida o cotizaciones aceptadas. Comienza estructurando tu primer negocio."
+                    actionLabel="Crear Primer Proyecto"
+                    actionHref="/projects/new"
+                />
             ) : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[
-                            { title: "Venta Neta Proyectada", value: `$${(totalRevenue / 1000000).toFixed(1)}M`, icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+                            { title: "Venta Neta Proyectada", value: FinancialDomain.formatCurrency(totalRevenue), icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
                             { title: "Margen Promedio", value: `${avgMarginPct.toFixed(1)}%`, icon: PieChart, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
                             { title: "Proyectos en Curso", value: activeProjects.toString(), icon: FileText, color: "text-indigo-500", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
                             { title: "Cotizaciones Pendientes", value: pendingQuotes.toString(), icon: AlertCircle, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },

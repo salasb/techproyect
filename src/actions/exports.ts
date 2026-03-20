@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
-import { DEFAULT_VAT_RATE } from "@/lib/constants";
+import { COMMERCIAL_CONFIG } from "@/config/commercial";
 import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import prisma from "@/lib/prisma";
 
@@ -60,7 +60,7 @@ export async function getFinancialReport(period: string = '30d') {
 
     // Fetch settings for VAT
     const { data: settingsData } = await supabase.from('Settings').select('*').single();
-    const settings = settingsData || { vatRate: DEFAULT_VAT_RATE } as any;
+    const settings = settingsData || { vatRate: COMMERCIAL_CONFIG.DEFAULT_VAT_RATE } as any;
 
     // Fetch Projects with full details for calculation
     const { data: projectsData, error } = await supabase

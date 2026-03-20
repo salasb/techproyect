@@ -4,7 +4,7 @@ import React from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Wallet, Activity, Target } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-import { ExchangeRate } from '@/services/currency';
+import { ExchangeRate } from '@/services/currencyService';
 
 import { Skeleton } from "@/components/ui/skeleton";
 

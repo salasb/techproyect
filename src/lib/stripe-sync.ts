@@ -3,7 +3,7 @@
  * Prepared for Wave 4.2
  */
 import prisma from "@/lib/prisma";
-import { createAuditLog } from "@/services/audit-service";
+import { AuditService } from "@/services/auditService";
 
 export async function syncStripeSeats(orgId: string) {
     try {
@@ -32,11 +32,11 @@ export async function syncStripeSeats(orgId: string) {
         //   items: [{ id: org.subscription.providerSubscriptionItemId, quantity: seatsUsed }]
         // });
 
-        await createAuditLog({
-            organizationId: orgId,
-            userId: 'SYSTEM', // O el actor que disparó el sync
-            action: 'STRIPE_SEATS_SYNC' as any,
-            details: `Synced ${seatsUsed} seats to Stripe`
+        await AuditService.logAction({
+            explicitOrgId: orgId,
+            action: 'STRIPE_SEATS_SYNC',
+            details: `Synced ${seatsUsed} seats to Stripe`,
+            actor: { id: 'SYSTEM', name: 'Stripe Sync Worker' }
         });
 
         return { success: true, seats: seatsUsed };

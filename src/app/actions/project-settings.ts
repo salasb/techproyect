@@ -79,7 +79,7 @@ export async function updateProjectSettings(
 
         // Audit Log
         const changedFields = Object.keys(cleanData).join(', ');
-        await AuditService.logAction(projectId, 'UPDATE_SETTINGS', `Campos actualizados: ${changedFields}. Por: ${userName}`);
+        await AuditService.logAction({projectId: projectId, action: 'UPDATE_SETTINGS', details: `Campos actualizados: ${changedFields}. Por: ${userName}`});
 
         console.log(`[Projects][${traceId}] Update successful`);
 

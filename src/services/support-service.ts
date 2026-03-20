@@ -35,13 +35,7 @@ export class SupportService {
             userId
         });
 
-        await AuditService.logAction(
-            null,
-            'TICKET_CREATED',
-            `Ticket #${ticket.id} creado: ${title}`,
-            { id: userId },
-            organizationId
-        );
+        await AuditService.logAction({projectId: null, action: 'TICKET_CREATED', details: `Ticket #${ticket.id} creado: ${title}`, actor: { id: userId }, explicitOrgId: organizationId});
 
         return ticket;
     }
@@ -111,13 +105,7 @@ export class SupportService {
             }
         });
 
-        await AuditService.logAction(
-            null,
-            'TICKET_STATUS_CHANGED',
-            `Ticket #${ticketId} status cambiado a ${status}`,
-            { id: userId },
-            ticket.organizationId
-        );
+        await AuditService.logAction({projectId: null, action: 'TICKET_STATUS_CHANGED', details: `Ticket #${ticketId} status cambiado a ${status}`, actor: { id: userId }, explicitOrgId: ticket.organizationId});
 
         return updatedTicket;
     }

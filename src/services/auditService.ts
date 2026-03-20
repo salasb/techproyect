@@ -1,71 +1,100 @@
+import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { getOrganizationId } from "@/lib/current-org";
 
+export type AuditEventType =
+    | 'INVITE_SENT'
+    | 'INVITE_ACCEPTED'
+    | 'INVITE_REVOKED'
+    | 'MEMBER_ROLE_CHANGED'
+    | 'MEMBER_REMOVED'
+    | 'ORG_MODE_CHANGED'
+    | 'ORG_SETTINGS_CHANGED'
+    | 'SUBSCRIPTION_UPDATED'
+    | 'BILLING_CHECKOUT_CREATED'
+    | 'BILLING_PORTAL_ACCESSED'
+    | 'WORKSPACE_CONTEXT_SWITCHED'
+    | 'ORG_SWITCH'
+    | 'PROJECT_CREATE'
+    | 'PROJECT_UPDATE'
+    | 'PROJECT_DELETE'
+    | 'QUOTE_CREATE'
+    | 'QUOTE_UPDATE'
+    | 'QUOTE_SENT'
+    | 'QUOTE_ACCEPTED'
+    | 'QUOTE_REJECTED'
+    | 'COST_CREATE'
+    | 'COST_UPDATE'
+    | 'COST_DELETE'
+    | 'INVOICE_GENERATE'
+    | 'INVOICE_SENT'
+    | 'SUPERADMIN_BOOTSTRAP_PROMOTED';
+
+export interface AuditActor {
+    id?: string;
+    name?: string;
+    ip?: string;
+    userAgent?: string;
+}
+
 export class AuditService {
-    static async logAction(
-        projectId: string | null,
-        action: string,
-        details?: string,
-        actor?: { name?: string; id?: string; ip?: string; userAgent?: string },
-        explicitOrgId?: string
-    ) {
+    /**
+     * Centralized Audit Logger
+     * Automatically resolves current user if no actor is provided.
+     */
+    static async logAction(params: {
+        projectId?: string | null;
+        action: AuditEventType | string;
+        details?: string | null;
+        actor?: AuditActor;
+        explicitOrgId?: string;
+    }) {
+        const { projectId = null, action, details = null, actor, explicitOrgId } = params;
+
         try {
             const orgId = explicitOrgId || await getOrganizationId();
-            const supabase = await createClient();
+            if (!orgId) {
+                console.warn(`[AuditService] Skip logging: No organization context for action=${action}`);
+                return;
+            }
 
-            let userName = 'Sistema';
-            let userId: string | null = null; // userId needs to be declared
-            let metadata: Record<string, any> = {};
+            let userId = actor?.id || null;
+            let userName = actor?.name || 'Sistema';
 
-            // 1. Determine Actor
-            if (actor) {
-                userName = actor.name || 'Sistema';
-                userId = actor.id || null;
-                metadata = { ip: actor.ip, userAgent: actor.userAgent };
-            } else {
-                // Fallback to auth user if no explicit actor provided
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Usuario';
-                    userId = user.id;
+            // 1. Auto-resolve actor if not provided
+            if (!actor) {
+                try {
+                    const supabase = await createClient();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        userId = user.id;
+                        userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Usuario';
+                    }
+                } catch (e) {
+                    // Fail silently on auth resolve
                 }
             }
 
-            // 2. Insert Log
-            // Note: If AuditLog table schema doesn't have metadata column yet, this might fail or ignore it.
-            // Assuming AuditLog has a 'metadata' jsonb column or similar, otherwise we append to details.
-
-            // Checks for metadata column existence in Supabase/Prisma would be good, but let's assume standard structure or append to details for now to be safe.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const logData: Record<string, any> = {
-                // id: crypto.randomUUID(), // Let DB handle default
-                organizationId: orgId,
-                projectId: projectId,
-                action,
-                details: details || null,
-                userName,
-                userId,
-                // createdAt: new Date().toISOString() // Let DB handle default
-            };
-
-            // Try to add metadata if table supports it (we don't know for sure without schema, but typically yes)
-            // If not, append to details?
-            // "Public User (IP: ...)"
-            if (Object.keys(metadata).length > 0) {
-                if (metadata.ip) {
-                    logData.details = `${details || ''} [IP: ${metadata.ip}]`.trim();
-                }
-                // If table has metadata column, uncomment:
-                // logData.metadata = metadata;
+            // 2. Format details with IP if available
+            let finalDetails = details;
+            if (actor?.ip) {
+                finalDetails = `${details || ''} [IP: ${actor.ip}]`.trim();
             }
 
-            const { error } = await supabase.from('AuditLog').insert(logData);
-
-            if (error) {
-                console.error(`[AuditService] Error inserting log: ${error.message}`, { projectId, action, details });
-            }
-        } catch (error) {
-            console.error('[AuditService] Critical error:', error);
+            // 3. Persist via Prisma
+            return await prisma.auditLog.create({
+                data: {
+                    organizationId: orgId,
+                    projectId,
+                    userId,
+                    userName,
+                    action,
+                    details: finalDetails,
+                },
+            });
+        } catch (error: any) {
+            console.error(`[AuditService] Critical failure logging action ${action}:`, error.message);
+            // Never block the main thread for an audit failure
         }
     }
 }

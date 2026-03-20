@@ -60,7 +60,13 @@ function buildVisibleModules(isGlobalSuperadmin: boolean, hasProFeatures: boolea
         'clients',
         'projects',
         'calendar',
-        'settings'
+        'invoices',
+        'reports',
+        'settings',
+        'support',
+        'integrations',
+        'roles',
+        'team'
     ];
 
     if (isGlobalSuperadmin || hasProFeatures) {

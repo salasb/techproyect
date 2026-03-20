@@ -10,7 +10,6 @@ import { getStripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
-import { createAuditLog } from "@/services/audit-service";
 import { AuditService } from "@/services/auditService";
 import { checkSubscriptionLimit } from "@/lib/subscriptions";
 
@@ -38,11 +37,11 @@ export async function acceptQuoteAction(quoteId: string) {
         const invoice = await InvoiceService.generateFromQuote(quoteId, userId, scope.orgId);
 
         // 3. Detailed Audit Log (OWASP)
-        await AuditService.logAction(
-            acceptedQuote.projectId,
-            'QUOTE_ACCEPTED_AUDITABLE',
-            `Cotización #${acceptedQuote.version} aceptada por ${user?.email}. Timestamp: ${new Date().toISOString()}`
-        );
+        await AuditService.logAction({
+            projectId: acceptedQuote.projectId,
+            action: 'QUOTE_ACCEPTED',
+            details: `Cotización #${acceptedQuote.version} aceptada por ${user?.email}. Timestamp: ${new Date().toISOString()}`
+        });
 
         revalidatePath(`/quotes`);
         revalidatePath(`/invoices`);
@@ -70,11 +69,11 @@ export async function sendQuoteAction(quoteId: string) {
     try {
         const quote = await QuoteService.sendQuote(quoteId, user?.id || 'SYSTEM', scope.orgId);
         
-        await AuditService.logAction(
-            quote.projectId,
-            'QUOTE_SENT_TO_CLIENT',
-            `Cotización v${quote.version} enviada a cliente por ${user?.email}`
-        );
+        await AuditService.logAction({
+            projectId: quote.projectId,
+            action: 'QUOTE_SENT',
+            details: `Cotización v${quote.version} enviada a cliente por ${user?.email}`
+        });
 
         revalidatePath(`/quotes`);
         revalidatePath(`/projects/${quote.projectId}`);
@@ -104,11 +103,11 @@ export async function sendInvoiceAction(invoiceId: string) {
             }
         });
 
-        await AuditService.logAction(
-            invoice.projectId,
-            'INVOICE_SENT_TO_CLIENT',
-            `Factura ${invoiceId.substring(0,8)} enviada a cliente por ${user?.email}`
-        );
+        await AuditService.logAction({
+            projectId: invoice.projectId,
+            action: 'INVOICE_SENT',
+            details: `Factura ${invoiceId.substring(0,8)} enviada a cliente por ${user?.email}`
+        });
 
         revalidatePath(`/invoices`);
         revalidatePath(`/projects/${invoice.projectId}`);
