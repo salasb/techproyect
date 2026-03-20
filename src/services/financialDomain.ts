@@ -90,18 +90,33 @@ export class FinancialDomain {
      * Common currency formatter to avoid local divergence.
      */
     static formatCurrency(amount: number, currency: string = 'CLP'): string {
-        if (currency === 'CLP') {
-            return new Intl.NumberFormat('es-CL', {
-                style: 'currency',
-                currency: 'CLP',
-                maximumFractionDigits: 0
-            }).format(amount);
-        }
+        const safeAmount = isNaN(amount) || !isFinite(amount) ? 0 : amount;
         
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currency,
-            minimumFractionDigits: 2
-        }).format(amount);
+        try {
+            if (currency === 'CLP') {
+                return new Intl.NumberFormat('es-CL', {
+                    style: 'currency',
+                    currency: 'CLP',
+                    maximumFractionDigits: 0
+                }).format(safeAmount);
+            }
+            
+            if (currency === 'UF') {
+                // UF is not a standard ISO currency code for Intl.NumberFormat
+                return `UF ${new Intl.NumberFormat('es-CL', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(safeAmount)}`;
+            }
+
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currency,
+                minimumFractionDigits: 2
+            }).format(safeAmount);
+        } catch (e) {
+            // Absolute failsafe for invalid currency codes or locale issues
+            return `${currency} ${safeAmount.toLocaleString()}`;
+        }
     }
 }

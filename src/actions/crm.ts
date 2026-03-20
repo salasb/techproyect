@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -69,7 +70,7 @@ export async function addContact(clientId: string, formData: FormData) {
     const role = formData.get('role') as string;
 
     const { error } = await supabase.from('Contact').insert({
-        id: globalThis.crypto.randomUUID(),
+        id: generateId(),
         organizationId: scope.orgId,
         clientId,
         name,
@@ -93,7 +94,7 @@ export async function addInteraction(clientId: string, formData: FormData) {
     const projectId = formData.get('projectId') as string | null;
 
     const { error } = await supabase.from('Interaction').insert({
-        id: globalThis.crypto.randomUUID(),
+        id: generateId(),
         organizationId: scope.orgId,
         clientId,
         type,

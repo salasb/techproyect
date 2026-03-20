@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { revalidatePath } from "next/cache";
 import { requirePermission, requireOperationalScope } from "@/lib/auth/server-resolver";
@@ -14,7 +15,7 @@ export async function addLog(projectId: string, content: string, type: 'INFO' | 
 
         const newLog = await prisma.projectLog.create({
             data: {
-                id: globalThis.crypto.randomUUID(),
+                id: generateId(),
                 organizationId: scope.orgId,
                 projectId,
                 content,

@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/id";
 import { RevenueChart } from "@/components/reports/RevenueChart";
 import { ProjectMarginChart } from "@/components/reports/ProjectMarginChart";
 import { ClientRevenuePie } from "@/components/reports/ClientRevenuePie";
@@ -17,7 +18,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 export const dynamic = 'force-dynamic';
 
 export default async function ReportsPage(props: { searchParams: Promise<{ period?: string, view?: string, locationId?: string }> }) {
-    const traceId = `REP-FIN-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `REP-FIN-${generateId().split("-")[0].toUpperCase()}`;
     const searchParams = await props.searchParams;
     const period = searchParams.period || '6m';
     const view = searchParams.view || 'financial';
@@ -47,17 +48,6 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
         })
     ]);
 
-    console.log(JSON.stringify({
-        event: "OBSERVABILITY",
-        traceId,
-        route: "/reports",
-        user: orgId,
-        durationMs: Date.now() - startTime,
-        sourceOfTruth: "DB/Prisma",
-        result: "SUCCESS",
-        fallbackReason: null
-    }));
-
     const header = (
         <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
@@ -82,20 +72,19 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
     if (view === 'inventory') {
         const inventoryMetrics = await getInventoryMetrics(locationId);
         return (
-            <div className="space-y-6 max-w-7xl mx-auto p-8 animate-in fade-in duration-500">
+            <div className="space-y-8 max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-20">
                 {header}
-                <InventoryAnalytics metrics={inventoryMetrics} />
+                <InventoryAnalytics metrics={JSON.parse(JSON.stringify(inventoryMetrics))} />
+                <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest text-center">Trace ID: {traceId}</p>
             </div>
         );
     }
 
-    // 2. Financial Processing (OLA B + C Unification)
-    const safeSettings = settings || { 
-        vatRate: 0.19, 
-        yellowThresholdDays: 7, 
-        defaultPaymentTermsDays: 30,
-        organizationId: orgId,
-        currency: 'CLP'
+    // Financial View Logic
+    const safeSettings = settings || {
+        vatRate: 0.19,
+        yellowThresholdDays: 7,
+        defaultPaymentTermsDays: 30
     };
 
     const domainKPIs = FinancialDomain.aggregateCollection(projectsRaw as any, safeSettings as any);
@@ -115,8 +104,12 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
     const activeProjects = domainKPIs.activeProjectsCount;
     const pendingQuotes = domainKPIs.pendingQuotesCount;
 
-    // A module shouldn't show $0.0M blindly if there is absolutely no financial data setup
     const hasData = totalRevenue > 0 || domainKPIs.totalMargin > 0 || activeProjects > 0 || pendingQuotes > 0;
+
+    // Serialization for Client Components
+    const sanitizedFinancialTrends = JSON.parse(JSON.stringify(financialTrends));
+    const sanitizedTopClients = JSON.parse(JSON.stringify(topClients));
+    const sanitizedProjectMargins = JSON.parse(JSON.stringify(projectMargins));
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-20">
@@ -155,17 +148,17 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 rounded-[2rem] border border-border bg-card p-8 shadow-sm overflow-hidden">
                             <h3 className="text-sm font-black uppercase tracking-widest italic text-zinc-400 mb-6">Tendencia de Ingresos vs Costos</h3>
-                            <RevenueChart data={financialTrends} />
+                            <RevenueChart data={sanitizedFinancialTrends} />
                         </div>
                         <div className="rounded-[2rem] border border-border bg-card p-8 shadow-sm">
                             <h3 className="text-sm font-black uppercase tracking-widest italic text-zinc-400 mb-6">Distribución por Cliente</h3>
-                            <ClientRevenuePie data={topClients} />
+                            <ClientRevenuePie data={sanitizedTopClients} />
                         </div>
                     </div>
 
                     <div className="rounded-[2rem] border border-border bg-card p-8 shadow-sm overflow-hidden">
                         <h3 className="text-sm font-black uppercase tracking-widest italic text-zinc-400 mb-6">Análisis de Márgenes por Proyecto</h3>
-                        <ProjectMarginChart data={projectMargins} />
+                        <ProjectMarginChart data={sanitizedProjectMargins} />
                     </div>
                 </>
             )}

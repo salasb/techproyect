@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/id";
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import prisma from '@/lib/prisma';
@@ -142,7 +143,7 @@ export async function POST(req: Request) {
             if (!existingProject) {
                 await prisma.project.create({
                     data: {
-                        id: globalThis.crypto.randomUUID(),
+                        id: generateId(),
                         name: 'E2E Seeded Project',
                         companyId: company.id,
                         organizationId: orgId,
@@ -188,7 +189,7 @@ export async function POST(req: Request) {
                     const secondOrgCompany = await prisma.company.create({ data: { name: 'E2E Second Org Company', organizationId: additionalOrgId } });
                     await prisma.project.create({
                         data: {
-                            id: globalThis.crypto.randomUUID(),
+                            id: generateId(),
                             name: 'E2E Second Org Project',
                             companyId: secondOrgCompany.id,
                             organizationId: additionalOrgId,

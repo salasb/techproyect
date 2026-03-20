@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
@@ -9,7 +10,7 @@ import { ensureNotPaused } from "@/lib/guards/subscription-guard";
 import { CostCategory } from "@prisma/client";
 
 export async function addCost(projectId: string, formData: FormData) {
-    const traceId = `CST-ADD-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `CST-ADD-${generateId().split("-")[0].toUpperCase()}`;
     try {
         const scope = await requirePermission('PROJECTS_MANAGE');
         await ensureNotPaused(scope.orgId);
@@ -28,7 +29,7 @@ export async function addCost(projectId: string, formData: FormData) {
 
         const newCost = await prisma.costEntry.create({
             data: {
-                id: globalThis.crypto.randomUUID(),
+                id: generateId(),
                 organizationId: scope.orgId,
                 projectId,
                 description,
@@ -59,7 +60,7 @@ export async function addCost(projectId: string, formData: FormData) {
 }
 
 export async function deleteCost(projectId: string, costId: string) {
-    const traceId = `CST-DEL-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `CST-DEL-${generateId().split("-")[0].toUpperCase()}`;
     try {
         const scope = await requirePermission('PROJECTS_MANAGE');
         await ensureNotPaused(scope.orgId);
@@ -90,7 +91,7 @@ export async function deleteCost(projectId: string, costId: string) {
 }
 
 export async function updateCost(projectId: string, costId: string, formData: FormData) {
-    const traceId = `CST-UPD-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `CST-UPD-${generateId().split("-")[0].toUpperCase()}`;
     try {
         const scope = await requirePermission('PROJECTS_MANAGE');
         await ensureNotPaused(scope.orgId);

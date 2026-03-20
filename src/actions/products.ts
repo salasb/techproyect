@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -34,7 +35,7 @@ export async function createProduct(data: FormData) {
         let sku = (data.get('sku') as string)?.trim();
         if (!sku) {
             let uuid;
-            try { uuid = globalThis.crypto.randomUUID(); } catch { uuid = Math.random().toString(36).substring(7); }
+            try { uuid = generateId(); } catch { uuid = Math.random().toString(36).substring(7); }
             sku = `GEN-${uuid.split('-')[0].toUpperCase()}`;
         }
 
@@ -54,7 +55,7 @@ export async function createProduct(data: FormData) {
         // Safe UUID generation
         let productId;
         try {
-            productId = globalThis.crypto.randomUUID();
+            productId = generateId();
         } catch {
             productId = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         }
@@ -122,7 +123,7 @@ export async function updateProduct(id: string, data: FormData) {
         let sku = (data.get('sku') as string)?.trim();
         if (!sku) {
             let uuid;
-            try { uuid = globalThis.crypto.randomUUID(); } catch { uuid = Math.random().toString(36).substring(7); }
+            try { uuid = generateId(); } catch { uuid = Math.random().toString(36).substring(7); }
             sku = `GEN-${uuid.split('-')[0].toUpperCase()}`;
         }
 

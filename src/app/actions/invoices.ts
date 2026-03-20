@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -63,7 +64,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
     if (!amount || amount <= 0) throw new Error("Monto inválido");
     if (!dueDate) throw new Error("Fecha de vencimiento requerida");
 
-    const invoiceId = globalThis.crypto.randomUUID();
+    const invoiceId = generateId();
 
     const { error } = await supabase.from('Invoice').insert({
         id: invoiceId,

@@ -390,7 +390,7 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
     if (orgId && realProjectsCount === 0 && !isExplore) {
         return (
             <>
-                {!!activationData && <ActivationChecklist data={activationData as any} />}
+                {!!activationData && <ActivationChecklist data={JSON.parse(JSON.stringify(activationData))} />}
                 <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl p-12 text-center shadow-sm animate-in fade-in max-w-3xl mx-auto mt-12">
                     <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                         <QrCode className="w-8 h-8 text-primary" />
@@ -457,13 +457,21 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
     const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects, settings as any) : [];
     const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
 
+    // Serialization for Client Components
+    const sanitizedProjects = JSON.parse(JSON.stringify(projects));
+    const sanitizedTasks = JSON.parse(JSON.stringify(tasks));
+    const sanitizedChartData = JSON.parse(JSON.stringify(chartData));
+    const sanitizedTopClients = JSON.parse(JSON.stringify(topClients));
+    const sanitizedBillingAlerts = JSON.parse(JSON.stringify(billingAlerts));
+    const sanitizedKPIs = JSON.parse(JSON.stringify(kpis));
+
     return (
         <div className="animate-in fade-in duration-500">
             {!!orgId && realProjectsCount > 0 && !!activationData && !isExplore && (
-                <ActivationChecklist data={activationData as any} />
+                <ActivationChecklist data={JSON.parse(JSON.stringify(activationData))} />
             )}
 
-            <DashboardKPIs data={kpis as any} />
+            <DashboardKPIs data={sanitizedKPIs} />
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch mt-8">
                 <div className="lg:col-span-3 space-y-6">
@@ -477,18 +485,18 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                                 <p className="text-xs text-muted-foreground">Evolución comercial ({periodLabels[period] || period})</p>
                             </div>
                         </div>
-                        {orgId ? <RevenueChart data={chartData as any} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
+                        {orgId ? <RevenueChart data={sanitizedChartData} /> : <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg opacity-40">Modo Exploración - Sin datos financieros</div>}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Dynamic Action Center (Calculated on the fly) */}
                         <Suspense fallback={<div className="h-64 bg-muted animate-pulse rounded-xl" />}>
                             <DeferredActionCenter 
-                                projects={projects} 
-                                settings={settings} 
-                                opportunities={opportunities} 
-                                tasks={tasks} 
-                                orgStats={orgStats} 
+                                projects={sanitizedProjects} 
+                                settings={JSON.parse(JSON.stringify(settings))} 
+                                opportunities={JSON.parse(JSON.stringify(opportunities))} 
+                                tasks={sanitizedTasks} 
+                                orgStats={JSON.parse(JSON.stringify(orgStats))} 
                                 isTrialing={isTrialing} 
                                 orgId={orgId} 
                                 isSentinelForce={isSentinelForce}
@@ -516,13 +524,13 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                         <DeferredSentinelPanel orgId={orgId} isSentinelForce={isSentinelForce} />
                     </Suspense>
                     <InventoryAlertsWidget />
-                    <BillingAlertsWidget alerts={billingAlerts as any} />
-                    <ClientRankingWidget clients={topClients as any} />
+                    <BillingAlertsWidget alerts={sanitizedBillingAlerts} />
+                    <ClientRankingWidget clients={sanitizedTopClients} />
                 </div>
             </div>
 
             <div className="mt-6 bg-card rounded-xl border border-border shadow-sm p-1 hover:shadow-md transition-shadow duration-300">
-                <ProjectGantt projects={projects as any} />
+                <ProjectGantt projects={sanitizedProjects} />
             </div>
         </div>
     );
@@ -532,21 +540,30 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
 async function DeferredSentinelPanel({ orgId, isSentinelForce }: { orgId: string | null, isSentinelForce: boolean }) {
     if (!orgId) return null;
     
-    // Sentinel fetch concurrently but separately from DB
-    await Promise.all([
-        SentinelService.runAnalysis(orgId, isSentinelForce),
-        SentinelService.updateOrgStats(orgId)
-    ]);
+    try {
+        // Sentinel fetch concurrently but separately from DB
+        await Promise.all([
+            SentinelService.runAnalysis(orgId, isSentinelForce),
+            SentinelService.updateOrgStats(orgId)
+        ]);
 
-    const { data } = await SentinelService.getActiveAlerts(orgId);
-    return <SentinelAlertsPanel alerts={(data || []) as any} />;
+        const { data } = await SentinelService.getActiveAlerts(orgId);
+        return <SentinelAlertsPanel alerts={JSON.parse(JSON.stringify(data || []))} />;
+    } catch (e) {
+        console.error("[DeferredSentinelPanel] Error:", e);
+        return null;
+    }
 }
 
 async function DeferredActionCenter({ projects, settings, opportunities, tasks, orgStats, isTrialing, orgId, isSentinelForce }: any) {
     let sentinelAlerts: any[] = [];
     if (orgId) {
-        const { data } = await SentinelService.getActiveAlerts(orgId);
-        sentinelAlerts = data || [];
+        try {
+            const { data } = await SentinelService.getActiveAlerts(orgId);
+            sentinelAlerts = data || [];
+        } catch (e) {
+            console.error("[DeferredActionCenter] Sentinel alerts fetch failed", e);
+        }
     }
 
     const centerData = DashboardService.getActionCenterData(
@@ -559,10 +576,14 @@ async function DeferredActionCenter({ projects, settings, opportunities, tasks, 
         isTrialing
     );
 
+    // Serialization for Client Components
+    const sanitizedActions = JSON.parse(JSON.stringify(centerData.actions.slice(0, 10)));
+    const sanitizedNextAction = JSON.parse(JSON.stringify(centerData.nextBestAction));
+
     return (
         <>
-            <TasksWidget tasks={centerData.actions.slice(0, 10) as any} />
-            <NextBestAction action={centerData.nextBestAction as any} />
+            <TasksWidget tasks={sanitizedActions} />
+            <NextBestAction action={sanitizedNextAction} />
         </>
     );
 }

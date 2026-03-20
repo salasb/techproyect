@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/id";
 import Link from "next/link";
 import { InvoiceExportButton } from "@/components/invoices/InvoiceExportButton";
 import prisma from "@/lib/prisma";
@@ -12,7 +13,7 @@ import { SendInvoiceButton } from "@/components/commercial/SendInvoiceButton";
 import { InvoicePdfButton } from "@/components/invoices/InvoicePdfButton";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-    const traceId = `INV-LST-${globalThis.crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const traceId = `INV-LST-${generateId().slice(0, 8).toUpperCase()}`;
     const orgId = await getOrganizationId();
     
     if (!orgId) {

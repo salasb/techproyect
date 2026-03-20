@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -37,7 +38,7 @@ export async function inviteUser(formData: FormData) {
     }
 
     // 2. Create Invitation
-    const token = globalThis.crypto.randomUUID();
+    const token = generateId();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     const { error } = await supabase

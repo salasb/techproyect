@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/id";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 
@@ -33,7 +34,7 @@ export class OutboundWebhookService {
 
         const startTime = Date.now();
         const body = JSON.stringify({
-            id: globalThis.crypto.randomUUID(),
+            id: generateId(),
             event: eventName,
             createdAt: new Date().toISOString(),
             data: payload

@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -35,7 +36,7 @@ export async function createUser(formData: FormData) {
     const { error } = await supabase
         .from('Profile')
         .insert({
-            id: globalThis.crypto.randomUUID(), // Assuming we generate ID if not Auth managed yet
+            id: generateId(), // Assuming we generate ID if not Auth managed yet
             organizationId: orgId,
             name,
             email,

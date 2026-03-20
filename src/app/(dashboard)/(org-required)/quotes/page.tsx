@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/id";
 import { Search, FileText, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -16,7 +17,7 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ page?: string, q?: string, view?: string }> }) {
-    const traceId = `QUO-LST-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `QUO-LST-${generateId().split("-")[0].toUpperCase()}`;
     const params = await searchParams;
     const cookieStore = await cookies();
     const orgId = await getOrganizationId();
@@ -126,7 +127,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         });
 
         data = {
-            quotes,
+            quotes: JSON.parse(JSON.stringify(quotes)),
             totalPages,
             hasNextPage,
             hasPrevPage

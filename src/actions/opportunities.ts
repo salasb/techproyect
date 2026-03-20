@@ -1,4 +1,5 @@
 'use server';
+import { generateId } from "@/lib/id";
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -109,7 +110,7 @@ export async function createOpportunity(formData: FormData) {
     const nextInteractionDate = addBusinessDays(lastContactDate, 8);
 
     const newOpp: OpportunityInsert = {
-        id: globalThis.crypto.randomUUID(),
+        id: generateId(),
         organizationId: scope.orgId,
         title,
         clientId,
@@ -268,7 +269,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
         const { data: newCompany, error: companyError } = await supabase
             .from('Company')
             .insert({
-                id: globalThis.crypto.randomUUID(),
+                id: generateId(),
                 name: clientName,
                 organizationId: scope.orgId,
                 email: opp.Client?.email,

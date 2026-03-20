@@ -78,33 +78,49 @@ export default async function DashboardLayout({
     // Get Workspace state for sidebar/nav compat
     const workspace = await getWorkspaceState();
 
+    // 5. Serialization Sanitization (v2.1)
+    // One-pass sanitization for all data passed to Client Components
+    const sanitizedData = JSON.parse(JSON.stringify({
+        profile,
+        workspace,
+        subscription,
+        paywallVariant
+    }));
+
+    const { 
+        profile: sanitizedProfile, 
+        workspace: sanitizedWorkspace, 
+        subscription: sanitizedSubscription, 
+        paywallVariant: sanitizedPaywallVariant 
+    } = sanitizedData;
+
     return (
         <PaywallProvider>
             <ShellCommercialProvider
                 userRole={accessContext.globalRole || undefined}
                 isSuperadmin={accessContext.isGlobalOperator}
                 subscriptionStatus={accessContext.subscriptionStatus || undefined}
-                plan={(subscription as any)?.planCode}
+                plan={(sanitizedSubscription as any)?.planCode}
             >
                 <div className="min-h-screen bg-background flex flex-col md:flex-row font-sans relative">
                     {showNoOrgOverlay && <NoOrgOverlay />}
                     
                     <AppSidebar
-                        profile={{ ...profile, role: accessContext.globalRole }}
+                        profile={{ ...sanitizedProfile, role: accessContext.globalRole }}
                         settings={settings}
-                        workspace={workspace}
+                        workspace={sanitizedWorkspace}
                     />
                     <MobileNav
-                        profile={{ ...profile, role: accessContext.globalRole }}
+                        profile={{ ...sanitizedProfile, role: accessContext.globalRole }}
                         settings={settings}
-                        workspace={workspace}
+                        workspace={sanitizedWorkspace}
                     />
                     <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 print:pl-0">
                         <AppHeader
-                            profile={profile as any}
+                            profile={sanitizedProfile as any}
                             currentOrgId={currentOrgId || undefined}
-                            subscription={subscription as any}
-                            paywallVariant={paywallVariant}
+                            subscription={sanitizedSubscription as any}
+                            paywallVariant={sanitizedPaywallVariant}
                         />
                         <main className="flex-1 p-4 md:p-6 overflow-auto print:p-0 print:overflow-visible">
                             <div className="w-full space-y-6 print:max-w-none print:space-y-0">

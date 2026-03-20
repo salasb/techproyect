@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/id";
 import { QuotePrintButton } from "@/components/projects/QuotePrintButton";
 import { QuoteAcceptance } from "@/components/projects/QuoteAcceptance";
 import { QuoteActions } from "@/components/projects/QuoteActions";
@@ -21,7 +22,7 @@ interface Props {
  * Uses canonical resolveProjectAccess for identifier consistency and security.
  */
 export default async function QuotePage({ params, searchParams }: Props & { searchParams: Promise<{ v?: string }> }) {
-    const traceId = `QUO-PG-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `QUO-PG-${generateId().split("-")[0].toUpperCase()}`;
     const startTime = Date.now();
     const { id } = await params;
     const { v } = await searchParams;

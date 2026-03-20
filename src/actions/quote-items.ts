@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { revalidatePath } from "next/cache";
 import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
@@ -23,7 +24,7 @@ export async function addQuoteItem(projectId: string, data: FormData) {
 
         const newItem = await prisma.quoteItem.create({
             data: {
-                id: globalThis.crypto.randomUUID(),
+                id: generateId(),
                 organizationId: scope.orgId,
                 projectId,
                 sku,
@@ -155,7 +156,7 @@ export async function addQuoteItemsBulk(projectId: string, items: any[]) {
         console.log(`[QuoteItems][${traceId}] Adding ${items.length} items to project=${projectId}`);
 
         const itemsToInsert = items.map(item => ({
-            id: globalThis.crypto.randomUUID(),
+            id: generateId(),
             organizationId: scope.orgId,
             projectId,
             sku: item.sku || '',

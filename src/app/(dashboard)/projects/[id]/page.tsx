@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/id";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { calculateProjectFinancials } from "@/services/financialCalculator";
@@ -11,7 +12,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
-    const traceId = `PRJ-PG-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `PRJ-PG-${generateId().split("-")[0].toUpperCase()}`;
     const { id } = await params;
     
     // Define potential error states
@@ -113,18 +114,30 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
     if (!operationalData) return null;
 
+    const sanitizedData = JSON.parse(JSON.stringify({
+        project,
+        financials: operationalData.financials,
+        auditLogs: operationalData.auditLogs,
+        projectLogs: operationalData.projectLogs,
+        clients: operationalData.clients,
+        risk: operationalData.risk,
+        exchangeRate: operationalData.exchangeRate,
+        ufRate: operationalData.ufRate,
+        tasks: (project as any).tasks || []
+    }));
+
     return (
         <ProjectDetailView
-            project={project as any}
-            financials={operationalData.financials}
+            project={sanitizedData.project}
+            financials={sanitizedData.financials}
             settings={operationalData.safeSettings as any}
-            auditLogs={operationalData.auditLogs as any[]}
-            projectLogs={operationalData.projectLogs as any[]}
-            clients={operationalData.clients as any[]}
-            risk={operationalData.risk}
-            exchangeRate={operationalData.exchangeRate}
-            ufRate={operationalData.ufRate}
-            tasks={(project as any).tasks || []}
+            auditLogs={sanitizedData.auditLogs}
+            projectLogs={sanitizedData.projectLogs}
+            clients={sanitizedData.clients}
+            risk={sanitizedData.risk}
+            exchangeRate={sanitizedData.exchangeRate}
+            ufRate={sanitizedData.ufRate}
+            tasks={sanitizedData.tasks}
             inventoryWidget={<ProjectInventory projectId={id} orgId={orgId} />}
         />
     );

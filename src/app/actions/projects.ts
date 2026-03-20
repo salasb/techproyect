@@ -1,4 +1,5 @@
 'use server'
+import { generateId } from "@/lib/id";
 
 import { revalidatePath } from "next/cache";
 import { validateProject } from "@/lib/validators";
@@ -41,7 +42,7 @@ export async function createProject(formData: FormData) {
     try {
         const project = await prisma.project.create({
             data: {
-                id: `PRJ-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`,
+                id: `PRJ-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${generateId().split("-")[0].toUpperCase()}`,
                 ...data,
                 startDate: new Date(),
                 plannedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days
@@ -59,7 +60,7 @@ export async function createProject(formData: FormData) {
 }
 
 export async function updateProjectStatus(projectId: string, status: string, stage?: string, nextAction?: string, closeReason?: string) {
-    const traceId = `PRJ-ST-UPD-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `PRJ-ST-UPD-${generateId().split("-")[0].toUpperCase()}`;
     try {
         const scope = await requireOperationalScope();
         await ensureNotPaused(scope.orgId);
@@ -127,7 +128,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
             }),
             prisma.projectLog.create({
                 data: {
-                    id: globalThis.crypto.randomUUID(),
+                    id: generateId(),
                     projectId,
                     organizationId: scope.orgId,
                     type: 'STATUS_CHANGE',
@@ -146,7 +147,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
 }
 
 export async function deleteProject(projectId: string) {
-    const traceId = `PRJ-DEL-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `PRJ-DEL-${generateId().split("-")[0].toUpperCase()}`;
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
 
@@ -187,7 +188,7 @@ export async function closeProject(projectId: string) {
     return await updateProjectStatus(projectId, 'CERRADO');
 }
 export async function associateProjectToClient(projectId: string, clientId: string) {
-    const traceId = `PRJ-ASC-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `PRJ-ASC-${generateId().split("-")[0].toUpperCase()}`;
     try {
         const scope = await requireOperationalScope();
         await ensureNotPaused(scope.orgId);
@@ -217,7 +218,7 @@ export async function associateProjectToClient(projectId: string, clientId: stri
  * based on real commercial activity triggers.
  */
 export async function autoTransitionProjectState(projectId: string, trigger: 'LOG_ADDED' | 'COST_ADDED' | 'ITEM_ADDED' | 'CLIENT_ASSIGNED' | 'QUOTE_GENERATED') {
-    const traceId = `PRJ-AUTO-ST-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
+    const traceId = `PRJ-AUTO-ST-${generateId().split("-")[0].toUpperCase()}`;
     try {
         const prisma = (await import("@/lib/prisma")).default;
 
@@ -248,7 +249,7 @@ export async function autoTransitionProjectState(projectId: string, trigger: 'LO
             }),
             prisma.projectLog.create({
                 data: {
-                    id: globalThis.crypto.randomUUID(),
+                    id: generateId(),
                     projectId,
                     organizationId: project.organizationId,
                     type: 'STATUS_CHANGE',

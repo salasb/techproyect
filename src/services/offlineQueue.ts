@@ -1,69 +1,70 @@
 'use client';
 
+import { generateId } from "@/lib/id";
+
 export interface OfflineAction {
     id: string;
-    type: 'STOCK_ADJUSTMENT' | 'STOCK_TRANSFER';
-    timestamp: number;
+    type: 'STOCK_ADJUSTMENT' | 'LOG_ACTIVITY' | 'TASK_COMPLETE';
     payload: any;
-    status: 'PENDING' | 'SYNCING' | 'FAILED';
-    retryCount: number;
+    timestamp: number;
 }
 
-const STORAGE_KEY = 'inventory_offline_queue';
-
 export class OfflineQueueService {
+    private static STORAGE_KEY = 'techproyect_offline_queue';
+
+    static enqueue(type: OfflineAction['type'], payload: any) {
+        if (typeof window === 'undefined') return;
+
+        const action: OfflineAction = {
+            id: generateId(),
+            type,
+            payload,
+            timestamp: Date.now()
+        };
+
+        const queue = this.getQueue();
+        queue.push(action);
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(queue));
+    }
+
+    /**
+     * Compatibility alias for newer components.
+     */
+    static addToQueue(params: { type: OfflineAction['type'], payload: any }) {
+        this.enqueue(params.type, params.payload);
+    }
 
     static getQueue(): OfflineAction[] {
         if (typeof window === 'undefined') return [];
-        const raw = localStorage.getItem(STORAGE_KEY);
-        try {
-            return raw ? JSON.parse(raw) : [];
-        } catch {
-            return [];
-        }
+        const stored = localStorage.getItem(this.STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
     }
 
-    static addToQueue(actionContext: Omit<OfflineAction, 'id' | 'timestamp' | 'status' | 'retryCount'>) {
-        const queue = this.getQueue();
-        const newAction: OfflineAction = {
-            id: globalThis.crypto.randomUUID(),
-            timestamp: Date.now(),
-            status: 'PENDING',
-            retryCount: 0,
-            ...actionContext
-        };
-        queue.push(newAction);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-        return true;
-    }
-
-    static remove(id: string) {
-        const queue = this.getQueue().filter(a => a.id !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-    }
-
-    static async processQueue(syncFunction: (action: OfflineAction) => Promise<void>): Promise<{ success: number; fail: number }> {
-        if (!navigator.onLine) return { success: 0, fail: 0 };
-
+    static async processQueue(processor: (action: OfflineAction) => Promise<void>) {
         const queue = this.getQueue();
         if (queue.length === 0) return { success: 0, fail: 0 };
 
-        let successCount = 0;
-        let failCount = 0;
+        let success = 0;
+        let fail = 0;
+        const remaining: OfflineAction[] = [];
 
         for (const action of queue) {
-            // Simple status check, though in single thread it's not strictly necessary unless async overlap
-            // We'll proceed.
             try {
-                await syncFunction(action);
-                this.remove(action.id);
-                successCount++;
-            } catch (error) {
-                console.error('Failed to sync action', action, error);
-                failCount++;
+                await processor(action);
+                success++;
+            } catch (err) {
+                console.error(`Failed to process offline action ${action.id}:`, err);
+                remaining.push(action);
+                fail++;
             }
         }
 
-        return { success: successCount, fail: failCount };
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(remaining));
+        return { success, fail };
+    }
+
+    static clear() {
+        if (typeof window === 'undefined') return;
+        localStorage.removeItem(this.STORAGE_KEY);
     }
 }
