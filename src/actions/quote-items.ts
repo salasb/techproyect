@@ -23,7 +23,7 @@ export async function addQuoteItem(projectId: string, data: FormData) {
 
         const newItem = await prisma.quoteItem.create({
             data: {
-                id: crypto.randomUUID(),
+                id: Math.random().toString(36).substring(2, 10),
                 organizationId: scope.orgId,
                 projectId,
                 sku,
@@ -155,7 +155,7 @@ export async function addQuoteItemsBulk(projectId: string, items: any[]) {
         console.log(`[QuoteItems][${traceId}] Adding ${items.length} items to project=${projectId}`);
 
         const itemsToInsert = items.map(item => ({
-            id: crypto.randomUUID(),
+            id: Math.random().toString(36).substring(2, 10),
             organizationId: scope.orgId,
             projectId,
             sku: item.sku || '',

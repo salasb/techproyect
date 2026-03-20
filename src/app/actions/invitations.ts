@@ -37,7 +37,7 @@ export async function inviteUser(formData: FormData) {
     }
 
     // 2. Create Invitation
-    const token = crypto.randomUUID();
+    const token = Math.random().toString(36).substring(2, 10);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     const { error } = await supabase

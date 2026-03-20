@@ -63,7 +63,7 @@ export async function createInvoice(projectId: string, formData: FormData) {
     if (!amount || amount <= 0) throw new Error("Monto inválido");
     if (!dueDate) throw new Error("Fecha de vencimiento requerida");
 
-    const invoiceId = crypto.randomUUID();
+    const invoiceId = Math.random().toString(36).substring(2, 10);
 
     const { error } = await supabase.from('Invoice').insert({
         id: invoiceId,

@@ -25,6 +25,9 @@ export default async function DashboardLayout({
     try {
         accessContext = await resolveAccessContext();
     } catch (e: any) {
+        // IMPORTANT: Re-throw Next.js redirect errors
+        if (e.digest?.includes('NEXT_REDIRECT')) throw e;
+        
         console.error("[DashboardLayout] Access Context Resolution failed:", e.message);
         const { redirect } = await import("next/navigation");
         redirect('/login');

@@ -28,7 +28,7 @@ export async function addCost(projectId: string, formData: FormData) {
 
         const newCost = await prisma.costEntry.create({
             data: {
-                id: crypto.randomUUID(),
+                id: Math.random().toString(36).substring(2, 10),
                 organizationId: scope.orgId,
                 projectId,
                 description,

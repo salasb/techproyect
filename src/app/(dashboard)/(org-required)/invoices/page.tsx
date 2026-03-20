@@ -12,7 +12,7 @@ import { SendInvoiceButton } from "@/components/commercial/SendInvoiceButton";
 import { InvoicePdfButton } from "@/components/invoices/InvoicePdfButton";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-    const traceId = `INV-LST-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const traceId = `INV-LST-${Math.random().toString(36).substring(2, 10).slice(0, 8).toUpperCase()}`;
     const orgId = await getOrganizationId();
     
     if (!orgId) {

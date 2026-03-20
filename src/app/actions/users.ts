@@ -35,7 +35,7 @@ export async function createUser(formData: FormData) {
     const { error } = await supabase
         .from('Profile')
         .insert({
-            id: crypto.randomUUID(), // Assuming we generate ID if not Auth managed yet
+            id: Math.random().toString(36).substring(2, 10), // Assuming we generate ID if not Auth managed yet
             organizationId: orgId,
             name,
             email,

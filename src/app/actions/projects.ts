@@ -127,7 +127,7 @@ export async function updateProjectStatus(projectId: string, status: string, sta
             }),
             prisma.projectLog.create({
                 data: {
-                    id: crypto.randomUUID(),
+                    id: Math.random().toString(36).substring(2, 10),
                     projectId,
                     organizationId: scope.orgId,
                     type: 'STATUS_CHANGE',
@@ -248,7 +248,7 @@ export async function autoTransitionProjectState(projectId: string, trigger: 'LO
             }),
             prisma.projectLog.create({
                 data: {
-                    id: crypto.randomUUID(),
+                    id: Math.random().toString(36).substring(2, 10),
                     projectId,
                     organizationId: project.organizationId,
                     type: 'STATUS_CHANGE',

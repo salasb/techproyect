@@ -22,6 +22,8 @@ import { WorkspaceSetupBanner } from "@/components/dashboard/WorkspaceSetupBanne
 import { OperatingContextBanner } from "@/components/layout/OperatingContextBanner";
 import prisma from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+
 const periodLabels: Record<string, string> = {
     '7d': 'Últimos 7 días',
     '30d': 'Últimos 30 días',
@@ -33,7 +35,7 @@ const periodLabels: Record<string, string> = {
 };
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string; sentinel_force?: string; explore?: string }> }) {
-    const traceId = `DSH-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const traceId = `DSH-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
     const params = await searchParams;
     const period = params?.period || '30d';
     const isSentinelForce = params?.sentinel_force === 'true';
@@ -46,10 +48,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     try {
         const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
         workspace = await getWorkspaceState();
-    } catch (e: unknown) {
+    } catch (e: any) {
+        // IMPORTANT: Re-throw Next.js redirect errors
+        if (e.digest?.includes('NEXT_REDIRECT')) throw e;
+
         const msg = e instanceof Error ? e.message : String(e);
         console.error("[Dashboard] FATAL: Workspace Resolution CRASHED:", msg);
-        throw e; // Let error.tsx handle the boundary
+        throw e; // Let dashboard error UI handle the boundary
     }
 
     // 0.5 Canonical Redirect Guard (v1.2)

@@ -34,7 +34,7 @@ export async function createProduct(data: FormData) {
         let sku = (data.get('sku') as string)?.trim();
         if (!sku) {
             let uuid;
-            try { uuid = crypto.randomUUID(); } catch { uuid = Math.random().toString(36).substring(7); }
+            try { uuid = Math.random().toString(36).substring(2, 10); } catch { uuid = Math.random().toString(36).substring(7); }
             sku = `GEN-${uuid.split('-')[0].toUpperCase()}`;
         }
 
@@ -54,7 +54,7 @@ export async function createProduct(data: FormData) {
         // Safe UUID generation
         let productId;
         try {
-            productId = crypto.randomUUID();
+            productId = Math.random().toString(36).substring(2, 10);
         } catch {
             productId = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         }
@@ -122,7 +122,7 @@ export async function updateProduct(id: string, data: FormData) {
         let sku = (data.get('sku') as string)?.trim();
         if (!sku) {
             let uuid;
-            try { uuid = crypto.randomUUID(); } catch { uuid = Math.random().toString(36).substring(7); }
+            try { uuid = Math.random().toString(36).substring(2, 10); } catch { uuid = Math.random().toString(36).substring(7); }
             sku = `GEN-${uuid.split('-')[0].toUpperCase()}`;
         }
 
