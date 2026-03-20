@@ -21,7 +21,16 @@ export default async function DashboardLayout({
 
     // 0. Resolve Access Context (High-level Source of Truth)
     const { resolveAccessContext } = await import('@/lib/auth/access-resolver');
-    const accessContext = await resolveAccessContext();
+    let accessContext;
+    try {
+        accessContext = await resolveAccessContext();
+    } catch (e: any) {
+        console.error("[DashboardLayout] Access Context Resolution failed:", e.message);
+        const { redirect } = await import("next/navigation");
+        redirect('/login');
+    }
+
+    if (!accessContext) return null; // Type safety guard
 
     const showNoOrgOverlay = !accessContext.activeOrgId;
 

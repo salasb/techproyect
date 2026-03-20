@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
-    const traceId = `PRJ-PG-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const traceId = `PRJ-PG-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const { id } = await params;
     
     // Define potential error states

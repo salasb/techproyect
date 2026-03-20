@@ -33,7 +33,7 @@ const periodLabels: Record<string, string> = {
 };
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string; sentinel_force?: string; explore?: string }> }) {
-    const traceId = `DSH-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const traceId = `DSH-${Math.random().toString(36).substring(7).toUpperCase()}`;
     const params = await searchParams;
     const period = params?.period || '30d';
     const isSentinelForce = params?.sentinel_force === 'true';
