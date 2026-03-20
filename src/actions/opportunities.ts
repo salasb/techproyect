@@ -109,7 +109,7 @@ export async function createOpportunity(formData: FormData) {
     const nextInteractionDate = addBusinessDays(lastContactDate, 8);
 
     const newOpp: OpportunityInsert = {
-        id: Math.random().toString(36).substring(2, 10),
+        id: globalThis.crypto.randomUUID(),
         organizationId: scope.orgId,
         title,
         clientId,
@@ -268,7 +268,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
         const { data: newCompany, error: companyError } = await supabase
             .from('Company')
             .insert({
-                id: Math.random().toString(36).substring(2, 10),
+                id: globalThis.crypto.randomUUID(),
                 name: clientName,
                 organizationId: scope.orgId,
                 email: opp.Client?.email,

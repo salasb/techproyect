@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { AlertCircle, RefreshCcw, Home, ShieldAlert } from 'lucide-react';
+import { RefreshCcw, Home, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -14,10 +14,11 @@ export default function DashboardError({
 }) {
     useEffect(() => {
         // Log the error to an error reporting service
-        console.error('[Dashboard Boundary] Fatal Crash:', error);
+        console.error('[Dashboard Boundary] Fatal Crash:', error.message, error.digest, error.stack);
     }, [error]);
 
-    const isAuthError = error.message?.includes('UNAUTHORIZED') || error.message?.includes('NEXT_REDIRECT');
+    const errorMessage = error.message || '';
+    const isAuthError = errorMessage.includes('UNAUTHORIZED') || error.digest?.includes('NEXT_REDIRECT');
 
     return (
         <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">

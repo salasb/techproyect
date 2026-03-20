@@ -14,7 +14,7 @@ export async function addLog(projectId: string, content: string, type: 'INFO' | 
 
         const newLog = await prisma.projectLog.create({
             data: {
-                id: Math.random().toString(36).substring(2, 10),
+                id: globalThis.crypto.randomUUID(),
                 organizationId: scope.orgId,
                 projectId,
                 content,

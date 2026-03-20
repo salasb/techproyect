@@ -21,13 +21,15 @@ export interface AccessContext {
     traceId: string;
 }
 
+import { generateId } from '../id';
+
 /**
  * RESOLVE ACCESS CONTEXT (v3.0)
  * The Definitive Source of Truth for Identity and Precedence.
  * Implements: GLOBAL IDENTITY FIRST.
  */
 export async function resolveAccessContext(): Promise<AccessContext> {
-    const traceId = `ACC-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const traceId = generateId('ACC');
     const supabase = await createClient();
     
     // 1. Resolve Auth User

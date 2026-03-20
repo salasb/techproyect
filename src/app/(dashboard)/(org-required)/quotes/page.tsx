@@ -16,7 +16,7 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ page?: string, q?: string, view?: string }> }) {
-    const traceId = `QUO-LST-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const traceId = `QUO-LST-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
     const params = await searchParams;
     const cookieStore = await cookies();
     const orgId = await getOrganizationId();

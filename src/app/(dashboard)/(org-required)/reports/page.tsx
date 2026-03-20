@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 export const dynamic = 'force-dynamic';
 
 export default async function ReportsPage(props: { searchParams: Promise<{ period?: string, view?: string, locationId?: string }> }) {
-    const traceId = `REP-FIN-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const traceId = `REP-FIN-${globalThis.crypto.randomUUID().split("-")[0].toUpperCase()}`;
     const searchParams = await props.searchParams;
     const period = searchParams.period || '6m';
     const view = searchParams.view || 'financial';

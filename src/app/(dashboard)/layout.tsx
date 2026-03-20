@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { PaywallProvider } from "@/components/dashboard/PaywallContext";
 import { ShellCommercialProvider } from "@/components/layout/ShellCommercialDisplay";
+import { resolveAccessContext } from '@/lib/auth/access-resolver';
+import { getWorkspaceState } from '@/lib/auth/workspace-resolver';
+import { redirect, unstable_rethrow } from "next/navigation";
+
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardLayout({
     children,
@@ -15,43 +20,32 @@ export default async function DashboardLayout({
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        const { redirect } = await import("next/navigation");
         redirect('/login');
     }
 
     // 0. Resolve Access Context (High-level Source of Truth)
-    const { resolveAccessContext } = await import('@/lib/auth/access-resolver');
     let accessContext;
     try {
         accessContext = await resolveAccessContext();
     } catch (e: any) {
-        // IMPORTANT: Re-throw Next.js redirect errors
-        if (e.digest?.includes('NEXT_REDIRECT')) throw e;
-        
+        unstable_rethrow(e);
         console.error("[DashboardLayout] Access Context Resolution failed:", e.message);
-        const { redirect } = await import("next/navigation");
         redirect('/login');
     }
-
-    if (!accessContext) return null; // Type safety guard
 
     const showNoOrgOverlay = !accessContext.activeOrgId;
 
     let profile = null;
-    if (user) {
-        try {
-            const profileRes = await supabase.from('Profile').select('*, organization:Organization(plan)').eq('id', user.id).maybeSingle();
-            if (profileRes.error) throw profileRes.error;
-            profile = profileRes.data;
-        } catch (e) {
-            console.error("[DashboardLayout] Profile fetch failed:", e);
-        }
+    try {
+        const profileRes = await supabase.from('Profile').select('*, organization:Organization(id, name)').eq('id', user.id).maybeSingle();
+        profile = profileRes.data;
+    } catch (e) {
+        console.error("[DashboardLayout] Profile fetch failed:", e);
     }
 
     let settings = null;
     try {
         const settingsRes = await supabase.from('Settings').select('*').maybeSingle();
-        if (settingsRes.error) throw settingsRes.error;
         settings = settingsRes.data;
     } catch (e) {
         console.error("[DashboardLayout] Settings fetch failed:", e);
@@ -82,7 +76,6 @@ export default async function DashboardLayout({
     const { NoOrgOverlay } = await import("@/components/auth/NoOrgOverlay");
 
     // Get Workspace state for sidebar/nav compat
-    const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
     const workspace = await getWorkspaceState();
 
     return (
@@ -97,12 +90,12 @@ export default async function DashboardLayout({
                     {showNoOrgOverlay && <NoOrgOverlay />}
                     
                     <AppSidebar
-                        profile={{ ...profile, permissions: workspace.permissions, role: accessContext.globalRole }}
+                        profile={{ ...profile, role: accessContext.globalRole }}
                         settings={settings}
                         workspace={workspace}
                     />
                     <MobileNav
-                        profile={{ ...profile, permissions: workspace.permissions, role: accessContext.globalRole }}
+                        profile={{ ...profile, role: accessContext.globalRole }}
                         settings={settings}
                         workspace={workspace}
                     />

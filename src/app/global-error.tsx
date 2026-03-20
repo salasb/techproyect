@@ -10,6 +10,8 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    console.error('[Global Error] Fatal Exception:', error);
+
     return (
         <html>
             <body className="min-h-screen bg-zinc-50 flex items-center justify-center p-8">

@@ -26,7 +26,7 @@ export class OfflineQueueService {
     static addToQueue(actionContext: Omit<OfflineAction, 'id' | 'timestamp' | 'status' | 'retryCount'>) {
         const queue = this.getQueue();
         const newAction: OfflineAction = {
-            id: Math.random().toString(36).substring(2, 10),
+            id: globalThis.crypto.randomUUID(),
             timestamp: Date.now(),
             status: 'PENDING',
             retryCount: 0,

@@ -33,7 +33,7 @@ export class OutboundWebhookService {
 
         const startTime = Date.now();
         const body = JSON.stringify({
-            id: Math.random().toString(36).substring(2, 10),
+            id: globalThis.crypto.randomUUID(),
             event: eventName,
             createdAt: new Date().toISOString(),
             data: payload

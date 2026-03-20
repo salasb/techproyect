@@ -21,6 +21,8 @@ import { ActivationChecklist } from "@/components/dashboard/ActivationChecklist"
 import { WorkspaceSetupBanner } from "@/components/dashboard/WorkspaceSetupBanner";
 import { OperatingContextBanner } from "@/components/layout/OperatingContextBanner";
 import prisma from "@/lib/prisma";
+import { redirect, unstable_rethrow } from "next/navigation";
+import { generateId } from "@/lib/id";
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +37,7 @@ const periodLabels: Record<string, string> = {
 };
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string; sentinel_force?: string; explore?: string }> }) {
-    const traceId = `DSH-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    const traceId = generateId('DSH');
     const params = await searchParams;
     const period = params?.period || '30d';
     const isSentinelForce = params?.sentinel_force === 'true';
@@ -49,12 +51,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         const { getWorkspaceState } = await import('@/lib/auth/workspace-resolver');
         workspace = await getWorkspaceState();
     } catch (e: any) {
-        // IMPORTANT: Re-throw Next.js redirect errors
-        if (e.digest?.includes('NEXT_REDIRECT')) throw e;
+        unstable_rethrow(e);
 
         const msg = e instanceof Error ? e.message : String(e);
-        console.error("[Dashboard] FATAL: Workspace Resolution CRASHED:", msg);
-        throw e; // Let dashboard error UI handle the boundary
+        console.error("[Dashboard] FATAL: Workspace Resolution failed:", msg);
+        throw e; // Let error.tsx handle the boundary
     }
 
     // 0.5 Canonical Redirect Guard (v1.2)
@@ -68,7 +69,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     if (redirectPath && redirectPath !== '/dashboard') {
         console.log(`[DashboardGuard] Redirecting to: ${redirectPath}`);
-        const { redirect } = await import("next/navigation");
         redirect(redirectPath);
     }
 
@@ -85,7 +85,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     let orgData: { mode: string; name: string } | null = null;
     if (orgId) {
-        orgData = await prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } });
+        try {
+            orgData = await prisma.organization.findUnique({ where: { id: orgId }, select: { mode: true, name: true } });
+        } catch (e) {
+            console.error("[Dashboard] Org fetch failed:", e);
+        }
     }
 
     console.log(JSON.stringify({
