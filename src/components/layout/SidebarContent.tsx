@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { LayoutDashboard, FolderOpen, FileText, Settings, BarChart, Users, Package, Receipt, MapPin, CreditCard, TrendingUp, Calendar, UserPlus, QrCode, MessageSquare, Zap, Shield } from "lucide-react";
 import { UserMenu } from "./UserMenu";
