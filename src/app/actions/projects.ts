@@ -19,21 +19,36 @@ export async function createProject(formData: FormData) {
     const scope = await requireOperationalScope();
     await ensureNotPaused(scope.orgId);
 
+    const rawCompanyId = formData.get('companyId') as string || "";
+    let companyId: string | null = null;
+    let clientId: string | null = null;
+
+    if (rawCompanyId.startsWith('company:')) {
+        companyId = rawCompanyId.replace('company:', '');
+    } else if (rawCompanyId.startsWith('client:')) {
+        clientId = rawCompanyId.replace('client:', '');
+    }
+
     const data = {
         name: formData.get('name') as string,
-        description: formData.get('description') as string,
-        clientId: formData.get('clientId') as string || null,
-        budgetNet: parseFloat(formData.get('budgetNet') as string) || 0,
+        scopeDetails: formData.get('scopeDetails') as string || null,
+        companyId: companyId,
+        clientId: clientId,
+        budgetNet: parseFloat(formData.get('budget') as string) || 0,
         currency: (formData.get('currency') as string) || 'CLP',
         status: 'EN_ESPERA' as ProjectStatus,
         stage: 'LEVANTAMIENTO' as ProjectStage,
         organizationId: scope.orgId,
-        responsible: scope.userId
+        responsible: scope.userId,
+        nextAction: formData.get('nextAction') as string || 'Enviar Cotización',
     };
+
+    const nextActionDateStr = formData.get('nextActionDate') as string;
+    const nextActionDate = nextActionDateStr ? new Date(nextActionDateStr) : null;
 
     const validation = validateProject({
         name: data.name,
-        companyId: data.clientId,
+        companyId: rawCompanyId,
         startDate: new Date().toISOString(),
         budget: data.budgetNet
     });
@@ -44,18 +59,32 @@ export async function createProject(formData: FormData) {
             data: {
                 id: `PRJ-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${generateId().split("-")[0].toUpperCase()}`,
                 ...data,
-                startDate: new Date(),
-                plannedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days
+                startDate: new Date(formData.get('startDate') as string || Date.now()),
+                plannedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 
+                nextActionDate: nextActionDate
             }
         });
 
-        await AuditService.logAction({projectId: project.id, action: 'PROJECT_CREATE', details: `Proyecto "${data.name}" creado por ${scope.userId}`});
+        // Safe Audit Log
+        try {
+            await AuditService.logAction({projectId: project.id, action: 'PROJECT_CREATE', details: `Proyecto "${data.name}" creado por ${scope.userId}`});
+        } catch (auditErr) {
+            console.warn("Audit log failed but project was created:", auditErr);
+        }
 
         revalidatePath('/projects');
         return { success: true, id: project.id };
     } catch (error: any) {
-        console.error("Error creating project:", error);
-        return { error: "No se pudo crear el proyecto. Error de base de datos." };
+        console.error("[CRITICAL] Project Creation Error:", error);
+        
+        // Expose real Prisma error for debugging in Preview
+        const dbError = error.message || "Fallo desconocido en Prisma";
+        const target = error.meta?.target ? ` (Target: ${error.meta.target})` : "";
+        const code = error.code ? ` [${error.code}]` : "";
+        
+        return { 
+            error: `Error de base de datos${code}: ${dbError}${target}. Verifica que el cliente/empresa sea válido.` 
+        };
     }
 }
 
