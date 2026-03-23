@@ -5,6 +5,7 @@ import { Database } from "@/types/supabase";
 import { FinancialDomain } from "@/services/financialDomain";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { differenceInCalendarDays, isBefore, startOfDay, format } from "date-fns";
+import { safeFormat } from "@/lib/date-utils";
 import { COMMERCIAL_CONFIG } from "@/config/commercial";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PaginationControl } from "@/components/ui/PaginationControl";
@@ -76,6 +77,10 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         const hasNextPage = page < totalPages;
         const hasPrevPage = page > 1;
 
+        // 3. Serialization for Client Components (Prevent Date object errors)
+        const serializedProjects = JSON.parse(JSON.stringify(projects));
+        const serializedSettings = JSON.parse(JSON.stringify(settings));
+
         return (
             <div className="space-y-6 max-w-7xl mx-auto">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -117,18 +122,18 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
 
                 <div className="bg-transparent md:bg-card md:rounded-xl md:border md:border-border md:shadow-sm overflow-hidden">
                     {/* Desktop View (Table) */}
-                    <ProjectTable projects={projects as any} settings={settings as any} />
+                    <ProjectTable projects={serializedProjects} settings={serializedSettings} />
 
                     {/* Mobile View (Cards) */}
                     <div className="md:hidden space-y-4">
-                        {projects.length === 0 ? (
+                        {serializedProjects.length === 0 ? (
                             <div className="p-6 text-center text-zinc-500 bg-card rounded-lg border border-border">
                                 No hay proyectos registrados.
                             </div>
                         ) : (
-                            projects.map((project) => {
+                            serializedProjects.map((project: any) => {
                                 // Calculate financials on the fly
-                                const fin = FinancialDomain.getProjectSnapshot(project as any, settings as any);
+                                const fin = FinancialDomain.getProjectSnapshot(project, serializedSettings);
 
                                 const today = new Date();
                                 const nextActionDate = project.nextActionDate ? new Date(project.nextActionDate) : null;
@@ -137,13 +142,11 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
 
                                 const currency = project.currency || 'CLP';
                                 const formatCurrency = (amount: number) => {
-                                    if (currency === 'CLP') return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-                                    // ... other currencies
-                                    return '$ ' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+                                    return FinancialDomain.formatCurrency(amount, currency);
                                 };
 
                                 // Risk Analysis (Mobile)
-                                const risk = RiskEngine.calculateProjectRisk(project as any, settings as any);
+                                const risk = RiskEngine.calculateProjectRisk(project, serializedSettings);
 
                                 // Get most urgent task for display
                                 const urgentTask = (project as any).tasks
@@ -206,9 +209,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                                                     {project.nextAction || 'Sin acción pendiente'}
                                                 </span>
                                             </div>
-                                            {nextActionDate && (
+                                            {project.nextActionDate && (
                                                 <span className={`flex-shrink-0 ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-                                                    {nextActionDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                                                    {safeFormat(project.nextActionDate, "d 'de' MMM")}
                                                 </span>
                                             )}
                                         </div>

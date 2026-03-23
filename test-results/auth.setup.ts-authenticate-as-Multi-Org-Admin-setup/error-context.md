@@ -1,0 +1,225 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - region "Notifications alt+T"
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - img "TechWise" [ref=e6]
+          - generic [ref=e7]:
+            - generic [ref=e8]: v1.0.396
+            - generic [ref=e9]: "Updated: 23-03-2026"
+        - navigation [ref=e10]:
+          - generic [ref=e11]:
+            - heading "Command Center" [level=3] [ref=e12]
+            - link "Ir a Dashboard" [ref=e13] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [ref=e14]:
+                - img [ref=e15]
+                - text: Dashboard
+        - button "US Usuario" [ref=e22]:
+          - generic [ref=e23]: US
+          - generic [ref=e24]:
+            - paragraph [ref=e25]: Usuario
+            - paragraph
+          - img [ref=e26]
+    - generic [ref=e28]:
+      - banner [ref=e29]:
+        - generic [ref=e32]:
+          - img [ref=e33]
+          - textbox "Buscar proyectos o clientes..." [ref=e36]
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e39]: Us
+            - generic [ref=e40]: Usuario
+          - button [ref=e44]:
+            - img [ref=e45]
+      - main [ref=e48]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - heading "Command Center" [level=2] [ref=e53]
+              - paragraph [ref=e54]: Visión estratégica y operativa en tiempo real.
+            - generic [ref=e55]:
+              - link "QR" [ref=e56] [cursor=pointer]:
+                - /url: /inventory/scan
+                - button "QR" [ref=e57]:
+                  - img [ref=e58]
+                  - text: QR
+              - button "Exportar Reporte" [ref=e65]:
+                - img [ref=e66]
+                - text: Exportar Reporte
+                - img [ref=e69]
+              - generic [ref=e71]:
+                - button "Últimos 30 días" [ref=e72]
+                - button "Últimos 6 Meses" [ref=e73]
+                - button "Último Año" [ref=e74]
+                - button "Todo" [ref=e75]
+              - link "+ Nuevo Proyecto" [ref=e76] [cursor=pointer]:
+                - /url: /projects/new
+                - button "+ Nuevo Proyecto" [ref=e77]:
+                  - generic [ref=e78]: +
+                  - text: Nuevo Proyecto
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - generic [ref=e82]:
+                  - img [ref=e84]
+                  - generic [ref=e87]:
+                    - heading "Guía de Activación" [level=3] [ref=e88]
+                    - paragraph [ref=e89]: Comienza tu flujo comercial en TechWise.
+                - generic [ref=e93]: 25% Completado
+              - generic [ref=e94]:
+                - generic [ref=e95]:
+                  - img [ref=e97]
+                  - generic [ref=e100]:
+                    - heading "Crea tu primer proyecto" [level=4] [ref=e102]
+                    - paragraph [ref=e103]: Define el nombre y presupuesto para organizar tus costos.
+                - generic [ref=e108]:
+                  - generic [ref=e109]:
+                    - heading "Puebla tu proyecto" [level=4] [ref=e110]
+                    - link "Ir a Proyectos" [ref=e111] [cursor=pointer]:
+                      - /url: /projects
+                      - button "Ir a Proyectos" [ref=e112]:
+                        - text: Ir a Proyectos
+                        - img [ref=e113]
+                  - paragraph [ref=e115]: Agrega ítems, materiales o servicios a la estructura de costos.
+                - generic [ref=e116]:
+                  - img [ref=e118]
+                  - generic [ref=e121]:
+                    - heading "Genera una propuesta" [level=4] [ref=e123]
+                    - paragraph [ref=e124]: Crea el primer borrador de cotización basado en tus ítems.
+                    - paragraph [ref=e125]:
+                      - img [ref=e126]
+                      - text: "Requiere completar: \"Puebla tu proyecto\""
+                - generic [ref=e129]:
+                  - img [ref=e131]
+                  - generic [ref=e134]:
+                    - heading "Envía tu primera oferta" [level=4] [ref=e136]
+                    - paragraph [ref=e137]: Comparte el PDF con tu cliente para cerrar el negocio.
+                    - paragraph [ref=e138]:
+                      - img [ref=e139]
+                      - text: "Requiere completar: \"Genera una propuesta\""
+            - generic [ref=e142]:
+              - link "Facturación Real $0 0.0% vs periodo anterior" [ref=e143] [cursor=pointer]:
+                - /url: /invoices
+                - generic [ref=e144]:
+                  - generic [ref=e146]:
+                    - paragraph [ref=e147]: Facturación Real
+                    - img [ref=e149]
+                  - generic [ref=e151]:
+                    - heading "$0" [level=3] [ref=e152]
+                    - generic [ref=e154]:
+                      - img [ref=e155]
+                      - text: 0.0%
+                      - generic [ref=e158]: vs periodo anterior
+              - link "Margen Ganado (Real) $0 Proyectos En Curso / Finalizados" [ref=e159] [cursor=pointer]:
+                - /url: /projects
+                - generic [ref=e160]:
+                  - generic [ref=e162]:
+                    - paragraph [ref=e163]: Margen Ganado (Real)
+                    - img [ref=e165]
+                  - generic [ref=e168]:
+                    - heading "$0" [level=3] [ref=e169]
+                    - paragraph [ref=e171]: Proyectos En Curso / Finalizados
+              - link "Margen Proyectado $0 Incluye En Espera" [ref=e172] [cursor=pointer]:
+                - /url: /projects
+                - generic [ref=e173]:
+                  - generic [ref=e175]:
+                    - paragraph [ref=e176]: Margen Proyectado
+                    - img [ref=e178]
+                  - generic [ref=e181]:
+                    - heading "$0" [level=3] [ref=e182]
+                    - paragraph [ref=e184]: Incluye En Espera
+              - link "Oportunidades por Cerrar $0 0 oportunidades activas" [ref=e185] [cursor=pointer]:
+                - /url: /crm/pipeline
+                - generic [ref=e186]:
+                  - generic [ref=e188]:
+                    - paragraph [ref=e189]: Oportunidades por Cerrar
+                    - img [ref=e191]
+                  - generic [ref=e194]:
+                    - heading "$0" [level=3] [ref=e195]
+                    - paragraph [ref=e197]: 0 oportunidades activas
+            - generic [ref=e198]:
+              - generic [ref=e199]:
+                - generic [ref=e202]:
+                  - heading "Revenue Pulse" [level=3] [ref=e203]:
+                    - img [ref=e204]
+                    - text: Revenue Pulse
+                  - paragraph [ref=e207]: Evolución comercial (Últimos 30 días)
+                - generic [ref=e210]:
+                  - generic [ref=e211]:
+                    - generic [ref=e212]:
+                      - heading "Tareas Pendientes" [level=3] [ref=e213]:
+                        - img [ref=e214]
+                        - text: Tareas Pendientes
+                      - generic [ref=e217]: "1"
+                    - link "💰 Generar Cotización E2E Isolated Company • 23 mar Alta Prioridad" [ref=e221] [cursor=pointer]:
+                      - /url: /projects/90bbbbc3-0665-4425-8ec6-99c96faa6618
+                      - img [ref=e223]
+                      - generic [ref=e226]:
+                        - paragraph [ref=e227]: 💰 Generar Cotización
+                        - generic [ref=e228]:
+                          - generic [ref=e229]: E2E Isolated Company
+                          - generic [ref=e230]: •
+                          - generic [ref=e231]:
+                            - img [ref=e232]
+                            - text: 23 mar
+                      - generic "Alta Prioridad" [ref=e234]
+                  - generic [ref=e235]:
+                    - generic [ref=e236]:
+                      - generic [ref=e239]: Siguiente Mejor Acción
+                      - generic [ref=e240]: Prioridad crítica detectada
+                    - generic [ref=e241]:
+                      - img [ref=e243]
+                      - generic [ref=e246]:
+                        - heading "💰 Generar Cotización" [level=4] [ref=e247]
+                        - paragraph [ref=e248]: "Proyecto: E2E Seeded Project"
+                        - generic [ref=e249]: El proyecto "E2E Seeded Project" está activo pero no tiene cotización enviada. Genera la propuesta formal.
+                        - link "Ejecutar Ahora" [ref=e250] [cursor=pointer]:
+                          - /url: /projects/90bbbbc3-0665-4425-8ec6-99c96faa6618
+                          - text: Ejecutar Ahora
+                          - img [ref=e251]
+                  - generic [ref=e254]:
+                    - heading "Salud del Sistema" [level=4] [ref=e256]
+                    - generic [ref=e259]: Saludable
+                    - paragraph [ref=e260]: Sentinel monitorizando parámetros críticos de integridad y rendimiento.
+              - generic [ref=e261]:
+                - generic [ref=e263]:
+                  - heading "Próxima Facturación" [level=3] [ref=e265]:
+                    - img [ref=e266]
+                    - text: Próxima Facturación
+                  - generic [ref=e269]: No hay facturas por vencer pronto.
+                - generic [ref=e270]:
+                  - heading "Top Clientes" [level=3] [ref=e272]:
+                    - img [ref=e273]
+                    - text: Top Clientes
+                  - generic [ref=e279]:
+                    - generic [ref=e280]: E2E Isolated Company
+                    - generic [ref=e281]: $0
+            - generic [ref=e284]:
+              - generic [ref=e285]:
+                - heading "📅 Cronograma de Proyectos" [level=3] [ref=e286]
+                - generic [ref=e287]: 1 proyectos activos
+              - generic [ref=e289]:
+                - generic [ref=e290]:
+                  - generic [ref=e291]: Proyecto
+                  - generic [ref=e293]: mar 2026
+                - generic [ref=e295]:
+                  - link "E2E Seeded Project E2E Isolated Company" [ref=e297] [cursor=pointer]:
+                    - /url: /projects/90bbbbc3-0665-4425-8ec6-99c96faa6618
+                    - generic [ref=e298]: E2E Seeded Project
+                    - generic [ref=e299]: E2E Isolated Company
+                  - generic "23/03 - 23/03" [ref=e301] [cursor=pointer]:
+                    - generic [ref=e302]: 0%
+  - button "Open Next.js Dev Tools" [ref=e308] [cursor=pointer]:
+    - generic [ref=e311]:
+      - text: Rendering
+      - generic [ref=e312]:
+        - generic [ref=e313]: .
+        - generic [ref=e314]: .
+        - generic [ref=e315]: .
+  - alert [ref=e316]
+```

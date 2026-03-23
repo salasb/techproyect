@@ -6,17 +6,25 @@ import { AlertTriangle, Lock, Clock, Send, CheckCircle2, ChevronRight, Info } fr
 import { Database } from "@/types/supabase";
 import { format, differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
+import { safeFormat } from "@/lib/date-utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RiskBadge } from "@/components/projects/RiskBadge";
 import { RiskEngine } from "@/services/riskEngine";
 import { FinancialDomain } from "@/services/financialDomain";
 
-type Project = Database['public']['Tables']['Project']['Row'] & {
+type Project = Omit<Database['public']['Tables']['Project']['Row'], 'createdAt' | 'updatedAt' | 'startDate' | 'plannedEndDate' | 'nextActionDate' | 'acceptedAt' | 'quoteSentDate'> & {
+    createdAt: string;
+    updatedAt: string;
+    startDate: string;
+    plannedEndDate: string;
+    nextActionDate: string | null;
+    acceptedAt: string | null;
+    quoteSentDate: string | null;
     company: Database['public']['Tables']['Company']['Row'];
-    costEntries: Database['public']['Tables']['CostEntry']['Row'][];
-    invoices: Database['public']['Tables']['Invoice']['Row'][];
-    quoteItems: Database['public']['Tables']['QuoteItem']['Row'][];
+    costEntries: any[];
+    invoices: any[];
+    quoteItems: any[];
     tasks?: any[];
 };
 
@@ -81,10 +89,7 @@ export function ProjectTable({ projects, settings }: Props) {
                         // Currency Helper
                         const currency = project.currency || 'CLP';
                         const formatCurrency = (amount: number) => {
-                            if (currency === 'CLP') return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
-                            if (currency === 'USD') return 'USD $' + amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                            if (currency === 'UF') return 'UF ' + amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                            return 'CLP $' + amount.toLocaleString('es-CL', { maximumFractionDigits: 0 });
+                            return FinancialDomain.formatCurrency(amount, currency);
                         };
 
                         return (
@@ -107,7 +112,7 @@ export function ProjectTable({ projects, settings }: Props) {
                                                 <RiskBadge level={risk.level} score={risk.score} className="scale-75 origin-left" />
                                             )}
                                         </div>
-                                        <span className="text-xs text-muted-foreground">{project.company.name}</span>
+                                        <span className="text-xs text-muted-foreground">{project.company?.name || 'Cliente por confirmar'}</span>
                                     </div>
 
                                     {project.blockingReason && (
@@ -132,9 +137,9 @@ export function ProjectTable({ projects, settings }: Props) {
 
                                             <div className="flex flex-col">
                                                 <span className="line-clamp-1">{urgentTask?.title || project.nextAction}</span>
-                                                {(urgentTask?.dueDate || nextActionDate) && (
+                                                {(urgentTask?.dueDate || project.nextActionDate) && (
                                                     <span className="opacity-75 capitalize">
-                                                        {format(new Date(urgentTask?.dueDate || project.nextActionDate!), "d 'de' MMMM", { locale: es })}
+                                                        {safeFormat(urgentTask?.dueDate || project.nextActionDate, "d 'de' MMMM", "Sin fecha")}
                                                     </span>
                                                 )}
                                             </div>
@@ -158,7 +163,7 @@ export function ProjectTable({ projects, settings }: Props) {
                                                     <p className="font-semibold mb-1">Cotización Enviada</p>
                                                     <p className="text-xs">
                                                         {project.quoteSentDate
-                                                            ? `Enviada el ${format(new Date(project.quoteSentDate), "dd/MM/yyyy")}`
+                                                            ? `Enviada el ${safeFormat(project.quoteSentDate, "dd/MM/yyyy")}`
                                                             : 'Aún no enviada'}
                                                     </p>
                                                 </TooltipContent>
@@ -180,7 +185,7 @@ export function ProjectTable({ projects, settings }: Props) {
                                                     <p className="font-semibold mb-1">Aceptación Digital</p>
                                                     <p className="text-xs">
                                                         {project.acceptedAt
-                                                            ? `Aceptado el ${format(new Date(project.acceptedAt), "dd/MM/yyyy")}`
+                                                            ? `Aceptado el ${safeFormat(project.acceptedAt, "dd/MM/yyyy")}`
                                                             : 'Pendiente de aceptación'}
                                                     </p>
                                                 </TooltipContent>

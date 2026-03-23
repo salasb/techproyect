@@ -1,0 +1,47 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - region "Notifications alt+T"
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - img [ref=e5]
+      - heading "TechWise Pro" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Centro de Operaciones Comerciales
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - button "Iniciar Sesión" [ref=e11]
+        - button "Crear Cuenta" [ref=e12]
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - heading "Bienvenido" [level=2] [ref=e15]
+          - paragraph [ref=e16]: Accede a tu panel de control operacional.
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]:
+              - text: Correo Electrónico
+              - generic [ref=e20]:
+                - img [ref=e21]
+                - textbox "ejemplo@empresa.com" [ref=e24]: e2e_superadmin@test.com
+            - generic [ref=e25]:
+              - generic [ref=e26]:
+                - generic [ref=e27]: Contraseña
+                - button "¿Olvidaste tu clave?" [ref=e28]
+              - generic [ref=e29]:
+                - img [ref=e30]
+                - textbox "********" [ref=e33]: E2eTest1234!
+                - button [ref=e34]:
+                  - img [ref=e35]
+          - button "Entrar al Sistema" [active] [ref=e38]:
+            - text: Entrar al Sistema
+            - img [ref=e39]
+    - paragraph [ref=e41]: © 2026 TechWise. Powering Business Operations.
+  - button "Open Next.js Dev Tools" [ref=e47] [cursor=pointer]:
+    - generic [ref=e50]:
+      - text: Rendering
+      - generic [ref=e51]:
+        - generic [ref=e52]: .
+        - generic [ref=e53]: .
+        - generic [ref=e54]: .
+  - alert [ref=e55]
+```
