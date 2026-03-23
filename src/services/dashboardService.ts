@@ -1,5 +1,5 @@
 import { Database } from '@/types/supabase';
-import { calculateProjectFinancials } from './financialCalculator';
+import { FinancialDomain } from './financialDomain';
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'] | null;
@@ -31,7 +31,7 @@ export class DashboardService {
             })
             .map(p => {
                 // Calculate Financial Health
-                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
+                const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
 
                 return {
                     id: p.id,
@@ -248,7 +248,7 @@ export class DashboardService {
         return { actions: sortedActions, nextBestAction };
     }
 
-    static getFinancialTrends(projects: any[], period: string = '6m') {
+    static getFinancialTrends(projects: any[], period: string = '6m', settings: any, dollarValue: number) {
         const now = new Date();
         let startDate = new Date();
         let dateFormat: 'day' | 'month' = 'month';
@@ -294,6 +294,12 @@ export class DashboardService {
         }
 
         projects.forEach(p => {
+            const isUsd = p.currency === 'USD';
+            const rate = isUsd ? dollarValue : 1;
+
+            // Pre-calculate project snapshot once per project for efficiency
+            const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
+
             // Cost (Expenses)
             p.costEntries?.forEach((c: any) => {
                 const d = new Date(c.date);
@@ -315,7 +321,7 @@ export class DashboardService {
                             dateVal: dateFormat === 'day' ? d.getTime() : new Date(d.getFullYear(), d.getMonth(), 1).getTime()
                         });
                     }
-                    dataMap.get(key)!.cost += c.amountNet;
+                    dataMap.get(key)!.cost += (c.amountNet * rate);
                 }
             });
 
@@ -341,7 +347,11 @@ export class DashboardService {
                                 dateVal: dateFormat === 'day' ? d.getTime() : new Date(d.getFullYear(), d.getMonth(), 1).getTime()
                             });
                         }
-                        dataMap.get(key)!.income += inv.amountInvoicedGross; // Using Gross for Cash Flow representation
+                        
+                        // Use amountInvoicedGross for consistency with KPIs if billing is gross
+                        // However, Domain Snapshot provides granular data. 
+                        // Let's use the actual gross invoiced for this specific invoice scaled by FX.
+                        dataMap.get(key)!.income += (inv.amountInvoicedGross * rate); 
                     }
                 }
             });
@@ -357,16 +367,18 @@ export class DashboardService {
             .sort((a, b) => a.dateVal - b.dateVal);
     }
 
-    static getTopClients(projects: any[]) {
+    static getTopClients(projects: any[], settings: any, dollarValue: number) {
         const clientMap = new Map<string, number>();
         projects.forEach((p) => {
+            const isUsd = p.currency === 'USD';
+            const rate = isUsd ? dollarValue : 1;
+            
             const cName = p.company?.name || 'Sin Cliente';
-            // Determine active contract value (e.g., Sold)
-            // Ideally we sum up quote items. But simplified: use 'budget' or 'price' if calculated.
-            // Since we pass raw projects here, we might need to rely on 'budget' field if available or sum invoices?
-            // Let's use Sum of Invoices for "Revenue" or Budget for "Sales Volume".
-            // The prompt implies "Revenue" (Ingresos). Let's sum Invoiced Amount.
-            const revenue = p.invoices?.reduce((acc: any, inv: any) => acc + (inv.sent ? inv.amountInvoicedGross : 0), 0) || 0;
+            
+            // Consolidate revenue using FinancialDomain snaphot logic (Invoiced Gross)
+            const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
+            const revenue = fin.totalInvoicedGross * rate;
+            
             clientMap.set(cName, (clientMap.get(cName) || 0) + revenue);
         });
 
@@ -447,7 +459,7 @@ export class DashboardService {
         projects.forEach(p => {
             // 1. Low Margin Alerts (Active Projects only)
             if (p.status === 'EN_CURSO' || p.status === 'EN_ESPERA') {
-                const fin = calculateProjectFinancials(p, p.costEntries, p.invoices, settings, p.quoteItems);
+                const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
                 // Check Traffic Light Financial directly
                 if (fin.trafficLightFinancial === 'RED') {
                     alerts.push({
@@ -617,7 +629,7 @@ export class DashboardService {
 
                 let marginPct = 0;
                 try {
-                    const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
+                    const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
                     marginPct = (fin?.priceNet > 0) ? (fin.marginAmountNet / fin.priceNet) : 0;
                 } catch (e) { }
 
@@ -660,7 +672,7 @@ export class DashboardService {
 
             // Calculate project value (Quote Price)
             try {
-                const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
+                const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
                 // Default to using Net Price (Revenue potential)
                 // If project is generic (no items), might be 0.
                 if (fin && fin.priceNet > 0) {
@@ -688,7 +700,7 @@ export class DashboardService {
             const rate = isUsd ? dollarValue : 1;
 
             try {
-                const fin = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
+                const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
                 const marginVal = (fin?.marginAmountNet || 0) * rate;
 
                 // Projected: All non-cancelled projects contribute to potential/projected margin

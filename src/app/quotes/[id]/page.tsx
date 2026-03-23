@@ -2,7 +2,7 @@ import { QuoteDocument } from "@/components/projects/QuoteDocument";
 import { QuoteActions } from "@/components/quotes/QuoteActions";
 import { AutoPrint } from "@/components/common/AutoPrint";
 import { createClient } from "@/lib/supabase/server";
-import { calculateProjectFinancials } from "@/services/financialCalculator";
+
 import { Database } from "@/types/supabase";
 import { notFound } from "next/navigation";
 

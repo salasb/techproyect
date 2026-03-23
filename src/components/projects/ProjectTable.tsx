@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RiskBadge } from "@/components/projects/RiskBadge";
 import { RiskEngine } from "@/services/riskEngine";
-import { calculateProjectFinancials } from "@/services/financialCalculator";
+import { FinancialDomain } from "@/services/financialDomain";
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'];
@@ -57,13 +57,7 @@ export function ProjectTable({ projects, settings }: Props) {
                 <tbody className="divide-y divide-border">
                     {projects.map((project) => {
                         // Calculate financials
-                        const fin = calculateProjectFinancials(
-                            project,
-                            project.costEntries || [],
-                            project.invoices || [],
-                            settings,
-                            project.quoteItems || []
-                        );
+                        const fin = FinancialDomain.getProjectSnapshot(project as any, settings as any);
 
                         // Risk Analysis
                         const risk = RiskEngine.calculateProjectRisk(project as any, settings);

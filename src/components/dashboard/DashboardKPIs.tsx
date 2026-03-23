@@ -9,9 +9,13 @@ interface KPIData {
     pipeline: { value: number, count: number };
 }
 
-export function DashboardKPIs({ data, isLoading }: { data?: KPIData, isLoading?: boolean }) {
+export function DashboardKPIs({ data, isLoading, currency = 'CLP', locale = 'es-CL' }: { data?: KPIData, isLoading?: boolean, currency?: string, locale?: string }) {
     const formatCurrency = (val: number) => {
-        return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(val);
+        return new Intl.NumberFormat(locale, { 
+            style: 'currency', 
+            currency: currency.toUpperCase(), 
+            maximumFractionDigits: currency.toUpperCase() === 'CLP' ? 0 : 2 
+        }).format(val);
     };
 
     if (isLoading || !data) {

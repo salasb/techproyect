@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Plus, AlertTriangle, Lock, Clock, Info, DollarSign, Timer, ChevronRight, Send, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
-import { calculateProjectFinancials } from "@/services/financialCalculator";
+import { FinancialDomain } from "@/services/financialDomain";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { differenceInCalendarDays, isBefore, startOfDay, format } from "date-fns";
 import { COMMERCIAL_CONFIG } from "@/config/commercial";
@@ -128,13 +128,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                         ) : (
                             projects.map((project) => {
                                 // Calculate financials on the fly
-                                const fin = calculateProjectFinancials(
-                                    project as any,
-                                    (project.costEntries || []) as any,
-                                    (project.invoices || []) as any,
-                                    settings as any,
-                                    (project.quoteItems || []) as any
-                                );
+                                const fin = FinancialDomain.getProjectSnapshot(project as any, settings as any);
 
                                 const today = new Date();
                                 const nextActionDate = project.nextActionDate ? new Date(project.nextActionDate) : null;

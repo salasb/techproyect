@@ -450,9 +450,8 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
         kpis.margin.trend = legacy.margin.trend;
     }
 
-    const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects, period) : [];
-    const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects) : [];
-    const isTrialing = subscription?.status === 'TRIALING';
+    const chartData = (orgId && !isExplore) ? DashboardService.getFinancialTrends(projects, period, settings as any, dollarRate.value) : [];
+    const topClients = (orgId && !isExplore) ? DashboardService.getTopClients(projects, settings as any, dollarRate.value) : [];    const isTrialing = subscription?.status === 'TRIALING';
 
     const deadlines = (orgId && !isExplore) ? DashboardService.getUpcomingDeadlines(projects, settings as any) : [];
     const billingAlerts = deadlines.filter(a => a.type === 'INVOICE');
@@ -471,7 +470,11 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                 <ActivationChecklist data={JSON.parse(JSON.stringify(activationData))} />
             )}
 
-            <DashboardKPIs data={sanitizedKPIs} />
+            <DashboardKPIs 
+                data={sanitizedKPIs} 
+                currency={settings?.currency || 'CLP'} 
+                locale={settings?.currency === 'USD' ? 'en-US' : 'es-CL'}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch mt-8">
                 <div className="lg:col-span-3 space-y-6">

@@ -1,8 +1,8 @@
 import prisma from '@/lib/prisma'
-import { calculateProjectFinancials, FinancialResult } from './financialCalculator'
+import { FinancialDomain } from './financialDomain'
 import { notFound } from 'next/navigation'
 
-export async function getProjectFinancials(projectId: string): Promise<FinancialResult> {
+export async function getProjectFinancials(projectId: string) {
     const project = await prisma.project.findUnique({
         where: { id: projectId },
     })
@@ -21,5 +21,6 @@ export async function getProjectFinancials(projectId: string): Promise<Financial
         throw new Error("Settings not initialized")
     }
 
-    return calculateProjectFinancials(project, costs, invoices, settings as any)
+    const fullProject = { ...project, costEntries: costs, invoices, quoteItems: [] };
+    return FinancialDomain.getProjectSnapshot(fullProject as any, settings as any)
 }

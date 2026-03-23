@@ -26,6 +26,7 @@ export interface WorkspaceState {
     isSuperadmin: boolean;
     recommendedRoute: string; // NEW: Canonical entry point
     subscriptionStatus?: string;
+    orgPlan?: string;
     error?: string;
     isAutoProvisioned?: boolean;
     bootstrapDebug?: {
@@ -313,6 +314,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
         let setCookieId = null;
         let shouldClearCookie = false;
         let subscriptionStatus = undefined;
+        let orgPlan = undefined;
 
         if (!activeOrgId) {
             if (activeOrgFromContext && activeMemberships.some(m => m.organizationId === activeOrgFromContext)) {
@@ -351,13 +353,20 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             }
         }
 
-        // Fetch subscription status for the active organization
+        // Fetch subscription status and plan for the active organization
         if (activeOrgId) {
-            const sub = await prisma.subscription.findUnique({
-                where: { organizationId: activeOrgId },
-                select: { status: true }
-            });
+            const [sub, org] = await Promise.all([
+                prisma.subscription.findUnique({
+                    where: { organizationId: activeOrgId },
+                    select: { status: true }
+                }),
+                prisma.organization.findUnique({
+                    where: { id: activeOrgId },
+                    select: { plan: true }
+                })
+            ]);
             subscriptionStatus = sub?.status || 'FREE';
+            orgPlan = org?.plan || 'FREE';
         }
 
         // Resolve Permissions
@@ -416,6 +425,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 isAutoProvisioned,
                 recommendedRoute,
                 subscriptionStatus,
+                orgPlan,
                 bootstrapDebug
             };
         }
@@ -436,6 +446,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
                 isAutoProvisioned,
                 recommendedRoute: '/pending-activation',
                 subscriptionStatus,
+                orgPlan,
                 bootstrapDebug
             };
         }
@@ -453,6 +464,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
             isAutoProvisioned,
             recommendedRoute,
             subscriptionStatus,
+            orgPlan,
             bootstrapDebug
         };
 

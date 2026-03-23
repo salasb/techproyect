@@ -1,5 +1,5 @@
 import { Database } from '@/types/supabase';
-import { calculateProjectFinancials, MinimalProject, MinimalCostEntry, MinimalInvoice } from './financialCalculator';
+import { FinancialDomain } from './financialDomain';
 import { differenceInCalendarDays } from 'date-fns';
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
@@ -75,13 +75,7 @@ export class RiskEngine {
 
 
         // 2. Cost Risk (CPI Proxy)
-        const financials = calculateProjectFinancials(
-            project,
-            project.costEntries,
-            project.invoices,
-            settings,
-            project.quoteItems
-        );
+        const financials = FinancialDomain.getProjectSnapshot(project as any, settings as any);
 
         // Budget Consumed %
         // Use baseCostNet (Budget) vs totalExecutedCostNet (Actuals)

@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { Database } from "@/types/supabase";
+import { FinancialDomain } from "@/services/financialDomain";
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'] | null;
@@ -28,11 +29,11 @@ export function QuoteDocument({ project, settings }: Props) {
     // However, the View logic uses `calculateProjectFinancials`.
     // Let's rely on basic math here or assume `project` data is passed correctly.
 
-    // Calculate Totals on the fly to ensure display responsiveness
-    const totalNet = project.quoteItems?.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0) || 0;
+    const fin = FinancialDomain.getProjectSnapshot(project as any, settings as any);
+    const totalNet = fin.priceNet;
+    const vatAmount = fin.vatAmount;
+    const totalGross = fin.priceGross;
     const vatRate = settings?.vatRate || 0.19;
-    const vatAmount = totalNet * vatRate;
-    const totalGross = totalNet + vatAmount;
 
     // Currency Formatter
     const currency = (project.currency || 'CLP').toUpperCase();

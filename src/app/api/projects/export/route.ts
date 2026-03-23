@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/auth/server-resolver';
-import { calculateProjectFinancials } from '@/services/financialCalculator';
+import { FinancialDomain } from '@/services/financialDomain';
 import prisma from '@/lib/prisma';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -53,13 +53,7 @@ export async function GET(request: Request) {
         };
 
         const exportData = projects.map(p => {
-            const fin = calculateProjectFinancials(
-                p as any,
-                (p.costEntries || []) as any,
-                (p.invoices || []) as any,
-                safeSettings as any,
-                (p.quoteItems || []) as any
-            );
+            const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
 
             const totalCosts = (p.costEntries || []).reduce((acc: any, c: any) => acc + c.amountNet, 0);
             const totalInvoiced = (p.invoices || []).reduce((acc: any, inv: any) => acc + (inv.amountInvoicedGross || 0), 0);

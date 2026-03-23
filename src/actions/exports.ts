@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from "@/lib/supabase/server";
-import { calculateProjectFinancials } from "@/services/financialCalculator";
+import { FinancialDomain } from "@/services/financialDomain";
 import { COMMERCIAL_CONFIG } from "@/config/commercial";
 import { requireOperationalScope, requirePermission } from "@/lib/auth/server-resolver";
 import prisma from "@/lib/prisma";
@@ -80,7 +80,7 @@ export async function getFinancialReport(period: string = '30d') {
 
     // Transform for CSV
     return projects.map(p => {
-        const financials = calculateProjectFinancials(p, p.costEntries || [], p.invoices || [], settings, p.quoteItems || []);
+        const financials = FinancialDomain.getProjectSnapshot(p as any, settings as any);
 
         const clientName = (p.client as any)?.name || (p.company as any)?.name || 'N/A';
 

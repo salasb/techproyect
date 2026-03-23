@@ -155,14 +155,9 @@ export async function toggleQuoteAcceptance(projectId: string, isAccepted: boole
     const userId = user?.id || 'SYSTEM';
 
     const acceptedAt = isAccepted ? new Date() : null;
+    const newStatus = isAccepted ? 'EN_CURSO' : 'EN_ESPERA';
 
-    // Update Project
-    await prisma.project.update({
-        where: { id: projectId, organizationId: scope.orgId },
-        data: { acceptedAt }
-    });
-
-    // Update Quote status using Service
+    // Update Quote status using Service first (it ensures consistency and emits webhooks)
     const latestQuote = await prisma.quote.findFirst({
         where: { projectId, project: { organizationId: scope.orgId } },
         orderBy: { version: 'desc' }
@@ -170,19 +165,32 @@ export async function toggleQuoteAcceptance(projectId: string, isAccepted: boole
 
     if (latestQuote) {
         if (isAccepted) {
+            // Force status to SENT if it wasn't, to allow manual acceptance of a drafted quote
+            if (latestQuote.status !== 'SENT') {
+                await prisma.quote.update({ where: { id: latestQuote.id }, data: { status: 'SENT' } });
+                await prisma.project.update({ where: { id: projectId }, data: { quoteSentDate: new Date() } });
+            }
             await QuoteService.acceptQuote(latestQuote.id, userId, scope.orgId);
             
-            // AUTOMATION: Generate Invoice from accepted quote (v1.3 Requirement)
             try {
                 const { InvoiceService } = await import("@/services/invoiceService");
                 await InvoiceService.generateFromQuote(latestQuote.id, userId, scope.orgId);
             } catch (invoiceError) {
                 console.error("[QuoteAcceptance] Failed to auto-generate invoice:", invoiceError);
-                // We don't block the acceptance if invoice generation fails, but we log it.
             }
         } else {
             await QuoteService.revokeAcceptance(latestQuote.id, userId, scope.orgId);
         }
+    } else {
+        // No formal Quote exists (early-stage project). We just update the Project.
+        await prisma.project.update({
+            where: { id: projectId, organizationId: scope.orgId },
+            data: { 
+                acceptedAt,
+                status: newStatus as any,
+                stage: isAccepted ? 'DISENO' : 'COTIZACION'
+            }
+        });
     }
 
     revalidatePath(`/projects/${projectId}`);

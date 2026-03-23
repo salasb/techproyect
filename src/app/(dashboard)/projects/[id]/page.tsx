@@ -1,7 +1,7 @@
 import { generateId } from "@/lib/id";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { calculateProjectFinancials } from "@/services/financialCalculator";
+
 import ProjectDetailView from "@/components/projects/ProjectDetailView";
 import ProjectInventory from "@/components/projects/ProjectInventory";
 import { RiskEngine } from "@/services/riskEngine";

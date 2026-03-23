@@ -95,8 +95,8 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
         clientName: p.client?.name || p.company?.name || 'Sin Cliente'
     }));
 
-    const financialTrends = DashboardService.getFinancialTrends(projectsRaw as any, period);
-    const topClients = DashboardService.getTopClients(projectsRaw as any);
+    const financialTrends = DashboardService.getFinancialTrends(projectsRaw as any, period, safeSettings as any, 1);
+    const topClients = DashboardService.getTopClients(projectsRaw as any, safeSettings as any, 1);
     const projectMargins = DashboardService.getProjectMargins(processedProjects as any);
 
     const totalRevenue = domainKPIs.totalRevenue;
