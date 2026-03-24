@@ -6,7 +6,7 @@ import { UserMenu } from "./UserMenu";
 import { APP_VERSION, DEPLOY_DATE } from "@/lib/version";
 import { isAdmin } from "@/lib/permissions";
 import { Permission } from "@/lib/auth/rbac";
-import { resolveEntitlements } from "@/lib/billing/entitlements";
+import { resolveCommercialContext } from "@/lib/billing/commercial-domain";
 import { useShellCommercialDisplay } from "./ShellCommercialDisplay";
 
 interface NavItem {
@@ -110,6 +110,12 @@ export function SidebarContent({ onLinkClick, badges = {}, profile, settings }: 
                     <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5">
                         <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">{APP_VERSION}</span>
                     </div>
+                    {display.isGlobalOperator && (
+                        <div className="mt-2 flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                            <Shield className="w-2.5 h-2.5" />
+                            Operador Global
+                        </div>
+                    )}
                     <span className="text-[9px] text-zinc-400 mt-0.5 ml-1">Updated: {DEPLOY_DATE}</span>
                 </div>
             </div>

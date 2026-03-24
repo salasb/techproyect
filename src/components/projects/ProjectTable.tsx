@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Lock, Clock, Send, CheckCircle2, ChevronRight, Info } from "lucide-react";
 import { Database } from "@/types/supabase";
@@ -25,6 +26,7 @@ type Project = Omit<Database['public']['Tables']['Project']['Row'], 'createdAt' 
     costEntries: any[];
     invoices: any[];
     quoteItems: any[];
+    quotes?: any[];
     tasks?: any[];
 };
 
@@ -108,6 +110,9 @@ export function ProjectTable({ projects, settings }: Props) {
                                             >
                                                 {project.name}
                                             </span>
+                                            {project.quotes?.[0] && (
+                                                <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700 border-blue-200">v{project.quotes[0].version}</Badge>
+                                            )}
                                             {risk.level !== 'LOW' && (
                                                 <RiskBadge level={risk.level} score={risk.score} className="scale-75 origin-left" />
                                             )}

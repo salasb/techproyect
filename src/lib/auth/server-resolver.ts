@@ -1,7 +1,6 @@
-import { getWorkspaceState } from "./workspace-resolver";
-import { redirect } from "next/navigation";
-import { Permission, getRolePermissions } from "./rbac";
 import { resolveAccessContext } from "./access-resolver";
+import { getRolePermissions, Permission } from "./rbac";
+import { resolveSuperadminAccess } from './superadmin-guard';
 
 /**
  * Operational Scope (v2.0)
@@ -38,15 +37,13 @@ export async function requireOperationalScope(): Promise<OperationalScope> {
 
     // 2. Handle Global Operator (Rule 1)
     if (context.isGlobalOperator) {
-        // If superadmin but no active org, they can still have a "Virtual Scope"
-        // for global admin pages, but commercial actions will eventually need an orgId.
         return {
             orgId: context.activeOrgId || 'GLOBAL_CONTEXT',
             userId: context.userId,
             isSuperadmin: true,
             role: 'SUPERADMIN',
             permissions: getRolePermissions('SUPERADMIN' as any),
-            isPaused: false // Global operators are never paused
+            isPaused: false
         };
     }
 
@@ -74,7 +71,6 @@ export async function requireOperationalScope(): Promise<OperationalScope> {
 export async function requirePermission(permission: Permission): Promise<OperationalScope> {
     const context = await resolveAccessContext();
 
-    // RULE 1: Global operators bypass granular permission checks for operational actions
     if (context.isGlobalOperator) {
         return {
             orgId: context.activeOrgId || 'GLOBAL_CONTEXT',
@@ -97,12 +93,36 @@ export async function requirePermission(permission: Permission): Promise<Operati
 }
 
 /**
- * Legacy Support
+ * Subscription Plan Guard (v1.0)
+ * Verifies if the active organization has the required plan level.
+ * Strictly respects GLOBAL BYPASS for Superadmins.
  */
+export async function requirePlan(requiredPlan: 'PRO' | 'ENTERPRISE'): Promise<OperationalScope> {
+    const context = await resolveAccessContext();
+    const scope = await requireOperationalScope();
+
+    if (context.isGlobalOperator) {
+        return scope;
+    }
+
+    const currentPlan = context.orgPlan || 'FREE';
+    
+    if (requiredPlan === 'PRO') {
+        if (currentPlan !== 'PRO' && currentPlan !== 'ENTERPRISE') {
+            throw new ScopeError('Esta funcionalidad requiere un Plan PRO.', 'FORBIDDEN');
+        }
+    } else if (requiredPlan === 'ENTERPRISE') {
+        if (currentPlan !== 'ENTERPRISE') {
+            throw new ScopeError('Esta funcionalidad es exclusiva de Plan ENTERPRISE.', 'FORBIDDEN');
+        }
+    }
+
+    return scope;
+}
+
 export async function resolveActiveOrganization(): Promise<string> {
     const scope = await requireOperationalScope();
     return scope.orgId;
 }
 
-import { resolveSuperadminAccess } from './superadmin-guard';
 export { resolveSuperadminAccess };

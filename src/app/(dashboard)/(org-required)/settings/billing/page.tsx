@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { BillingClient } from "@/components/settings/BillingClient";
 import { redirect } from "next/navigation";
 import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
-import { resolveEntitlements } from "@/lib/billing/entitlements";
+import { resolveCommercialContext } from "@/lib/billing/commercial-domain";
 import { PlanModulesCard } from "./components/PlanModulesCard";
-import { resolveCommercialDisplay } from "@/lib/billing/commercial-display";
 
 export default async function BillingPage() {
     let context;
@@ -36,7 +35,7 @@ export default async function BillingPage() {
         console.log(`[Settings][Billing][${traceId}] Loading billing for org=${activeOrgId}`);
         
         const workspace = await getWorkspaceState();
-        const entitlements = resolveEntitlements(workspace);
+        const commercial = resolveCommercialContext(workspace);
 
         const [planData, subscription, supabase] = await Promise.all([
             getOrganizationSubscription(activeOrgId).catch(e => {
@@ -55,10 +54,8 @@ export default async function BillingPage() {
             createClient()
         ]);
 
-        const display = resolveCommercialDisplay({
-            userRole: workspace.userRole,
-            subscriptionStatus: subscription?.status || 'TRIALING',
-        });
+        const entitlements = commercial;
+        const display = commercial;
 
         const { plan } = planData;
 

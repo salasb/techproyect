@@ -1,9 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { resolveCommercialDisplay, CommercialDisplayContext } from '@/lib/billing/commercial-display';
+import { resolveCommercialContext, CommercialContext } from '@/lib/billing/commercial-domain';
 
-const ShellDisplayContext = createContext<CommercialDisplayContext | null>(null);
+const ShellDisplayContext = createContext<CommercialContext | null>(null);
 
 export function ShellCommercialProvider({ 
     children, 
@@ -18,12 +18,9 @@ export function ShellCommercialProvider({
     subscriptionStatus?: string;
     plan?: string;
 }) {
-    // Aggressive detection: Boolean cast and multiple sources
-    const isGlobal = Boolean(isSuperadmin) || userRole === 'SUPERADMIN' || userRole === 'CREATOR';
-
-    const display = resolveCommercialDisplay({
+    const display = resolveCommercialContext({
         userRole,
-        isSuperadmin: isGlobal,
+        isSuperadmin,
         subscriptionStatus,
         plan
     });
@@ -39,7 +36,7 @@ export function useShellCommercialDisplay() {
     const context = useContext(ShellDisplayContext);
     if (!context) {
         // Fallback default if provider is missing (failsafe)
-        return resolveCommercialDisplay({});
+        return resolveCommercialContext({});
     }
     return context;
 }

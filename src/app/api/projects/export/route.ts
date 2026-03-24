@@ -5,13 +5,13 @@ import prisma from '@/lib/prisma';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { jsonToCsv } from '@/lib/exportUtils';
-import { resolveEntitlements } from '@/lib/billing/entitlements';
+import { resolveCommercialContext } from '@/lib/billing/commercial-domain';
 import { getWorkspaceState } from '@/lib/auth/workspace-resolver';
 
 export async function GET(request: Request) {
     try {
         const workspace = await getWorkspaceState();
-        const entitlements = resolveEntitlements(workspace);
+        const entitlements = resolveCommercialContext(workspace);
         
         if (!entitlements.canExportProjects) {
             return NextResponse.json({ error: "Exportación no habilitada para esta organización" }, { status: 403 });

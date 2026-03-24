@@ -1,8 +1,8 @@
 import { CheckCircle2, XCircle } from "lucide-react";
-import { Entitlements } from "@/lib/billing/entitlements";
+import { CommercialContext } from "@/lib/billing/commercial-domain";
 
 interface Props {
-    entitlements: Entitlements;
+    entitlements: CommercialContext;
     planName: string;
 }
 

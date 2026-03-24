@@ -692,32 +692,12 @@ export class DashboardService {
         };
 
         // 6. Total Margin (Projected vs Earned)
-        let projectedMargin = 0;
-        let earnedMargin = 0;
-
-        (projects || []).forEach(p => {
-            const isUsd = p.currency === 'USD';
-            const rate = isUsd ? dollarValue : 1;
-
-            try {
-                const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
-                const marginVal = (fin?.marginAmountNet || 0) * rate;
-
-                // Projected: All non-cancelled projects contribute to potential/projected margin
-                if (p.status !== 'CANCELADO') {
-                    projectedMargin += marginVal;
-                }
-
-                // Earned: Only projects that are effectively "Won" (En Curso, Finalizado)
-                // Casting to string to avoid TS error if types are stale (FINALIZADO vs CERRADO)
-                if (p.status === 'EN_CURSO' || (p.status as string) === 'CERRADO') {
-                    earnedMargin += marginVal;
-                }
-            } catch (e) {
-                // Silently skip corrupted projects for global totals
-            }
-        });
-
+        // Earned: Margin from Won/Active projects (EN_CURSO, CERRADO)
+        // Projected: Margin from all potential projects (everything except CANCELADO)
+        
+        // Use FinancialDomain aggregation for consistency
+        const financials = FinancialDomain.aggregateCollection(projects as any, settings);
+        
         return {
             billing: {
                 value: current.billing,
@@ -729,8 +709,8 @@ export class DashboardService {
                 previous: previous.margin,
                 trend: calcTrend(current.margin, previous.margin)
             },
-            earnedMargin, // NEW
-            projectedMargin, // NEW
+            earnedMargin: financials.earnedMargin, 
+            projectedMargin: financials.projectedMargin,
             pipeline: {
                 value: pipelineValue,
                 count: pipelineCount

@@ -13,7 +13,7 @@ import { RiskEngine } from "@/services/riskEngine";
 import { RiskBadge } from "@/components/projects/RiskBadge";
 import { ProjectTable } from "@/components/projects/ProjectTable";
 import { ProjectExportButton } from "@/components/projects/export/ProjectExportButton";
-import { resolveEntitlements } from "@/lib/billing/entitlements";
+import { resolveCommercialContext } from "@/lib/billing/commercial-domain";
 import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
 
 import { getOrganizationId } from "@/lib/current-org";
@@ -24,7 +24,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     const resolvedParams = await searchParams;
     const orgId = await getOrganizationId();
     const workspace = await getWorkspaceState();
-    const entitlements = resolveEntitlements(workspace);
+    const entitlements = resolveCommercialContext(workspace);
 
     const page = Number(resolvedParams?.page) || 1;
     const itemsPerPage = 10;

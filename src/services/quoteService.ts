@@ -144,62 +144,98 @@ export class QuoteService {
 
     /**
      * Idempotent acceptance of a quote.
+     * Aligns Project status, stage, and financial source of truth.
      */
     static async acceptQuote(quoteId: string, userId: string | null = null, organizationId: string) {
         const quote = await prisma.quote.findUnique({
-            where: { id: quoteId }
-        });
-
-        if (!quote) throw new Error("Quote not found");
-
-        // Idempotency
-        if (quote.status === 'ACCEPTED') {
-            return quote; // No-op
-        }
-
-        if (quote.status !== 'SENT') {
-            // Maybe allow accepting REVISED? No, only SENT.
-            throw new Error("Solo cotizaciones enviadas pueden ser aceptadas.");
-        }
-
-        const acceptedQuote = await prisma.quote.update({
             where: { id: quoteId },
-            data: {
-                status: 'ACCEPTED',
-                updatedAt: new Date()
+            include: { items: true }
+        });
+
+        if (!quote) throw new Error("Cotización no encontrada.");
+
+        // Idempotency: If already accepted, return it.
+        if (quote.status === 'ACCEPTED') {
+            return quote; 
+        }
+
+        if (quote.status !== 'SENT' && quote.status !== 'DRAFT') {
+            throw new Error("Solo cotizaciones enviadas o borradores pueden ser aceptadas.");
+        }
+
+        // Rule: Avoid accepting $0 quotes without explicit items if it's a commercial project
+        if (quote.totalNet === 0 && quote.items.length === 0) {
+            console.warn(`[QuoteService] Aceptando cotización de $0 para proyecto ${quote.projectId}.`);
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            // 1. Mark Quote as ACCEPTED and other versions as SUPERSEDED
+            await tx.quote.updateMany({
+                where: { projectId: quote.projectId, status: 'ACCEPTED' },
+                data: { status: 'SENT' } 
+            });
+
+            const acceptedQuote = await tx.quote.update({
+                where: { id: quoteId },
+                data: {
+                    status: 'ACCEPTED',
+                    updatedAt: new Date()
+                }
+            });
+
+            // 2. Sync Items back to Project (Source of Truth Alignment)
+            // This ensures Dashboard and Reports see the ACCEPTED items.
+            // Delete current live project items (quoteId: null)
+            await tx.quoteItem.deleteMany({
+                where: { projectId: quote.projectId, quoteId: null }
+            });
+
+            if (quote.items.length > 0) {
+                // Clone quote items to project live items
+                const liveItems = quote.items.map(item => ({
+                    projectId: quote.projectId,
+                    organizationId: item.organizationId || organizationId,
+                    quoteId: null, 
+                    detail: item.detail,
+                    quantity: item.quantity,
+                    priceNet: item.priceNet,
+                    costNet: item.costNet,
+                    sku: item.sku,
+                    unit: item.unit,
+                    isSelected: item.isSelected
+                }));
+
+                await tx.quoteItem.createMany({
+                    data: liveItems
+                });
             }
+
+            // 3. Update Project Status & Financials (Critical for Margin KPI)
+            // Transition Project to EN_CURSO
+            await tx.project.update({
+                where: { id: quote.projectId },
+                data: {
+                    status: 'EN_CURSO',
+                    stage: 'DISENO',
+                    acceptedAt: new Date(),
+                    budgetNet: quote.totalNet, // Sync project budget to accepted quote total
+                    nextAction: "Iniciar Planificación / Ejecución",
+                    nextActionDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
+                }
+            });
+
+            // 4. Audit & Activation
+            await AuditService.logAction({
+                projectId: quote.projectId, 
+                action: 'QUOTE_ACCEPTED', 
+                details: `Cotización #${quote.version} aceptada (${quote.items.length} items, Total: ${quote.totalNet}). Proyecto activado.`, 
+                actor: { id: userId || 'SYSTEM' }
+            }, tx as any);
+
+            await ActivationService.trackFunnelEvent('QUOTE_ACCEPTED', organizationId, `quote_accepted_${quoteId}`, userId || 'SYSTEM');
+
+            return acceptedQuote;
         });
-
-        // 3. Update Project Status (Alignment OLA B)
-        // ACCEPTED Quote MUST transition Project to EN_CURSO
-        await prisma.project.update({
-            where: { id: quote.projectId },
-            data: {
-                status: 'EN_CURSO',
-                stage: 'DISENO', // Standard implementation start
-                acceptedAt: new Date(),
-                nextAction: "Iniciar Planificación / Ejecución",
-                nextActionDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000) // Tomorrow
-            }
-        });
-
-        await ActivationService.trackFunnelEvent('QUOTE_ACCEPTED', organizationId, `quote_accepted_${quoteId}`, userId || 'SYSTEM');
-
-        // Outbound Webhook
-        await OutboundWebhookService.dispatch(organizationId, 'quote.accepted', {
-            quoteId: acceptedQuote.id,
-            projectId: acceptedQuote.projectId,
-            version: acceptedQuote.version,
-            totalNet: acceptedQuote.totalNet,
-            totalTax: acceptedQuote.totalTax
-        });
-
-        // Audit
-        await AuditService.logAction({projectId: quote.projectId, action: 'QUOTE_ACCEPTED', details: `Cotización #${quote.version} aceptada por cliente. Proyecto activado.`, actor: { id: userId || 'SYSTEM' }});
-
-        // Notify? (Events)
-
-        return acceptedQuote;
     }
 
     /**

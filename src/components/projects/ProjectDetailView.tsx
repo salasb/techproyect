@@ -8,9 +8,11 @@ import { addLog } from "@/actions/project-logs";
 import { FinancialResult } from "@/services/financialCalculator";
 import { getDollarRateAction, getUfRateAction } from "@/app/actions/currency";
 import { updateProjectStatus } from "@/app/actions/projects";
+import { acceptQuoteAction, rejectQuoteAction, sendQuoteAction } from "@/actions/commercial";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import {
     Calendar,
     Clock,
@@ -109,6 +111,9 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
         status: optimisticStatus || project.status
     };
 
+    // DERIVED COMMERCIAL STATE (v2.0)
+    const activeQuote = project.quotes?.[0]; // Latest version is always first due to orderBy in resolver
+
     async function executeQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') {
         const previousStatus = displayProject.status;
         let newStatus = previousStatus;
@@ -121,40 +126,61 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
 
         setOptimisticStatus(newStatus);
         setIsUpdatingStatus(true);
-        closeConfirm(); // Close immediately for better UX
+        closeConfirm();
 
         try {
+            let res: any;
             if (action === 'SEND') {
-                await updateProjectStatus(project.id, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
-                // Open Mailto
-                const subject = `Cotización ${project.name} - TechWise SpA`;
-                const body = `Estimado cliente,\n\nAdjunto encontrará la cotización para el proyecto reference.\n\nQuedamos atentos.\n\nSaludos,\nChristian Salas\nTechWise SpA`;
-                window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-                toast({ type: 'success', message: "Estado actualizado a En Espera" });
+                if (activeQuote) {
+                    res = await sendQuoteAction(activeQuote.id);
+                } else {
+                    // Legacy path: if no formal quote exists yet
+                    await updateProjectStatus(project.id, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
+                    res = { success: true };
+                }
+                
+                if (res.success) {
+                    const subject = `Cotización ${project.name} - TechWise SpA`;
+                    window.open(`mailto:?subject=${encodeURIComponent(subject)}`);
+                    toast({ type: 'success', message: "Estado actualizado a En Espera" });
+                }
             } else if (action === 'ACCEPT') {
-                await updateProjectStatus(project.id, 'EN_CURSO', 'DISENO', 'Iniciar Desarrollo');
-                toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
+                if (activeQuote) {
+                    res = await acceptQuoteAction(activeQuote.id);
+                } else {
+                    await updateProjectStatus(project.id, 'EN_CURSO', 'DISENO', 'Iniciar Desarrollo');
+                    res = { success: true };
+                }
+
+                if (res.success) {
+                    toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
+                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                }
             } else if (action === 'REJECT') {
-                await updateProjectStatus(project.id, 'CANCELADO');
-                toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
+                if (activeQuote) {
+                    res = await rejectQuoteAction(activeQuote.id);
+                } else {
+                    await updateProjectStatus(project.id, 'CANCELADO');
+                    res = { success: true };
+                }
+                if (res.success) toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
             } else if (action === 'REOPEN') {
                 await updateProjectStatus(project.id, 'EN_ESPERA', project.stage || 'LEVANTAMIENTO', 'Reevaluar Proyecto');
                 toast({ type: 'success', message: "Proyecto reabierto exitosamente" });
             }
+
+            if (res && !res.success) {
+                toast({ type: 'error', message: res.error || "Error al procesar acción" });
+                setOptimisticStatus(null);
+            }
+            
             router.refresh();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ type: 'error', message: "Error al actualizar estado" });
-            setOptimisticStatus(null); // Revert logic handled by useEffect sync, but explicit null here safegaurds
+            toast({ type: 'error', message: error.message || "Error inesperado" });
+            setOptimisticStatus(null);
         } finally {
             setIsUpdatingStatus(false);
-            // We don't clear optimistic status here immediately to prevent flicker before router.refresh() takes over
-            // The useEffect below will handle sync when new project prop arrives
         }
     }
 
@@ -182,18 +208,18 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
         };
 
         if (action === 'SEND') {
-            config.title = '¿Enviar Cotización?';
-            config.description = 'Esto cambiará el estado a EN ESPERA y abrirá su cliente de correo. Asegúrese de adjuntar el PDF.';
-            config.confirmText = 'Enviar y Actualizar';
+            config.title = 'Enviar Propuesta';
+            config.description = 'Se enviará la cotización vigente al cliente y el proyecto pasará a EN ESPERA.';
+            config.confirmText = 'Enviar';
             config.variant = 'info';
         } else if (action === 'ACCEPT') {
-            config.title = '¿Aceptar Propuesta?';
-            config.description = 'El proyecto pasará a estado EN CURSO. ¡Felicitaciones!';
-            config.confirmText = '¡Aceptar!';
+            config.title = 'Aceptar y Activar Proyecto';
+            config.description = 'Al aceptar, el proyecto pasará a EN CURSO y se sincronizarán los ítems comerciales.';
+            config.confirmText = 'Aceptar';
             config.variant = 'success';
         } else if (action === 'REJECT') {
-            config.title = '¿Rechazar Proyecto?';
-            config.description = 'El proyecto será CANCELADO. Esta acción puede revertirse reabriendo el proyecto después.';
+            config.title = 'Rechazar Propuesta';
+            config.description = 'El proyecto será CANCELADO. Podrás reabrirlo si las negociaciones se reanudan.';
             config.confirmText = 'Rechazar';
             config.variant = 'danger';
         } else if (action === 'REOPEN') {
@@ -419,6 +445,11 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight flex flex-wrap items-center gap-3">
                         <span className="truncate">{project.name}</span>
                         <StatusBadge status={displayProject.status} type="PROJECT" />
+                        {activeQuote && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black uppercase tracking-tighter">
+                                v{activeQuote.version} {activeQuote.status}
+                            </Badge>
+                        )}
                         {isLocked && (
                             <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium rounded-full border border-zinc-200 dark:border-zinc-700" title="Proyecto bloqueado - Facturación completa o finalizado">
                                 <Lock className="w-3 h-3" />
@@ -449,51 +480,29 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         </button>
                     )}
 
-                    {/* ACTIVE STATE ACTIONS */}
+                    {/* ACTIVE STATE ACTIONS - UNIFIED (v2.0) */}
                     {project.status !== 'CERRADO' && project.status !== 'CANCELADO' && (
                         <>
-                            {!project.quoteSentDate && (project.stage === 'LEVANTAMIENTO' || !project.stage) && project.status !== 'EN_CURSO' && (
-                                <>
-                                    <button
-                                        onClick={() => requestQuoteAction('SEND')}
-                                        disabled={isUpdatingStatus}
-                                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
-                                    >
-                                        <Sparkles className="w-3 h-3 mr-1.5" />
-                                        Enviar Cotización
-                                    </button>
-
-                                    <button
-                                        onClick={handleManualQuoteSent}
-                                        disabled={isUpdatingStatus}
-                                        className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
-                                        title="Registrar envío sin abrir correo"
-                                    >
-                                        <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                                        Registrar Envío
-                                    </button>
-                                </>
+                            {!project.quoteSentDate && project.status !== 'EN_CURSO' && (
+                                <button
+                                    onClick={() => requestQuoteAction('SEND')}
+                                    disabled={isUpdatingStatus}
+                                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
+                                >
+                                    <Sparkles className="w-3 h-3 mr-1.5" />
+                                    Enviar Propuesta
+                                </button>
                             )}
 
                             {project.quoteSentDate && project.status === 'EN_ESPERA' && (
-                                <>
-                                    <button
-                                        onClick={() => requestQuoteAction('ACCEPT')}
-                                        disabled={isUpdatingStatus}
-                                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
-                                    >
-                                        <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                                        Registrar Aceptación
-                                    </button>
-                                    <button
-                                        onClick={() => requestQuoteAction('REJECT')}
-                                        disabled={isUpdatingStatus}
-                                        className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
-                                    >
-                                        <X className="w-3 h-3 mr-1.5" />
-                                        Rechazar
-                                    </button>
-                                </>
+                                <button
+                                    onClick={() => requestQuoteAction('ACCEPT')}
+                                    disabled={isUpdatingStatus}
+                                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap"
+                                >
+                                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                    Aceptar y Activar
+                                </button>
                             )}
                         </>
                     )}

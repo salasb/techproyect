@@ -225,25 +225,37 @@ export function AppHeader({
                         )}
                     </div>
 
-                    {userProfile?.role === 'SUPERADMIN' && currentOrgId && (
-                        <div className="flex items-center gap-2 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg shadow-sm animate-in zoom-in duration-300" data-testid="superadmin-local-mode-badge">
-                            <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Modo Local</span>
-                        </div>
-                    )}
-
                     {userProfile?.role === 'SUPERADMIN' && (
-                        <Link
-                            href="/admin"
-                            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-primary transition-colors flex items-center gap-2"
-                            title={currentOrgId ? "Volver al Cockpit Global" : "Ir al Cockpit Global"}
-                            data-testid="back-to-cockpit-button"
-                        >
-                            <Shield className="w-5 h-5 text-blue-600" />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden lg:inline text-blue-600">
-                                {currentOrgId ? 'Cockpit' : 'Panel Global'}
-                            </span>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            {/* Simplificación OLA 2A-BIS: Un solo badge claro de contexto */}
+                            {currentOrgId ? (
+                                <div className="flex items-center gap-2 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-full shadow-sm" data-testid="superadmin-context-badge">
+                                    <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                                        Modo Operador
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-full shadow-sm" data-testid="superadmin-context-badge">
+                                    <Shield className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">
+                                        Portal Global
+                                    </span>
+                                </div>
+                            )}
+
+                            <Link
+                                href="/admin"
+                                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-primary transition-colors flex items-center gap-2"
+                                title={currentOrgId ? "Volver al Cockpit Global" : "Ir al Cockpit Global"}
+                                data-testid="back-to-cockpit-button"
+                            >
+                                <Shield className="w-5 h-5 text-blue-600" />
+                                <span className="text-xs font-bold uppercase tracking-wider hidden lg:inline text-blue-600">
+                                    Cockpit
+                                </span>
+                            </Link>
+                        </div>
                     )}
                     <OrgSwitcher currentOrgId={currentOrgId} profile={userProfile} />
                     <ThemeToggle />

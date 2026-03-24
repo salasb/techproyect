@@ -12,6 +12,7 @@ export interface AccessContext {
     isCreator: boolean;
     isGlobalOperator: boolean;
     activeOrgId: string | null;
+    orgPlan: string | null;
     localMembershipRole: string | null;
     subscriptionStatus: string | null;
     trialEndsAt: string | null;
@@ -71,14 +72,16 @@ export async function resolveAccessContext(): Promise<AccessContext> {
     // 4. Resolve Subscription / Billing for the active org
     let subStatus: string | null = null;
     let trialEnd: Date | null = null;
+    let orgPlan: string | null = null;
 
     if (activeOrgId) {
         const sub = await prisma.subscription.findUnique({
             where: { organizationId: activeOrgId },
-            select: { status: true, trialEndsAt: true }
+            select: { status: true, trialEndsAt: true, planCode: true }
         });
         subStatus = sub?.status || null;
         trialEnd = sub?.trialEndsAt || null;
+        orgPlan = sub?.planCode || 'FREE';
     }
 
     const trialEndsAtStr = trialEnd ? trialEnd.toISOString() : null;
@@ -113,6 +116,7 @@ export async function resolveAccessContext(): Promise<AccessContext> {
         isCreator,
         isGlobalOperator,
         activeOrgId,
+        orgPlan,
         localMembershipRole: localRole,
         subscriptionStatus: subStatus,
         trialEndsAt: trialEndsAtStr,

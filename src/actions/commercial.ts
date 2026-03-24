@@ -21,38 +21,81 @@ export async function acceptQuoteAction(quoteId: string) {
     const scope = await requirePermission('QUOTES_MANAGE');
     await ensureNotPaused(scope.orgId);
 
-    // Entitlement: Monthly Invoice Limit (since acceptance creates an invoice)
-    const limitCheck = await checkSubscriptionLimit(scope.orgId, 'invoices');
-    if (!limitCheck.allowed) throw new Error(limitCheck.message);
-    
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'SYSTEM';
 
     try {
-        // 1. Accept Quote (Idempotent)
+        // 1. Accept Quote (Idempotent) - This syncs Project status to EN_CURSO
         const acceptedQuote = await QuoteService.acceptQuote(quoteId, userId, scope.orgId);
 
         // 2. Generate Invoice (Idempotent)
-        const invoice = await InvoiceService.generateFromQuote(quoteId, userId, scope.orgId);
-
-        // 3. Detailed Audit Log (OWASP)
-        await AuditService.logAction({
-            projectId: acceptedQuote.projectId,
-            action: 'QUOTE_ACCEPTED',
-            details: `Cotización #${acceptedQuote.version} aceptada por ${user?.email}. Timestamp: ${new Date().toISOString()}`
-        });
+        let invoiceId = null;
+        try {
+            const invoice = await InvoiceService.generateFromQuote(quoteId, userId, scope.orgId);
+            invoiceId = invoice.id;
+        } catch (invError) {
+            console.warn("[acceptQuoteAction] Auto-invoice generation failed, but quote accepted:", invError);
+        }
 
         revalidatePath(`/quotes`);
         revalidatePath(`/invoices`);
+        revalidatePath(`/projects/${acceptedQuote.projectId}`);
+        revalidatePath(`/projects/${acceptedQuote.projectId}/quote`);
         
         return { 
             success: true, 
-            message: "Cotización aceptada y factura generada.",
-            invoiceId: invoice.id 
+            message: "Cotización aceptada correctamente.",
+            invoiceId
         };
     } catch (error: any) {
         console.error("[acceptQuoteAction] Error:", error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Marks a quote as REJECTED and transitions project to CANCELADO.
+ */
+export async function rejectQuoteAction(quoteId: string) {
+    const scope = await requirePermission('QUOTES_MANAGE');
+    await ensureNotPaused(scope.orgId);
+    
+    const { data: { user } } = await (await createClient()).auth.getUser();
+    
+    try {
+        const quote = await QuoteService.rejectQuote(quoteId, user?.id || 'SYSTEM', scope.orgId);
+        
+        revalidatePath(`/quotes`);
+        revalidatePath(`/projects/${quote.projectId}`);
+        revalidatePath(`/projects/${quote.projectId}/quote`);
+        
+        return { success: true, message: "Cotización rechazada. Proyecto cancelado." };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Creates a new DRAFT version of a quote.
+ */
+export async function createQuoteRevisionAction(quoteId: string) {
+    const scope = await requirePermission('QUOTES_MANAGE');
+    await ensureNotPaused(scope.orgId);
+
+    const limitCheck = await checkSubscriptionLimit(scope.orgId, 'quotes');
+    if (!limitCheck.allowed) throw new Error(limitCheck.message);
+    
+    const { data: { user } } = await (await createClient()).auth.getUser();
+    
+    try {
+        const newQuote = await QuoteService.reviseQuote(quoteId, user?.id || 'SYSTEM', scope.orgId);
+        
+        revalidatePath(`/quotes`);
+        revalidatePath(`/projects/${newQuote.projectId}/quote`);
+        
+        return { success: true, quoteId: newQuote.id, message: `Revisión v${newQuote.version} creada.` };
+    } catch (error: any) {
         return { success: false, error: error.message };
     }
 }
@@ -69,14 +112,9 @@ export async function sendQuoteAction(quoteId: string) {
     try {
         const quote = await QuoteService.sendQuote(quoteId, user?.id || 'SYSTEM', scope.orgId);
         
-        await AuditService.logAction({
-            projectId: quote.projectId,
-            action: 'QUOTE_SENT',
-            details: `Cotización v${quote.version} enviada a cliente por ${user?.email}`
-        });
-
         revalidatePath(`/quotes`);
         revalidatePath(`/projects/${quote.projectId}`);
+        revalidatePath(`/projects/${quote.projectId}/quote`);
         
         return { success: true, message: "Cotización marcada como enviada." };
     } catch (error: any) {

@@ -51,6 +51,9 @@ export async function resolveProjectAccess(projectRef: string): Promise<ProjectA
                 costEntries: true,
                 invoices: true,
                 quoteItems: true,
+                quotes: {
+                    orderBy: { version: 'desc' }
+                },
                 tasks: true,
                 saleNote: true
             }

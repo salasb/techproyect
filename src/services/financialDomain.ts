@@ -17,6 +17,8 @@ export interface ProjectFinancialContext extends Project {
 export interface DashboardFinancials {
     totalRevenue: number;
     totalMargin: number;
+    earnedMargin: number;
+    projectedMargin: number;
     totalCosts: number;
     avgMarginPct: number;
     activeProjectsCount: number;
@@ -56,13 +58,26 @@ export class FinancialDomain {
      * Centralizes the logic used in Dashboard and Reports.
      */
     static aggregateCollection(projects: ProjectFinancialContext[], settings: Settings): DashboardFinancials {
-        const snapshots = projects.map(p => this.getProjectSnapshot(p, settings));
+        const snapshots = projects.map(p => ({
+            project: p,
+            snapshot: this.getProjectSnapshot(p, settings)
+        }));
 
-        const totalRevenue = snapshots.reduce((acc, s) => acc + s.priceNet, 0);
-        const totalMargin = snapshots.reduce((acc, s) => acc + s.marginAmountNet, 0);
-        const totalCosts = snapshots.reduce((acc, s) => acc + s.totalExecutedCostNet, 0);
-        const totalInvoiced = snapshots.reduce((acc, s) => acc + s.totalInvoicedGross, 0);
-        const totalPaid = snapshots.reduce((acc, s) => acc + s.totalPaidGross, 0);
+        const totalRevenue = snapshots.reduce((acc, s) => acc + s.snapshot.priceNet, 0);
+        const totalMargin = snapshots.reduce((acc, s) => acc + s.snapshot.marginAmountNet, 0);
+        const totalCosts = snapshots.reduce((acc, s) => acc + s.snapshot.totalExecutedCostNet, 0);
+        const totalInvoiced = snapshots.reduce((acc, s) => acc + s.snapshot.totalInvoicedGross, 0);
+        const totalPaid = snapshots.reduce((acc, s) => acc + s.snapshot.totalPaidGross, 0);
+
+        // Earned: Projects that are effectively won/active (EN_CURSO, CERRADO)
+        const earnedMargin = snapshots
+            .filter(s => ['EN_CURSO', 'CERRADO'].includes(s.project.status || ''))
+            .reduce((acc, s) => acc + s.snapshot.marginAmountNet, 0);
+
+        // Projected: All non-cancelled projects
+        const projectedMargin = snapshots
+            .filter(s => s.project.status !== 'CANCELADO')
+            .reduce((acc, s) => acc + s.snapshot.marginAmountNet, 0);
 
         // Logic for business states (Aligned with OLA A requirements)
         const activeProjectsCount = projects.filter(p => 
@@ -76,6 +91,8 @@ export class FinancialDomain {
         return {
             totalRevenue,
             totalMargin,
+            earnedMargin,
+            projectedMargin,
             totalCosts,
             avgMarginPct: totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0,
             activeProjectsCount,

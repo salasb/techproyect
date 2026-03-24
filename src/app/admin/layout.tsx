@@ -134,7 +134,7 @@ export default async function AdminLayout({
                             className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2.5 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm"
                             data-testid="superadmin-mode-badge"
                         >
-                            Modo Global
+                            {workspace.activeOrgId ? 'Inspeccionando Organización' : 'Portal Global'}
                         </span>
                     </div>
                     <div className="flex items-center gap-4">

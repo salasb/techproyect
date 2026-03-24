@@ -1,5 +1,5 @@
 import { getWorkspaceState } from "@/lib/auth/workspace-resolver";
-import { resolveEntitlements } from "@/lib/billing/entitlements";
+import { resolveCommercialContext } from "@/lib/billing/commercial-domain";
 import { Lock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,9 @@ interface Props {
 
 export async function EntitlementGuard({ module, children }: Props) {
     const workspace = await getWorkspaceState();
-    const entitlements = resolveEntitlements(workspace);
+    const commercial = resolveCommercialContext(workspace);
 
-    if (!entitlements.visibleModules.includes(module)) {
+    if (!commercial.visibleModules.includes(module)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4">
                 <div className="bg-amber-50 p-6 rounded-full dark:bg-amber-900/20">

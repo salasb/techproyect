@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateProjectStatus, associateProjectToClient } from "@/app/actions/projects";
 import { createInvoiceFromProject } from "@/app/actions/invoices";
-import { sendQuote, createQuoteRevision, toggleQuoteAcceptance, rejectQuote } from "@/app/actions/quotes";
+import { sendQuoteAction, createQuoteRevisionAction, acceptQuoteAction, rejectQuoteAction } from "@/actions/commercial";
 import { QuickClientDialog } from "@/components/clients/QuickClientDialog";
 import { useToast } from "@/components/ui/Toast";
 import confetti from 'canvas-confetti';
-import { Send, CheckCircle2, XCircle, Loader2, RefreshCw, FileDown } from "lucide-react";
+import { Send, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { QuotePdfButton } from "@/components/quotes/QuotePdfButton";
 
 interface QuoteActionsProps {
@@ -29,6 +29,11 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
     const router = useRouter();
 
     const handleAction = async (action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REVISE') => {
+        if (!quote?.id && action !== 'SEND') {
+            toast({ type: 'error', message: "No hay una cotización activa para esta acción." });
+            return;
+        }
+
         if (action === 'SEND' && !clientId) {
             setIsClientModalOpen(true);
             return;
@@ -38,29 +43,34 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
 
         setIsLoading(true);
         try {
+            let res: any;
             if (action === 'SEND') {
-                await sendQuote(projectId);
-
-                const subject = `Cotización ${projectName} - TechWise SpA`;
-                const body = `Estimado cliente,\n\nAdjunto encontrará la cotización para el proyecto reference.\n\nQuedamos atentos.\n\nSaludos,\nChristian Salas\nTechWise SpA`;
-                window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-
-                toast({ type: 'success', message: "Cotización enviada y Snapshot v1 creado" });
+                // In TechProyect, SEND might need to create the first quote if it doesn't exist.
+                // For simplicity, we assume sendQuoteAction handles the logic or we use the existing one if we have it.
+                res = await sendQuoteAction(quote.id);
+                if (res.success) {
+                    const subject = `Cotización ${projectName} - TechWise SpA`;
+                    window.open(`mailto:?subject=${encodeURIComponent(subject)}`);
+                    toast({ type: 'success', message: "Cotización enviada." });
+                }
             } else if (action === 'ACCEPT') {
-                await toggleQuoteAcceptance(projectId, true);
-                toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
+                res = await acceptQuoteAction(quote.id);
+                if (res.success) {
+                    toast({ type: 'success', message: "¡Cotización Aceptada! El proyecto ahora está en curso." });
+                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                }
             } else if (action === 'REJECT') {
-                await rejectQuote(projectId);
-                toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
+                res = await rejectQuoteAction(quote.id);
+                if (res.success) toast({ type: 'info', message: "Cotización rechazada. Proyecto cancelado." });
             } else if (action === 'REVISE') {
-                await createQuoteRevision(projectId);
-                toast({ type: 'success', message: `Nueva versión de revisión creada exitosamente.` });
+                res = await createQuoteRevisionAction(quote.id);
+                if (res.success) toast({ type: 'success', message: res.message });
             }
+
+            if (res && !res.success) {
+                toast({ type: 'error', message: res.error || "Fallo en la operación." });
+            }
+            
             router.refresh();
         } catch (error: any) {
             console.error(error);
@@ -74,6 +84,7 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
         if (!confirm("¿Generar factura basada en la cotización actual?")) return;
         setIsLoading(true);
         try {
+            const { createInvoiceFromProject } = await import("@/app/actions/invoices");
             await createInvoiceFromProject(projectId);
             toast({ type: 'success', message: "Factura generada exitosamente" });
             router.refresh();

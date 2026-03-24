@@ -422,8 +422,8 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
         ? {
             billing: { value: domainMetrics.totalRevenue, previous: 0, trend: 0 },
             margin: { value: domainMetrics.totalMargin, previous: 0, trend: 0 },
-            earnedMargin: domainMetrics.avgMarginPct / 100,
-            projectedMargin: domainMetrics.avgMarginPct / 100,
+            earnedMargin: domainMetrics.earnedMargin,
+            projectedMargin: domainMetrics.projectedMargin,
             pipeline: { value: 0, count: 0 }
         }
         : isExplore ? {
