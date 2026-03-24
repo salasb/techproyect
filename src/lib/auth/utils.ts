@@ -1,5 +1,5 @@
 /**
- * Auth Utilities (v1.2) - Strict Environment Detection
+ * Auth Utilities (v1.3) - Strict Environment Detection & Canonical Routing
  */
 
 /**
@@ -26,19 +26,26 @@ export const getURL = (path: string = '') => {
         url = 'http://localhost:3000';
     }
 
-    // 4. Normalization
+    // 4. Normalization (v1.3 Fix: Ensure string for TS)
+    let normalizedUrl = url || (isDev ? 'http://localhost:3000' : 'https://techproyect.vercel.app');
+
     // Ensure protocol
-    if (url && !url.startsWith('http')) {
-        url = `https://${url}`;
+    if (!normalizedUrl.startsWith('http')) {
+        normalizedUrl = `https://${normalizedUrl}`;
     }
     
     // Remove trailing slash to avoid double slashes during concatenation
-    url = url.endsWith('/') ? url.slice(0, -1) : url;
+    if (normalizedUrl.endsWith('/')) {
+        normalizedUrl = normalizedUrl.slice(0, -1);
+    }
     
     // Add the path (ensure it starts with /)
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    const finalUrl = `${url}${cleanPath}`;
+    const finalUrl = `${normalizedUrl}${cleanPath}`;
     
-    console.log(`[AUTH][DEBUG] Generated URL: ${finalUrl} (Source: ${process.env.NODE_ENV})`);
+    if (!isDev) {
+        console.log(`[AUTH][DEBUG] Generated URL: ${finalUrl} (Source: ${process.env.NODE_ENV})`);
+    }
+    
     return finalUrl;
 };
