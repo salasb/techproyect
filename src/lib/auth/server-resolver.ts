@@ -95,13 +95,15 @@ export async function requirePermission(permission: Permission): Promise<Operati
 /**
  * Subscription Plan Guard (v1.0)
  * Verifies if the active organization has the required plan level.
- * Strictly respects GLOBAL BYPASS for Superadmins.
+ * Strictly respects GLOBAL BYPASS only in GLOBAL mode.
  */
 export async function requirePlan(requiredPlan: 'PRO' | 'ENTERPRISE'): Promise<OperationalScope> {
     const context = await resolveAccessContext();
     const scope = await requireOperationalScope();
 
-    if (context.isGlobalOperator) {
+    // OLA 2A-TER: Bypass only if explicitly in GLOBAL mode (Portal Global).
+    // If in TENANT mode, even Superadmins are subject to plan checks for QA/UX consistency.
+    if (context.effectiveMode === 'GLOBAL') {
         return scope;
     }
 

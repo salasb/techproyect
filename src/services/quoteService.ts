@@ -211,15 +211,15 @@ export class QuoteService {
             }
 
             // 3. Update Project Status & Financials (Critical for Margin KPI)
-            // Transition Project to EN_CURSO
+            // OLA 2A-TER: Acción operativa real tras aceptación
             await tx.project.update({
                 where: { id: quote.projectId },
                 data: {
                     status: 'EN_CURSO',
                     stage: 'DISENO',
                     acceptedAt: new Date(),
-                    budgetNet: quote.totalNet, // Sync project budget to accepted quote total
-                    nextAction: "Iniciar Planificación / Ejecución",
+                    budgetNet: quote.totalNet, 
+                    nextAction: "Generar Nota de Venta",
                     nextActionDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
                 }
             });

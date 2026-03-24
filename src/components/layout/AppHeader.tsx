@@ -136,10 +136,12 @@ export function AppHeader({
         .replace(/\s*USER$/i, '')
         .trim();
 
+    const suppressPrompts = display.suppressCommercialPrompts || !currentOrgId;
+
     return (
         <>
-            {!display.suppressCommercialPrompts && <DunningBanner subscription={subscription} />}
-            {subscription && !display.suppressCommercialPrompts && (
+            {!suppressPrompts && <DunningBanner subscription={subscription} />}
+            {subscription && !suppressPrompts && (
                 <PaywallBanner
                     status={subscription.status}
                     trialEndsAt={subscription.trialEndsAt}
@@ -257,7 +259,7 @@ export function AppHeader({
                             </Link>
                         </div>
                     )}
-                    <OrgSwitcher currentOrgId={currentOrgId} profile={userProfile} />
+                    {currentOrgId && <OrgSwitcher currentOrgId={currentOrgId} profile={userProfile} />}
                     <ThemeToggle />
                     <NotificationCenter
                         organizationId={currentOrgId}

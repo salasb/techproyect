@@ -101,21 +101,29 @@ export async function updateProjectStatus(projectId: string, status: string, sta
         if (nextAction) updateData.nextAction = nextAction;
         if (closeReason) updateData.closeReason = closeReason;
 
-        // Commercial Lifecycle Enhancements
-        if (status === 'EN_ESPERA') {
-            const followUpDate = new Date();
-            followUpDate.setDate(followUpDate.getDate() + 7);
-            updateData.nextAction = 'Seguimiento Cotización';
-            updateData.nextActionDate = followUpDate;
-            updateData.stage = 'LEVANTAMIENTO';
-            updateData.quoteSentDate = new Date();
-        }
+        // OLA 2A-TER: Commercial Guard - No pises la acción operativa real tras aceptación
+        const currentProject = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { acceptedAt: true, nextAction: true }
+        });
 
-        if (status === 'EN_CURSO' && stage === 'DISENO') {
-            const kickoffDate = new Date();
-            kickoffDate.setDate(kickoffDate.getDate() + 2);
-            updateData.nextAction = 'Planificar Kickoff';
-            updateData.nextActionDate = kickoffDate;
+        // Only apply automatic follow-up messages if the project hasn't been accepted yet
+        if (!currentProject?.acceptedAt) {
+            if (status === 'EN_ESPERA') {
+                const followUpDate = new Date();
+                followUpDate.setDate(followUpDate.getDate() + 7);
+                updateData.nextAction = 'Seguimiento Cotización';
+                updateData.nextActionDate = followUpDate;
+                updateData.stage = 'LEVANTAMIENTO';
+                updateData.quoteSentDate = new Date();
+            }
+
+            if (status === 'EN_CURSO' && stage === 'DISENO') {
+                const kickoffDate = new Date();
+                kickoffDate.setDate(kickoffDate.getDate() + 2);
+                updateData.nextAction = 'Planificar Kickoff';
+                updateData.nextActionDate = kickoffDate;
+            }
         }
 
         // [INVENTORY AUTOMATION]

@@ -58,21 +58,23 @@ export async function resolveAccessContext(): Promise<AccessContext> {
     const isGlobalOperator = isCreator || globalRole === 'SUPERADMIN' || globalRole === 'STAFF';
 
     // 3. Resolve Workspace State (Tenant Context)
-    // We catch errors to prevent global operators from being blocked by tenant-level issues
     let workspace: WorkspaceState | null = null;
     try {
         workspace = await getWorkspaceState();
     } catch (e) {
-        console.warn(`[AccessResolver][${traceId}] Workspace resolution failed, but continuing for global check.`);
+        console.warn(`[AccessResolver][${traceId}] Workspace resolution failed.`);
     }
 
     const activeOrgId = workspace?.activeOrgId || null;
     const localRole = workspace?.userRole || null;
+    const orgPlan = workspace?.orgPlan || null; // OLA 2A-TER: Capturar el plan desde el resolver base
 
     // 4. Resolve Subscription / Billing for the active org
     let subStatus: string | null = null;
     let trialEnd: Date | null = null;
-    let orgPlan: string | null = null;
+    
+    // Fallback if workspace resolver didn't provide it (redundancy for safety)
+    let finalOrgPlan = orgPlan;
 
     if (activeOrgId) {
         const sub = await prisma.subscription.findUnique({
@@ -81,7 +83,7 @@ export async function resolveAccessContext(): Promise<AccessContext> {
         });
         subStatus = sub?.status || null;
         trialEnd = sub?.trialEndsAt || null;
-        orgPlan = sub?.planCode || 'FREE';
+        if (!finalOrgPlan) finalOrgPlan = sub?.planCode || 'FREE';
     }
 
     const trialEndsAtStr = trialEnd ? trialEnd.toISOString() : null;
@@ -116,7 +118,7 @@ export async function resolveAccessContext(): Promise<AccessContext> {
         isCreator,
         isGlobalOperator,
         activeOrgId,
-        orgPlan,
+        orgPlan: finalOrgPlan,
         localMembershipRole: localRole,
         subscriptionStatus: subStatus,
         trialEndsAt: trialEndsAtStr,
