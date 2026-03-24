@@ -230,7 +230,7 @@ export class QuoteService {
                 action: 'QUOTE_ACCEPTED', 
                 details: `Cotización #${quote.version} aceptada (${quote.items.length} items, Total: ${quote.totalNet}). Proyecto activado.`, 
                 actor: { id: userId || 'SYSTEM' }
-            }, tx as any);
+            });
 
             await ActivationService.trackFunnelEvent('QUOTE_ACCEPTED', organizationId, `quote_accepted_${quoteId}`, userId || 'SYSTEM');
 
