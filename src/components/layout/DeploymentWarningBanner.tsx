@@ -17,13 +17,14 @@ export function DeploymentWarningBanner() {
             // anything containing '-git-' or ending in '.vercel.app' that isn't the prod domain
             // is a preview.
 
-            const isVercelPreview = hostname.endsWith('.vercel.app') && !hostname.includes('techproyect.vercel.app'); // Adjust 'techproyect.vercel.app' if that's the canonical.
+            const isVercelPreview = hostname.endsWith('.vercel.app') && !hostname.includes('techproyect.vercel.app'); 
 
             if (isVercelPreview) {
-                // Determine canonical URL from env or fallback
-                const prodUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tu-dominio-principal.com'; // Adjust accordingly if env var is known
-                setCanonicalUrl(prodUrl)
-                setIsVisible(true)
+                // Use robust canonical from utils
+                import('@/lib/auth/utils').then(({ getURL }) => {
+                    setCanonicalUrl(getURL('/'));
+                    setIsVisible(true);
+                });
             }
         }
     }, [])
