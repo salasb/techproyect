@@ -1,6 +1,6 @@
 {
   "name": "tech-proyect",
-  "version": "1.0.402",
+  "version": "1.0.403",
   "private": true,
   "scripts": {
     "dev": "next dev",

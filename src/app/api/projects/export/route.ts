@@ -53,32 +53,64 @@ export async function GET(request: Request) {
         };
 
         const exportData = projects.map(p => {
-            const fin = FinancialDomain.getProjectSnapshot(p as any, settings as any);
+            // Use safeSettings to avoid null pointer errors in FinancialDomain
+            const fin = FinancialDomain.getProjectSnapshot(p as any, safeSettings as any);
 
             const totalCosts = (p.costEntries || []).reduce((acc: any, c: any) => acc + c.amountNet, 0);
             const totalInvoiced = (p.invoices || []).reduce((acc: any, inv: any) => acc + (inv.amountInvoicedGross || 0), 0);
             const totalPaid = (p.invoices || []).reduce((acc: any, inv: any) => acc + (inv.amountPaidGross || 0), 0);
 
+            // Safe date formatting
+            let formattedNextActionDate = '';
+            try {
+                if (p.nextActionDate) {
+                    const d = new Date(p.nextActionDate);
+                    if (!isNaN(d.getTime())) {
+                        formattedNextActionDate = format(d, 'dd/MM/yyyy', { locale: es });
+                    }
+                }
+            } catch (e) {
+                console.error(`Error formatting nextActionDate for project ${p.id}:`, e);
+            }
+
+            let formattedCreatedAt = '';
+            try {
+                const d = new Date(p.createdAt);
+                if (!isNaN(d.getTime())) {
+                    formattedCreatedAt = format(d, 'dd/MM/yyyy', { locale: es });
+                }
+            } catch (e) {
+                console.error(`Error formatting createdAt for project ${p.id}:`, e);
+            }
+
             return {
-                "ID": p.id.slice(-8).toUpperCase(),
-                "Proyecto": p.name,
+                "ID": (p.id || '').slice(-8).toUpperCase(),
+                "Proyecto": p.name || 'Sin nombre',
                 "Cliente": p.client?.name || p.company?.name || 'No asignado',
                 "Estado": p.status,
                 "Próxima Acción": p.nextAction || 'Ninguna',
-                "Fecha Próx Acción": p.nextActionDate ? format(new Date(p.nextActionDate), 'dd/MM/yyyy', { locale: es }) : '',
-                "Venta Neta": fin.priceNet,
-                "Costo Neto": totalCosts,
-                "Margen Bruto": fin.marginAmountNet,
-                "Margen %": fin.priceNet > 0 ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(1) + '%' : '0%',
-                "Facturado Gross": totalInvoiced,
-                "Pagado Gross": totalPaid,
+                "Fecha Próx Acción": formattedNextActionDate,
+                "Venta Neta": fin.priceNet || 0,
+                "Costo Neto": totalCosts || 0,
+                "Margen Bruto": fin.marginAmountNet || 0,
+                "Margen %": (fin.priceNet && fin.priceNet > 0) ? ((fin.marginAmountNet / fin.priceNet) * 100).toFixed(1) + '%' : '0%',
+                "Facturado Gross": totalInvoiced || 0,
+                "Pagado Gross": totalPaid || 0,
                 "Responsable": p.responsible || '',
-                "Fecha Creación": format(new Date(p.createdAt), 'dd/MM/yyyy', { locale: es }),
+                "Fecha Creación": formattedCreatedAt,
             };
         });
 
         if (formatType === 'csv') {
-            const columns = Object.keys(exportData[0] || {}).map(key => ({
+            // Handle empty data case for columns
+            const firstItem = exportData[0] || {
+                "ID": "", "Proyecto": "", "Cliente": "", "Estado": "", 
+                "Próxima Acción": "", "Fecha Próx Acción": "", "Venta Neta": 0, 
+                "Costo Neto": 0, "Margen Bruto": 0, "Margen %": "0%", 
+                "Facturado Gross": 0, "Pagado Gross": 0, "Responsable": "", "Fecha Creación": ""
+            };
+            
+            const columns = Object.keys(firstItem).map(key => ({
                 header: key,
                 accessor: (item: any) => item[key]
             }));
