@@ -13,6 +13,7 @@ type Project = Database['public']['Tables']['Project']['Row'] & {
     client?: Database['public']['Tables']['Client']['Row'] | null;
     acceptedAt?: string | null;
     version?: number;
+    totalNet: number;
 }
 
 type Settings = Database['public']['Tables']['Settings']['Row']
