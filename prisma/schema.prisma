@@ -62,7 +62,7 @@ model Project {
   nextAction         String?
   budgetNet          Float               @default(0)
   marginPct          Float               @default(0.30)
-  digitalAcceptance  Boolean             @default(true)
+  digitalAcceptance  Boolean             @default(false)
 
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt

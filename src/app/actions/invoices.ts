@@ -91,20 +91,19 @@ export async function createInvoice(projectId: string, formData: FormData) {
 }
 
 export async function deleteInvoice(projectId: string, invoiceId: string) {
+    const traceId = Math.random().toString(36).substring(7).toUpperCase();
     try {
         const scope = await requirePermission('PROJECTS_MANAGE');
         await ensureNotPaused(scope.orgId);
-        const supabase = await createClient();
 
         // 1. Fetch invoice to check status (Domain Rule)
-        const { data: invoice, error: fetchError } = await supabase
-            .from('Invoice')
-            .select('status, amountInvoicedGross')
-            .eq('id', invoiceId)
-            .eq('organizationId', scope.orgId)
-            .single();
+        // Using prisma to avoid RLS silent failures in server actions
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            select: { status: true, amountInvoicedGross: true, organizationId: true }
+        });
 
-        if (fetchError || !invoice) {
+        if (!invoice || invoice.organizationId !== scope.orgId) {
             return { success: false, error: "INVOICE_NOT_FOUND", message: "La factura no existe o no tienes acceso." };
         }
 
@@ -117,46 +116,32 @@ export async function deleteInvoice(projectId: string, invoiceId: string) {
             };
         }
 
-        // 3. Execution
-        const { error: deleteError } = await supabase
-            .from('Invoice')
-            .delete()
-            .eq('id', invoiceId)
-            .eq('organizationId', scope.orgId);
+        // 3. Atomic Execution via Prisma
+        await prisma.invoice.delete({
+            where: { id: invoiceId }
+        });
 
-        if (deleteError) {
-            console.error("[Invoices][Delete] Error:", deleteError);
-            return { success: false, error: "DB_DELETE_ERROR", message: "Fallo técnico al eliminar la factura en base de datos." };
-        }
+        console.log(`[Invoices][${traceId}] Invoice ${invoiceId} deleted successfully by ${scope.orgId}`);
 
-        // 4. Trace & Sync
+        // 4. Audit
         await AuditService.logAction({
             projectId: projectId, 
             action: 'INVOICE_DELETE', 
             details: `Factura DRAFT eliminada por $${invoice.amountInvoicedGross.toLocaleString('es-CL')}`
         });
 
+        // 5. Hard Revalidation
         revalidatePath(`/projects/${projectId}`);
-        revalidatePath(`/projects/${projectId}/quote`);
+        revalidatePath(`/dashboard`);
         
         return { success: true };
 
     } catch (error: any) {
-        console.error("[Invoices][Delete] Exception:", error.message);
-        
-        // Handle specific scope errors (Preview mode / Idle session)
-        if (error.code === 'NO_ORG_CONTEXT' || error.message?.includes('organization')) {
-            return { 
-                success: false, 
-                error: "NO_ORG_CONTEXT", 
-                message: "Contexto de organización perdido. Por favor, recarga la página o selecciona una organización activa." 
-            };
-        }
-
+        console.error(`[Invoices][${traceId}] Exception:`, error.message);
         return { 
             success: false, 
             error: "UNEXPECTED_ERROR", 
-            message: error.message || "Error inesperado al intentar eliminar la factura." 
+            message: "Error técnico al intentar eliminar la factura. Intente nuevamente." 
         };
     }
 }

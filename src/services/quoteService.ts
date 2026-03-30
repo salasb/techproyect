@@ -163,13 +163,13 @@ export class QuoteService {
             throw new Error(`ERROR_INVALID_STATE: No se puede aceptar una cotización en estado ${quote.status}. Solo se permiten cotizaciones en BORRADOR o ENVIADAS.`);
         }
 
-        // Rule: Avoid accepting $0 quotes without explicit items if it's a commercial project
-        if (quote.totalNet === 0 && quote.items.length === 0) {
-            console.warn(`[QuoteService] Aceptando cotización de $0 para proyecto ${quote.projectId}.`);
+        // Domain Rule: Prevent acceptance of empty quotes
+        if (quote.items.length === 0) {
+            throw new Error("QUOTE_EMPTY: No se puede aceptar una cotización sin ítems. Agregue productos o servicios primero.");
         }
 
         return await prisma.$transaction(async (tx) => {
-            // 1. Mark Quote as ACCEPTED and other versions as SUPERSEDED
+            // 1. Mark Quote as ACCEPTED and other versions as SENT (superseded)
             await tx.quote.updateMany({
                 where: { projectId: quote.projectId, status: 'ACCEPTED' },
                 data: { status: 'SENT' } 
@@ -184,34 +184,30 @@ export class QuoteService {
             });
 
             // 2. Sync Items back to Project (Source of Truth Alignment)
-            // This ensures Dashboard and Reports see the ACCEPTED items.
             // Delete current live project items (quoteId: null)
             await tx.quoteItem.deleteMany({
                 where: { projectId: quote.projectId, quoteId: null }
             });
 
-            if (quote.items.length > 0) {
-                // Clone quote items to project live items
-                const liveItems = quote.items.map(item => ({
-                    projectId: quote.projectId,
-                    organizationId: item.organizationId || organizationId,
-                    quoteId: null, 
-                    detail: item.detail,
-                    quantity: item.quantity,
-                    priceNet: item.priceNet,
-                    costNet: item.costNet,
-                    sku: item.sku,
-                    unit: item.unit,
-                    isSelected: item.isSelected
-                }));
+            // Clone quote items to project live items
+            const liveItems = quote.items.map(item => ({
+                projectId: quote.projectId,
+                organizationId: item.organizationId || organizationId,
+                quoteId: null, 
+                detail: item.detail,
+                quantity: item.quantity,
+                priceNet: item.priceNet,
+                costNet: item.costNet,
+                sku: item.sku,
+                unit: item.unit,
+                isSelected: item.isSelected
+            }));
 
-                await tx.quoteItem.createMany({
-                    data: liveItems
-                });
-            }
+            await tx.quoteItem.createMany({
+                data: liveItems
+            });
 
-            // 3. Update Project Status & Financials (Critical for Margin KPI)
-            // OLA 2A-TER: Acción operativa real tras aceptación
+            // 3. Update Project Status & Financials
             await tx.project.update({
                 where: { id: quote.projectId },
                 data: {
@@ -224,7 +220,6 @@ export class QuoteService {
                 }
             });
 
-            // 4. Audit & Activation
             await AuditService.logAction({
                 projectId: quote.projectId, 
                 action: 'QUOTE_ACCEPTED', 

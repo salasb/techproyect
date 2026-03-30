@@ -184,10 +184,10 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
                     onClick={handleGenerateInvoice}
                     disabled={isLoading}
                     className="ml-2 bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center animate-in fade-in"
-                    title="Generar factura basada en cotización aceptada"
+                    title="Crear borrador contable de factura basado en cotización aceptada"
                 >
                     {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                    Generar Factura
+                    Preparar Borrador Factura
                 </button>
             )}
 
