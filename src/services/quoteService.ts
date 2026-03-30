@@ -152,7 +152,7 @@ export class QuoteService {
             include: { items: true }
         });
 
-        if (!quote) throw new Error("Cotización no encontrada.");
+        if (!quote) throw new Error("ERROR_QUOTE_NOT_FOUND: La cotización especificada no existe.");
 
         // Idempotency: If already accepted, return it.
         if (quote.status === 'ACCEPTED') {
@@ -160,7 +160,7 @@ export class QuoteService {
         }
 
         if (quote.status !== 'SENT' && quote.status !== 'DRAFT') {
-            throw new Error("Solo cotizaciones enviadas o borradores pueden ser aceptadas.");
+            throw new Error(`ERROR_INVALID_STATE: No se puede aceptar una cotización en estado ${quote.status}. Solo se permiten cotizaciones en BORRADOR o ENVIADAS.`);
         }
 
         // Rule: Avoid accepting $0 quotes without explicit items if it's a commercial project

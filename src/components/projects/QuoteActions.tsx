@@ -30,45 +30,51 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
 
     const handleAction = async (action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REVISE') => {
         if (!quote?.id && action !== 'SEND') {
-            toast({ type: 'error', message: "No hay una cotización activa para esta acción." });
+            toast({ 
+                type: 'error', 
+                message: "Estado Inconsistente: No existe una versión de cotización válida para esta acción. Por favor, genere un borrador primero." 
+            });
             return;
         }
 
-        if (action === 'SEND' && !clientId) {
-            setIsClientModalOpen(true);
-            return;
-        }
+        const confirmMsg = {
+            'SEND': "¿Enviar cotización al cliente y congelar precios?",
+            'ACCEPT': "¿Registrar ACEPTACIÓN MANUAL de la cotización? Esto activará el proyecto.",
+            'REJECT': "¿Registrar RECHAZO MANUAL de la cotización? Esto cancelará el proyecto.",
+            'REVISE': "¿Crear una nueva versión de revisión basada en esta cotización?"
+        }[action];
 
-        if (!confirm("¿Está seguro de realizar esta acción?")) return;
+        if (!confirm(confirmMsg)) return;
 
         setIsLoading(true);
         try {
             let res: any;
             if (action === 'SEND') {
-                // In TechProyect, SEND might need to create the first quote if it doesn't exist.
-                // For simplicity, we assume sendQuoteAction handles the logic or we use the existing one if we have it.
-                res = await sendQuoteAction(quote.id);
+                res = await sendQuoteAction(quote?.id);
                 if (res.success) {
                     const subject = `Cotización ${projectName} - TechWise SpA`;
                     window.open(`mailto:?subject=${encodeURIComponent(subject)}`);
-                    toast({ type: 'success', message: "Cotización enviada." });
+                    toast({ type: 'success', message: "Cotización marcada como ENVIADA." });
                 }
             } else if (action === 'ACCEPT') {
                 res = await acceptQuoteAction(quote.id);
                 if (res.success) {
-                    toast({ type: 'success', message: "¡Cotización Aceptada! El proyecto ahora está en curso." });
+                    toast({ type: 'success', message: "Aceptación manual registrada. El proyecto ahora está en curso." });
                     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 }
             } else if (action === 'REJECT') {
                 res = await rejectQuoteAction(quote.id);
-                if (res.success) toast({ type: 'info', message: "Cotización rechazada. Proyecto cancelado." });
+                if (res.success) toast({ type: 'info', message: "Rechazo manual registrado. Proyecto cancelado." });
             } else if (action === 'REVISE') {
                 res = await createQuoteRevisionAction(quote.id);
                 if (res.success) toast({ type: 'success', message: res.message });
             }
 
             if (res && !res.success) {
-                toast({ type: 'error', message: res.error || "Fallo en la operación." });
+                toast({ 
+                    type: 'error', 
+                    message: res.error || "La operación no pudo completarse debido al estado actual de la cotización." 
+                });
             }
             
             router.refresh();
@@ -97,8 +103,13 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
     };
 
     if (projectStatus === 'CERRADO' || projectStatus === 'CANCELADO') {
-        return null; // Actions not available for final states
+        return null;
     }
+
+    const currentStatus = quote?.status || 'NONE';
+    const isAccepted = currentStatus === 'ACCEPTED';
+    const isRejected = currentStatus === 'REJECTED';
+    const isDraft = currentStatus === 'DRAFT';
 
     return (
         <div className="flex gap-2 print:hidden relative group">
@@ -110,47 +121,56 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
                     </Link>
                 </div>
             )}
-            {!quoteSentDate ? (
+
+            {/* SEND / REVISE Logic */}
+            {isDraft ? (
                 <button
                     onClick={() => handleAction('SEND')}
                     disabled={isLoading || isPaused}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
-                    title="Enviar Cotización (Congela versión actual)"
+                    title="Marcar como enviada y congelar precios"
                 >
                     {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                    Enviar
+                    Enviar al Cliente
                 </button>
             ) : (
-                <button
-                    onClick={() => handleAction('REVISE')}
-                    disabled={isLoading}
-                    className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
-                    title="Crear Nueva Versión de Revisión"
-                >
-                    {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                    Revisar (vN+1)
-                </button>
+                !isAccepted && !isRejected && (
+                    <button
+                        onClick={() => handleAction('REVISE')}
+                        disabled={isLoading}
+                        className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
+                        title="Crear nueva versión de revisión"
+                    >
+                        {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                        Revisar Cotización
+                    </button>
+                )
             )}
 
-            <button
-                onClick={() => handleAction('ACCEPT')}
-                disabled={isLoading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
-                title="Aceptar Cotización (Cambia estado a En Curso)"
-            >
-                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                Aceptar
-            </button>
+            {/* ACCEPTANCE Logic (Manual Override) */}
+            {!isAccepted && !isRejected && (
+                <>
+                    <button
+                        onClick={() => handleAction('ACCEPT')}
+                        disabled={isLoading}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
+                        title="Registrar aceptación manual recibida del cliente"
+                    >
+                        {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                        Aceptar Manual
+                    </button>
 
-            <button
-                onClick={() => handleAction('REJECT')}
-                disabled={isLoading}
-                className="bg-white border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
-                title="Rechazar Cotización"
-            >
-                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
-                Rechazar
-            </button>
+                    <button
+                        onClick={() => handleAction('REJECT')}
+                        disabled={isLoading}
+                        className="bg-white border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center"
+                        title="Registrar rechazo manual del cliente"
+                    >
+                        {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
+                        Rechazar Manual
+                    </button>
+                </>
+            )}
 
             {quote && (
                 <div className="flex items-center h-10 px-2 bg-white rounded-lg border border-zinc-200 shadow-sm">
@@ -158,13 +178,13 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
                 </div>
             )}
 
-            {/* Invoice Generation - Available when Accepted (En Curso) */}
-            {projectStatus === 'EN_CURSO' && (
+            {/* Success Actions */}
+            {isAccepted && projectStatus === 'EN_CURSO' && (
                 <button
                     onClick={handleGenerateInvoice}
                     disabled={isLoading}
                     className="ml-2 bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center animate-in fade-in"
-                    title="Generar Factura desde Cotización"
+                    title="Generar factura basada en cotización aceptada"
                 >
                     {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                     Generar Factura
@@ -179,7 +199,6 @@ export function QuoteActions({ projectId, clientId, projectStatus, projectName, 
                         setIsLoading(true);
                         await associateProjectToClient(projectId, client.id);
                         toast({ type: 'success', message: "Cliente asociado. Procediendo a enviar..." });
-                        // Re-trigger SEND now that we have a client
                         await handleAction('SEND');
                     } catch (err: any) {
                         toast({ type: 'error', message: err.message });

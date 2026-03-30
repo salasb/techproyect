@@ -91,16 +91,74 @@ export async function createInvoice(projectId: string, formData: FormData) {
 }
 
 export async function deleteInvoice(projectId: string, invoiceId: string) {
-    const scope = await requirePermission('FINANCE_VIEW');
-    await ensureNotPaused(scope.orgId);
-    const supabase = await createClient();
+    try {
+        const scope = await requirePermission('PROJECTS_MANAGE');
+        await ensureNotPaused(scope.orgId);
+        const supabase = await createClient();
 
-    const { error } = await supabase.from('Invoice').delete().eq('id', invoiceId).eq('organizationId', scope.orgId);
-    if (error) throw new Error(`Error eliminando factura: ${error.message}`);
+        // 1. Fetch invoice to check status (Domain Rule)
+        const { data: invoice, error: fetchError } = await supabase
+            .from('Invoice')
+            .select('status, amountInvoicedGross')
+            .eq('id', invoiceId)
+            .eq('organizationId', scope.orgId)
+            .single();
 
-    await AuditService.logAction({projectId: projectId, action: 'INVOICE_DELETE', details: `Factura eliminada`});
-    revalidatePath(`/projects/${projectId}`);
-    return { success: true };
+        if (fetchError || !invoice) {
+            return { success: false, error: "INVOICE_NOT_FOUND", message: "La factura no existe o no tienes acceso." };
+        }
+
+        // 2. Domain Contract: Only DRAFT invoices can be hard-deleted
+        if (invoice.status !== 'DRAFT') {
+            return { 
+                success: false, 
+                error: "INVOICE_DELETE_FORBIDDEN", 
+                message: `No se puede eliminar una factura en estado ${invoice.status}. Considere anularla (VOID).` 
+            };
+        }
+
+        // 3. Execution
+        const { error: deleteError } = await supabase
+            .from('Invoice')
+            .delete()
+            .eq('id', invoiceId)
+            .eq('organizationId', scope.orgId);
+
+        if (deleteError) {
+            console.error("[Invoices][Delete] Error:", deleteError);
+            return { success: false, error: "DB_DELETE_ERROR", message: "Fallo técnico al eliminar la factura en base de datos." };
+        }
+
+        // 4. Trace & Sync
+        await AuditService.logAction({
+            projectId: projectId, 
+            action: 'INVOICE_DELETE', 
+            details: `Factura DRAFT eliminada por $${invoice.amountInvoicedGross.toLocaleString('es-CL')}`
+        });
+
+        revalidatePath(`/projects/${projectId}`);
+        revalidatePath(`/projects/${projectId}/quote`);
+        
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("[Invoices][Delete] Exception:", error.message);
+        
+        // Handle specific scope errors (Preview mode / Idle session)
+        if (error.code === 'NO_ORG_CONTEXT' || error.message?.includes('organization')) {
+            return { 
+                success: false, 
+                error: "NO_ORG_CONTEXT", 
+                message: "Contexto de organización perdido. Por favor, recarga la página o selecciona una organización activa." 
+            };
+        }
+
+        return { 
+            success: false, 
+            error: "UNEXPECTED_ERROR", 
+            message: error.message || "Error inesperado al intentar eliminar la factura." 
+        };
+    }
 }
 
 export async function markInvoiceSent(projectId: string, invoiceId: string, sentDate: string) {

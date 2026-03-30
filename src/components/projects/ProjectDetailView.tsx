@@ -111,12 +111,21 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
         status: optimisticStatus || project.status
     };
 
-    // DERIVED COMMERCIAL STATE (v2.0)
-    const activeQuote = project.quotes?.[0]; // Latest version is always first due to orderBy in resolver
+    // DERIVED COMMERCIAL STATE (v3.0)
+    // Canonical resolution: The quote with the highest version number is the candidate for active operations.
+    const activeQuote = (project.quotes || []).sort((a: any, b: any) => b.version - a.version)[0];
 
     async function executeQuoteAction(action: 'SEND' | 'ACCEPT' | 'REJECT' | 'REOPEN') {
         const previousStatus = displayProject.status;
         let newStatus = previousStatus;
+
+        if (!activeQuote && action !== 'REOPEN') {
+            toast({ 
+                type: 'error', 
+                message: "No se encontró una cotización válida. Por favor, genere un borrador en la pestaña de Ítems primero." 
+            });
+            return;
+        }
 
         // Optimistic Update
         if (action === 'SEND') newStatus = 'EN_ESPERA';
@@ -131,53 +140,35 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
         try {
             let res: any;
             if (action === 'SEND') {
-                if (activeQuote) {
-                    res = await sendQuoteAction(activeQuote.id);
-                } else {
-                    // Legacy path: if no formal quote exists yet
-                    await updateProjectStatus(project.id, 'EN_ESPERA', 'COTIZACION', 'Seguimiento Cotización');
-                    res = { success: true };
-                }
-                
+                res = await sendQuoteAction(activeQuote.id);
                 if (res.success) {
                     const subject = `Cotización ${project.name} - TechWise SpA`;
                     window.open(`mailto:?subject=${encodeURIComponent(subject)}`);
-                    toast({ type: 'success', message: "Estado actualizado a En Espera" });
+                    toast({ type: 'success', message: "Cotización marcada como ENVIADA." });
                 }
             } else if (action === 'ACCEPT') {
-                if (activeQuote) {
-                    res = await acceptQuoteAction(activeQuote.id);
-                } else {
-                    await updateProjectStatus(project.id, 'EN_CURSO', 'DISENO', 'Iniciar Desarrollo');
-                    res = { success: true };
-                }
-
+                res = await acceptQuoteAction(activeQuote.id);
                 if (res.success) {
-                    toast({ type: 'success', message: "¡Proyecto Aceptado! Estado: En Curso" });
+                    toast({ type: 'success', message: "Cotización Aceptada. El proyecto ahora está en curso." });
                     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 }
             } else if (action === 'REJECT') {
-                if (activeQuote) {
-                    res = await rejectQuoteAction(activeQuote.id);
-                } else {
-                    await updateProjectStatus(project.id, 'CANCELADO');
-                    res = { success: true };
-                }
-                if (res.success) toast({ type: 'info', message: "Proyecto marcado como Cancelado" });
+                res = await rejectQuoteAction(activeQuote.id);
+                if (res.success) toast({ type: 'info', message: "Cotización rechazada. Proyecto cancelado." });
             } else if (action === 'REOPEN') {
                 await updateProjectStatus(project.id, 'EN_ESPERA', project.stage || 'LEVANTAMIENTO', 'Reevaluar Proyecto');
                 toast({ type: 'success', message: "Proyecto reabierto exitosamente" });
             }
 
             if (res && !res.success) {
-                toast({ type: 'error', message: res.error || "Error al procesar acción" });
+                toast({ type: 'error', message: res.error || "Error: El estado actual de la cotización no permite esta acción." });
                 setOptimisticStatus(null);
             }
             
             router.refresh();
         } catch (error: any) {
             console.error(error);
-            toast({ type: 'error', message: error.message || "Error inesperado" });
+            toast({ type: 'error', message: error.message || "Fallo en el servidor al procesar la acción comercial." });
             setOptimisticStatus(null);
         } finally {
             setIsUpdatingStatus(false);
