@@ -344,6 +344,9 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
 
     if (orgId) {
         try {
+            console.log(`[Dashboard][${traceId}] Starting core data fetch for Org=${orgId}`);
+            const fetchStart = Date.now();
+            
             const results = await Promise.all([
                 prisma.settings.findFirst(),
                 prisma.project.findMany({
@@ -372,6 +375,8 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
                 prisma.project.count({ where: { organizationId: orgId } })
             ]);
 
+            console.log(`[Dashboard][${traceId}] Core fetch completed in ${Date.now() - fetchStart}ms`);
+
             if (results[0]) settings = results[0] as any;
             projects = (results[1] || []) as any[];
             opportunities = (results[2] || []) as any[];
@@ -382,8 +387,9 @@ async function DashboardContent({ orgId, period, isSentinelForce, isExplore, tra
             activationData = results[7];
             realProjectsCount = results[8];
 
-        } catch (error: unknown) {
-            console.error("[DashboardContent] Critical Core fetch error:", error);
+        } catch (error: any) {
+            console.error(`[Dashboard][${traceId}] CRITICAL FETCH ERROR:`, error.message, error.stack);
+            throw new Error(`Error de carga (Trace: ${traceId}): No se pudieron recuperar los datos operativos. Reintente en unos segundos.`);
         }
     }
 

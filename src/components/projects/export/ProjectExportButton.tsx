@@ -33,7 +33,11 @@ export function ProjectExportButton({ orgId, tab }: ProjectExportButtonProps) {
         try {
             // Trigger the API endpoint to generate the export data
             const res = await fetch(`/api/projects/export?format=${format}&tab=${tab}`);
-            if (!res.ok) throw new Error("Error exportando proyectos");
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || "Error exportando proyectos");
+            }
 
             const data = await res.json();
 

@@ -492,42 +492,59 @@ export default function CatalogPage() {
 function CalculationFields({ editingProduct }: { editingProduct: Product | null }) {
     const VAT_RATE = 0.19;
     const [cost, setCost] = useState(editingProduct?.costNet || 0);
-    const [margin, setMargin] = useState(0); // Margin %
+    const [margin, setMargin] = useState(() => {
+        if (editingProduct && editingProduct.costNet > 0 && editingProduct.priceNet > 0) {
+            return parseFloat((((editingProduct.priceNet - editingProduct.costNet) / editingProduct.priceNet) * 100).toFixed(1));
+        }
+        return 0;
+    });
     const [priceNet, setPriceNet] = useState(editingProduct?.priceNet || 0);
     const [priceGross, setPriceGross] = useState(editingProduct ? Math.round(editingProduct.priceNet * (1 + VAT_RATE)) : 0);
-    const [useMargin, setUseMargin] = useState(false);
 
-    // Initial calculation of margin if cost & price exist: Margin = (Price - Cost) / Price
-    useEffect(() => {
-        if (editingProduct && editingProduct.costNet > 0 && editingProduct.priceNet > 0) {
-            const calculatedMargin = ((editingProduct.priceNet - editingProduct.costNet) / editingProduct.priceNet) * 100;
-            setMargin(parseFloat(calculatedMargin.toFixed(1)));
+    // Sync Handlers - Eliminates the useEffect race condition with FormData
+    const handleCostChange = (newCost: number) => {
+        setCost(newCost);
+        // Cuando cambia el costo, intentamos mantener el margen y recalcular el precio
+        if (margin > 0 && margin < 100) {
+            const newPriceNet = newCost / (1 - (margin / 100));
+            setPriceNet(parseFloat(newPriceNet.toFixed(2)));
+            setPriceGross(Math.round(newPriceNet * (1 + VAT_RATE)));
         }
-    }, [editingProduct]);
+    };
 
-    // Recalculate Price when Cost or Margin changes
-    useEffect(() => {
-        if (useMargin) {
-            if (cost > 0 && margin < 100) {
-                // Gross Margin Formula: Price = Cost / (1 - Margin%)
-                const newPriceNet = cost / (1 - (margin / 100));
-                setPriceNet(parseFloat(newPriceNet.toFixed(2)));
-                setPriceGross(Math.round(newPriceNet * (1 + VAT_RATE)));
-            }
+    const handleMarginChange = (newMargin: number) => {
+        setMargin(newMargin);
+        // Cuando cambia el margen, recalculamos el precio en base al costo actual
+        if (cost > 0 && newMargin < 100) {
+            const newPriceNet = cost / (1 - (newMargin / 100));
+            setPriceNet(parseFloat(newPriceNet.toFixed(2)));
+            setPriceGross(Math.round(newPriceNet * (1 + VAT_RATE)));
         }
-    }, [cost, margin, useMargin]);
+    };
 
-    const handlePriceNetChange = (val: number) => {
-        setPriceNet(val);
-        setPriceGross(Math.round(val * (1 + VAT_RATE)));
-        setUseMargin(false);
+    const handlePriceNetChange = (newPriceNet: number) => {
+        setPriceNet(newPriceNet);
+        setPriceGross(Math.round(newPriceNet * (1 + VAT_RATE)));
+        // Si el precio cambia manualmente, recalculamos el margen
+        if (newPriceNet > 0) {
+            const newMargin = ((newPriceNet - cost) / newPriceNet) * 100;
+            setMargin(parseFloat(newMargin.toFixed(1)));
+        } else {
+            setMargin(0);
+        }
     };
 
     const handlePriceGrossChange = (val: number) => {
         setPriceGross(val);
         const newNet = val / (1 + VAT_RATE);
         setPriceNet(parseFloat(newNet.toFixed(2)));
-        setUseMargin(false);
+        // Recalcular margen también aquí
+        if (newNet > 0) {
+            const newMargin = ((newNet - cost) / newNet) * 100;
+            setMargin(parseFloat(newMargin.toFixed(1)));
+        } else {
+            setMargin(0);
+        }
     };
 
     return (
@@ -551,7 +568,7 @@ function CalculationFields({ editingProduct }: { editingProduct: Product | null 
                         step="0.01"
                         min="0"
                         value={cost}
-                        onChange={(e) => setCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => handleCostChange(Math.max(0, parseFloat(e.target.value) || 0))}
                         required
                         className={`w-full p-2 border rounded-lg text-sm font-mono ${cost > priceNet ? 'border-red-300 bg-red-50' : 'bg-white'}`}
                         placeholder="0"
@@ -564,10 +581,7 @@ function CalculationFields({ editingProduct }: { editingProduct: Product | null 
                             type="number"
                             step="0.1"
                             value={margin}
-                            onChange={(e) => {
-                                setMargin(parseFloat(e.target.value) || 0);
-                                setUseMargin(true);
-                            }}
+                            onChange={(e) => handleMarginChange(parseFloat(e.target.value) || 0)}
                             className="w-full p-2 border border-blue-200 rounded-lg text-sm font-mono text-blue-700"
                             placeholder="30"
                         />

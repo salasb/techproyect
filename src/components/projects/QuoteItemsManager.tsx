@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useRef, useOptimistic, startTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Database } from "@/types/supabase";
 import { addQuoteItem, removeQuoteItem, updateQuoteItem, toggleQuoteItemSelection, toggleAllQuoteItems, addQuoteItemsBulk } from "@/actions/quote-items";
-import { getProducts } from "@/actions/products";
 import { Plus, Trash2, Tag, DollarSign, Loader2, Package, Hash, Search, Save, Edit2, X, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/Toast";
@@ -36,6 +36,7 @@ export function QuoteItemsManager({
     ufRate,
     isLocked = false
 }: Props) {
+    const router = useRouter();
     const [isAdding, setIsAdding] = useState(false);
     const [editingItem, setEditingItem] = useState<QuoteItem | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -117,17 +118,21 @@ export function QuoteItemsManager({
     function handleCostChange(val: number) {
         setCostNet(val); // Allow typing decimals, blur will fix if needed
         // Keep Margin, Update Price
-        const marginDecimal = marginPct / 100;
-        const newPrice = val / (1 - marginDecimal);
-        if (isFinite(newPrice)) setPriceNet(roundMoney(newPrice));
+        if (marginPct >= 0 && marginPct < 100) {
+            const marginDecimal = marginPct / 100;
+            const newPrice = val / (1 - marginDecimal);
+            if (isFinite(newPrice)) setPriceNet(roundMoney(newPrice));
+        }
     }
 
     function handleMarginChange(val: number) {
         setMarginPct(val);
         // Keep Cost, Update Price
-        const marginDecimal = val / 100;
-        const newPrice = costNet / (1 - marginDecimal);
-        if (isFinite(newPrice)) setPriceNet(roundMoney(newPrice));
+        if (costNet > 0 && val >= 0 && val < 100) {
+            const marginDecimal = val / 100;
+            const newPrice = costNet / (1 - marginDecimal);
+            if (isFinite(newPrice)) setPriceNet(roundMoney(newPrice));
+        }
     }
 
     function handlePriceChange(val: number) {
@@ -135,6 +140,8 @@ export function QuoteItemsManager({
         if (val > 0) {
             const newMargin = ((val - costNet) / val) * 100;
             setMarginPct(Math.round(newMargin)); // Round to integer
+        } else {
+            setMarginPct(0);
         }
     }
 
@@ -153,6 +160,8 @@ export function QuoteItemsManager({
                 resetForm();
                 toast({ type: 'success', message: "Ítem agregado correctamente" });
             }
+            // Forzar recarga de los datos en el layout padre para actualizar optimisticItems
+            router.refresh();
         } catch (error) {
             toast({ type: 'error', message: "Error al guardar ítem" });
             console.error(error);
@@ -171,6 +180,7 @@ export function QuoteItemsManager({
         try {
             await removeQuoteItem(itemToDelete, projectId);
             toast({ type: 'success', message: "Ítem eliminado" });
+            router.refresh();
         } catch (error) {
             toast({ type: 'error', message: "Error al eliminar ítem" });
         } finally {
@@ -550,8 +560,7 @@ export function QuoteItemsManager({
                                             required
                                             min="0"
                                             step={displayCurrency === 'UF' ? "0.01" : "1"}
-                                            defaultValue={editingItem?.costNet}
-                                            value={costNet || (editingItem ? undefined : '')}
+                                            value={costNet === 0 ? '' : costNet}
                                             placeholder="0"
                                             className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                                             onChange={(e) => handleCostChange(Number(e.target.value))}
@@ -593,8 +602,7 @@ export function QuoteItemsManager({
                                             required
                                             min="0"
                                             step={displayCurrency === 'UF' ? "0.01" : "1"}
-                                            defaultValue={editingItem?.priceNet}
-                                            value={priceNet || (editingItem ? undefined : '')}
+                                            value={priceNet === 0 ? '' : priceNet}
                                             placeholder="0"
                                             className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                                             onChange={(e) => handlePriceChange(Number(e.target.value))}

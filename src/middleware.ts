@@ -2,13 +2,19 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Middleware Recovery Mode (v1.4)
- * Goal: Eliminate all redirect loops.
- * Strategy: TOTAL BYPASS for infrastructure routes. Only session check for others.
+ * Middleware Recovery Mode (v1.5)
+ * Goal: Eliminate redirect loops and PREVENT idle session decay.
+ * Strategy: Bypass static assets early. Ensure getUser() runs to refresh token. Propagate cookies correctly on redirect.
  */
 export async function updateSession(request: NextRequest) {
     const traceId = Math.random().toString(36).substring(7).toUpperCase();
     const pathname = request.nextUrl.pathname;
+    
+    // A) EARLY BYPASS FOR STATIC ASSETS (Performance)
+    const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|css|js|woff2?)$/) || pathname.startsWith('/_next');
+    if (isAsset) {
+        return NextResponse.next();
+    }
     
     let response = NextResponse.next({
         request: {
@@ -45,36 +51,42 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
+    // CRITICAL: This call refreshes the session if expired. It MUST run for all logic routes.
     const {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // A) INFRASTRUCTURE BYPASS
-    // These routes MUST NEVER be redirected by middleware.
+    // B) INFRASTRUCTURE BYPASS
     const bypassList = [
         '/login', '/signup', '/forgot-password', 
-        '/auth', '/api', '/_next', '/favicon.ico', 
+        '/auth', '/api', '/favicon.ico', 
         '/start', '/pending-activation', '/logout'
     ];
     const isBypass = bypassList.some(p => pathname.startsWith(p));
-    const isAsset = pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|css|js|woff2?)$/);
 
-    if (isBypass || isAsset) {
+    if (isBypass) {
+        // Return the tracked response to guarantee cookie persistence
         return response;
     }
 
-    // B) SESSION GUARD
+    // C) SESSION GUARD
     if (!user) {
         const target = '/login';
-        const res = NextResponse.redirect(new URL(target, request.url));
-        res.headers.set('x-redirect-reason', 'unauthed_access');
+        const redirectUrl = new URL(target, request.url);
+        const res = NextResponse.redirect(redirectUrl);
+        
+        // Propagate refreshed cookies (like deleted tokens) to the redirect response
+        response.cookies.getAll().forEach(cookie => {
+            res.cookies.set(cookie.name, cookie.value, cookie);
+        });
+
+        res.headers.set('x-redirect-reason', 'unauthed_access_or_idle_decay');
         res.headers.set('x-redirect-target', target);
         res.headers.set('x-trace-id', traceId);
         return res;
     }
 
-    // C) AUTHENTICATED -> Let it pass. 
-    // Business routing logic (org selection) belongs strictly to Node runtime components.
+    // D) AUTHENTICATED -> Let it pass with refreshed cookies.
     return response
 }
 
@@ -84,13 +96,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * Feel free to modify this pattern to include more paths.
-         */
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
+
