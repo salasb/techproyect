@@ -23,17 +23,16 @@ interface Props {
 }
 
 export function QuoteDocument({ project, settings }: Props) {
-    // 1. Calculate Financials (Simple reducers as per original View logic)
-    // NOTE: For consistency, we should ideally use the centralized calculator, but strictly for UI rendering
-    // we can use the passed values if they are accurate.
-    // However, the View logic uses `calculateProjectFinancials`.
-    // Let's rely on basic math here or assume `project` data is passed correctly.
-
-    const fin = FinancialDomain.getProjectSnapshot(project as any, settings as any);
-    const totalNet = fin.priceNet;
-    const vatAmount = fin.vatAmount;
-    const totalGross = fin.priceGross;
+    // 1. Unified Financial Calculation for Document Integrity
+    // We must sum items directly to ensure document coherence
+    const items = project.quoteItems || [];
+    const hasItems = items.length > 0;
+    
+    // Explicit math to avoid divergence with Sidebar or Fallbacks
+    const subtotalNet = items.reduce((acc, item) => acc + (item.priceNet * item.quantity), 0);
     const vatRate = settings?.vatRate || 0.19;
+    const vatAmount = subtotalNet * vatRate;
+    const totalGross = subtotalNet + vatAmount;
 
     // Currency Formatter
     const currency = (project.currency || 'CLP').toUpperCase();
@@ -47,15 +46,20 @@ export function QuoteDocument({ project, settings }: Props) {
         return '$' + n.toLocaleString('es-CL', { maximumFractionDigits: 0 });
     }
 
-    // Sort Items by SKU? User requested better distribution.
-    // Sort Items by SKU? User requested better distribution.
-    // Let's assume passed items are ordered.
-
     // Visibility Logic
-    const showSku = project.quoteItems?.some(item => item.sku && item.sku.trim().length > 0 && item.sku !== '-');
+    const showSku = items.some(item => item.sku && item.sku.trim().length > 0 && item.sku !== '-');
+    const isInconsistent = !hasItems && (project.totalNet > 0 || (project as any).budgetNet > 0);
 
     return (
         <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white text-slate-800 shadow-2xl print:shadow-none p-[12mm] relative flex flex-col font-sans text-sm print:text-xs">
+            
+            {/* INCONSISTENCY BANNER (INTERNAL ONLY) */}
+            {isInconsistent && !project.acceptedAt && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-[10px] font-bold uppercase tracking-tight flex items-center gap-2 print:hidden">
+                    <span className="bg-red-600 text-white px-1.5 py-0.5 rounded">ERROR DE INTEGRIDAD</span>
+                    Esta cotización tiene un monto asignado pero no tiene ítems de detalle. Por favor, revise la configuración de productos.
+                </div>
+            )}
 
             {/* --- COMPACT HEADER LAYOUT --- */}
             <div className="flex justify-between items-start mb-4 border-b-2 border-slate-900 pb-4">
@@ -193,7 +197,7 @@ export function QuoteDocument({ project, settings }: Props) {
                 <div className="w-full md:w-64">
                     <div className="flex justify-between items-center py-2 border-b border-slate-200 text-xs">
                         <span className="font-medium text-slate-600 uppercase tracking-wider">Subtotal Neto</span>
-                        <span className="font-mono font-medium text-slate-700">{fmt(totalNet)}</span>
+                        <span className="font-mono font-medium text-slate-700">{fmt(subtotalNet)}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-slate-200 text-xs">
                         <span className="font-medium text-slate-600 uppercase tracking-wider">IVA ({(vatRate * 100).toFixed(0)}%)</span>
@@ -215,7 +219,7 @@ export function QuoteDocument({ project, settings }: Props) {
                         <p className="text-[10px] text-slate-500 uppercase">Proveedor</p>
                     </div>
                     <div className="text-center relative">
-                        {project.acceptedAt ? (
+                        {project.acceptedAt && hasItems ? (
                             <div className="absolute inset-0 flex items-center justify-center -top-8">
                                 <div className="border-4 border-emerald-600 text-emerald-600 rounded-lg px-4 py-2 font-black uppercase text-lg transform -rotate-12 opacity-80 select-none pointer-events-none">
                                     ACEPTADO DIGITALMENTE
