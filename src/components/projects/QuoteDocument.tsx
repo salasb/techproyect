@@ -184,7 +184,9 @@ export function QuoteDocument({ project, settings }: Props) {
                         <li>Forma de pago: {
                             (project as any).paymentMethod === 'CASH' ? 'Contado contra entrega.' :
                                 (project as any).paymentMethod === '30_DAYS' ? 'Crédito 30 días contra factura.' :
-                                    '50% anticipo, 50% contra entrega conforme (o según acuerdo).'
+                                    (project as any).paymentMethod === 'BANK_TRANSFER' ? 'Transferencia bancaria previa.' :
+                                        (project as any).paymentMethod === 'CREDIT_CARD' ? 'Tarjeta de crédito.' :
+                                            '50% anticipo, 50% contra entrega conforme (o según acuerdo).'
                         }</li>
                         <li>Entrega: A coordinar según stock.</li>
                         <li>Validez de la oferta: 15 días.</li>

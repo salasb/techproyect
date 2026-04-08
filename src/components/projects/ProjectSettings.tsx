@@ -390,6 +390,8 @@ export function ProjectSettings({ project, clients }: Props) {
                                     <option value="FIFTY_FIFTY">50% Anticipo / 50% Contra Entrega</option>
                                     <option value="CASH">Contado Contra Entrega</option>
                                     <option value="30_DAYS">Crédito 30 Días</option>
+                                    <option value="BANK_TRANSFER">Transferencia Bancaria</option>
+                                    <option value="CREDIT_CARD">Tarjeta de Crédito</option>
                                 </select>
                             </div>
                         </div>
