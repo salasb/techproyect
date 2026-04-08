@@ -258,6 +258,9 @@ export function QuoteDocument({ project, settings }: Props) {
                     .break-inside-avoid {
                         page-break-inside: avoid !important;
                     }
+                    .vercel-toolbar, [data-vercel-toolbar], #vercel-live-feedback, #vercel-live-toolbar {
+                        display: none !important;
+                    }
                 }
             `}</style>
         </div>

@@ -151,19 +151,21 @@ export function QuoteItemsManager({
         setIsLoading(true);
         try {
             if (editingItem) {
-                await updateQuoteItem(editingItem.id, projectId, formData);
+                const res = await updateQuoteItem(editingItem.id, projectId, formData);
+                if (!res || !res.success) throw new Error(res?.error || "Error al actualizar");
                 setEditingItem(null);
                 toast({ type: 'success', message: "Ítem actualizado" });
             } else {
-                await addQuoteItem(projectId, formData);
+                const res = await addQuoteItem(projectId, formData);
+                if (!res || !res.success) throw new Error(res?.error || "Error al agregar");
                 setIsAdding(false);
                 resetForm();
                 toast({ type: 'success', message: "Ítem agregado correctamente" });
             }
             // Forzar recarga de los datos en el layout padre para actualizar optimisticItems
             router.refresh();
-        } catch (error) {
-            toast({ type: 'error', message: "Error al guardar ítem" });
+        } catch (error: any) {
+            toast({ type: 'error', message: error.message || "Error al guardar ítem" });
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -285,14 +287,17 @@ export function QuoteItemsManager({
                 formData.append('priceNet', product.priceNet?.toString() || '0');
                 formData.append('sku', product.sku || '');
 
-                await addQuoteItem(projectId, formData);
+                const res = await addQuoteItem(projectId, formData);
+                if (!res || !res.success) throw new Error(res?.error || "Error al agregar el producto escaneado");
+                
                 toast({ type: 'success', message: `${product.name} agregado a la cotización` });
+                router.refresh();
             } else {
                 toast({ type: 'error', message: `Producto no encontrado: ${value}` });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error scanning product for quote:", error);
-            toast({ type: 'error', message: "Error al buscar producto" });
+            toast({ type: 'error', message: error.message || "Error al buscar producto" });
         } finally {
             setIsLoading(false);
         }

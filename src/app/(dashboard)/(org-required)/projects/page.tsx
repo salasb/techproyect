@@ -55,6 +55,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                 },
                 include: {
                     company: true,
+                    client: true,
                     costEntries: true,
                     invoices: true,
                     quoteItems: true,
@@ -172,7 +173,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                                                         <RiskBadge level={risk.level} score={risk.score} className="scale-75 origin-left" />
                                                     )}
                                                 </div>
-                                                <p className="text-xs text-muted-foreground">{project.company?.name || 'Cliente por confirmar'}</p>
+                                                <p className="text-xs text-muted-foreground">{project.client?.name || project.company?.name || 'Cliente por confirmar'}</p>
                                             </div>
                                             <StatusBadge status={project.status as any} type="PROJECT" />
                                         </div>

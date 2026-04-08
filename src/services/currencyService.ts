@@ -15,7 +15,8 @@ export class CurrencyService {
     static async getDollarRate(): Promise<ExchangeRate> {
         try {
             const res = await fetch('https://mindicador.cl/api/dolar', {
-                next: { revalidate: 3600 }
+                next: { revalidate: 3600 },
+                signal: AbortSignal.timeout(3500)
             });
 
             if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
@@ -48,7 +49,8 @@ export class CurrencyService {
     static async getUfRate(): Promise<ExchangeRate> {
         try {
             const res = await fetch('https://mindicador.cl/api/uf', {
-                next: { revalidate: 86400 }
+                next: { revalidate: 86400 },
+                signal: AbortSignal.timeout(3500)
             });
 
             if (!res.ok) throw new Error(`HTTP Error ${res.status}`);

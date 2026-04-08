@@ -448,7 +448,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                             </div>
                         )}
                     </h1>
-                    <p className="text-muted-foreground mt-1 text-base md:text-lg truncate">{project.company?.name || 'Cliente Sin Nombre'}</p>
+                    <p className="text-muted-foreground mt-1 text-base md:text-lg truncate">{project.client?.name || project.company?.name || 'Cliente Sin Nombre'}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 justify-start md:justify-end shrink-0">

@@ -59,6 +59,7 @@ export async function createProject(formData: FormData) {
             data: {
                 id: `PRJ-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${generateId().split("-")[0].toUpperCase()}`,
                 ...data,
+                paymentMethod: 'CASH',
                 startDate: new Date(formData.get('startDate') as string || Date.now()),
                 plannedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 
                 nextActionDate: nextActionDate
