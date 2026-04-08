@@ -16,7 +16,7 @@ export class CurrencyService {
         try {
             const res = await fetch('https://mindicador.cl/api/dolar', {
                 next: { revalidate: 3600 },
-                signal: AbortSignal.timeout(3500)
+                signal: AbortSignal.timeout(800)
             });
 
             if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
@@ -50,7 +50,7 @@ export class CurrencyService {
         try {
             const res = await fetch('https://mindicador.cl/api/uf', {
                 next: { revalidate: 86400 },
-                signal: AbortSignal.timeout(3500)
+                signal: AbortSignal.timeout(800)
             });
 
             if (!res.ok) throw new Error(`HTTP Error ${res.status}`);

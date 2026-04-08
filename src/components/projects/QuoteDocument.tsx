@@ -52,7 +52,7 @@ export function QuoteDocument({ project, settings }: Props) {
     const isInconsistent = !hasItems && (project.totalNet > 0 || (project as any).budgetNet > 0);
 
     return (
-        <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white text-slate-800 shadow-2xl print:shadow-none p-[12mm] relative flex flex-col font-sans text-sm print:text-xs">
+        <div className="max-w-[210mm] min-h-[297mm] print:min-h-0 print:h-auto mx-auto bg-white text-slate-800 shadow-2xl print:shadow-none p-[12mm] relative flex flex-col font-sans text-sm print:text-xs">
             
             {/* INCONSISTENCY BANNER (INTERNAL ONLY) */}
             {isInconsistent && !project.acceptedAt && (
