@@ -392,6 +392,7 @@ export function ProjectSettings({ project, clients }: Props) {
                                     <option value="30_DAYS">Crédito 30 Días</option>
                                     <option value="BANK_TRANSFER">Transferencia Bancaria</option>
                                     <option value="CREDIT_CARD">Tarjeta de Crédito</option>
+                                    <option value="TRANSFER_OR_CARD">Transferencia Bancaria o Tarjeta de Crédito</option>
                                 </select>
                             </div>
                         </div>
