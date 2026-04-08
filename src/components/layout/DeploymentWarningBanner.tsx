@@ -32,7 +32,7 @@ export function DeploymentWarningBanner() {
     if (!isVisible) return null
 
     return (
-        <div className="bg-amber-500 text-white px-4 py-2 sm:px-6 lg:px-8 text-sm flex items-center justify-between sticky top-0 z-50 shadow-md">
+        <div className="bg-amber-500 text-white px-4 py-2 sm:px-6 lg:px-8 text-sm flex items-center justify-between sticky top-0 z-50 shadow-md print:hidden">
             <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <span>

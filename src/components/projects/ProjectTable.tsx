@@ -23,6 +23,7 @@ type Project = Omit<Database['public']['Tables']['Project']['Row'], 'createdAt' 
     acceptedAt: string | null;
     quoteSentDate: string | null;
     company: Database['public']['Tables']['Company']['Row'];
+    client?: Database['public']['Tables']['Client']['Row'] | null;
     costEntries: any[];
     invoices: any[];
     quoteItems: any[];
@@ -117,7 +118,7 @@ export function ProjectTable({ projects, settings }: Props) {
                                                 <RiskBadge level={risk.level} score={risk.score} className="scale-75 origin-left" />
                                             )}
                                         </div>
-                                        <span className="text-xs text-muted-foreground">{project.company?.name || 'Cliente por confirmar'}</span>
+                                        <span className="text-xs text-muted-foreground">{project.client?.name || project.company?.name || 'Cliente por confirmar'}</span>
                                     </div>
 
                                     {project.blockingReason && (
