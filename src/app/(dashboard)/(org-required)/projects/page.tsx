@@ -105,7 +105,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                                     ? 'bg-blue-600 text-white shadow-md'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                             >
-                                Historial
+                                Finalizados
                             </Link>
                         </div>
                         {entitlements.canExportProjects && (

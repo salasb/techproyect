@@ -424,10 +424,15 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                         </div>
                         <div className="h-8 w-px bg-emerald-200 dark:bg-emerald-800" />
                         <div>
-                            <span className="block text-xs uppercase text-emerald-600/70 font-bold tracking-wider">Margen Final</span>
-                            <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300 font-mono">
-                                {financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(0) : 0}%
-                            </span>
+                            <span className="block text-xs uppercase text-emerald-600/70 font-bold tracking-wider">Ganancia (Margen)</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                                    {formatMoney(financials.marginAmountNet)}
+                                </span>
+                                <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                    ({financials.priceNet > 0 ? ((financials.marginAmountNet / financials.priceNet) * 100).toFixed(0) : 0}%)
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -853,7 +858,11 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                             <span className="font-mono">{formatMoney(financials.vatAmount)}</span>
                                         </div>
                                         <div className="flex justify-between items-center pt-2 border-t border-dashed border-border mt-1">
-                                            <span className="font-bold text-foreground text-base">Total a Facturar</span>
+                                            <span className="font-bold text-foreground text-base">
+                                                {financials.pendingToInvoiceGross <= 0 
+                                                    ? (financials.receivableGross <= 0 ? 'Total Pagado' : 'Total Facturado') 
+                                                    : 'Total a Facturar'}
+                                            </span>
                                             <span className="text-xl font-bold text-primary font-mono">{formatMoney(financials.priceGross)}</span>
                                         </div>
                                     </div>
