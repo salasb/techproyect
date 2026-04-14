@@ -25,6 +25,7 @@ export interface MinimalInvoice {
     sentDate: Date | string | null
     dueDate: Date | string | null
     paymentTermsDays: number | null
+    status?: string | null
 }
 
 // Decoupled Settings
