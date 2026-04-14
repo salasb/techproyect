@@ -54,7 +54,7 @@ export function DashboardKPIs({ data, isLoading, currency = 'CLP', locale = 'es-
             <KPICard
                 title="Margen Ganado (Real)"
                 value={formatCurrency(data.earnedMargin || 0)}
-                subtext="Proyectos En Curso / Finalizados"
+                subtext="Proyectos Finalizados y Pagados"
                 icon={Wallet}
                 color="emerald"
                 href="/projects"

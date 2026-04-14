@@ -69,9 +69,9 @@ export class FinancialDomain {
         const totalInvoiced = snapshots.reduce((acc, s) => acc + s.snapshot.totalInvoicedGross, 0);
         const totalPaid = snapshots.reduce((acc, s) => acc + s.snapshot.totalPaidGross, 0);
 
-        // Earned: Projects that are effectively won/active (EN_CURSO, CERRADO)
+        // Earned: Projects that are effectively closed/won (CERRADO)
         const earnedMargin = snapshots
-            .filter(s => ['EN_CURSO', 'CERRADO'].includes(s.project.status || ''))
+            .filter(s => s.project.status === 'CERRADO')
             .reduce((acc, s) => acc + s.snapshot.marginAmountNet, 0);
 
         // Projected: All non-cancelled projects
