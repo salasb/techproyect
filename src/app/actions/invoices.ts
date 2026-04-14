@@ -88,23 +88,15 @@ export async function createInvoice(projectId: string, formData: FormData) {
     }
 
     if (markPaid) {
-        await prisma.project.update({
-            where: {
-                id_organizationId: {
-                    id: projectId,
-                    organizationId: scope.orgId
-                }
+        await prisma.project.updateMany({
+            where: { 
+                id: projectId, 
+                organizationId: scope.orgId 
             },
-            data: {
-                status: 'CERRADO',
-                blockingReason: null
+            data: { 
+                status: 'CERRADO', 
+                blockingReason: null 
             }
-        }).catch(async (e) => {
-             // Fallback if the unique constraint is not on id_organizationId
-             await prisma.project.updateMany({
-                 where: { id: projectId, organizationId: scope.orgId },
-                 data: { status: 'CERRADO', blockingReason: null }
-             });
         });
         
         await AuditService.logAction({
