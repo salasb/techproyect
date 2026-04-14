@@ -287,7 +287,10 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             ) {
                 isLoggingRef.current = true;
                 try {
-                    await addLog(project.id, "Hito alcanzado: Proyecto 100% Facturado. Esperando pago.", "MILESTONE");
+                    const msg = financials.receivableGross > 0 
+                        ? "Hito alcanzado: Proyecto 100% Facturado. Esperando pago."
+                        : "Hito alcanzado: Proyecto 100% Facturado y Pagado.";
+                    await addLog(project.id, msg, "MILESTONE");
                 } catch (e) {
                     console.error("Auto-log failed", e);
                 } finally {

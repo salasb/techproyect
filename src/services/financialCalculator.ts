@@ -103,7 +103,7 @@ export function calculateProjectFinancials(
     const priceGross = priceNet + vatAmount
 
     // 3. Invoices
-    const sentInvoices = invoices.filter((i) => i.sent)
+    const sentInvoices = invoices.filter((i) => i.sent || i.amountPaidGross > 0 || i.status === 'PAID')
     const totalInvoicedGross = sentInvoices.reduce((acc, i) => acc + i.amountInvoicedGross, 0)
     const totalPaidGross = invoices.reduce((acc, i) => acc + i.amountPaidGross, 0)
 
