@@ -617,6 +617,7 @@ model Invoice {
   dueDate             DateTime?
   amountInvoicedGross Float           @default(0)
   amountPaidGross     Float           @default(0)
+  invoiceNumber       String?
   updatedAt           DateTime        @updatedAt
   createdAt           DateTime        @default(now())
   currency            String          @default("CLP")

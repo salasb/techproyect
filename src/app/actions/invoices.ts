@@ -60,6 +60,8 @@ export async function createInvoice(projectId: string, formData: FormData) {
 
     const amount = parseFloat(formData.get('amount') as string);
     const dueDate = formData.get('dueDate') as string;
+    const invoiceNumber = formData.get('invoiceNumber') as string || null;
+    const markPaid = formData.get('markPaid') === 'on';
 
     if (!amount || amount <= 0) throw new Error("Monto inválido");
     if (!dueDate) throw new Error("Fecha de vencimiento requerida");
@@ -71,18 +73,33 @@ export async function createInvoice(projectId: string, formData: FormData) {
         projectId: projectId,
         organizationId: scope.orgId,
         amountInvoicedGross: amount,
-        amountPaidGross: 0,
-        sent: false,
+        amountPaidGross: markPaid ? amount : 0,
+        sent: markPaid,
+        sentDate: markPaid ? new Date().toISOString() : null,
+        invoiceNumber,
         dueDate: new Date(dueDate).toISOString(),
         updatedAt: new Date().toISOString()
     });
 
     if (error) throw new Error(`Error creando factura: ${error.message}`);
 
+    if (markPaid) {
+        await supabase.from('Project').update({
+            status: 'CERRADO',
+            blockingReason: null
+        }).eq('id', projectId).eq('organizationId', scope.orgId);
+        
+        await AuditService.logAction({
+            projectId: projectId,
+            action: 'PROJECT_CLOSE',
+            details: `Proyecto cerrado automáticamente al registrar factura pagada Nº ${invoiceNumber || 'S/N'}.`
+        });
+    }
+
     await AuditService.logAction({
         projectId: projectId,
         action: 'INVOICE_CREATE',
-        details: `Factura manual creada por $${amount.toLocaleString('es-CL')}`
+        details: `Factura manual creada por $${amount.toLocaleString('es-CL')}${invoiceNumber ? ` (Nº ${invoiceNumber})` : ''}`
     });
     await ActivationService.trackFirst('FIRST_INVOICE_CREATED', scope.orgId);
 

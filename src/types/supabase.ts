@@ -408,6 +408,7 @@ export type Database = {
           amountPaidGross: number
           dueDate: string | null
           id: string
+          invoiceNumber: string | null
           organizationId: string
           paymentTermsDays: number | null
           projectId: string
@@ -420,6 +421,7 @@ export type Database = {
           amountPaidGross?: number
           dueDate?: string | null
           id: string
+          invoiceNumber?: string | null
           organizationId: string
           paymentTermsDays?: number | null
           projectId: string
@@ -432,6 +434,7 @@ export type Database = {
           amountPaidGross?: number
           dueDate?: string | null
           id?: string
+          invoiceNumber?: string | null
           organizationId?: string
           paymentTermsDays?: number | null
           projectId?: string

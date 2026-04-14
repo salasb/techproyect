@@ -221,7 +221,14 @@ export function InvoicesManager({
                                     return (
                                         <tr key={inv.id} className="hover:bg-muted/50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <StatusBadge status={isPaid ? 'PAID' : inv.sent ? 'SENT' : 'DRAFT'} type="INVOICE" />
+                                                <div className="flex flex-col gap-1">
+                                                    <StatusBadge status={isPaid ? 'PAID' : inv.sent ? 'SENT' : 'DRAFT'} type="INVOICE" />
+                                                    {inv.invoiceNumber && (
+                                                        <span className="text-xs font-mono text-muted-foreground bg-muted w-fit px-1.5 py-0.5 rounded border">
+                                                            Nº {inv.invoiceNumber}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {inv.sent && inv.sentDate && (
                                                     <div className="text-[10px] text-muted-foreground mt-1 flex items-center">
                                                         <Clock className="w-3 h-3 mr-1" />
@@ -310,6 +317,15 @@ export function InvoicesManager({
                         <h4 className="text-sm font-medium mb-4">Nueva Factura</h4>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
+                                <label className="block text-xs font-medium text-zinc-500 mb-1">Número de Factura (Opcional)</label>
+                                <input
+                                    name="invoiceNumber"
+                                    type="text"
+                                    placeholder="Ej. 12345"
+                                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-xs font-medium text-zinc-500 mb-1">Monto (Bruto)</label>
                                 {/* Pre-fill with remaining amount */}
                                 <MoneyInput name="amount" required placeholder="0" defaultValue={remainingToInvoice} />
@@ -329,7 +345,7 @@ export function InvoicesManager({
                                     />
                                 </div>
                             </div>
-                            <div className="col-span-2">
+                            <div>
                                 <label className="block text-xs font-medium text-zinc-500 mb-1">Días de Pago</label>
                                 <div className="relative">
                                     <Clock className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400 pointer-events-none" />
@@ -343,7 +359,24 @@ export function InvoicesManager({
                                     />
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1">
-                                    Calculado automáticamente: {paymentTerms} días desde hoy.
+                                    Calculado automáticamente
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-start gap-3">
+                            <input 
+                                type="checkbox" 
+                                name="markPaid" 
+                                id="markPaid" 
+                                className="mt-1"
+                            />
+                            <div>
+                                <label htmlFor="markPaid" className="text-sm font-medium text-emerald-800 dark:text-emerald-300 block cursor-pointer">
+                                    Factura ya está pagada (Cerrar Proyecto)
+                                </label>
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                    Marca la factura como Pagada al 100% y cambia el estado del proyecto a CERRADO.
                                 </p>
                             </div>
                         </div>
