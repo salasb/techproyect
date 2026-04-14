@@ -68,26 +68,44 @@ export async function createInvoice(projectId: string, formData: FormData) {
 
     const invoiceId = generateId();
 
-    const { error } = await supabase.from('Invoice').insert({
-        id: invoiceId,
-        projectId: projectId,
-        organizationId: scope.orgId,
-        amountInvoicedGross: amount,
-        amountPaidGross: markPaid ? amount : 0,
-        sent: markPaid,
-        sentDate: markPaid ? new Date().toISOString() : null,
-        invoiceNumber,
-        dueDate: new Date(dueDate).toISOString(),
-        updatedAt: new Date().toISOString()
-    });
-
-    if (error) throw new Error(`Error creando factura: ${error.message}`);
+    try {
+        await prisma.invoice.create({
+            data: {
+                id: invoiceId,
+                projectId: projectId,
+                organizationId: scope.orgId,
+                amountInvoicedGross: amount,
+                amountPaidGross: markPaid ? amount : 0,
+                sent: markPaid,
+                sentDate: markPaid ? new Date() : null,
+                invoiceNumber,
+                dueDate: new Date(dueDate),
+                status: markPaid ? 'PAID' : 'DRAFT'
+            }
+        });
+    } catch (e: any) {
+        throw new Error(`Error creando factura: ${e.message}`);
+    }
 
     if (markPaid) {
-        await supabase.from('Project').update({
-            status: 'CERRADO',
-            blockingReason: null
-        }).eq('id', projectId).eq('organizationId', scope.orgId);
+        await prisma.project.update({
+            where: {
+                id_organizationId: {
+                    id: projectId,
+                    organizationId: scope.orgId
+                }
+            },
+            data: {
+                status: 'CERRADO',
+                blockingReason: null
+            }
+        }).catch(async (e) => {
+             // Fallback if the unique constraint is not on id_organizationId
+             await prisma.project.updateMany({
+                 where: { id: projectId, organizationId: scope.orgId },
+                 data: { status: 'CERRADO', blockingReason: null }
+             });
+        });
         
         await AuditService.logAction({
             projectId: projectId,

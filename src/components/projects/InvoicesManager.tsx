@@ -122,8 +122,9 @@ export function InvoicesManager({
             await createInvoice(projectId, formData);
             toast({ type: 'success', message: "Factura creada correctamente" });
             setIsAdding(false);
-        } catch (error) {
-            toast({ type: 'error', message: "Error al crear factura" });
+        } catch (error: any) {
+            console.error(error);
+            toast({ type: 'error', message: error.message || "Error al crear factura" });
         } finally {
             setIsSubmitting(false);
         }
