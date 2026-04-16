@@ -24,7 +24,7 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
 
             <div className="p-8 md:p-12 print:p-6">
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row justify-between items-start mb-12 gap-8 print:mb-6 print:gap-4">
+                <div className="flex flex-col md:flex-row print:flex-row justify-between items-start mb-12 gap-8 print:mb-6 print:gap-4">
                     <div className="flex-1">
                         <img
                             src="/techwise logo negro.png"
@@ -56,7 +56,7 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                 </div>
 
                 {/* Info Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12 border-t border-b border-slate-100 py-8 print:gap-8 print:mb-6 print:py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-12 mb-12 border-t border-b border-slate-100 py-8 print:gap-8 print:mb-6 print:py-4">
                     <div>
                         <h3 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 print:mb-2 print:text-[10px]">Cliente</h3>
                         <div className="space-y-1 print:text-sm">
