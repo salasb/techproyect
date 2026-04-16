@@ -22,9 +22,9 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
             {/* BRANDING HEADER STRIP */}
             <div className="bg-slate-900 h-2 w-full print:bg-slate-900"></div>
 
-            <div className="p-8 md:p-12 print:p-6">
+            <div className="p-8 md:p-12 print:px-6 print:py-4">
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row print:flex-row justify-between items-start mb-12 gap-8 print:mb-6 print:gap-4">
+                <div className="flex flex-col md:flex-row print:flex-row justify-between items-start mb-12 gap-8 print:mb-4 print:gap-4">
                     <div className="flex-1">
                         <img
                             src="/techwise logo negro.png"
@@ -56,7 +56,7 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                 </div>
 
                 {/* Info Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-12 mb-12 border-t border-b border-slate-100 py-8 print:gap-8 print:mb-6 print:py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-12 mb-12 border-t border-b border-slate-100 py-8 print:gap-8 print:mb-4 print:py-2">
                     <div>
                         <h3 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 print:mb-2 print:text-[10px]">Cliente</h3>
                         <div className="space-y-1 print:text-sm">
@@ -77,7 +77,7 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                 </div>
 
                 {/* Items Table - Clean & Modern */}
-                <div className="mb-2 print:mb-4">
+                <div className="mb-2 print:mb-2 text-sm print:text-[11px]">
                     <table className="w-full text-sm print:text-xs">
                         <thead>
                             <tr className="border-b-2 border-slate-900">
@@ -108,7 +108,7 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                 </div>
 
                 {/* Totals Section */}
-                <div className="flex flex-col md:flex-row print:flex-row justify-between items-end print:items-start gap-8 pt-8 border-t border-slate-900 print:pt-6 print:gap-8">
+                <div className="flex flex-col md:flex-row print:flex-row justify-between items-end print:items-start gap-8 pt-8 border-t border-slate-900 print:pt-4 print:gap-8">
                     <div className="text-sm text-slate-500 max-w-xs print:text-xs">
                         <p className="font-bold text-slate-900 mb-2 uppercase text-xs">Información de Pago</p>
                         <div className="bg-slate-50 p-3 rounded text-xs space-y-1 border border-slate-100 print:border hover:border-slate-300 print:bg-transparent print:p-0 print:border-none">
