@@ -9,8 +9,9 @@ import { useToast } from "@/components/ui/Toast";
 import { Save, Building2, Search, Check, X, Link as LinkIcon, AlertTriangle, Loader2 } from "lucide-react";
 
 type Project = Database['public']['Tables']['Project']['Row'] & {
-    company: Database['public']['Tables']['Company']['Row']
-    client?: Database['public']['Tables']['Client']['Row'] | null // Add client relation
+    company: Database['public']['Tables']['Company']['Row'];
+    client?: Database['public']['Tables']['Client']['Row'] | null;
+    observations?: string | null;
 };
 
 interface Props {
