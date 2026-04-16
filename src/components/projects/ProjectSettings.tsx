@@ -149,6 +149,7 @@ export function ProjectSettings({ project, clients }: Props) {
     const [name, setName] = useState(project.name);
     const [status, setStatus] = useState(project.status);
     const [paymentMethod, setPaymentMethod] = useState((project as any).paymentMethod || 'FIFTY_FIFTY');
+    const [observations, setObservations] = useState(project.observations || '');
     const [progress, setProgress] = useState(project.progress);
 
     // Sync state with props when project updates
@@ -157,6 +158,7 @@ export function ProjectSettings({ project, clients }: Props) {
         setName(project.name);
         setStatus(project.status);
         setPaymentMethod((project as any).paymentMethod || 'FIFTY_FIFTY');
+        setObservations(project.observations || '');
         // Progress kept from prop but not editable via slider anymore.
         // If we want to fully rely on automated progress, we might ignore this or use it for display only elsewhere.
         // For now, removing it from editable state sync to avoid confusion, 
@@ -193,6 +195,7 @@ export function ProjectSettings({ project, clients }: Props) {
                 marginPct,
                 currency,
                 paymentMethod,
+                observations,
                 nextAction,
                 nextActionDate
             } as any, {
@@ -394,6 +397,21 @@ export function ProjectSettings({ project, clients }: Props) {
                                     <option value="CREDIT_CARD">Tarjeta de Crédito</option>
                                     <option value="TRANSFER_OR_CARD">Transferencia Bancaria o Tarjeta de Crédito</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-1">
+                                    Observaciones de Cotización
+                                </label>
+                                <textarea
+                                    value={observations}
+                                    onChange={(e) => setObservations(e.target.value)}
+                                    placeholder="Agrega textos adicionales o condiciones para mostrar de forma extra en el PDF de cotización."
+                                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground h-24 resize-y"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Este texto se incluirá en la esquina inferior izquierda del documento PDF.
+                                </p>
                             </div>
                         </div>
                     </div>

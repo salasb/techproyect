@@ -1,5 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -29,8 +29,6 @@ model Settings {
   yellowThresholdDays     Int     @default(7)
   isSoloMode              Boolean @default(false)
   dollarSurcharge         Float   @default(5.0)
-
-
 }
 
 model Company {
@@ -44,25 +42,23 @@ model Company {
   contactName    String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
   projects       Project[]
-
-
 }
 
 model Project {
-  id                 String              @id
-  organizationId     String?             @db.Uuid
-  companyId          String?
-  name               String
-  responsible        String
-  status             ProjectStatus
-  stage              ProjectStage
-  progress           Int                 @default(0)
-  startDate          DateTime
-  plannedEndDate     DateTime
-  nextAction         String?
-  budgetNet          Float               @default(0)
-  marginPct          Float               @default(0.30)
-  digitalAcceptance  Boolean             @default(false)
+  id                String        @id
+  organizationId    String?       @db.Uuid
+  companyId         String?
+  name              String
+  responsible       String
+  status            ProjectStatus
+  stage             ProjectStage
+  progress          Int           @default(0)
+  startDate         DateTime
+  plannedEndDate    DateTime
+  nextAction        String?
+  budgetNet         Float         @default(0)
+  marginPct         Float         @default(0.30)
+  digitalAcceptance Boolean       @default(false)
 
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -89,8 +85,7 @@ model Project {
   quoteItems         QuoteItem[]
   saleNote           SaleNote?
   tasks              Task[]
-
-
+  observations       String?
 }
 
 model SaleNote {
@@ -103,8 +98,6 @@ model SaleNote {
   pdfUrl         String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id])
-
-
 }
 
 model QuoteItem {
@@ -122,8 +115,6 @@ model QuoteItem {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   quote          Quote?        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-
-
 }
 
 model CostEntry {
@@ -136,8 +127,6 @@ model CostEntry {
   amountNet      Float
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-
 }
 
 model ProjectLog {
@@ -149,8 +138,6 @@ model ProjectLog {
   createdAt      DateTime      @default(now())
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-
 }
 
 model Product {
@@ -168,8 +155,6 @@ model Product {
   organization       Organization?       @relation(fields: [organizationId], references: [id])
   stockEntries       ProductStock[]
   purchaseOrderItems PurchaseOrderItem[]
-
-
 }
 
 model InventoryMovement {
@@ -188,8 +173,6 @@ model InventoryMovement {
   organization   Organization @relation(fields: [organizationId], references: [id])
   product        Product      @relation(fields: [productId], references: [id])
   project        Project?     @relation(fields: [projectId], references: [id])
-
-
 }
 
 model Location {
@@ -203,8 +186,6 @@ model Location {
   organization       Organization?       @relation(fields: [organizationId], references: [id])
   stockEntries       ProductStock[]
   purchaseOrderItems PurchaseOrderItem[]
-
-
 }
 
 model ProductStock {
@@ -220,7 +201,6 @@ model ProductStock {
   product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, locationId])
-
 }
 
 model AuditLog {
@@ -235,8 +215,6 @@ model AuditLog {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   Project        Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   Profile        Profile?      @relation(fields: [userId], references: [id], onUpdate: NoAction)
-
-
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -259,8 +237,6 @@ model Client {
   opportunities  Opportunity[]
   Project        Project[]
   purchaseOrders PurchaseOrder[] @relation("VendorPO")
-
-
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -274,8 +250,6 @@ model Contact {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @db.Timestamptz(6)
   Client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -291,8 +265,6 @@ model Interaction {
   Client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   organization   Organization?   @relation(fields: [organizationId], references: [id])
   Project        Project?        @relation(fields: [projectId], references: [id], onUpdate: NoAction)
-
-
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -314,8 +286,6 @@ model Profile {
   SupportTicket      SupportTicket[]
   SupportMessage     SupportMessage[]
   ActiveContext      ActiveContext?
-
-
 }
 
 model Organization {
@@ -368,96 +338,82 @@ model Organization {
   webhookEndpoints      WebhookEndpoint[]
   customRoles           CustomRole[]
   activeContexts        ActiveContext[]
-
-
 }
 
 model ActiveContext {
-  id             String       @id @default(uuid())
-  userId         String       @unique @db.Uuid
-  orgId          String?      @db.Uuid
-  source         String       @default("auto") // "select" | "auto"
-  updatedAt      DateTime     @updatedAt
-  
-  organization   Organization? @relation(fields: [orgId], references: [id])
-  profile        Profile       @relation(fields: [userId], references: [id])
+  id        String   @id @default(uuid())
+  userId    String   @unique @db.Uuid
+  orgId     String?  @db.Uuid
+  source    String   @default("auto") // "select" | "auto"
+  updatedAt DateTime @updatedAt
 
-
+  organization Organization? @relation(fields: [orgId], references: [id])
+  profile      Profile       @relation(fields: [userId], references: [id])
 }
 
 model WebhookEndpoint {
-  id             String       @id @default(uuid())
-  organizationId String       @db.Uuid
+  id             String   @id @default(uuid())
+  organizationId String   @db.Uuid
   url            String
   secret         String
   description    String?
-  events         String[]     
-  isActive       Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  logs           WebhookLog[]
+  events         String[]
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-
+  organization Organization @relation(fields: [organizationId], references: [id])
+  logs         WebhookLog[]
 }
 
 model WebhookLog {
-  id                String          @id @default(uuid())
+  id                String   @id @default(uuid())
   webhookEndpointId String
   eventName         String
   payload           Json
   statusCode        Int?
   responseBody      String?
   durationMs        Int?
-  attemptCount      Int             @default(1)
+  attemptCount      Int      @default(1)
   error             String?
-  createdAt         DateTime        @default(now())
-  
-  endpoint          WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
 
-
+  endpoint WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
 }
 
 model SupportTicket {
-  id             String        @id @default(uuid())
-  organizationId String        @db.Uuid
-  userId         String        @db.Uuid
+  id             String         @id @default(uuid())
+  organizationId String         @db.Uuid
+  userId         String         @db.Uuid
   title          String
   description    String
-  status         TicketStatus  @default(OPEN)
+  status         TicketStatus   @default(OPEN)
   priority       TicketPriority @default(P2)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   resolvedAt     DateTime?
-  
-  organization   Organization  @relation(fields: [organizationId], references: [id])
-  profile        Profile       @relation(fields: [userId], references: [id])
-  messages       SupportMessage[]
 
-
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  profile      Profile          @relation(fields: [userId], references: [id])
+  messages     SupportMessage[]
 }
 
 model SupportMessage {
-  id             String        @id @default(uuid())
-  ticketId       String
-  userId         String        @db.Uuid
-  content        String
-  isAdminReply   Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  
-  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  profile        Profile       @relation(fields: [userId], references: [id])
+  id           String   @id @default(uuid())
+  ticketId     String
+  userId       String   @db.Uuid
+  content      String
+  isAdminReply Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
-
+  ticket  SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  profile Profile       @relation(fields: [userId], references: [id])
 }
 
 enum TicketStatus {
   OPEN
   IN_PROGRESS
   RESOLVED
-
-
 }
 
 enum TicketPriority {
@@ -465,8 +421,6 @@ enum TicketPriority {
   P1
   P2
   P3
-
-
 }
 
 model StripeEvent {
@@ -482,8 +436,6 @@ model StripeEvent {
   status      String    @default("PENDING") // PENDING, PROCESSING, OK, ERROR, DLQ
   attempts    Int       @default(0)
   nextRetryAt DateTime?
-
-
 }
 
 model Subscription {
@@ -507,8 +459,6 @@ model Subscription {
   planId                 String?
   organization           Organization       @relation(fields: [organizationId], references: [id])
   plan                   Plan?              @relation(fields: [planId], references: [id])
-
-
 }
 
 model OrganizationMember {
@@ -524,7 +474,6 @@ model OrganizationMember {
   customRole     CustomRole?      @relation(fields: [customRoleId], references: [id])
 
   @@unique([organizationId, userId])
-
 }
 
 model UserInvitation {
@@ -548,24 +497,22 @@ model UserInvitation {
   @@index([organizationId, email, status])
   @@index([tokenHash])
   @@index([organizationId, createdAt])
-
 }
 
 model CustomRole {
-  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String               @db.Uuid
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @db.Uuid
   name           String
   description    String?
   permissions    String[]
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members        OrganizationMember[]
-  invitations    UserInvitation[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      OrganizationMember[]
+  invitations  UserInvitation[]
 
   @@unique([organizationId, name])
-
 }
 
 model Task {
@@ -582,8 +529,6 @@ model Task {
   updatedAt      DateTime      @updatedAt
   organization   Organization? @relation(fields: [organizationId], references: [id])
   project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-
 }
 
 model Quote {
@@ -603,8 +548,6 @@ model Quote {
   parentQuote  Quote?      @relation("QuoteVersions", fields: [revisionOfId], references: [id])
   revisions    Quote[]     @relation("QuoteVersions")
   items        QuoteItem[]
-
-
 }
 
 model Invoice {
@@ -627,8 +570,6 @@ model Invoice {
   project             Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   quote               Quote?          @relation(fields: [quoteId], references: [id])
   payments            PaymentRecord[]
-
-
 }
 
 model PaymentRecord {
@@ -643,8 +584,6 @@ model PaymentRecord {
   recordedAt     DateTime      @default(now())
   invoice        Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
-
-
 }
 
 model PurchaseOrder {
@@ -665,7 +604,6 @@ model PurchaseOrder {
   receipts       PurchaseOrderReceipt[]
 
   @@unique([organizationId, poNumber])
-
 }
 
 model PurchaseOrderReceipt {
@@ -682,7 +620,6 @@ model PurchaseOrderReceipt {
   items           ReceiptItem[]
 
   @@unique([organizationId, purchaseOrderId, receiptNumber])
-
 }
 
 model ReceiptItem {
@@ -692,8 +629,6 @@ model ReceiptItem {
   quantity               Float
   purchaseOrderItem      PurchaseOrderItem    @relation(fields: [purchaseOrderItemId], references: [id])
   receipt                PurchaseOrderReceipt @relation(fields: [purchaseOrderReceiptId], references: [id], onDelete: Cascade)
-
-
 }
 
 model PurchaseOrderItem {
@@ -714,8 +649,6 @@ model PurchaseOrderItem {
   project          Project?      @relation(fields: [projectId], references: [id])
   purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   receiptItems     ReceiptItem[]
-
-
 }
 
 model Opportunity {
@@ -735,8 +668,6 @@ model Opportunity {
   updatedAt           DateTime      @updatedAt
   client              Client?       @relation(fields: [clientId], references: [id])
   organization        Organization? @relation(fields: [organizationId], references: [id])
-
-
 }
 
 model SentinelAlert {
@@ -751,8 +682,6 @@ model SentinelAlert {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   organization   Organization     @relation(fields: [organizationId], references: [id])
-
-
 }
 
 model OrganizationStats {
@@ -772,8 +701,6 @@ model OrganizationStats {
   firstValueAt      DateTime?
   ttvDays           Float?
   organization      Organization @relation(fields: [organizationId], references: [id])
-
-
 }
 
 model ActivationEvent {
@@ -788,7 +715,6 @@ model ActivationEvent {
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, eventName])
-
 }
 
 model Experiment {
@@ -799,8 +725,6 @@ model Experiment {
   startAt     DateTime               @default(now())
   endAt       DateTime?
   assignments ExperimentAssignment[]
-
-
 }
 
 model ExperimentAssignment {
@@ -813,7 +737,6 @@ model ExperimentAssignment {
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, experimentId])
-
 }
 
 model EmailEventLog {
@@ -827,8 +750,6 @@ model EmailEventLog {
   meta              Json?        @default("{}")
   organization      Organization @relation(fields: [organizationId], references: [id])
   profile           Profile      @relation(fields: [userId], references: [id])
-
-
 }
 
 model NudgeDismissed {
@@ -842,7 +763,6 @@ model NudgeDismissed {
   profile        Profile      @relation(fields: [userId], references: [id])
 
   @@unique([userId, organizationId, dedupeKey])
-
 }
 
 model PaymentIssue {
@@ -856,8 +776,6 @@ model PaymentIssue {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   organization      Organization       @relation(fields: [organizationId], references: [id])
-
-
 }
 
 model CancelIntent {
@@ -870,8 +788,6 @@ model CancelIntent {
   outcome        CancelOutcome      @default(CANCEL_PENDING)
   createdAt      DateTime           @default(now())
   organization   Organization       @relation(fields: [organizationId], references: [id])
-
-
 }
 
 model ShareLink {
@@ -890,7 +806,6 @@ model ShareLink {
 
   @@index([tokenHash])
   @@index([entityId, entityType])
-
 }
 
 model SuperadminAlert {
@@ -909,8 +824,6 @@ model SuperadminAlert {
   updatedAt      DateTime                 @updatedAt
   organization   Organization?            @relation(fields: [organizationId], references: [id])
   notifications  SuperadminNotification[]
-
-
 }
 
 model SuperadminNotification {
@@ -924,8 +837,6 @@ model SuperadminNotification {
   createdAt   DateTime         @default(now())
   metadata    Json?            @default("{}")
   alert       SuperadminAlert? @relation(fields: [alertId], references: [id])
-
-
 }
 
 enum MovementType {
@@ -933,8 +844,6 @@ enum MovementType {
   OUT
   ADJUST
   TRANSFER
-
-
 }
 
 enum InvitationStatus {
@@ -942,16 +851,12 @@ enum InvitationStatus {
   ACCEPTED
   EXPIRED
   REVOKED
-
-
 }
 
 enum OrganizationStatus {
   PENDING
   ACTIVE
   INACTIVE
-
-
 }
 
 enum OrganizationPlan {
@@ -959,15 +864,11 @@ enum OrganizationPlan {
   PRO
   ENTERPRISE
   INVENTORY_ONLY
-
-
 }
 
 enum OrganizationMode {
   SOLO
   TEAM
-
-
 }
 
 enum SubscriptionStatus {
@@ -976,8 +877,6 @@ enum SubscriptionStatus {
   PAUSED
   PAST_DUE
   CANCELED
-
-
 }
 
 enum MembershipStatus {
@@ -985,8 +884,6 @@ enum MembershipStatus {
   ACTIVE
   INACTIVE
   REMOVED
-
-
 }
 
 enum MembershipRole {
@@ -995,8 +892,6 @@ enum MembershipRole {
   MEMBER
   VIEWER
   SUPERADMIN
-
-
 }
 
 enum ProjectStatus {
@@ -1005,8 +900,6 @@ enum ProjectStatus {
   BLOQUEADO
   CERRADO
   CANCELADO
-
-
 }
 
 enum ProjectStage {
@@ -1017,8 +910,6 @@ enum ProjectStage {
   IMPLEMENTACION
   SOPORTE
   COTIZACION
-
-
 }
 
 enum CostCategory {
@@ -1027,8 +918,6 @@ enum CostCategory {
   SOFTWARE
   LOGISTICA
   OTROS
-
-
 }
 
 enum ClientStatus {
@@ -1036,8 +925,6 @@ enum ClientStatus {
   PROSPECT
   CLIENT
   CHURNED
-
-
 }
 
 enum InteractionType {
@@ -1045,22 +932,16 @@ enum InteractionType {
   EMAIL
   MEETING
   NOTE
-
-
 }
 
 enum TaskType {
   MANUAL
   SENTINEL
-
-
 }
 
 enum TaskStatus {
   PENDING
   COMPLETED
-
-
 }
 
 enum InvoiceStatus {
@@ -1069,8 +950,6 @@ enum InvoiceStatus {
   PAID
   VOID
   PARTIALLY_PAID
-
-
 }
 
 enum PurchaseOrderStatus {
@@ -1080,8 +959,6 @@ enum PurchaseOrderStatus {
   PARTIALLY_RECEIVED
   RECEIVED
   CANCELED
-
-
 }
 
 enum SentinelType {
@@ -1093,8 +970,6 @@ enum SentinelType {
   QUOTE_FOLLOWUP
   WEBHOOK_FAILURE
   ORG_PAST_DUE
-
-
 }
 
 enum SentinelSeverity {
@@ -1102,16 +977,12 @@ enum SentinelSeverity {
   S1
   S2
   S3
-
-
 }
 
 enum AlertStatus {
   OPEN
   ACK
   RESOLVED
-
-
 }
 
 enum CloseReason {
@@ -1121,8 +992,6 @@ enum CloseReason {
   SCOPE
   DISCARDED
   OTHER
-
-
 }
 
 enum QuoteStatus {
@@ -1131,16 +1000,12 @@ enum QuoteStatus {
   ACCEPTED
   REVISED
   REJECTED
-
-
 }
 
 enum PaymentIssueStatus {
   OPEN
   RESOLVED
   EXPIRED
-
-
 }
 
 enum CancellationReason {
@@ -1153,8 +1018,6 @@ enum CancellationReason {
   TEMPORARY_PROJECT
   SUPPORT_ISSUE
   OTHER
-
-
 }
 
 enum CancelOutcome {
@@ -1164,15 +1027,11 @@ enum CancelOutcome {
   SAVED_DISCOUNT
   COMPLETED
   RECOVERED
-
-
 }
 
 enum ShareLinkType {
   QUOTE
   INVOICE
-
-
 }
 
 enum SuperadminAlertType {
@@ -1183,22 +1042,16 @@ enum SuperadminAlertType {
   INACTIVE_ORG
   WEBHOOK_ERRORS_RECENT
   SYSTEM_INFO
-
-
 }
 
 enum SuperadminAlertSeverity {
   INFO
   WARNING
   CRITICAL
-
-
 }
 
 enum SuperadminAlertStatus {
   ACTIVE
   ACKNOWLEDGED
   RESOLVED
-
-
 }

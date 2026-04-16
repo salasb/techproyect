@@ -14,6 +14,7 @@ type Project = Database['public']['Tables']['Project']['Row'] & {
     acceptedAt?: string | null;
     version?: number;
     totalNet: number;
+    observations?: string | null;
 }
 
 type Settings = Database['public']['Tables']['Settings']['Row']
@@ -192,7 +193,15 @@ export function QuoteDocument({ project, settings }: Props) {
                         <li>Entrega: A coordinar según stock.</li>
                         <li>Validez de la oferta: 15 días.</li>
                     </ul>
-                    <p className="italic opacity-80">
+                    {project.observations && project.observations.trim().length > 0 && (
+                        <div className="mt-3">
+                            <p className="mb-1 uppercase font-bold tracking-wider text-[9px] border-b border-slate-200 pb-0.5 inline-block text-slate-800">Observaciones Adicionales</p>
+                            <p className="whitespace-pre-line text-slate-600">
+                                {project.observations}
+                            </p>
+                        </div>
+                    )}
+                    <p className="italic opacity-80 mt-4">
                         TechWise SpA se reserva el derecho de modificar precios ante variaciones significativas del tipo de cambio.
                     </p>
                 </div>
