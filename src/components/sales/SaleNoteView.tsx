@@ -17,7 +17,7 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
     const totalGross = totalNet + IVA; // Assuming standard 19% VAT
 
     return (
-        <div className="bg-white text-slate-900 p-0 max-w-4xl mx-auto shadow-2xl border border-slate-200 printable-content rounded-sm overflow-hidden mb-8 print:shadow-none print:border-none print:mb-0">
+        <div className="bg-white text-slate-900 p-0 max-w-4xl mx-auto shadow-2xl border border-slate-200 printable-content rounded-sm mb-8 print:shadow-none print:border-none print:mb-0 print:overflow-visible">
 
             {/* BRANDING HEADER STRIP */}
             <div className="bg-slate-900 h-2 w-full print:bg-slate-900"></div>
@@ -108,7 +108,7 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                 </div>
 
                 {/* Totals Section */}
-                <div className="flex flex-col md:flex-row justify-between items-end gap-8 pt-8 border-t border-slate-900 print:pt-4 print:gap-4 print:break-inside-avoid">
+                <div className="flex flex-col md:flex-row print:flex-row justify-between items-end print:items-start gap-8 pt-8 border-t border-slate-900 print:pt-6 print:gap-8">
                     <div className="text-sm text-slate-500 max-w-xs print:text-xs">
                         <p className="font-bold text-slate-900 mb-2 uppercase text-xs">Información de Pago</p>
                         <div className="bg-slate-50 p-3 rounded text-xs space-y-1 border border-slate-100 print:border hover:border-slate-300 print:bg-transparent print:p-0 print:border-none">
@@ -168,14 +168,15 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                         visibility: visible;
                     }
                     .printable-content {
-                        position: absolute;
+                        position: relative;
                         left: 0;
                         top: 0;
                         width: 100%;
                         margin: 0 !important;
-                        padding: 20px !important; /* Reduced padding */
+                        padding: 0 !important;
                         box-shadow: none !important;
                         border: none !important;
+                        display: block !important;
                     }
                     /* Avoid breaking inside table rows */
                     tr, td, th {
