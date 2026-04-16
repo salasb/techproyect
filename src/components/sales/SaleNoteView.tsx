@@ -167,8 +167,11 @@ export default function SaleNoteView({ note, project }: SaleNoteViewProps) {
                     .printable-content, .printable-content * {
                         visibility: visible;
                     }
+                    @page {
+                        margin: 1cm;
+                    }
                     .printable-content {
-                        position: relative;
+                        position: absolute;
                         left: 0;
                         top: 0;
                         width: 100%;
