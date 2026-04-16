@@ -180,6 +180,14 @@ export function QuoteDocument({ project, settings }: Props) {
             <div className="flex flex-col md:flex-row gap-8 mb-8 break-inside-avoid">
                 {/* Terms / Disclaimer */}
                 <div className="flex-1 text-[10px] text-slate-500 text-justify leading-relaxed pr-8">
+                    {project.observations && project.observations.trim().length > 0 && (
+                        <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                            <p className="mb-1.5 uppercase font-bold tracking-widest text-[10px] text-slate-900">Observaciones Adicionales</p>
+                            <p className="whitespace-pre-line text-[11px] font-medium text-slate-800 leading-relaxed">
+                                {project.observations}
+                            </p>
+                        </div>
+                    )}
                     <p className="mb-2"><strong>Condiciones Comerciales:</strong></p>
                     <ul className="list-disc list-inside space-y-0.5 pl-1 mb-2">
                         <li>Forma de pago: {
@@ -193,14 +201,6 @@ export function QuoteDocument({ project, settings }: Props) {
                         <li>Entrega: A coordinar según stock.</li>
                         <li>Validez de la oferta: 15 días.</li>
                     </ul>
-                    {project.observations && project.observations.trim().length > 0 && (
-                        <div className="mt-3">
-                            <p className="mb-1 uppercase font-bold tracking-wider text-[9px] border-b border-slate-200 pb-0.5 inline-block text-slate-800">Observaciones Adicionales</p>
-                            <p className="whitespace-pre-line text-slate-600">
-                                {project.observations}
-                            </p>
-                        </div>
-                    )}
                     <p className="italic opacity-80 mt-4">
                         TechWise SpA se reserva el derecho de modificar precios ante variaciones significativas del tipo de cambio.
                     </p>
