@@ -153,8 +153,13 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 }
             } else if (action === 'REJECT') {
-                res = await rejectQuoteAction(activeQuote.id);
-                if (res.success) toast({ type: 'info', message: "Cotización rechazada. Proyecto cancelado." });
+                if (activeQuote?.id) {
+                    res = await rejectQuoteAction(activeQuote.id);
+                } else {
+                    await updateProjectStatus(project.id, 'CANCELADO', project.stage, 'No adjudicado');
+                    res = { success: true };
+                }
+                if (res.success) toast({ type: 'info', message: "Proyecto marcado como Perdido." });
             } else if (action === 'REOPEN') {
                 await updateProjectStatus(project.id, 'EN_ESPERA', project.stage || 'LEVANTAMIENTO', 'Reevaluar Proyecto');
                 toast({ type: 'success', message: "Proyecto reabierto exitosamente" });
@@ -209,9 +214,9 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
             config.confirmText = 'Aceptar';
             config.variant = 'success';
         } else if (action === 'REJECT') {
-            config.title = 'Rechazar Propuesta';
-            config.description = 'El proyecto será CANCELADO. Podrás reabrirlo si las negociaciones se reanudan.';
-            config.confirmText = 'Rechazar';
+            config.title = 'Marcar Proyecto como Perdido';
+            config.description = 'El proyecto pasará a estado CANCELADO (Perdido). Todo su valor esperado dejará de contabilizarse en el panel de finanzas. Podrás reabrirlo más adelante si lo necesitas.';
+            config.confirmText = 'Sí, Marcar Perdido';
             config.variant = 'danger';
         } else if (action === 'REOPEN') {
             config.title = '¿Reabrir Proyecto?';
@@ -503,6 +508,16 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                                     Aceptar y Activar
                                 </button>
                             )}
+
+                            <button
+                                onClick={() => requestQuoteAction('REJECT')}
+                                disabled={isUpdatingStatus}
+                                className="text-xs bg-zinc-100 hover:bg-red-50 text-zinc-600 hover:text-red-700 border border-zinc-200 hover:border-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center whitespace-nowrap ml-1"
+                                title="Finalizar sin venta (Perdido)"
+                            >
+                                <XCircle className="w-3 h-3 mr-1.5" />
+                                Dar por Perdido
+                            </button>
                         </>
                     )}
                 </div>

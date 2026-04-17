@@ -63,11 +63,15 @@ export class FinancialDomain {
             snapshot: this.getProjectSnapshot(p, settings)
         }));
 
-        const totalRevenue = snapshots.reduce((acc, s) => acc + s.snapshot.priceNet, 0);
-        const totalMargin = snapshots.reduce((acc, s) => acc + s.snapshot.marginAmountNet, 0);
-        const totalCosts = snapshots.reduce((acc, s) => acc + s.snapshot.totalExecutedCostNet, 0);
-        const totalInvoiced = snapshots.reduce((acc, s) => acc + s.snapshot.totalInvoicedGross, 0);
-        const totalPaid = snapshots.reduce((acc, s) => acc + s.snapshot.totalPaidGross, 0);
+        // Solo totalizamos el "Pipeline" o ganancias proyectadas/ganadas de proyectos VIABLES
+        // Excluimos explícitamente los CANCELADOS (Perdidos) para no ensuciar las métricas
+        const validSnapshots = snapshots.filter(s => s.project.status !== 'CANCELADO');
+
+        const totalRevenue = validSnapshots.reduce((acc, s) => acc + s.snapshot.priceNet, 0);
+        const totalMargin = validSnapshots.reduce((acc, s) => acc + s.snapshot.marginAmountNet, 0);
+        const totalCosts = validSnapshots.reduce((acc, s) => acc + s.snapshot.totalExecutedCostNet, 0);
+        const totalInvoiced = validSnapshots.reduce((acc, s) => acc + s.snapshot.totalInvoicedGross, 0);
+        const totalPaid = validSnapshots.reduce((acc, s) => acc + s.snapshot.totalPaidGross, 0);
 
         // Earned: Projects that are effectively closed/won (CERRADO)
         const earnedMargin = snapshots
