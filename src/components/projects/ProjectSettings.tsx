@@ -12,6 +12,7 @@ type Project = Database['public']['Tables']['Project']['Row'] & {
     company: Database['public']['Tables']['Company']['Row'];
     client?: Database['public']['Tables']['Client']['Row'] | null;
     observations?: string | null;
+    closeReason?: string | null;
 };
 
 interface Props {
