@@ -38,7 +38,8 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         quotes: UIQuote[],
         totalPages: number,
         hasNextPage: boolean,
-        hasPrevPage: boolean
+        hasPrevPage: boolean,
+        totalItems: number
     };
     try {
         // UNIFIED DOMAIN QUERY
@@ -130,7 +131,8 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
             quotes: JSON.parse(JSON.stringify(quotes)),
             totalPages,
             hasNextPage,
-            hasPrevPage
+            hasPrevPage,
+            totalItems: count
         };
 
         console.log(JSON.stringify({
@@ -206,6 +208,8 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
                 totalPages={data.totalPages}
                 hasNextPage={data.hasNextPage}
                 hasPrevPage={data.hasPrevPage}
+                totalItems={data.totalItems}
+                itemName="cotizaciones"
             />
         </div>
     );

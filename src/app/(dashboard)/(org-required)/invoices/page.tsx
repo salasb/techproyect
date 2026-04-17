@@ -174,6 +174,8 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                     totalPages={totalPages}
                     hasNextPage={hasNextPage}
                     hasPrevPage={hasPrevPage}
+                    totalItems={totalCount}
+                    itemName="facturas registradas"
                 />
             </div>
         );

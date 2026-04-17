@@ -229,6 +229,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                         totalPages={totalPages}
                         hasNextPage={hasNextPage}
                         hasPrevPage={hasPrevPage}
+                        totalItems={count}
+                        itemName="proyectos"
                     />
                 )}
             </div>

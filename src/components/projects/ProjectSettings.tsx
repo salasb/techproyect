@@ -151,6 +151,7 @@ export function ProjectSettings({ project, clients }: Props) {
     const [status, setStatus] = useState(project.status);
     const [paymentMethod, setPaymentMethod] = useState((project as any).paymentMethod || 'FIFTY_FIFTY');
     const [observations, setObservations] = useState(project.observations || '');
+    const [closeReason, setCloseReason] = useState(project.closeReason || '');
     const [progress, setProgress] = useState(project.progress);
 
     // Sync state with props when project updates
@@ -160,6 +161,7 @@ export function ProjectSettings({ project, clients }: Props) {
         setStatus(project.status);
         setPaymentMethod((project as any).paymentMethod || 'FIFTY_FIFTY');
         setObservations(project.observations || '');
+        setCloseReason(project.closeReason || '');
         // Progress kept from prop but not editable via slider anymore.
         // If we want to fully rely on automated progress, we might ignore this or use it for display only elsewhere.
         // For now, removing it from editable state sync to avoid confusion, 
@@ -197,6 +199,7 @@ export function ProjectSettings({ project, clients }: Props) {
                 currency,
                 paymentMethod,
                 observations,
+                closeReason: status === 'CANCELADO' ? (closeReason || null) : null,
                 nextAction,
                 nextActionDate
             } as any, {
@@ -247,10 +250,31 @@ export function ProjectSettings({ project, clients }: Props) {
                             <option value="EN_ESPERA">En Espera</option>
                             <option value="EN_CURSO">En Curso</option>
                             <option value="BLOQUEADO">Bloqueado</option>
-                            <option value="CERRADO">Cerrado</option>
-                            <option value="CANCELADO">Cancelado</option>
+                            <option value="CERRADO">Cerrado (Ganado)</option>
+                            <option value="CANCELADO">Cancelado (Perdido/Descartado)</option>
                         </select>
                     </div>
+
+                    {status === 'CANCELADO' && (
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-1">
+                                Motivo de Pérdida / Cancelación
+                            </label>
+                            <select
+                                value={closeReason}
+                                onChange={(e) => setCloseReason(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-input bg-background/50 text-foreground"
+                            >
+                                <option value="">Selecciona un motivo...</option>
+                                <option value="COMPETITION">Se fue con la competencia</option>
+                                <option value="PRICE">Presupuesto / Precio muy alto</option>
+                                <option value="DELAY">Tiempos de entrega / Plazos</option>
+                                <option value="SCOPE">No cumplimos requerimientos técnicos</option>
+                                <option value="DISCARDED">El cliente desistió / Proyecto cancelado</option>
+                                <option value="OTHER">Otro motivo</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-6">

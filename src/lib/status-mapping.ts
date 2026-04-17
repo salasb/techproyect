@@ -15,8 +15,8 @@ export const STATUS_MAP = {
         EN_CURSO: { label: 'En Curso', color: 'bg-blue-100 text-blue-700' },
         EN_ESPERA: { label: 'En Espera', color: 'bg-amber-100 text-amber-700' },
         BLOQUEADO: { label: 'Bloqueado', color: 'bg-red-100 text-red-700' },
-        CERRADO: { label: 'Cerrado', color: 'bg-emerald-100 text-emerald-700' },
-        CANCELADO: { label: 'Cancelado', color: 'bg-zinc-100 text-zinc-500' }
+        CERRADO: { label: 'Ganado', color: 'bg-emerald-100 text-emerald-700' },
+        CANCELADO: { label: 'Perdido', color: 'bg-zinc-100 text-zinc-500' }
     },
     // Estados de Clientes
     CLIENT: {

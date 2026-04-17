@@ -9,13 +9,17 @@ interface PaginationControlProps {
     totalPages: number;
     hasNextPage: boolean;
     hasPrevPage: boolean;
+    totalItems?: number;
+    itemName?: string;
 }
 
 export function PaginationControl({
     currentPage,
     totalPages,
     hasNextPage,
-    hasPrevPage
+    hasPrevPage,
+    totalItems,
+    itemName = 'elementos'
 }: PaginationControlProps) {
     const searchParams = useSearchParams();
 
@@ -27,8 +31,15 @@ export function PaginationControl({
 
     return (
         <div className="flex items-center justify-between px-2 py-4 border-t border-border mt-4">
-            <div className="text-sm text-muted-foreground">
-                Página <span className="font-medium text-foreground">{currentPage}</span> de <span className="font-medium text-foreground">{totalPages}</span>
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <div>
+                    Página <span className="font-medium text-foreground">{currentPage}</span> de <span className="font-medium text-foreground">{totalPages}</span>
+                </div>
+                {totalItems !== undefined && (
+                    <div className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        Total: {totalItems} {itemName}
+                    </div>
+                )}
             </div>
             <div className="flex items-center space-x-2">
                 <Link
