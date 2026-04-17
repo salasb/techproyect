@@ -121,7 +121,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
         const previousStatus = displayProject.status;
         let newStatus = previousStatus;
 
-        if (!activeQuote && action !== 'REOPEN') {
+        if (!activeQuote && action !== 'REOPEN' && action !== 'REJECT') {
             toast({ 
                 type: 'error', 
                 message: "No se encontró una cotización válida. Por favor, genere un borrador en la pestaña de Ítems primero." 
@@ -158,7 +158,7 @@ export default function ProjectDetailView({ project, clients, auditLogs, financi
                 if (activeQuote?.id) {
                     res = await rejectQuoteAction(activeQuote.id);
                 } else {
-                    await updateProjectStatus(project.id, 'CANCELADO', project.stage, 'No adjudicado');
+                    await updateProjectStatus(project.id, 'CANCELADO', project.stage, 'No adjudicado', 'DISCARDED');
                     res = { success: true };
                 }
                 if (res.success) toast({ type: 'info', message: "Proyecto marcado como Perdido." });
