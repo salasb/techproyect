@@ -49,31 +49,40 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
             : { in: ['CANCELADO'] };
 
     try {
-        const [projectsData, count] = await Promise.all([
-            prisma.project.findMany({
-                where: {
-                    organizationId: orgId,
-                    status: statusFilter as any
-                },
-                include: {
-                    company: true,
-                    client: true,
-                    costEntries: true,
-                    invoices: true,
-                    quoteItems: true,
-                    tasks: true
-                },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take
-            }),
-            prisma.project.count({
-                where: {
-                    organizationId: orgId,
-                    status: statusFilter as any
-                }
-            })
+        const [[projectsData, count], countsByStatus] = await Promise.all([
+            Promise.all([
+                prisma.project.findMany({
+                    where: {
+                        organizationId: orgId,
+                        status: statusFilter as any
+                    },
+                    include: {
+                        company: true,
+                        client: true,
+                        costEntries: true,
+                        invoices: true,
+                        quoteItems: true,
+                        tasks: true
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    skip,
+                    take
+                }),
+                prisma.project.count({
+                    where: {
+                        organizationId: orgId,
+                        status: statusFilter as any
+                    }
+                })
+            ]),
+            prisma.$transaction([
+                prisma.project.count({ where: { organizationId: orgId, status: { in: ['EN_ESPERA', 'EN_CURSO', 'BLOQUEADO'] } } }),
+                prisma.project.count({ where: { organizationId: orgId, status: 'CERRADO' } }),
+                prisma.project.count({ where: { organizationId: orgId, status: 'CANCELADO' } }),
+            ])
         ]);
+
+        const [activeCount, wonCount, lostCount] = countsByStatus;
 
         const projects = projectsData || [];
         const totalPages = count ? Math.ceil(count / itemsPerPage) : 0;
@@ -92,30 +101,39 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                         <p className="text-muted-foreground mt-1">Gestiona tus cotizaciones y proyectos.</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="bg-muted p-1 rounded-lg flex text-sm font-medium">
+                        <div className="bg-muted p-1.5 rounded-xl flex items-center gap-1 text-sm font-medium border border-border/50">
                             <Link
                                 href="/projects?tab=active"
-                                className={`px-4 py-2 rounded-lg transition-all font-semibold whitespace-nowrap ${tab === 'active'
+                                className={`px-4 py-2 rounded-lg transition-all font-bold flex items-center gap-2 whitespace-nowrap ${tab === 'active'
                                     ? 'bg-blue-600 text-white shadow-md'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                             >
                                 En Curso
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === 'active' ? 'bg-blue-400 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                    {activeCount}
+                                </span>
                             </Link>
                             <Link
                                 href="/projects?tab=won"
-                                className={`px-4 py-2 rounded-lg transition-all font-semibold whitespace-nowrap ${tab === 'won'
+                                className={`px-4 py-2 rounded-lg transition-all font-bold flex items-center gap-2 whitespace-nowrap ${tab === 'won'
                                     ? 'bg-emerald-600 text-white shadow-md'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                             >
                                 Ganados
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === 'won' ? 'bg-emerald-400 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                    {wonCount}
+                                </span>
                             </Link>
                             <Link
                                 href="/projects?tab=lost"
-                                className={`px-4 py-2 rounded-lg transition-all font-semibold whitespace-nowrap ${tab === 'lost'
-                                    ? 'bg-zinc-600 text-white shadow-md'
+                                className={`px-4 py-2 rounded-lg transition-all font-bold flex items-center gap-2 whitespace-nowrap ${tab === 'lost'
+                                    ? 'bg-zinc-800 text-white shadow-md'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                             >
                                 Perdidos
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === 'lost' ? 'bg-zinc-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                    {lostCount}
+                                </span>
                             </Link>
                         </div>
                         {entitlements.canExportProjects && (

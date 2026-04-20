@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ShareDialog } from "@/components/sharing/ShareDialog";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 
 type Invoice = Database['public']['Tables']['Invoice']['Row'];
 
@@ -199,7 +200,9 @@ export function InvoicesManager({
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            <LoadingOverlay isVisible={isSubmitting || !!isLoading} message={isSubmitting ? "Creando factura..." : "Procesando cambios..."} />
+            
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium text-foreground">Facturación</h3>
                 <div className="text-sm text-muted-foreground">
@@ -273,7 +276,7 @@ export function InvoicesManager({
                                                         )}
                                                         {inv.sent && !isPaid && (
                                                             <button
-                                                                onClick={() => handlePay(inv.id, inv.amountInvoicedGross, inv.amountPaidGross)}
+                                                                onClick={() => handlePayClick(inv.id, inv.amountInvoicedGross, inv.amountPaidGross)}
                                                                 className="flex items-center text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1.5 rounded-md transition-colors"
                                                                 title="Registrar Pago"
                                                             >
