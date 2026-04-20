@@ -40,6 +40,11 @@ export function InvoicesManager({
     const [markingSentId, setMarkingSentId] = useState<string | null>(null);
     const [sentDate, setSentDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
+    // Payment State
+    const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
+    const [payingAmount, setPayingAmount] = useState<number>(0);
+    const [payingRemaining, setPayingRemaining] = useState<number>(0);
+
     // Smart Date Logic
     const [paymentTerms, setPaymentTerms] = useState<number>(30);
     const [dueDate, setDueDate] = useState<string>(() => {
@@ -145,27 +150,29 @@ export function InvoicesManager({
         }
     }
 
-    async function handlePay(id: string, currentAmount: number, paidSoFar: number) {
+    function handlePayClick(id: string, currentAmount: number, paidSoFar: number) {
         const remaining = currentAmount - paidSoFar;
-        const amountStr = prompt(`Ingresa el monto a pagar (Pendiente: ${formatMoney(remaining)}):`, remaining.toString());
+        setPayingInvoiceId(id);
+        setPayingRemaining(remaining);
+        setPayingAmount(remaining);
+    }
 
-        if (!amountStr) return;
-        const amountToPay = parseInt(amountStr.replace(/\D/g, '')) || 0;
-
-        if (amountToPay <= 0) {
+    async function confirmPayment() {
+        if (!payingInvoiceId) return;
+        if (payingAmount <= 0) {
             toast({ type: 'error', message: "El monto debe ser mayor a 0" });
             return;
         }
 
-        setIsLoading(id);
+        setIsLoading(payingInvoiceId);
         toast({ type: 'loading', message: "Registrando pago...", duration: 2000 });
         try {
-            const res = await registerPayment(projectId, id, amountToPay);
+            const res = await registerPayment(projectId, payingInvoiceId, payingAmount);
             toast({ type: 'success', message: "Pago registrado exitosamente" });
+            setPayingInvoiceId(null);
 
             if (res?.isFullyPaid) {
-                // Determine if we should prompt
-                if (confirm("La factura ha sido pagada. ¿Deseas cerrar el proyecto y marcarlo como Finalizado?")) {
+                if (confirm("La factura ha sido pagada en su totalidad. ¿Deseas cerrar el proyecto y marcarlo como Finalizado?")) {
                     await closeProject(projectId);
                     toast({ type: 'success', message: "Proyecto finalizado" });
                 }
@@ -438,6 +445,43 @@ export function InvoicesManager({
                     </div>
                 )
             }
+
+            {/* Payment Dialog */}
+            {payingInvoiceId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-card w-full max-w-sm rounded-xl border border-border shadow-lg p-6 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">Registrar Pago</h3>
+                            <button onClick={() => setPayingInvoiceId(null)} className="text-muted-foreground hover:text-foreground">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Ingresa el monto recibido. (Pendiente: {formatMoney(payingRemaining)})
+                        </p>
+                        <div className="space-y-2">
+                            <label className="block text-xs font-medium text-zinc-500">Monto a Pagar</label>
+                            <input
+                                type="number"
+                                value={payingAmount}
+                                onChange={(e) => setPayingAmount(Number(e.target.value))}
+                                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button onClick={() => setPayingInvoiceId(null)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
+                            <button
+                                onClick={confirmPayment}
+                                disabled={isLoading === payingInvoiceId}
+                                className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center disabled:opacity-50"
+                            >
+                                {isLoading === payingInvoiceId && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Confirmar Pago
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

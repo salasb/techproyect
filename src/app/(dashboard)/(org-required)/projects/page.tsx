@@ -44,7 +44,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     // 2. Fetch projects with Prisma
     const statusFilter = tab === 'active'
         ? { in: ['EN_ESPERA', 'EN_CURSO', 'BLOQUEADO'] }
-        : { in: ['CERRADO', 'CANCELADO'] };
+        : tab === 'won'
+            ? { in: ['CERRADO'] }
+            : { in: ['CANCELADO'] };
 
     try {
         const [projectsData, count] = await Promise.all([
@@ -93,19 +95,27 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                         <div className="bg-muted p-1 rounded-lg flex text-sm font-medium">
                             <Link
                                 href="/projects?tab=active"
-                                className={`px-4 py-2 rounded-lg transition-all font-semibold ${tab === 'active'
+                                className={`px-4 py-2 rounded-lg transition-all font-semibold whitespace-nowrap ${tab === 'active'
                                     ? 'bg-blue-600 text-white shadow-md'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                             >
                                 En Curso
                             </Link>
                             <Link
-                                href="/projects?tab=history"
-                                className={`px-4 py-2 rounded-lg transition-all font-semibold ${tab === 'history'
-                                    ? 'bg-blue-600 text-white shadow-md'
+                                href="/projects?tab=won"
+                                className={`px-4 py-2 rounded-lg transition-all font-semibold whitespace-nowrap ${tab === 'won'
+                                    ? 'bg-emerald-600 text-white shadow-md'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                             >
-                                Finalizados
+                                Ganados
+                            </Link>
+                            <Link
+                                href="/projects?tab=lost"
+                                className={`px-4 py-2 rounded-lg transition-all font-semibold whitespace-nowrap ${tab === 'lost'
+                                    ? 'bg-zinc-600 text-white shadow-md'
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                            >
+                                Perdidos
                             </Link>
                         </div>
                         {entitlements.canExportProjects && (
