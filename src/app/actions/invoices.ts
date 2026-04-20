@@ -175,26 +175,43 @@ export async function deleteInvoice(projectId: string, invoiceId: string) {
 
 export async function markInvoiceSent(projectId: string, invoiceId: string, sentDate: string) {
     const scope = await requireOperationalScope();
-    const supabase = await createClient();
 
-    const { error } = await supabase.from('Invoice').update({
-        sent: true,
-        sentDate: new Date(sentDate).toISOString(),
-        updatedAt: new Date().toISOString()
-    }).eq('id', invoiceId).eq('organizationId', scope.orgId);
+    try {
+        await prisma.invoice.update({
+            where: {
+                id: invoiceId,
+                organizationId: scope.orgId
+            },
+            data: {
+                sent: true,
+                sentDate: new Date(sentDate),
+                updatedAt: new Date()
+            }
+        });
 
-    if (error) throw new Error(`Error actualizando factura: ${error.message}`);
+        await AuditService.logAction({projectId: projectId, action: 'INVOICE_UPDATE', details: `Factura marcada como enviada`});
 
-    await AuditService.logAction({projectId: projectId, action: 'INVOICE_UPDATE', details: `Factura marcada como enviada`});
+        // Update Project Next Action
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + 7);
 
-    // Update Project Next Action
-    await supabase.from('Project').update({
-        nextAction: 'Seguimiento Pago',
-        nextActionDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // Check in 7 days
-    }).eq('id', projectId).eq('organizationId', scope.orgId);
+        await prisma.project.updateMany({
+            where: {
+                id: projectId,
+                organizationId: scope.orgId
+            },
+            data: {
+                nextAction: 'Seguimiento Pago',
+                nextActionDate: nextDate,
+                updatedAt: new Date()
+            }
+        });
 
-    revalidatePath(`/projects/${projectId}`);
-    return { success: true };
+        revalidatePath(`/projects/${projectId}`);
+        return { success: true };
+    } catch (e: any) {
+        throw new Error(`Error actualizando factura: ${e.message}`);
+    }
 }
 
 
