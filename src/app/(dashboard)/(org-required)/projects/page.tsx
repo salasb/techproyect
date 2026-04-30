@@ -230,18 +230,32 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
 
                                         {/* Action Footer */}
                                         <div className="flex items-center justify-between text-xs">
-                                            <div className="flex items-center gap-2 text-muted-foreground overflow-hidden">
-                                                {isOverdue ? <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" /> :
-                                                    isDueToday ? <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" /> :
-                                                        <Info className="w-3.5 h-3.5 flex-shrink-0" />}
-                                                <span className={`truncate ${isOverdue ? 'text-red-500 font-medium' : ''}`}>
-                                                    {project.nextAction || 'Sin acción pendiente'}
-                                                </span>
-                                            </div>
-                                            {project.nextActionDate && (
-                                                <span className={`flex-shrink-0 ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-                                                    {safeFormat(project.nextActionDate, "d 'de' MMM")}
-                                                </span>
+                                            {project.status === 'CERRADO' ? (
+                                                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 font-medium">
+                                                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                                                    <span>Proyecto Cerrado</span>
+                                                </div>
+                                            ) : project.status === 'CANCELADO' ? (
+                                                <div className="flex items-center gap-2 text-zinc-500 font-medium">
+                                                    <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                                                    <span>Proyecto Cancelado</span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-center gap-2 text-muted-foreground overflow-hidden">
+                                                        {isOverdue ? <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" /> :
+                                                            isDueToday ? <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" /> :
+                                                                <Info className="w-3.5 h-3.5 flex-shrink-0" />}
+                                                        <span className={`truncate ${isOverdue ? 'text-red-500 font-medium' : ''}`}>
+                                                            {urgentTask?.title || project.nextAction || 'Sin acción pendiente'}
+                                                        </span>
+                                                    </div>
+                                                    {(urgentTask?.dueDate || project.nextActionDate) && (
+                                                        <span className={`flex-shrink-0 ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                                                            {safeFormat(urgentTask?.dueDate || project.nextActionDate, "d 'de' MMM")}
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </Link>

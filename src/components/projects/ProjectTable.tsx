@@ -132,7 +132,17 @@ export function ProjectTable({ projects, settings }: Props) {
                                     <StatusBadge status={project.status} type="PROJECT" />
                                 </td>
                                 <td className="px-6 py-4">
-                                    {(urgentTask || project.nextAction) ? (
+                                    {project.status === 'CERRADO' ? (
+                                        <span className="text-emerald-600 dark:text-emerald-500 text-xs font-medium flex items-center gap-1.5">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            Proyecto Cerrado
+                                        </span>
+                                    ) : project.status === 'CANCELADO' ? (
+                                        <span className="text-zinc-500 text-xs font-medium flex items-center gap-1.5">
+                                            <Info className="w-4 h-4" />
+                                            Proyecto Cancelado
+                                        </span>
+                                    ) : (urgentTask || project.nextAction) ? (
                                         <div className={`flex items-start space-x-2 text-xs 
                                             ${(urgentTask?.dueDate && isBefore(startOfDay(new Date(urgentTask.dueDate)), startOfDay(today))) || isOverdue ? 'text-destructive font-semibold' :
                                                 (urgentTask?.dueDate && differenceInCalendarDays(new Date(urgentTask.dueDate), today) === 0) || isDueToday ? 'text-amber-600 font-semibold' :
