@@ -80,7 +80,7 @@ export async function createOpportunity(formData: FormData) {
     const leadEmail = formData.get('leadEmail') as string;
     const leadPhone = formData.get('leadPhone') as string;
 
-    if (!leadName) throw new Error("Nombre del prospecto es requerido");
+    if (!leadName) return { success: false, message: "Nombre del prospecto es requerido" };
 
     const quickClientFormData = new FormData();
     quickClientFormData.append('name', leadName);
@@ -93,13 +93,13 @@ export async function createOpportunity(formData: FormData) {
     const quickResult = await createQuickClient(quickClientFormData);
     
     if (!quickResult.ok) {
-        throw new Error(quickResult.message || "Error al crear prospecto");
+        return { success: false, message: quickResult.message || "Error al crear prospecto" };
     }
     
     clientId = quickResult.client.id;
 
     if (!title || !clientId) {
-        throw new Error("Título y Prospecto son requeridos");
+        return { success: false, message: "Título y Prospecto son requeridos" };
     }
 
     const lastContactDateStr = formData.get('lastContactDate') as string || new Date().toISOString();
@@ -119,7 +119,6 @@ export async function createOpportunity(formData: FormData) {
         description,
         probability: 10,
         lastInteractionDate: lastContactDate.toISOString(),
-        lastContactType: lastContactType,
         nextInteractionDate: nextInteractionDate.toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -129,7 +128,25 @@ export async function createOpportunity(formData: FormData) {
 
     if (error) {
         console.error('Error creating opportunity:', error);
-        throw new Error('Failed to create opportunity');
+        return { success: false, message: 'Failed to create opportunity' };
+    }
+
+    // Create the initial interaction
+    if (lastContactType) {
+        const { error: interactionError } = await supabase.from('Interaction').insert({
+            id: generateId(),
+            organizationId: scope.orgId,
+            clientId: clientId,
+            opportunityId: newOpp.id,
+            type: lastContactType as any,
+            date: lastContactDate.toISOString(),
+            notes: 'Contacto inicial de prospección',
+            createdAt: new Date().toISOString()
+        });
+        if (interactionError) {
+            console.error('Error creating initial interaction:', interactionError);
+            // Non-critical, we don't fail the whole creation
+        }
     }
 
     revalidatePath('/crm/pipeline');

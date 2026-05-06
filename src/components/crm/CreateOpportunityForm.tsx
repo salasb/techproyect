@@ -62,6 +62,11 @@ export function CreateOpportunityForm({ clients }: Props) {
                 if (result.success) {
                     toast({ type: 'success', message: 'Oportunidad creada exitosamente' });
                     router.push('/crm/pipeline');
+                } else {
+                    toast({ 
+                        type: 'error', 
+                        message: result.message || 'Error al crear la oportunidad'
+                    });
                 }
             } catch (error: any) {
                 console.error("Creation error:", error);
